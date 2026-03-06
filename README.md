@@ -37,7 +37,7 @@ Typical startup:
 3. Run `docker compose pull`.
 4. Run `docker compose up -d`.
 
-The web client defaults to talking to the same host on port `3000`, so a standard local deployment works without rebuilding the frontend image. The published web image serves the built app as static files via Nginx on port `4173`.
+The web client uses same-origin `/api` and `/ws` endpoints by default. In Docker, the published web image serves the built app via Nginx on port `4173` and proxies API and WebSocket traffic internally to the server container, which avoids browser CORS issues behind HTTPS reverse proxies.
 
 ## Scope
 
