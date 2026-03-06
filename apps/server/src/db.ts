@@ -254,10 +254,10 @@ export class Database {
       : await this.getUserWithPasswordByUsername(input.username);
     if (existing) {
       const updated = await this.updateUser(existing.id, {
-        email: input.email,
         username: input.username,
         role: "admin",
-        passwordHash: input.passwordHash
+        passwordHash: input.passwordHash,
+        ...(input.email ? { email: input.email } : {})
       });
       if (!updated) {
         throw new Error("Bootstrap-Admin konnte nicht aktualisiert werden.");
@@ -266,10 +266,10 @@ export class Database {
     }
 
     return this.createUser({
-      email: input.email,
       username: input.username,
       passwordHash: input.passwordHash,
-      role: "admin"
+      role: "admin",
+      ...(input.email ? { email: input.email } : {})
     });
   }
 
