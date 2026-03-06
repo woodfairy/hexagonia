@@ -316,10 +316,10 @@ export function MatchScreen(props: {
   const tabPanels: Record<MatchPanelTab, ReactNode> = {
     overview: (
       <div className="panel-frame overview-frame">
-        <div className="dock-card-grid">
-          <InfoCard label="Phase" value={formatPhase(props.match.phase)} />
+        <div className="dock-card-grid match-overview-grid">
+          <InfoCard label="Raum" value={props.room?.code ?? "Unbekannt"} />
           <InfoCard
-            label="Aktiver Spieler"
+            label="Am Zug"
             value={
               activePlayer ? (
                 <PlayerIdentity
@@ -334,30 +334,11 @@ export function MatchScreen(props: {
             }
             className={activePlayer ? `player-surface ${getPlayerAccentClass(activePlayer.color)}` : undefined}
           />
-          <InfoCard label="Würfel" value={props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Offen"} />
-          <InfoCard label="Raum" value={props.room?.code ?? "Unbekannt"} />
         </div>
-        <section className="dock-section">
-          <div className="dock-section-head">
-            <h3>Status</h3>
-            <span>{formatPhase(props.match.phase)}</span>
-          </div>
-          <div className="turn-status-card">
-            <strong>{turnStatus.title}</strong>
-            <span>{turnStatus.detail}</span>
-          </div>
-          <div className="status-strip compact">
-            <span className="status-pill">Du: {props.selfPlayer?.publicVictoryPoints ?? 0} VP</span>
-            <span className="status-pill">Karten: {props.selfPlayer?.resourceCount ?? 0}</span>
-            <span className="status-pill">Entwicklung: {props.selfPlayer?.developmentCardCount ?? 0}</span>
-            {props.match.allowedMoves.pendingDiscardCount > 0 ? (
-              <span className="status-pill is-warning">Ablegen: {props.match.allowedMoves.pendingDiscardCount}</span>
-            ) : null}
-          </div>
-        </section>
-        <section className="dock-section">
+        <section className="dock-section dock-section-fill">
           <div className="dock-section-head">
             <h3>Letzte Aktionen</h3>
+            <span>{formatPhase(props.match.phase)}</span>
           </div>
           <div className="scroll-list event-list">
             {recentEvents.map((event) => (
@@ -952,17 +933,19 @@ export function MatchScreen(props: {
               </div>
             ) : null}
           </div>
-          <div className="board-bottom-hint">
-            <div
-              className={`turn-status-card ${
-                turnStatus.playerId ? getPlayerAccentClass(getPlayerColor(props.match, turnStatus.playerId)) : ""
-              }`}
-            >
-              {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
-              <strong>{turnStatus.title}</strong>
-              <span>{turnStatus.detail}</span>
+          {!spotlightCue ? (
+            <div className="board-bottom-hint">
+              <div
+                className={`turn-status-card ${
+                  turnStatus.playerId ? getPlayerAccentClass(getPlayerColor(props.match, turnStatus.playerId)) : ""
+                }`}
+              >
+                {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
+                <strong>{turnStatus.title}</strong>
+                <span>{turnStatus.detail}</span>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <aside className="surface match-dock">
@@ -972,7 +955,7 @@ export function MatchScreen(props: {
               <h2>Kontrollzentrum</h2>
             </div>
           </div>
-          {renderQuickActions()}
+          {hasQuickActions ? renderQuickActions(false) : null}
           <div className="tab-strip" role="tablist" aria-label="Match Navigation">
             {MATCH_TABS.map((tab) => (
               <button
