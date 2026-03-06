@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS builder
 WORKDIR /app
 COPY package.json tsconfig.base.json ./
 COPY apps/web ./apps/web
@@ -7,12 +7,8 @@ RUN npm install
 RUN npm run build -w @hexagonia/shared
 RUN npm run build -w @hexagonia/web
 
-FROM node:22-alpine AS runner
-WORKDIR /app
-COPY --from=builder /app/package.json /app/tsconfig.base.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/web/dist ./apps/web/dist
-COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
-COPY --from=builder /app/apps/web/vite.config.ts ./apps/web/vite.config.ts
+FROM --platform=$TARGETPLATFORM nginx:1.27-alpine AS runner
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 4173
-CMD ["node", "./node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "4173", "--strictPort"]
+CMD ["nginx", "-g", "daemon off;"]
