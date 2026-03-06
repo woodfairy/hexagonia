@@ -6,6 +6,7 @@ import websocket from "@fastify/websocket";
 import argon2 from "argon2";
 import { createMatchState, roomToPlayers } from "@hexagonia/rules";
 import type { ActionIntent, AuthUser, ClientMessage, RoomDetails } from "@hexagonia/shared";
+import type { RawData } from "ws";
 import { z } from "zod";
 import type { AppConfig } from "./config";
 import { Database } from "./db";
@@ -295,8 +296,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     };
   });
 
-  app.get("/ws", { websocket: true }, async (connection, request) => {
-    const socket = connection.socket;
+  app.get("/ws", { websocket: true }, async (socket, request) => {
     const user = await getUserFromRequest(request, db);
     if (!user) {
       socket.close(4401, "Unauthorized");
@@ -305,7 +305,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     const context = hub.registerConnection(socket, user);
 
-    socket.on("message", async (rawMessage) => {
+    socket.on("message", async (rawMessage: RawData) => {
       try {
         const message = JSON.parse(rawMessage.toString()) as ClientMessage;
         switch (message.type) {
