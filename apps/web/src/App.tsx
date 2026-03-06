@@ -132,7 +132,8 @@ export function App() {
   const pushToast = useCallback(
     (tone: ToastMessage["tone"], title: string, body?: string) => {
       const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-      setToasts((current) => [...current, { id, tone, title, body }].slice(-4));
+      const nextToast: ToastMessage = body ? { id, tone, title, body } : { id, tone, title };
+      setToasts((current) => [...current, nextToast].slice(-4));
       window.setTimeout(() => {
         removeToast(id);
       }, tone === "error" ? 5400 : 3600);
@@ -607,6 +608,14 @@ export function App() {
     });
   };
 
+  const headerRoomProps =
+    (activeScreen === "room" || activeScreen === "match") && room?.code
+      ? {
+          roomCode: room.code,
+          onCopyRoomCode: handleCopyRoomCode
+        }
+      : {};
+
   return (
     <main className="app-shell">
       <AppHeader
@@ -614,12 +623,11 @@ export function App() {
         connectionStatusText={status}
         eyebrow={headerContext.eyebrow}
         meta={headerContext.meta}
-        roomCode={activeScreen === "room" || activeScreen === "match" ? room?.code : undefined}
         session={session}
         title={headerContext.title}
-        onCopyRoomCode={activeScreen === "room" || activeScreen === "match" ? handleCopyRoomCode : undefined}
         onLogout={handleLogout}
         onNavigateHome={() => navigateTo({ kind: "home" })}
+        {...headerRoomProps}
       />
 
       <div className="app-stage">
