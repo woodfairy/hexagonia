@@ -11,13 +11,13 @@ import type {
   Resource,
   ResourceMap,
   RoomDetails,
+  SetupMode,
   TileView,
   TradeOfferView,
   VertexView
 } from "@hexagonia/shared";
 import {
   DEVELOPMENT_CARD_TYPES,
-  PLAYER_COLORS,
   RESOURCES,
   addResources,
   cloneResourceMap,
@@ -56,7 +56,7 @@ interface InternalPlayer {
 interface InternalTradeOffer {
   id: string;
   fromPlayerId: string;
-  targetPlayerId: string | null;
+  toPlayerId: string | null;
   give: ResourceMap;
   want: ResourceMap;
   createdAtTurn: number;
@@ -74,11 +74,22 @@ interface RobberState {
   pendingDiscardByPlayerId: Record<string, number>;
 }
 
+interface BeginnerPlacement {
+  color: PlayerColor;
+  firstSettlementVertexId: string;
+  firstRoadEdgeId: string;
+  secondSettlementVertexId: string;
+  secondRoadEdgeId: string;
+}
+
 export interface GameState {
   matchId: string;
   roomId: string;
   seed: string;
+  schemaVersion: number;
   version: number;
+  setupMode: SetupMode;
+  startingSeatIndex: number;
   phase: MatchPhase;
   previousPhase: MatchPhase | null;
   turn: number;
@@ -89,9 +100,9 @@ export interface GameState {
   developmentDeck: InternalDevelopmentCard[];
   dice: [number, number] | null;
   winnerId: string | null;
-  currentTrade: InternalTradeOffer | null;
+  tradeOffers: InternalTradeOffer[];
   eventLog: MatchEvent[];
-  randomState: number;
+  randomState: string;
   setupState: SetupState | null;
   robberState: RobberState | null;
 }
@@ -99,6 +110,7 @@ export interface GameState {
 export interface MatchPlayerInput {
   id: string;
   username: string;
+  color: PlayerColor;
   seatIndex: number;
   connected?: boolean;
 }
@@ -111,6 +123,40 @@ const BUILD_COSTS = {
 } as const;
 
 const RESOURCE_BANK_START = 19;
+const BEGINNER_PLAYER_COLORS: Record<3 | 4, PlayerColor[]> = {
+  3: ["blue", "white", "orange"],
+  4: ["red", "blue", "white", "orange"]
+};
+const BEGINNER_PLACEMENTS: BeginnerPlacement[] = [
+  {
+    color: "red",
+    firstSettlementVertexId: "vertex-7",
+    firstRoadEdgeId: "edge-13",
+    secondSettlementVertexId: "vertex-25",
+    secondRoadEdgeId: "edge-31"
+  },
+  {
+    color: "blue",
+    firstSettlementVertexId: "vertex-14",
+    firstRoadEdgeId: "edge-16",
+    secondSettlementVertexId: "vertex-29",
+    secondRoadEdgeId: "edge-36"
+  },
+  {
+    color: "white",
+    firstSettlementVertexId: "vertex-18",
+    firstRoadEdgeId: "edge-21",
+    secondSettlementVertexId: "vertex-31",
+    secondRoadEdgeId: "edge-39"
+  },
+  {
+    color: "orange",
+    firstSettlementVertexId: "vertex-20",
+    firstRoadEdgeId: "edge-24",
+    secondSettlementVertexId: "vertex-33",
+    secondRoadEdgeId: "edge-42"
+  }
+];
 const DEVELOPMENT_DECK_COUNTS: Record<DevelopmentCardType, number> = {
   knight: 14,
   victory_point: 5,
@@ -125,18 +171,31 @@ export function createMatchState(input: {
   matchId: string;
   roomId: string;
   seed: string;
+  setupMode: SetupMode;
+  startingSeatIndex: number;
   players: MatchPlayerInput[];
 }): GameState {
   const rng = new SeededRandom(input.seed);
-  const board = generateBaseBoard(input.seed);
+  const board = generateBaseBoard(input.seed, input.setupMode);
   const developmentDeck = createDevelopmentDeck(rng);
 
-  const players = [...input.players]
+  const seatedPlayers = [...input.players]
     .sort((left, right) => left.seatIndex - right.seatIndex)
     .map((player, index) => ({
+      ...player,
+      color:
+        input.setupMode === "beginner"
+          ? BEGINNER_PLAYER_COLORS[seatedPlayersColorKey(input.players.length)][index] ?? player.color
+          : player.color
+    }));
+  const startingPlayerIndex = Math.max(
+    0,
+    seatedPlayers.findIndex((player) => player.seatIndex === input.startingSeatIndex)
+  );
+  const players = rotatePlayers(seatedPlayers, startingPlayerIndex).map((player) => ({
       id: player.id,
       username: player.username,
-      color: PLAYER_COLORS[index]!,
+      color: player.color,
       seatIndex: player.seatIndex,
       connected: player.connected ?? true,
       resources: createEmptyResourceMap(),
@@ -154,7 +213,10 @@ export function createMatchState(input: {
     matchId: input.matchId,
     roomId: input.roomId,
     seed: input.seed,
+    schemaVersion: 2,
     version: 1,
+    setupMode: input.setupMode,
+    startingSeatIndex: input.startingSeatIndex,
     phase: "setup_forward",
     previousPhase: null,
     turn: 0,
@@ -171,7 +233,7 @@ export function createMatchState(input: {
     developmentDeck,
     dice: null,
     winnerId: null,
-    currentTrade: null,
+    tradeOffers: [],
     eventLog: [],
     randomState: rng.state,
     setupState: {
@@ -183,6 +245,13 @@ export function createMatchState(input: {
     robberState: null
   };
 
+  if (input.setupMode === "beginner") {
+    applyBeginnerSetup(state);
+    state.phase = "turn_roll";
+    state.turn = 1;
+    state.setupState = null;
+  }
+
   appendEvent(state, {
     type: "match_started",
     payload: {
@@ -190,7 +259,10 @@ export function createMatchState(input: {
         id: player.id,
         username: player.username,
         color: player.color
-      }))
+      })),
+      setupMode: input.setupMode,
+      startingSeatIndex: input.startingSeatIndex,
+      startingPlayerId: players[0]?.id ?? null
     }
   });
 
@@ -202,7 +274,9 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
     matchId: state.matchId,
     roomId: state.roomId,
     seed: state.seed,
+    schemaVersion: state.schemaVersion,
     version: state.version,
+    setupMode: state.setupMode,
     you: viewerId,
     phase: state.phase,
     previousPhase: state.previousPhase,
@@ -212,7 +286,7 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
     players: state.players.map((player) => createPlayerView(state, player.id, viewerId)),
     bank: cloneResourceMap(state.bank),
     dice: state.dice,
-    currentTrade: state.currentTrade ? toTradeView(state.currentTrade) : null,
+    tradeOffers: state.tradeOffers.map((trade) => toTradeView(trade)),
     allowedMoves: getAllowedMoves(state, viewerId),
     eventLog: state.eventLog.slice(-25),
     winnerId: state.winnerId
@@ -266,14 +340,17 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
     case "move_robber":
       handleMoveRobber(next, playerId, action.tileId, action.targetPlayerId);
       break;
-    case "offer_trade":
-      handleOfferTrade(next, playerId, action.targetPlayerId, action.give, action.want);
+    case "create_trade_offer":
+      handleCreateTradeOffer(next, playerId, action.toPlayerId, action.give, action.want);
       break;
-    case "respond_trade":
-      handleRespondTrade(next, playerId, action.tradeId, action.accept);
+    case "accept_trade_offer":
+      handleAcceptTradeOffer(next, playerId, action.tradeId);
       break;
-    case "cancel_trade":
-      handleCancelTrade(next, playerId, action.tradeId);
+    case "decline_trade_offer":
+      handleDeclineTradeOffer(next, playerId, action.tradeId);
+      break;
+    case "withdraw_trade_offer":
+      handleWithdrawTradeOffer(next, playerId, action.tradeId);
       break;
     case "maritime_trade":
       handleMaritimeTrade(next, playerId, action.give, action.receive, action.giveCount);
@@ -286,6 +363,7 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
   }
 
   updateAwards(next);
+  reconcileTradeOffers(next);
   maybeDeclareWinner(next);
   next.version += 1;
   return next;
@@ -307,6 +385,7 @@ export function roomToPlayers(room: RoomDetails): MatchPlayerInput[] {
     .map((seat) => ({
       id: seat.userId!,
       username: seat.username!,
+      color: seat.color,
       seatIndex: seat.index,
       connected: true
     }));
@@ -670,70 +749,62 @@ function handleMoveRobber(
   state.robberState = null;
 }
 
-function handleOfferTrade(
+function handleCreateTradeOffer(
   state: GameState,
   playerId: string,
-  targetPlayerId: string | null,
+  toPlayerId: string | null,
   give: ResourceMap,
   want: ResourceMap
 ): void {
   ensurePhase(state.phase === "turn_action");
-  ensureCurrentPlayer(state, playerId);
   if (isEmptyResourceMap(give) || isEmptyResourceMap(want)) {
     throw new GameRuleError("Ein Handel muss Geben und Nehmen enthalten.");
   }
 
   const player = getPlayer(state, playerId);
+  const currentPlayerId = getCurrentPlayer(state).id;
   if (!hasResources(player.resources, give)) {
     throw new GameRuleError("Diese Rohstoffe sind nicht verfügbar.");
   }
-  if (targetPlayerId && !state.players.some((entry) => entry.id === targetPlayerId)) {
+  if (toPlayerId === playerId) {
+    throw new GameRuleError("Ein Handel mit dir selbst ist nicht erlaubt.");
+  }
+  if (toPlayerId && !state.players.some((entry) => entry.id === toPlayerId)) {
     throw new GameRuleError("Ungültiger Handelspartner.");
   }
+  if (playerId === currentPlayerId) {
+    if (toPlayerId === currentPlayerId) {
+      throw new GameRuleError("Der aktive Spieler kann sich nicht selbst adressieren.");
+    }
+  } else if (toPlayerId !== currentPlayerId) {
+    throw new GameRuleError("Gegenangebote müssen an den aktiven Spieler gehen.");
+  }
 
-  state.currentTrade = {
-    id: `trade-${state.version + 1}`,
+  const trade: InternalTradeOffer = {
+    id: `trade-${state.version + 1}-${state.tradeOffers.length + 1}`,
     fromPlayerId: playerId,
-    targetPlayerId,
+    toPlayerId,
     give: cloneResourceMap(give),
     want: cloneResourceMap(want),
     createdAtTurn: state.turn
   };
-  state.phase = "trade_resolution";
-  state.previousPhase = "turn_action";
+  state.tradeOffers.push(trade);
 
   appendEvent(state, {
     type: "trade_offered",
     byPlayerId: playerId,
-    payload: { tradeId: state.currentTrade.id, targetPlayerId }
+    payload: { tradeId: trade.id, toPlayerId }
   });
 }
 
-function handleRespondTrade(
-  state: GameState,
-  playerId: string,
-  tradeId: string,
-  accept: boolean
-): void {
-  ensurePhase(state.phase === "trade_resolution");
-  const trade = state.currentTrade;
-  if (!trade || trade.id !== tradeId) {
+function handleAcceptTradeOffer(state: GameState, playerId: string, tradeId: string): void {
+  ensurePhase(state.phase === "turn_action");
+  const trade = getTradeOffer(state, tradeId);
+  if (!trade) {
     throw new GameRuleError("Dieser Handel ist nicht mehr aktiv.");
   }
-  if (trade.fromPlayerId === playerId) {
-    throw new GameRuleError("Der anbietende Spieler kann den Handel nicht annehmen.");
-  }
-  if (trade.targetPlayerId && trade.targetPlayerId !== playerId) {
-    throw new GameRuleError("Dieser Handel ist an einen anderen Spieler gerichtet.");
-  }
-
-  if (!accept) {
-    appendEvent(state, {
-      type: "trade_declined",
-      byPlayerId: playerId,
-      payload: { tradeId }
-    });
-    return;
+  if (!canPlayerAcceptTradeOffer(state, playerId, trade)) {
+    throw new GameRuleError("Dieser Handel kann von dir nicht angenommen werden.");
   }
 
   const proposer = getPlayer(state, trade.fromPlayerId);
@@ -747,9 +818,7 @@ function handleRespondTrade(
   responder.resources = subtractResources(responder.resources, trade.want);
   responder.resources = addResources(responder.resources, trade.give);
 
-  state.currentTrade = null;
-  state.phase = "turn_action";
-  state.previousPhase = null;
+  clearTradeOffers(state);
 
   appendEvent(state, {
     type: "trade_completed",
@@ -758,19 +827,36 @@ function handleRespondTrade(
   });
 }
 
-function handleCancelTrade(state: GameState, playerId: string, tradeId: string): void {
-  ensurePhase(state.phase === "trade_resolution");
-  const trade = state.currentTrade;
-  if (!trade || trade.id !== tradeId) {
+function handleDeclineTradeOffer(state: GameState, playerId: string, tradeId: string): void {
+  ensurePhase(state.phase === "turn_action");
+  const trade = getTradeOffer(state, tradeId);
+  if (!trade) {
     throw new GameRuleError("Dieser Handel ist nicht aktiv.");
   }
-  if (trade.fromPlayerId !== playerId) {
-    throw new GameRuleError("Nur der anbietende Spieler kann abbrechen.");
+  if (!canPlayerDeclineTradeOffer(state, playerId, trade)) {
+    throw new GameRuleError("Dieses Angebot kann von dir nicht abgelehnt werden.");
   }
 
-  state.currentTrade = null;
-  state.phase = "turn_action";
-  state.previousPhase = null;
+  state.tradeOffers = state.tradeOffers.filter((offer) => offer.id !== tradeId);
+
+  appendEvent(state, {
+    type: "trade_declined",
+    byPlayerId: playerId,
+    payload: { tradeId }
+  });
+}
+
+function handleWithdrawTradeOffer(state: GameState, playerId: string, tradeId: string): void {
+  ensurePhase(state.phase === "turn_action");
+  const trade = getTradeOffer(state, tradeId);
+  if (!trade) {
+    throw new GameRuleError("Dieser Handel ist nicht aktiv.");
+  }
+  if (!canPlayerWithdrawTradeOffer(playerId, trade)) {
+    throw new GameRuleError("Nur der anbietende Spieler kann das Angebot zurückziehen.");
+  }
+
+  state.tradeOffers = state.tradeOffers.filter((offer) => offer.id !== tradeId);
 
   appendEvent(state, {
     type: "trade_cancelled",
@@ -822,9 +908,7 @@ function handleMaritimeTrade(
 function handleEndTurn(state: GameState, playerId: string): void {
   ensurePhase(state.phase === "turn_action");
   ensureCurrentPlayer(state, playerId);
-  if (state.currentTrade) {
-    throw new GameRuleError("Ein aktiver Handel muss zuerst beendet werden.");
-  }
+  clearTradeOffers(state);
 
   state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
   state.turn += 1;
@@ -840,6 +924,8 @@ function handleEndTurn(state: GameState, playerId: string): void {
     byPlayerId: playerId,
     payload: { nextPlayerId: getCurrentPlayer(state).id, turn: state.turn }
   });
+
+  maybeDeclareWinner(state);
 }
 
 function placeRoad(state: GameState, playerId: string, edgeId: string): void {
@@ -943,9 +1029,14 @@ function distributeResourcesForRoll(
   for (const resource of RESOURCES) {
     const demand = demandByResource.get(resource) ?? 0;
     if (demand > state.bank[resource]) {
-      blockedResources.push(resource);
-      for (const grant of grantByPlayerId.values()) {
-        grant[resource] = 0;
+      const recipients = [...grantByPlayerId.values()].filter((grant) => grant[resource] > 0);
+      if (recipients.length === 1) {
+        recipients[0]![resource] = state.bank[resource];
+      } else {
+        blockedResources.push(resource);
+        for (const grant of grantByPlayerId.values()) {
+          grant[resource] = 0;
+        }
       }
     }
   }
@@ -981,28 +1072,37 @@ function updateAwards(state: GameState): void {
 }
 
 function updateLargestArmy(state: GameState): void {
-  const sorted = [...state.players].sort((left, right) => right.playedKnightCount - left.playedKnightCount);
-  const leader = sorted[0];
-  if (!leader || leader.playedKnightCount < 3) {
+  const counts = state.players.map((player) => ({
+    playerId: player.id,
+    count: player.playedKnightCount
+  }));
+  counts.sort((left, right) => right.count - left.count);
+  const leader = counts[0];
+  if (!leader || leader.count < 3) {
     state.players.forEach((player) => {
       player.hasLargestArmy = false;
     });
     return;
   }
 
-  const runnerUp = sorted[1];
   const currentHolder = state.players.find((player) => player.hasLargestArmy) ?? null;
-  const canTake =
-    !runnerUp ||
-    leader.playedKnightCount > runnerUp.playedKnightCount ||
-    currentHolder?.id === leader.id;
+  const leaders = counts.filter((entry) => entry.count === leader.count);
+  if (leaders.length === 1) {
+    state.players.forEach((player) => {
+      player.hasLargestArmy = player.id === leader.playerId;
+    });
+    return;
+  }
 
-  if (!canTake) {
+  if (currentHolder && leaders.some((entry) => entry.playerId === currentHolder.id)) {
+    state.players.forEach((player) => {
+      player.hasLargestArmy = player.id === currentHolder.id;
+    });
     return;
   }
 
   state.players.forEach((player) => {
-    player.hasLargestArmy = player.id === leader.id;
+    player.hasLargestArmy = false;
   });
 }
 
@@ -1020,17 +1120,24 @@ function updateLongestRoad(state: GameState): void {
     return;
   }
 
-  const runnerUp = lengths[1];
   const currentHolder = state.players.find((player) => player.hasLongestRoad) ?? null;
-  const canTake =
-    !runnerUp || leader.length > runnerUp.length || currentHolder?.id === leader.playerId;
+  const leaders = lengths.filter((entry) => entry.length === leader.length);
+  if (leaders.length === 1) {
+    state.players.forEach((player) => {
+      player.hasLongestRoad = player.id === leader.playerId;
+    });
+    return;
+  }
 
-  if (!canTake) {
+  if (currentHolder && leaders.some((entry) => entry.playerId === currentHolder.id)) {
+    state.players.forEach((player) => {
+      player.hasLongestRoad = player.id === currentHolder.id;
+    });
     return;
   }
 
   state.players.forEach((player) => {
-    player.hasLongestRoad = player.id === leader.playerId;
+    player.hasLongestRoad = false;
   });
 }
 
@@ -1039,17 +1146,17 @@ function maybeDeclareWinner(state: GameState): void {
     return;
   }
 
-  const winner = state.players.find((player) => getVictoryPoints(state, player.id) >= 10);
-  if (!winner) {
+  const currentPlayer = getCurrentPlayer(state);
+  if (getVictoryPoints(state, currentPlayer.id) < 10) {
     return;
   }
 
-  state.winnerId = winner.id;
+  state.winnerId = currentPlayer.id;
   state.phase = "game_over";
   appendEvent(state, {
     type: "game_won",
-    byPlayerId: winner.id,
-    payload: { victoryPoints: getVictoryPoints(state, winner.id) }
+    byPlayerId: currentPlayer.id,
+    payload: { victoryPoints: getVictoryPoints(state, currentPlayer.id) }
   });
 }
 
@@ -1104,8 +1211,8 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
       isCurrentPlayer &&
       state.developmentDeck.length > 0 &&
       hasResources(getPlayer(state, playerId).resources, BUILD_COSTS.development),
-    canEndTurn: state.phase === "turn_action" && isCurrentPlayer && !state.currentTrade,
-    canOfferTrade: state.phase === "turn_action" && isCurrentPlayer,
+    canEndTurn: state.phase === "turn_action" && isCurrentPlayer,
+    canCreateTradeOffer: state.phase === "turn_action",
     initialSettlementVertexIds:
       isCurrentPlayer &&
       !!state.setupState &&
@@ -1141,7 +1248,16 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
     maritimeRates: RESOURCES.map((resource) => ({
       resource,
       ratio: getMaritimeRate(state, playerId, resource)
-    }))
+    })),
+    acceptableTradeOfferIds: state.tradeOffers
+      .filter((offer) => canPlayerAcceptTradeOffer(state, playerId, offer))
+      .map((offer) => offer.id),
+    declineableTradeOfferIds: state.tradeOffers
+      .filter((offer) => canPlayerDeclineTradeOffer(state, playerId, offer))
+      .map((offer) => offer.id),
+    withdrawableTradeOfferIds: state.tradeOffers
+      .filter((offer) => canPlayerWithdrawTradeOffer(playerId, offer))
+      .map((offer) => offer.id)
   };
 }
 
@@ -1364,6 +1480,67 @@ function nextDie(state: GameState): number {
   return value;
 }
 
+function seatedPlayersColorKey(playerCount: number): 3 | 4 {
+  return playerCount === 3 ? 3 : 4;
+}
+
+function determineStartingPlayerIndex(rng: SeededRandom, playerCount: number): number {
+  let contenders = Array.from({ length: playerCount }, (_, index) => index);
+
+  while (contenders.length > 1) {
+    let highest = -1;
+    let leaders: number[] = [];
+
+    for (const contender of contenders) {
+      const total = rng.nextInt(1, 6) + rng.nextInt(1, 6);
+      if (total > highest) {
+        highest = total;
+        leaders = [contender];
+      } else if (total === highest) {
+        leaders.push(contender);
+      }
+    }
+
+    contenders = leaders;
+  }
+
+  return contenders[0] ?? 0;
+}
+
+function rotatePlayers<T>(players: readonly T[], startIndex: number): T[] {
+  if (!players.length) {
+    return [];
+  }
+
+  const offset = ((startIndex % players.length) + players.length) % players.length;
+  return [...players.slice(offset), ...players.slice(0, offset)];
+}
+
+function applyBeginnerSetup(state: GameState): void {
+  for (const player of state.players) {
+    const placement = BEGINNER_PLACEMENTS.find((entry) => entry.color === player.color);
+    if (!placement) {
+      continue;
+    }
+
+    placeBuilding(state, player.id, placement.firstSettlementVertexId, "settlement");
+    placeRoad(state, player.id, placement.firstRoadEdgeId);
+    placeBuilding(state, player.id, placement.secondSettlementVertexId, "settlement");
+    placeRoad(state, player.id, placement.secondRoadEdgeId);
+    grantInitialResources(state, player.id, placement.secondSettlementVertexId);
+  }
+
+  appendEvent(state, {
+    type: "beginner_setup_applied",
+    payload: {
+      players: state.players.map((player) => ({
+        id: player.id,
+        color: player.color
+      }))
+    }
+  });
+}
+
 function calculateLongestRoad(state: GameState, playerId: string): number {
   const roadIds = getPlayer(state, playerId).roads;
   let longest = 0;
@@ -1452,11 +1629,75 @@ function appendEvent(
   state.eventLog.push(event);
 }
 
+function getTradeOffer(state: GameState, tradeId: string): InternalTradeOffer | null {
+  return state.tradeOffers.find((offer) => offer.id === tradeId) ?? null;
+}
+
+function clearTradeOffers(state: GameState): void {
+  state.tradeOffers = [];
+}
+
+function canPlayerWithdrawTradeOffer(playerId: string, trade: InternalTradeOffer): boolean {
+  return trade.fromPlayerId === playerId;
+}
+
+function canPlayerAcceptTradeOffer(state: GameState, playerId: string, trade: InternalTradeOffer): boolean {
+  const currentPlayerId = getCurrentPlayer(state).id;
+  if (trade.fromPlayerId === playerId) {
+    return false;
+  }
+
+  if (playerId === currentPlayerId) {
+    return trade.toPlayerId === currentPlayerId;
+  }
+
+  return trade.fromPlayerId === currentPlayerId && (trade.toPlayerId === null || trade.toPlayerId === playerId);
+}
+
+function canPlayerDeclineTradeOffer(state: GameState, playerId: string, trade: InternalTradeOffer): boolean {
+  const currentPlayerId = getCurrentPlayer(state).id;
+  if (trade.fromPlayerId === playerId) {
+    return false;
+  }
+
+  if (playerId === currentPlayerId) {
+    return trade.toPlayerId === currentPlayerId;
+  }
+
+  return trade.fromPlayerId === currentPlayerId && (trade.toPlayerId === null || trade.toPlayerId === playerId);
+}
+
+function reconcileTradeOffers(state: GameState): void {
+  if (state.phase !== "turn_action") {
+    clearTradeOffers(state);
+    return;
+  }
+
+  const currentPlayerId = getCurrentPlayer(state).id;
+  state.tradeOffers = state.tradeOffers.filter((trade) => {
+    const proposer = state.players.find((player) => player.id === trade.fromPlayerId);
+    if (!proposer || !hasResources(proposer.resources, trade.give)) {
+      return false;
+    }
+
+    if (!state.players.some((player) => player.id === currentPlayerId)) {
+      return false;
+    }
+
+    if (trade.fromPlayerId === currentPlayerId) {
+      return trade.toPlayerId === null || (trade.toPlayerId !== currentPlayerId && state.players.some((player) => player.id === trade.toPlayerId));
+    }
+
+    return trade.toPlayerId === currentPlayerId;
+  });
+}
+
 function toTradeView(trade: InternalTradeOffer): TradeOfferView {
   return {
     id: trade.id,
     fromPlayerId: trade.fromPlayerId,
-    targetPlayerId: trade.targetPlayerId,
+    toPlayerId: trade.toPlayerId,
+    targetPlayerId: trade.toPlayerId,
     give: cloneResourceMap(trade.give),
     want: cloneResourceMap(trade.want),
     createdAtTurn: trade.createdAtTurn
@@ -1503,13 +1744,11 @@ function cloneState(state: GameState): GameState {
     })),
     bank: cloneResourceMap(state.bank),
     developmentDeck: state.developmentDeck.map((card) => ({ ...card })),
-    currentTrade: state.currentTrade
-      ? {
-          ...state.currentTrade,
-          give: cloneResourceMap(state.currentTrade.give),
-          want: cloneResourceMap(state.currentTrade.want)
-        }
-      : null,
+    tradeOffers: state.tradeOffers.map((trade) => ({
+      ...trade,
+      give: cloneResourceMap(trade.give),
+      want: cloneResourceMap(trade.want)
+    })),
     eventLog: state.eventLog.map((event) => ({
       ...event,
       payload: structuredClone(event.payload)

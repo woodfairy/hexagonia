@@ -1,4 +1,4 @@
-import type { AdminMatchSummary, AdminUserRecord, AuthUser, RoomDetails, UserRole } from "@hexagonia/shared";
+import type { AdminMatchSummary, AdminUserRecord, AuthUser, RoomDetails, SetupMode, UserRole } from "@hexagonia/shared";
 
 function getDefaultApiBaseUrl(): string {
   if (typeof window === "undefined") {
@@ -198,6 +198,20 @@ export async function setReady(roomId: string, ready: boolean): Promise<RoomDeta
   const response = await request<{ room: RoomDetails }>(`/api/rooms/${roomId}/ready`, {
     method: "POST",
     body: JSON.stringify({ ready })
+  });
+  return response.room;
+}
+
+export async function updateRoomSettings(
+  roomId: string,
+  payload: {
+    setupMode?: SetupMode;
+    startingSeatIndex?: number;
+  }
+): Promise<RoomDetails> {
+  const response = await request<{ room: RoomDetails }>(`/api/rooms/${roomId}/settings`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
   });
   return response.room;
 }

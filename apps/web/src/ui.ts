@@ -63,7 +63,12 @@ export function renderEventLabel(type: string): string {
     development_card_bought: "Entwicklung gekauft.",
     development_card_played: "Entwicklung gespielt.",
     robber_moved: "Räuber versetzt.",
+    trade_offered: "Handelsangebot gesendet.",
+    trade_declined: "Handelsangebot abgelehnt.",
+    trade_cancelled: "Handelsangebot zurückgezogen.",
     trade_completed: "Handel abgeschlossen.",
+    beginner_setup_applied: "Anfängeraufbau gesetzt.",
+    game_won: "Partie gewonnen.",
     turn_ended: "Zug beendet."
   };
 
@@ -78,7 +83,6 @@ export function formatPhase(phase: MatchPhase): string {
     turn_roll: "Würfeln",
     turn_action: "Aktionsphase",
     robber_interrupt: "Räuber",
-    trade_resolution: "Handel",
     game_over: "Spiel beendet"
   };
 
