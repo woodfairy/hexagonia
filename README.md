@@ -23,6 +23,8 @@ Monorepo for a browser-based, real-time, Catan-like strategy game with:
 - `ghcr.io/woodfairy/hexagonia-server`
 - `ghcr.io/woodfairy/hexagonia-web`
 
+The published GHCR images are multi-arch and target both `linux/amd64` and `linux/arm64`, so they run on standard x86 hosts as well as Apple Silicon and ARM servers.
+
 You can override the image owner and tag in `.env`:
 
 - `GHCR_OWNER`
