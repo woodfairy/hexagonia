@@ -59,6 +59,12 @@ interface InteractiveMeta {
   marker?: THREE.Object3D;
 }
 
+interface FocusGeometry {
+  x: number;
+  z: number;
+  span: number;
+}
+
 export function BoardScene(props: BoardSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -530,8 +536,12 @@ export function BoardScene(props: BoardSceneProps) {
     const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue);
     const currentDirection = camera.position.clone().sub(controls.target);
     const direction = currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
-    const distance =
-      props.cameraCue.scale === "tight" ? 26 : props.cameraCue.scale === "medium" ? 34 : 44;
+    const baseDistance = props.cameraCue.scale === "tight" ? 26 : props.cameraCue.scale === "medium" ? 34 : 44;
+    const fitDistance =
+      props.cameraCue.tileIds.length > 1
+        ? nextFocus.span * (props.cameraCue.scale === "tight" ? 1.95 : props.cameraCue.scale === "medium" ? 1.82 : 1.7) + 16
+        : baseDistance;
+    const distance = Math.max(baseDistance, fitDistance);
     const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);
     const nextCameraPosition = target.clone().add(direction.multiplyScalar(distance));
     nextCameraPosition.y = Math.max(nextCameraPosition.y, props.cameraCue.scale === "tight" ? 18 : 24);
@@ -878,14 +888,19 @@ function createVertexFocusMarker(strong: boolean): THREE.Mesh {
 function resolveFocusCuePosition(
   snapshot: MatchSnapshot,
   cue: BoardFocusCue
-): { x: number; z: number } {
+): FocusGeometry {
   const verticesById = new Map(snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
   const positions: Array<{ x: number; z: number }> = [];
 
   for (const tileId of cue.tileIds) {
     const tile = snapshot.board.tiles.find((entry) => entry.id === tileId);
     if (tile) {
-      positions.push({ x: tile.x, z: tile.y });
+      for (const vertexId of tile.vertexIds) {
+        const vertex = verticesById.get(vertexId);
+        if (vertex) {
+          positions.push({ x: vertex.x, z: vertex.y });
+        }
+      }
     }
   }
 
@@ -916,7 +931,7 @@ function resolveFocusCuePosition(
   }
 
   if (!positions.length) {
-    return { x: 0, z: 0 };
+    return { x: 0, z: 0, span: 0 };
   }
 
   const aggregate = positions.reduce(
@@ -927,9 +942,25 @@ function resolveFocusCuePosition(
     { x: 0, z: 0 }
   );
 
+  const bounds = positions.reduce(
+    (current, position) => ({
+      minX: Math.min(current.minX, position.x),
+      maxX: Math.max(current.maxX, position.x),
+      minZ: Math.min(current.minZ, position.z),
+      maxZ: Math.max(current.maxZ, position.z)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minZ: Number.POSITIVE_INFINITY,
+      maxZ: Number.NEGATIVE_INFINITY
+    }
+  );
+
   return {
     x: aggregate.x / positions.length,
-    z: aggregate.z / positions.length
+    z: aggregate.z / positions.length,
+    span: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ)
   };
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ClientMessage, MatchSnapshot, PlayerColor, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
 import { BoardScene, TILE_COLORS, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
@@ -68,6 +68,14 @@ interface TurnStatus {
   title: string;
   detail: string;
   playerId?: string;
+}
+
+interface DiceDisplayState {
+  left: number | null;
+  right: number | null;
+  total: number | null;
+  rolling: boolean;
+  actorName: string | null;
 }
 
 export function MatchScreen(props: {
@@ -157,6 +165,17 @@ export function MatchScreen(props: {
 
     return window.innerWidth > 1023;
   });
+  const latestDiceEvent = useMemo(() => getLatestDiceRollEvent(props.match), [props.match]);
+  const [diceDisplay, setDiceDisplay] = useState<DiceDisplayState>(() => ({
+    left: props.match.dice?.[0] ?? null,
+    right: props.match.dice?.[1] ?? null,
+    total: props.match.dice ? props.match.dice[0] + props.match.dice[1] : null,
+    rolling: false,
+    actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
+  }));
+  const seenDiceEventIdRef = useRef<string | null>(latestDiceEvent?.id ?? null);
+  const diceAnimationTimerRef = useRef<number | null>(null);
+  const diceAnimationCompleteRef = useRef<number | null>(null);
 
   const activePlayer = props.match.players.find((player) => player.id === props.match.currentPlayerId) ?? null;
   const isCurrentPlayer = props.match.currentPlayerId === props.match.you;
@@ -167,16 +186,26 @@ export function MatchScreen(props: {
     [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
   );
   const highlightCue = actionCue ?? recentFocusableEvent?.cue ?? null;
+  const shouldAutoFocusRecentEvent =
+    !!recentFocusableEvent &&
+    (recentFocusableEvent.event.type === "dice_rolled" ||
+      recentFocusableEvent.event.type === "resources_distributed" ||
+      recentFocusableEvent.event.byPlayerId !== props.match.you);
   const cameraCue =
     autoFocusEnabled &&
-    recentFocusableEvent?.event.byPlayerId &&
-    recentFocusableEvent.event.byPlayerId !== props.match.you
-      ? recentFocusableEvent.cue
+    shouldAutoFocusRecentEvent
+      ? (recentFocusableEvent?.cue ?? null)
       : null;
   const spotlightCue = cameraCue ?? actionCue ?? recentFocusableEvent?.cue ?? null;
   const tradeTargetPlayers = props.match.players.filter((player) => player.id !== props.match.you);
   const maritimeRatio =
     props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
+  const ownedGiveResources = RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) > 0);
+  const tradeGiveMax = props.selfPlayer?.resources?.[props.tradeForm.give] ?? 0;
+  const affordableMaritimeGiveResources = RESOURCES.filter((resource) => {
+    const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
+    return (props.selfPlayer?.resources?.[resource] ?? 0) >= ratio;
+  });
   const turnStatus = getTurnStatus(props.match, activePlayer, props.selfPlayer, props.interactionMode, props.selectedRoadEdges.length);
   const canAffordRoad = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.road);
   const canAffordSettlement = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.settlement);
@@ -229,7 +258,10 @@ export function MatchScreen(props: {
         })
     })
   ];
-  const canSubmitTradeOffer = canAffordOffer(props.selfPlayer?.resources, props.tradeForm.give, props.tradeForm.giveCount);
+  const canSubmitTradeOffer =
+    props.tradeForm.giveCount > 0 &&
+    props.tradeForm.wantCount > 0 &&
+    canAffordOffer(props.selfPlayer?.resources, props.tradeForm.give, props.tradeForm.giveCount);
   const canSubmitMaritimeTrade = (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const mobileHudSummary = props.selfPlayer
@@ -357,6 +389,151 @@ export function MatchScreen(props: {
     window.localStorage.setItem(BOARD_HUD_STORAGE_KEY, boardHudOpen ? "open" : "closed");
   }, [boardHudOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (diceAnimationTimerRef.current !== null) {
+        window.clearInterval(diceAnimationTimerRef.current);
+      }
+      if (diceAnimationCompleteRef.current !== null) {
+        window.clearTimeout(diceAnimationCompleteRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (diceAnimationTimerRef.current !== null) {
+      window.clearInterval(diceAnimationTimerRef.current);
+      diceAnimationTimerRef.current = null;
+    }
+    if (diceAnimationCompleteRef.current !== null) {
+      window.clearTimeout(diceAnimationCompleteRef.current);
+      diceAnimationCompleteRef.current = null;
+    }
+
+    seenDiceEventIdRef.current = latestDiceEvent?.id ?? null;
+    setDiceDisplay({
+      left: props.match.dice?.[0] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[0] ?? null,
+      right: props.match.dice?.[1] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[1] ?? null,
+      total:
+        getPayloadNumber(latestDiceEvent?.payload ?? {}, "total") ??
+        (props.match.dice ? props.match.dice[0] + props.match.dice[1] : null),
+      rolling: false,
+      actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
+    });
+  }, [props.match.matchId]);
+
+  useEffect(() => {
+    if (!latestDiceEvent) {
+      setDiceDisplay((current) => ({
+        ...current,
+        left: props.match.dice?.[0] ?? null,
+        right: props.match.dice?.[1] ?? null,
+        total: props.match.dice ? props.match.dice[0] + props.match.dice[1] : null,
+        actorName: null
+      }));
+      return;
+    }
+
+    const actualDice = getPayloadDice(latestDiceEvent.payload, "dice") ?? props.match.dice;
+    const total = getPayloadNumber(latestDiceEvent.payload, "total") ?? (actualDice ? actualDice[0] + actualDice[1] : null);
+    const actorName = getPlayerName(props.match, latestDiceEvent.byPlayerId);
+
+    if (seenDiceEventIdRef.current === null) {
+      seenDiceEventIdRef.current = latestDiceEvent.id;
+      setDiceDisplay({
+        left: actualDice?.[0] ?? null,
+        right: actualDice?.[1] ?? null,
+        total,
+        rolling: false,
+        actorName
+      });
+      return;
+    }
+
+    if (seenDiceEventIdRef.current === latestDiceEvent.id) {
+      setDiceDisplay((current) => ({
+        ...current,
+        left: actualDice?.[0] ?? current.left,
+        right: actualDice?.[1] ?? current.right,
+        total: total ?? current.total,
+        actorName
+      }));
+      return;
+    }
+
+    seenDiceEventIdRef.current = latestDiceEvent.id;
+    if (diceAnimationTimerRef.current !== null) {
+      window.clearInterval(diceAnimationTimerRef.current);
+    }
+    if (diceAnimationCompleteRef.current !== null) {
+      window.clearTimeout(diceAnimationCompleteRef.current);
+    }
+
+    setDiceDisplay({
+      left: rollPreviewValue(),
+      right: rollPreviewValue(),
+      total,
+      rolling: true,
+      actorName
+    });
+
+    diceAnimationTimerRef.current = window.setInterval(() => {
+      setDiceDisplay((current) => ({
+        ...current,
+        left: rollPreviewValue(),
+        right: rollPreviewValue(),
+        rolling: true
+      }));
+    }, 88);
+
+    diceAnimationCompleteRef.current = window.setTimeout(() => {
+      if (diceAnimationTimerRef.current !== null) {
+        window.clearInterval(diceAnimationTimerRef.current);
+        diceAnimationTimerRef.current = null;
+      }
+      setDiceDisplay({
+        left: actualDice?.[0] ?? null,
+        right: actualDice?.[1] ?? null,
+        total,
+        rolling: false,
+        actorName
+      });
+      diceAnimationCompleteRef.current = null;
+    }, 900);
+  }, [latestDiceEvent, props.match]);
+
+  useEffect(() => {
+    const normalizedGive =
+      ownedGiveResources.length > 0 && !ownedGiveResources.includes(props.tradeForm.give)
+        ? ownedGiveResources[0]!
+        : props.tradeForm.give;
+    const normalizedGiveCount = clampTradeCount(props.tradeForm.giveCount, props.selfPlayer?.resources?.[normalizedGive] ?? 0);
+    if (normalizedGive === props.tradeForm.give && normalizedGiveCount === props.tradeForm.giveCount) {
+      return;
+    }
+
+    props.setTradeForm((current) => ({
+      ...current,
+      give: normalizedGive,
+      giveCount: clampTradeCount(current.give === normalizedGive ? current.giveCount : normalizedGiveCount, props.selfPlayer?.resources?.[normalizedGive] ?? 0)
+    }));
+  }, [ownedGiveResources, props.selfPlayer?.resources, props.setTradeForm, props.tradeForm.give, props.tradeForm.giveCount]);
+
+  useEffect(() => {
+    const normalizedGive =
+      affordableMaritimeGiveResources.length > 0 && !affordableMaritimeGiveResources.includes(props.maritimeForm.give)
+        ? affordableMaritimeGiveResources[0]!
+        : props.maritimeForm.give;
+    if (normalizedGive === props.maritimeForm.give) {
+      return;
+    }
+
+    props.setMaritimeForm((current) => ({
+      ...current,
+      give: normalizedGive
+    }));
+  }, [affordableMaritimeGiveResources, props.maritimeForm.give, props.setMaritimeForm]);
+
   const resourceLegendList = (
     <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : ""}`}>
       {RESOURCE_LEGEND.map((entry) => (
@@ -388,12 +565,18 @@ export function MatchScreen(props: {
       </div>
     </div>
   );
+  const activePlayerCardClassName = [
+    "info-card-feature",
+    activePlayer ? "player-surface" : "",
+    activePlayer ? getPlayerAccentClass(activePlayer.color) : ""
+  ]
+    .join(" ")
+    .trim();
 
   const tabPanels: Record<MatchPanelTab, ReactNode> = {
     overview: (
       <div className={`panel-frame overview-frame ${isMobileViewport ? "is-mobile-overview" : ""}`}>
         <div className="dock-card-grid match-overview-grid">
-          <InfoCard label="Raum" value={props.room?.code ?? "Unbekannt"} />
           <InfoCard
             label="Am Zug"
             value={
@@ -408,10 +591,10 @@ export function MatchScreen(props: {
                 "-"
               )
             }
-            {...(activePlayer ? { className: `player-surface ${getPlayerAccentClass(activePlayer.color)}` } : {})}
+            className={activePlayerCardClassName}
           />
-          {isMobileViewport ? <InfoCard label="Phase" value={formatPhase(props.match.phase)} /> : null}
-          {isMobileViewport ? <InfoCard label="Würfel" value={boardDiceLabel} /> : null}
+          <InfoCard label="Phase" value={formatPhase(props.match.phase)} />
+          <InfoCard label="Würfel" value={boardDiceLabel} />
         </div>
         {isMobileViewport ? (
           <>
@@ -699,26 +882,21 @@ export function MatchScreen(props: {
                     <strong>{props.tradeForm.giveCount}x {renderResourceLabel(props.tradeForm.give)}</strong>
                   </div>
                   <div className="trade-side-inputs">
-                    <select
+                    <ResourceChoiceGrid
                       value={props.tradeForm.give}
-                      onChange={(event) =>
-                        props.setTradeForm((current) => ({ ...current, give: event.target.value as Resource }))
-                      }
-                    >
-                      {RESOURCES.map((resource) => (
-                        <option key={resource} value={resource}>
-                          {renderResourceLabel(resource)}
-                        </option>
-                      ))}
-                    </select>
+                      disabledResources={RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) <= 0)}
+                      onChange={(resource) => props.setTradeForm((current) => ({ ...current, give: resource }))}
+                    />
                     <input
                       type="number"
-                      min={1}
+                      min={tradeGiveMax > 0 ? 1 : 0}
+                      max={Math.max(0, tradeGiveMax)}
+                      disabled={tradeGiveMax <= 0}
                       value={props.tradeForm.giveCount}
                       onChange={(event) =>
                         props.setTradeForm((current) => ({
                           ...current,
-                          giveCount: Number(event.target.value) || 1
+                          giveCount: clampTradeCount(event.target.value, props.selfPlayer?.resources?.[current.give] ?? 0)
                         }))
                       }
                     />
@@ -733,18 +911,10 @@ export function MatchScreen(props: {
                     <strong>{props.tradeForm.wantCount}x {renderResourceLabel(props.tradeForm.want)}</strong>
                   </div>
                   <div className="trade-side-inputs">
-                    <select
+                    <ResourceChoiceGrid
                       value={props.tradeForm.want}
-                      onChange={(event) =>
-                        props.setTradeForm((current) => ({ ...current, want: event.target.value as Resource }))
-                      }
-                    >
-                      {RESOURCES.map((resource) => (
-                        <option key={resource} value={resource}>
-                          {renderResourceLabel(resource)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(resource) => props.setTradeForm((current) => ({ ...current, want: resource }))}
+                    />
                     <input
                       type="number"
                       min={1}
@@ -768,19 +938,29 @@ export function MatchScreen(props: {
                         : "Offen für alle"}
                     </strong>
                   </div>
-                  <select
-                    value={props.tradeForm.targetPlayerId}
-                    onChange={(event) =>
-                      props.setTradeForm((current) => ({ ...current, targetPlayerId: event.target.value }))
-                    }
-                  >
-                    <option value="">Offen für alle</option>
+                  <div className="trade-target-picker">
+                    <button
+                      type="button"
+                      className={`trade-target-option ${props.tradeForm.targetPlayerId === "" ? "is-active" : ""}`}
+                      onClick={() => props.setTradeForm((current) => ({ ...current, targetPlayerId: "" }))}
+                    >
+                      <span className="trade-target-title">Offen für alle</span>
+                      <span className="trade-target-copy">Jeder Mitspieler kann annehmen.</span>
+                    </button>
                     {tradeTargetPlayers.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.username}
-                      </option>
+                      <button
+                        key={player.id}
+                        type="button"
+                        className={`trade-target-option ${getPlayerAccentClass(player.color)} ${props.tradeForm.targetPlayerId === player.id ? "is-active" : ""}`}
+                        onClick={() =>
+                          props.setTradeForm((current) => ({ ...current, targetPlayerId: player.id }))
+                        }
+                      >
+                        <PlayerIdentity username={player.username} color={player.color} compact />
+                        <span className="trade-target-copy">Nur dieser Spieler kann annehmen.</span>
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </article>
 
                 <button
@@ -800,18 +980,11 @@ export function MatchScreen(props: {
                   <span className="eyebrow">Du gibst</span>
                   <strong>{maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)}</strong>
                 </div>
-                <select
+                <ResourceChoiceGrid
                   value={props.maritimeForm.give}
-                  onChange={(event) =>
-                    props.setMaritimeForm((current) => ({ ...current, give: event.target.value as Resource }))
-                  }
-                >
-                  {RESOURCES.map((resource) => (
-                    <option key={resource} value={resource}>
-                      {renderResourceLabel(resource)}
-                    </option>
-                  ))}
-                </select>
+                  disabledResources={RESOURCES.filter((resource) => !affordableMaritimeGiveResources.includes(resource))}
+                  onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
+                />
               </article>
 
               <div className="trade-direction-chip">{maritimeRatio}:1</div>
@@ -821,18 +994,10 @@ export function MatchScreen(props: {
                   <span className="eyebrow">Du erhältst</span>
                   <strong>1x {renderResourceLabel(props.maritimeForm.receive)}</strong>
                 </div>
-                <select
+                <ResourceChoiceGrid
                   value={props.maritimeForm.receive}
-                  onChange={(event) =>
-                    props.setMaritimeForm((current) => ({ ...current, receive: event.target.value as Resource }))
-                  }
-                >
-                  {RESOURCES.map((resource) => (
-                    <option key={resource} value={resource}>
-                      {renderResourceLabel(resource)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, receive: resource }))}
+                />
               </article>
 
               <button
@@ -1054,6 +1219,23 @@ export function MatchScreen(props: {
                 ) : null}
               </div>
             ) : null}
+            <div className={`board-dice-widget ${diceDisplay.rolling ? "is-rolling" : ""} ${isMobileViewport ? "is-mobile" : ""}`}>
+              <div className="board-dice-head">
+                <span className="eyebrow">Wurf</span>
+                <strong>{diceDisplay.total !== null ? diceDisplay.total : "Offen"}</strong>
+              </div>
+              <div className="board-dice-row" aria-live="polite">
+                <DiceFace value={diceDisplay.left} />
+                <DiceFace value={diceDisplay.right} />
+              </div>
+              <span className="board-dice-copy">
+                {diceDisplay.actorName
+                  ? diceDisplay.rolling
+                    ? `${diceDisplay.actorName} würfelt...`
+                    : `${diceDisplay.actorName} hat ${diceDisplay.total ?? "-"} gewürfelt`
+                  : "Warte auf den nächsten Wurf."}
+              </span>
+            </div>
           </div>
           {!spotlightCue && !isMobileViewport ? (
             <div className="board-bottom-hint">
@@ -1072,9 +1254,13 @@ export function MatchScreen(props: {
 
         <aside className="surface match-dock">
           <div className="match-dock-head">
-            <div>
+            <div className="match-dock-head-copy">
               <div className="eyebrow">Partie</div>
               <h2>Kontrollzentrum</h2>
+            </div>
+            <div className="match-dock-context">
+              <span className="status-pill muted">Raumcode {props.room?.code ?? "Unbekannt"}</span>
+              <span className="status-pill muted">Zug {props.match.turn}</span>
             </div>
           </div>
           {hasQuickActions ? renderQuickActions(false) : null}
@@ -1133,6 +1319,57 @@ export function MatchScreen(props: {
       </div>
     </section>
   );
+}
+
+function ResourceChoiceGrid(props: {
+  value: Resource;
+  disabledResources?: Resource[];
+  onChange: (resource: Resource) => void;
+}) {
+  return (
+    <div className="trade-resource-picker" role="listbox" aria-label="Rohstoff auswählen">
+      {RESOURCES.map((resource) => (
+        <button
+          key={resource}
+          type="button"
+          className={`trade-resource-option ${props.value === resource ? "is-active" : ""}`}
+          onClick={() => props.onChange(resource)}
+          title={renderResourceLabel(resource)}
+          aria-label={renderResourceLabel(resource)}
+          aria-selected={props.value === resource}
+          disabled={props.disabledResources?.includes(resource) ?? false}
+        >
+          <ResourceIcon resource={resource} shell size={15} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DiceFace(props: { value: number | null }) {
+  const positions = getDicePipPositions(props.value);
+  return (
+    <span className={`dice-face ${props.value === null ? "is-empty" : ""}`}>
+      {positions.length ? (
+        positions.map((position) => (
+          <span key={position} className={`dice-pip is-${position}`} aria-hidden="true" />
+        ))
+      ) : (
+        <span className="dice-face-copy">-</span>
+      )}
+    </span>
+  );
+}
+
+function clampTradeCount(value: number | string, maxAvailable: number): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  const sanitized = Number.isFinite(numeric) ? Math.floor(numeric) : 1;
+  if (maxAvailable <= 0) {
+    return 0;
+  }
+
+  const upperBound = Math.max(1, maxAvailable);
+  return Math.min(Math.max(sanitized, 1), upperBound);
 }
 
 function TradeBanner(props: {
@@ -1462,6 +1699,17 @@ function getLatestFocusableEvent(match: MatchSnapshot): FocusableEventResult | n
   return null;
 }
 
+function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"][number] | null {
+  for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
+    const event = match.eventLog[index];
+    if (event?.type === "dice_rolled") {
+      return event;
+    }
+  }
+
+  return null;
+}
+
 function createEventCue(
   match: MatchSnapshot,
   event: MatchSnapshot["eventLog"][number]
@@ -1672,6 +1920,29 @@ function getPayloadDice(payload: Record<string, unknown>, key: string): [number,
   }
 
   return [left, right];
+}
+
+function rollPreviewValue(): number {
+  return Math.floor(Math.random() * 6) + 1;
+}
+
+function getDicePipPositions(value: number | null): string[] {
+  switch (value) {
+    case 1:
+      return ["center"];
+    case 2:
+      return ["top-left", "bottom-right"];
+    case 3:
+      return ["top-left", "center", "bottom-right"];
+    case 4:
+      return ["top-left", "top-right", "bottom-left", "bottom-right"];
+    case 5:
+      return ["top-left", "top-right", "center", "bottom-left", "bottom-right"];
+    case 6:
+      return ["top-left", "top-right", "mid-left", "mid-right", "bottom-left", "bottom-right"];
+    default:
+      return [];
+  }
 }
 
 function getPayloadStringArray(payload: Record<string, unknown>, key: string): string[] {

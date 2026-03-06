@@ -11,7 +11,7 @@ import type {
   ServerMessage,
   UserRole
 } from "@hexagonia/shared";
-import { createEmptyResourceMap, hasResources } from "@hexagonia/shared";
+import { createEmptyResourceMap, hasResources, RESOURCES } from "@hexagonia/shared";
 import {
   closeAdminRoom,
   createRoom,
@@ -44,6 +44,7 @@ import { AuthScreen } from "./components/screens/AuthScreen";
 import { LobbyScreen } from "./components/screens/LobbyScreen";
 import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
 import { RoomScreen } from "./components/screens/RoomScreen";
+import { ResourceIcon } from "./resourceIcons";
 import {
   type AuthMode,
   type ConnectionState,
@@ -121,6 +122,7 @@ export function App() {
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
   const [route, setRoute] = useState<RouteState>(readRoute());
   const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<PendingMatchConfirmation | null>(null);
+  const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
@@ -138,6 +140,14 @@ export function App() {
     () => match?.players.find((player) => player.id === match.you) ?? null,
     [match]
   );
+  const requiredDiscardCount = match?.allowedMoves.pendingDiscardCount ?? 0;
+  const selectedDiscardCount = useMemo(
+    () => RESOURCES.reduce((sum, resource) => sum + (robberDiscardDraft[resource] ?? 0), 0),
+    [robberDiscardDraft]
+  );
+  const remainingDiscardCount = Math.max(0, requiredDiscardCount - selectedDiscardCount);
+  const canSubmitRobberDiscard =
+    !!match && !!selfPlayer?.resources && requiredDiscardCount > 0 && selectedDiscardCount === requiredDiscardCount;
 
   const activeScreen = useMemo(() => {
     if (!session) {
@@ -238,6 +248,25 @@ export function App() {
   useEffect(() => {
     setPendingMatchConfirmation(null);
   }, [match?.matchId, match?.version, route.kind]);
+
+  useEffect(() => {
+    setRobberDiscardDraft((current) => {
+      if (requiredDiscardCount <= 0 || !selfPlayer?.resources) {
+        return createEmptyResourceMap();
+      }
+
+      const next = createEmptyResourceMap();
+      let used = 0;
+      for (const resource of RESOURCES) {
+        const available = selfPlayer.resources[resource] ?? 0;
+        const kept = Math.min(current[resource] ?? 0, available, requiredDiscardCount - used);
+        next[resource] = kept;
+        used += kept;
+      }
+
+      return next;
+    });
+  }, [match?.matchId, requiredDiscardCount, selfPlayer?.id, selfPlayer?.resources]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -792,6 +821,62 @@ export function App() {
   const handleCancelPendingAction = useCallback(() => {
     setPendingMatchConfirmation(null);
   }, []);
+
+  const handleAdjustRobberDiscard = useCallback(
+    (resource: Resource, delta: -1 | 1) => {
+      if (!selfPlayer?.resources || requiredDiscardCount <= 0) {
+        return;
+      }
+
+      setRobberDiscardDraft((current) => {
+        const totalSelected = RESOURCES.reduce((sum, entry) => sum + (current[entry] ?? 0), 0);
+        const currentCount = current[resource] ?? 0;
+        const ownedCount = selfPlayer.resources?.[resource] ?? 0;
+
+        if (delta < 0) {
+          if (currentCount <= 0) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [resource]: currentCount - 1
+          };
+        }
+
+        if (totalSelected >= requiredDiscardCount || currentCount >= ownedCount) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [resource]: currentCount + 1
+        };
+      });
+    },
+    [requiredDiscardCount, selfPlayer?.resources]
+  );
+
+  const handleSubmitRobberDiscard = useCallback(() => {
+    const currentMatch = matchRef.current;
+    if (!currentMatch || !selfPlayer?.resources || requiredDiscardCount <= 0) {
+      return;
+    }
+
+    if (selectedDiscardCount !== requiredDiscardCount) {
+      pushToast("error", "Noch nicht vollständig", `Du musst genau ${requiredDiscardCount} Karten auswählen.`);
+      return;
+    }
+
+    sendCurrent({
+      type: "match.action",
+      matchId: currentMatch.matchId,
+      action: {
+        type: "discard_resources",
+        resources: robberDiscardDraft
+      }
+    });
+  }, [pushToast, requiredDiscardCount, robberDiscardDraft, selectedDiscardCount, sendCurrent, selfPlayer?.resources]);
 
   const navigateTo = useCallback((next: RouteState) => {
     setRoute(next);
@@ -1454,6 +1539,19 @@ export function App() {
         />
       ) : null}
 
+      {requiredDiscardCount > 0 ? (
+        <RobberDiscardDialog
+          canConfirm={canSubmitRobberDiscard}
+          draft={robberDiscardDraft}
+          ownedResources={selfPlayer?.resources ?? null}
+          remainingCount={remainingDiscardCount}
+          requiredCount={requiredDiscardCount}
+          selectedCount={selectedDiscardCount}
+          onAdjust={handleAdjustRobberDiscard}
+          onConfirm={handleSubmitRobberDiscard}
+        />
+      ) : null}
+
       <ToastStack onDismiss={removeToast} toasts={toasts} />
     </main>
   );
@@ -1498,6 +1596,86 @@ function ConfirmActionDialog(props: {
           </button>
           <button type="button" className="primary-button" onClick={props.onConfirm}>
             {props.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RobberDiscardDialog(props: {
+  canConfirm: boolean;
+  requiredCount: number;
+  selectedCount: number;
+  remainingCount: number;
+  ownedResources: ResourceMap | null;
+  draft: ResourceMap;
+  onAdjust: (resource: Resource, delta: -1 | 1) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="confirm-overlay robber-discard-overlay" role="presentation">
+      <div className="confirm-dialog discard-dialog surface" role="dialog" aria-modal="true" aria-labelledby="discard-dialog-title">
+        <div className="confirm-copy discard-copy">
+          <span className="eyebrow">Räuberphase</span>
+          <h2 id="discard-dialog-title">Karten abwerfen</h2>
+          <p>
+            Du hast mehr als sieben Karten. Wähle genau {props.requiredCount} Karten aus, die du an die Bank abgibst, damit die
+            Partie weitergehen kann.
+          </p>
+        </div>
+
+        <div className="discard-summary">
+          <span className="status-pill">{props.selectedCount} ausgewählt</span>
+          <span className={`status-pill ${props.remainingCount === 0 ? "" : "is-warning"}`}>
+            {props.remainingCount === 0 ? "Auswahl vollständig" : `Noch ${props.remainingCount} offen`}
+          </span>
+        </div>
+
+        <div className="discard-resource-grid">
+          {RESOURCES.map((resource) => {
+            const owned = props.ownedResources?.[resource] ?? 0;
+            const selected = props.draft[resource] ?? 0;
+            return (
+              <article key={resource} className="discard-resource-card">
+                <div className="discard-resource-head">
+                  <span className="discard-resource-icon" aria-hidden="true">
+                    <ResourceIcon resource={resource} tone="light" size={20} />
+                  </span>
+                  <div className="discard-resource-copy">
+                    <strong>{renderResourceLabel(resource)}</strong>
+                    <span>{owned} auf der Hand</span>
+                  </div>
+                </div>
+                <div className="discard-stepper">
+                  <button type="button" className="ghost-button" onClick={() => props.onAdjust(resource, -1)} disabled={selected <= 0}>
+                    −
+                  </button>
+                  <div className="discard-stepper-count" aria-label={`${selected} ${renderResourceLabel(resource)} ausgewählt`}>
+                    {selected}
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => props.onAdjust(resource, 1)}
+                    disabled={owned <= selected || props.remainingCount <= 0}
+                  >
+                    +
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="confirm-actions discard-actions">
+          <div className={`discard-helper ${props.remainingCount === 0 ? "is-complete" : "is-warning"}`}>
+            {props.remainingCount === 0
+              ? "Die Auswahl ist vollständig. Du kannst jetzt abwerfen."
+              : `Wähle noch ${props.remainingCount} Karten aus.`}
+          </div>
+          <button type="button" className="primary-button" onClick={props.onConfirm} disabled={!props.canConfirm}>
+            Karten abwerfen
           </button>
         </div>
       </div>
@@ -1612,11 +1790,7 @@ function getMatchActionConfirmation(
         confirmLabel: "Tausch senden"
       };
     case "discard_resources":
-      return {
-        title: "Karten abwerfen?",
-        detail: `Diese Karten werden abgelegt: ${renderResourceMap(action.resources)}.`,
-        confirmLabel: "Karten abwerfen"
-      };
+      return null;
     case "end_turn":
       return {
         title: "Zug beenden?",
