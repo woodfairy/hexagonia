@@ -865,6 +865,10 @@ function placeBuilding(
     throw new GameRuleError("Es sind keine Siedlungen mehr verfügbar.");
   }
 
+  if (type === "settlement" && !isSettlementVertexOpen(state, vertexId)) {
+    throw new GameRuleError("Diese Kreuzung ist nicht frei.");
+  }
+
   const vertex = getVertex(state, vertexId);
   vertex.building = {
     ownerId: playerId,
@@ -1265,7 +1269,20 @@ function isSettlementVertexOpen(state: GameState, vertexId: string): boolean {
   if (vertex.building) {
     return false;
   }
-  return vertex.adjacentVertexIds.every((neighborId) => !getVertex(state, neighborId).building);
+  return getAdjacentVertexIds(state, vertexId).every((neighborId) => !getVertex(state, neighborId).building);
+}
+
+function getAdjacentVertexIds(state: GameState, vertexId: string): string[] {
+  const vertex = getVertex(state, vertexId);
+  const neighborIds = new Set(vertex.adjacentVertexIds);
+
+  for (const edgeId of vertex.edgeIds) {
+    const edge = getEdge(state, edgeId);
+    const neighborId = edge.vertexIds[0] === vertexId ? edge.vertexIds[1] : edge.vertexIds[0];
+    neighborIds.add(neighborId);
+  }
+
+  return [...neighborIds];
 }
 
 function playDevelopmentCard(

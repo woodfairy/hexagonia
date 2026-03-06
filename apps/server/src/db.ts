@@ -468,6 +468,37 @@ export class Database {
     );
   }
 
+  async deleteRoom(roomId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+      delete from rooms
+      where id = $1
+      `,
+      [roomId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async cleanupInactiveRooms(): Promise<number> {
+    const result = await this.pool.query(
+      `
+      delete from rooms r
+      where r.match_id is null
+        and (
+          r.status = 'closed'
+          or not exists (
+            select 1
+            from jsonb_array_elements(r.seats) as seat
+            where coalesce(seat->>'userId', '') <> ''
+          )
+        )
+      `
+    );
+
+    return result.rowCount ?? 0;
+  }
+
   async saveRoom(room: RoomDetails): Promise<RoomDetails> {
     const result = await this.pool.query(
       `

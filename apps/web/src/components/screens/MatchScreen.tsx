@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ClientMessage, MatchSnapshot, PlayerColor, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
-import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { BoardScene, TILE_COLORS, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { formatPhase, getPlayerAccentClass, renderEventLabel, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 
@@ -42,6 +43,14 @@ const BUILD_COSTS: Record<BuildActionId, Partial<Record<Resource, number>>> = {
 const AUTO_FOCUS_STORAGE_KEY = "hexagonia:auto-focus";
 const BOARD_LEGEND_STORAGE_KEY = "hexagonia:board-legend";
 const BOARD_HUD_STORAGE_KEY = "hexagonia:board-hud";
+const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
+  { resource: "brick", note: "Lehm für Straßen und Siedlungen." },
+  { resource: "lumber", note: "Holz für Straßen und Siedlungen." },
+  { resource: "ore", note: "Erz für Städte und Entwicklungen." },
+  { resource: "grain", note: "Getreide für Siedlungen, Städte und Entwicklungen." },
+  { resource: "wool", note: "Wolle für Siedlungen und Entwicklungen." },
+  { resource: "desert", note: "Wüste: keine Erträge, hier startet der Räuber." }
+];
 
 interface FocusableEventResult {
   cue: BoardFocusCue;
@@ -524,7 +533,10 @@ export function MatchScreen(props: {
           <div className="resource-grid">
             {RESOURCES.map((resource) => (
               <article key={resource} className="resource-card">
-                <strong>{renderResourceLabel(resource)}</strong>
+                <div className="resource-card-head">
+                  <ResourceIcon resource={resource} shell />
+                  <strong>{renderResourceLabel(resource)}</strong>
+                </div>
                 <span>{props.selfPlayer?.resources?.[resource] ?? 0}</span>
               </article>
             ))}
@@ -840,7 +852,10 @@ export function MatchScreen(props: {
                   <div className="board-hud-row board-hud-resources">
                     {RESOURCES.map((resource) => (
                       <span key={resource} className="board-hud-pill">
-                        <strong>{renderResourceLabel(resource)}</strong>
+                        <span className="board-hud-pill-head">
+                          <ResourceIcon resource={resource} shell size={15} />
+                          <strong>{renderResourceLabel(resource)}</strong>
+                        </span>
                         <span>{props.selfPlayer?.resources?.[resource] ?? 0}</span>
                       </span>
                     ))}
@@ -871,7 +886,7 @@ export function MatchScreen(props: {
               >
                 <span className="board-legend-toggle-copy">
                   <strong>Legende</strong>
-                  <span>Farben und Brett-Hinweise</span>
+                  <span>Rohstoffe und Brett-Hinweise</span>
                 </span>
                 <span className="board-legend-toggle-icon" aria-hidden="true">
                   {boardLegendOpen ? "-" : "+"}
@@ -880,20 +895,21 @@ export function MatchScreen(props: {
               {boardLegendOpen ? (
                 <div className="board-legend-panel">
                   <div className="board-legend-section">
-                    <span className="eyebrow">Spielerfarben</span>
+                    <span className="eyebrow">Spielfeldfarben</span>
                     <div className="board-legend-list">
-                      {props.match.players.map((player) => (
-                        <div
-                          key={player.id}
-                          className={`board-legend-player player-surface player-accent-${player.color}`}
-                        >
-                          <PlayerIdentity
-                            username={player.username}
-                            color={player.color}
-                            compact
-                            isSelf={player.id === props.match.you}
-                            meta={player.id === props.match.currentPlayerId ? "Gerade am Zug" : "Bauten und Straßen in dieser Farbe"}
-                          />
+                      {RESOURCE_LEGEND.map((entry) => (
+                        <div key={entry.resource} className="board-legend-resource">
+                          <span
+                            className="board-legend-resource-swatch"
+                            style={{ "--legend-resource-color": TILE_COLORS[entry.resource] } as CSSProperties}
+                            aria-hidden="true"
+                          >
+                            <ResourceIcon resource={entry.resource} tone="light" size={18} />
+                          </span>
+                          <div className="board-legend-resource-copy">
+                            <strong>{renderResourceLabel(entry.resource)}</strong>
+                            <span>{entry.note}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
