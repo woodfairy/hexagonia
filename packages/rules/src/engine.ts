@@ -651,7 +651,8 @@ function handleMoveRobber(
 
   const victims = getRobberStealTargets(state, playerId, tileId);
   if (victims.length > 0) {
-    const victimId = targetPlayerId ?? victims[0];
+    const fallbackVictimId = victims[0]!;
+    const victimId = targetPlayerId ?? fallbackVictimId;
     if (!victims.includes(victimId)) {
       throw new GameRuleError("Von diesem Spieler kann hier nicht gestohlen werden.");
     }

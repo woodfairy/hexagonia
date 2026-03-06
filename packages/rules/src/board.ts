@@ -153,7 +153,7 @@ export function generateBaseBoard(seed: string): GeneratedBoard {
     }
 
     if (edge.tileIds.length === 2) {
-      const [left, right] = edge.tileIds;
+      const [left, right] = edge.tileIds as [string, string];
       if (!tileNeighbors.has(left)) {
         tileNeighbors.set(left, new Set());
       }
