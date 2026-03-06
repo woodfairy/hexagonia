@@ -27,8 +27,8 @@ import {
   subtractResources,
   totalResources
 } from "@hexagonia/shared";
-import { generateBaseBoard, type GeneratedBoard } from "./board";
-import { SeededRandom } from "./random";
+import { generateBaseBoard, type GeneratedBoard } from "./board.js";
+import { SeededRandom } from "./random.js";
 
 interface InternalDevelopmentCard {
   id: string;

@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type WebSocket from "ws";
 import { applyAction, createSnapshot, updatePlayerConnection, type GameState } from "@hexagonia/rules";
 import type { ActionIntent, AuthUser, RoomDetails, ServerMessage } from "@hexagonia/shared";
-import { Database } from "./db";
+import { Database } from "./db.js";
 
 interface SocketContext {
   socket: WebSocket;

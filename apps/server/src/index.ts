@@ -1,5 +1,5 @@
-import { readConfig } from "./config";
-import { createApp } from "./app";
+import { readConfig } from "./config.js";
+import { createApp } from "./app.js";
 
 const config = readConfig(process.env);
 const app = await createApp(config);
