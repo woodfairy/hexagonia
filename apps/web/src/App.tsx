@@ -27,6 +27,7 @@ import {
   getRoom,
   getRoomByCode,
   joinRoom,
+  kickRoomUser,
   leaveRoom,
   login,
   logout,
@@ -928,6 +929,21 @@ export function App() {
     }
   };
 
+  const handleKickRoomUser = async (userId: string) => {
+    if (!room) {
+      return;
+    }
+
+    try {
+      const nextRoom = await kickRoomUser(room.id, userId);
+      setRoom(nextRoom);
+      await loadMyRooms();
+      pushToast("info", "Spieler entfernt", "Der Platz in der Lobby wurde freigegeben.");
+    } catch (kickError) {
+      pushToast("error", "Spieler konnte nicht entfernt werden", (kickError as Error).message);
+    }
+  };
+
   const handleStartRoom = async () => {
     if (!room) {
       return;
@@ -1322,7 +1338,7 @@ export function App() {
             : headerContext.meta;
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${activeScreen === "match" ? "is-match-screen" : ""}`.trim()}>
       <AppHeader
         connectionState={connectionState}
         connectionStatusText={status}
@@ -1388,6 +1404,7 @@ export function App() {
               onCopyCode={handleCopyRoomCode}
               onCopyInviteLink={handleCopyInviteLink}
               onJoinSeat={handleSeatJoin}
+              onKickUser={handleKickRoomUser}
               onLeave={handleLeaveRoom}
               onReady={handleReadyToggle}
               onStart={handleStartRoom}

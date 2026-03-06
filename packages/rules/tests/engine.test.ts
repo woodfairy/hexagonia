@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyResourceMap } from "@hexagonia/shared";
+import { generateBaseBoard } from "../src/board";
 import { applyAction, createMatchState, createSnapshot } from "../src/engine";
+import { SeededRandom } from "../src/random";
 
 describe("rules engine", () => {
   it("starts in forward setup", () => {
@@ -42,6 +44,68 @@ describe("rules engine", () => {
     });
 
     expect(() => applyAction(state, "p1", { type: "roll_dice" })).toThrow();
+  });
+
+  it("generates the standard base-board topology", () => {
+    const board = generateBaseBoard("test-seed");
+
+    expect(board.tiles).toHaveLength(19);
+    expect(board.vertices).toHaveLength(54);
+    expect(board.edges).toHaveLength(72);
+    expect(board.vertices.filter((vertex) => vertex.tileIds.length === 1)).toHaveLength(18);
+    expect(board.vertices.filter((vertex) => vertex.tileIds.length === 2)).toHaveLength(12);
+    expect(board.vertices.filter((vertex) => vertex.tileIds.length === 3)).toHaveLength(24);
+    expect(board.edges.filter((edge) => edge.tileIds.length === 1)).toHaveLength(30);
+    expect(board.edges.filter((edge) => edge.tileIds.length === 2)).toHaveLength(42);
+  });
+
+  it("grants resources to settlements adjacent to the rolled number", () => {
+    const state = createMatchState({
+      matchId: "match-1",
+      roomId: "room-1",
+      seed: "test-seed",
+      players: [
+        { id: "p1", username: "Alice", seatIndex: 0 },
+        { id: "p2", username: "Bob", seatIndex: 1 },
+        { id: "p3", username: "Cara", seatIndex: 2 }
+      ]
+    });
+
+    const tile = state.board.tiles.find((entry) => entry.resource !== "desert" && entry.token === 8 && !entry.robber)!;
+    const vertexId = tile.vertexIds[0]!;
+    const player = state.players[0]!;
+    const vertex = state.board.vertices.find((entry) => entry.id === vertexId)!;
+    const expectedByResource = createEmptyResourceMap();
+
+    vertex.building = {
+      ownerId: player.id,
+      color: player.color,
+      type: "settlement"
+    };
+    player.settlements = [vertexId];
+    player.resources = createEmptyResourceMap();
+    state.phase = "turn_roll";
+    state.previousPhase = null;
+    state.setupState = null;
+    state.robberState = null;
+    state.currentTrade = null;
+    state.currentPlayerIndex = 0;
+    state.turn = 1;
+    state.dice = null;
+
+    for (const adjacentTileId of vertex.tileIds) {
+      const adjacentTile = state.board.tiles.find((entry) => entry.id === adjacentTileId)!;
+      if (adjacentTile.resource !== "desert" && adjacentTile.token === 8 && !adjacentTile.robber) {
+        expectedByResource[adjacentTile.resource] += 1;
+      }
+    }
+
+    state.randomState = findRandomStateForTotal(8);
+    const nextState = applyAction(state, player.id, { type: "roll_dice" });
+    const self = nextState.players.find((entry) => entry.id === player.id)!;
+
+    expect(self.resources).toEqual(expectedByResource);
+    expect(nextState.eventLog.at(-1)?.type).toBe("resources_distributed");
   });
 
   it("never allows a settlement directly next to another settlement", () => {
@@ -108,3 +172,15 @@ describe("rules engine", () => {
     expect(() => applyAction(state, "p1", { type: "build_settlement", vertexId: blockedVertexId })).toThrow();
   });
 });
+
+function findRandomStateForTotal(total: number): number {
+  for (let candidate = 1; candidate < 100_000; candidate += 1) {
+    const rng = new SeededRandom(candidate);
+    const rolledTotal = rng.nextInt(1, 6) + rng.nextInt(1, 6);
+    if (rolledTotal === total) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Could not find a deterministic RNG state for roll ${total}.`);
+}

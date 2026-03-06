@@ -7,6 +7,7 @@ export function RoomScreen(props: {
   session: AuthUser;
   presence: string[];
   onJoinSeat: (seatIndex: number) => void;
+  onKickUser: (userId: string) => void;
   onReady: (ready: boolean) => void;
   onStart: () => void;
   onLeave: () => void;
@@ -59,6 +60,7 @@ export function RoomScreen(props: {
               const online = seat.userId ? props.presence.includes(seat.userId) : false;
               const occupied = !!seat.userId;
               const mine = seat.userId === props.session.id;
+              const canKick = isOwner && props.room.status === "open" && occupied && !mine && !!seat.userId;
               return (
                 <article key={seat.index} className={`seat-card player-surface player-accent-${seat.color} ${mine ? "is-mine" : ""}`}>
                   <div className="seat-card-top">
@@ -86,6 +88,11 @@ export function RoomScreen(props: {
                   {!occupied && props.room.status === "open" ? (
                     <button className="primary-button" type="button" onClick={() => props.onJoinSeat(seat.index)}>
                       Platz nehmen
+                    </button>
+                  ) : null}
+                  {canKick ? (
+                    <button className="ghost-button is-danger" type="button" onClick={() => props.onKickUser(seat.userId!)}>
+                      Spieler entfernen
                     </button>
                   ) : null}
                 </article>

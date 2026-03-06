@@ -127,8 +127,8 @@ export function generateBaseBoard(seed: string): GeneratedBoard {
       id: tileId,
       q: coord.q,
       r: coord.r,
-      x: cx * X_SCALE,
-      y: cy * Y_SCALE,
+      x: round4(cx * X_SCALE),
+      y: round4(cy * Y_SCALE),
       resource: "desert",
       token: null,
       robber: false,
@@ -233,7 +233,7 @@ function createRadiusTwoCoords(): Array<{ q: number; r: number }> {
 function axialToWorld(q: number, r: number): [number, number] {
   const x = HEX_WIDTH * (q + r / 2);
   const y = HEX_HEIGHT * 0.75 * r;
-  return [round4(x), round4(y)];
+  return [x, y];
 }
 
 function assignTokens(

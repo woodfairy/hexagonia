@@ -33,6 +33,10 @@ const readySchema = z.object({
   ready: z.boolean()
 });
 
+const kickRoomSchema = z.object({
+  userId: z.string().uuid()
+});
+
 const userRoleSchema = z.enum(["user", "admin"]);
 
 const adminCreateUserSchema = z.object({
@@ -470,24 +474,38 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return { room };
     }
 
-    seat.userId = null;
-    seat.username = null;
-    seat.ready = false;
+    const saved = await removeUserFromOpenRoom(db, hub, room, user.id);
+    return { room: saved };
+  });
 
-    const occupiedSeats = room.seats.filter((entry) => entry.userId);
-    if (!occupiedSeats.length) {
-      room.status = "closed";
-      room.matchId = null;
-      await hub.broadcastRoom(room);
-      await db.deleteRoom(room.id);
-      return { room };
-    }
-    if (room.ownerUserId === user.id && occupiedSeats.length > 0) {
-      room.ownerUserId = occupiedSeats[0]!.userId!;
+  app.post("/api/rooms/:roomId/kick", async (request, reply) => {
+    const user = await requireUser(request, reply, db);
+    if (!user) {
+      return reply;
     }
 
-    const saved = await db.saveRoom(room);
-    await hub.broadcastRoom(saved);
+    const room = await requireRoom(db, reply, (request.params as { roomId: string }).roomId);
+    if (!room) {
+      return reply;
+    }
+    if (room.status !== "open") {
+      return reply.code(409).send({ error: "Spieler können nur in der Lobby entfernt werden." });
+    }
+    if (room.ownerUserId !== user.id) {
+      return reply.code(403).send({ error: "Nur der Host kann Spieler aus der Lobby entfernen." });
+    }
+
+    const body = kickRoomSchema.parse(request.body ?? {});
+    if (body.userId === user.id) {
+      return reply.code(409).send({ error: "Du kannst dich nicht selbst entfernen." });
+    }
+
+    const seat = room.seats.find((entry) => entry.userId === body.userId);
+    if (!seat) {
+      return reply.code(404).send({ error: "Dieser Spieler sitzt nicht in diesem Raum." });
+    }
+
+    const saved = await removeUserFromOpenRoom(db, hub, room, body.userId);
     return { room: saved };
   });
 
@@ -755,6 +773,39 @@ function generateRoomCode(): string {
 
 function hasOccupiedSeats(room: RoomDetails): boolean {
   return room.seats.some((seat) => !!seat.userId);
+}
+
+async function removeUserFromOpenRoom(
+  db: Database,
+  hub: RealtimeHub,
+  room: RoomDetails,
+  userId: string
+): Promise<RoomDetails> {
+  const seat = room.seats.find((entry) => entry.userId === userId);
+  if (!seat) {
+    return room;
+  }
+
+  seat.userId = null;
+  seat.username = null;
+  seat.ready = false;
+
+  const occupiedSeats = room.seats.filter((entry) => entry.userId);
+  if (!occupiedSeats.length) {
+    room.status = "closed";
+    room.matchId = null;
+    await hub.broadcastRoom(room);
+    await db.deleteRoom(room.id);
+    return room;
+  }
+
+  if (room.ownerUserId === userId) {
+    room.ownerUserId = occupiedSeats[0]!.userId!;
+  }
+
+  const saved = await db.saveRoom(room);
+  await hub.broadcastRoom(saved);
+  return saved;
 }
 
 function formatZodError(error: z.ZodError): string {
