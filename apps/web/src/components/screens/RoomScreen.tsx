@@ -74,7 +74,7 @@ export function RoomScreen(props: {
                       color={seat.color}
                       compact
                       isSelf={mine}
-                      meta={mine ? `Deine Farbe: ${renderPlayerColorLabel(seat.color)}` : undefined}
+                      {...(mine ? { meta: `Deine Farbe: ${renderPlayerColorLabel(seat.color)}` } : {})}
                     />
                   ) : (
                     <strong className="seat-open-label">Offen</strong>

@@ -86,10 +86,11 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
         ? (error as { statusCode: number }).statusCode
         : 500;
 
+    const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler.";
     const safeMessage =
       statusCode >= 500
         ? "Interner Serverfehler. Bitte versuche es erneut."
-        : error.message;
+        : errorMessage;
 
     request.log.error({ err: error }, "request failed");
     return reply.code(statusCode).send({

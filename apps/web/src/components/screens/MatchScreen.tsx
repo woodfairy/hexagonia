@@ -332,7 +332,7 @@ export function MatchScreen(props: {
                 "-"
               )
             }
-            className={activePlayer ? `player-surface ${getPlayerAccentClass(activePlayer.color)}` : undefined}
+            {...(activePlayer ? { className: `player-surface ${getPlayerAccentClass(activePlayer.color)}` } : {})}
           />
         </div>
         <section className="dock-section dock-section-fill">
@@ -1115,7 +1115,7 @@ function PlayerBadge(props: { match: MatchSnapshot; playerId: string; compact?: 
     <PlayerColorBadge
       color={player.color}
       label={`${player.id === props.match.you ? "Du" : player.username} - ${renderPlayerColorLabel(player.color)}`}
-      compact={props.compact}
+      {...(props.compact !== undefined ? { compact: props.compact } : {})}
     />
   );
 }
