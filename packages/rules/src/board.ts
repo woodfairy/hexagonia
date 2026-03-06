@@ -1,4 +1,4 @@
-import type { EdgeView, PortType, PortView, Resource, TileView, VertexView } from "@hexagonia/shared";
+import type { EdgeView, PortType, PortView, Resource, SetupMode, TileView, VertexView } from "@hexagonia/shared";
 import { SeededRandom } from "./random.js";
 
 export interface GeneratedBoard {
@@ -30,7 +30,7 @@ const LAND_RESOURCES: Array<Resource | "desert"> = [
   "desert"
 ];
 
-const NUMBER_TOKENS = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
+const OFFICIAL_VARIABLE_NUMBER_TOKENS = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
 const PORT_DISTRIBUTION: PortType[] = [
   "generic",
   "generic",
@@ -42,6 +42,28 @@ const PORT_DISTRIBUTION: PortType[] = [
   "grain",
   "wool"
 ];
+const BEGINNER_LAYOUT: Array<{ resource: Resource | "desert"; token: number | null }> = [
+  { resource: "desert", token: null },
+  { resource: "wool", token: 11 },
+  { resource: "ore", token: 9 },
+  { resource: "brick", token: 6 },
+  { resource: "wool", token: 3 },
+  { resource: "lumber", token: 4 },
+  { resource: "wool", token: 5 },
+  { resource: "lumber", token: 10 },
+  { resource: "grain", token: 5 },
+  { resource: "brick", token: 12 },
+  { resource: "lumber", token: 11 },
+  { resource: "lumber", token: 8 },
+  { resource: "grain", token: 2 },
+  { resource: "brick", token: 9 },
+  { resource: "ore", token: 4 },
+  { resource: "wool", token: 10 },
+  { resource: "ore", token: 6 },
+  { resource: "grain", token: 3 },
+  { resource: "grain", token: 8 }
+];
+const BEGINNER_PORT_DISTRIBUTION: PortType[] = [...PORT_DISTRIBUTION];
 
 interface MutableVertex extends Omit<VertexView, "building" | "portType"> {
   portType: PortType | null;
@@ -54,6 +76,14 @@ const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS;
 const HEX_HEIGHT = 2 * HEX_RADIUS;
 const X_SCALE = 4.8;
 const Y_SCALE = 4.2;
+const COUNTERCLOCKWISE_RING_DIRECTIONS = [
+  { q: -1, r: 0 },
+  { q: -1, r: 1 },
+  { q: 0, r: 1 },
+  { q: 1, r: 0 },
+  { q: 1, r: -1 },
+  { q: 0, r: -1 }
+] as const;
 const CORNER_OFFSETS = [
   [Math.cos(-Math.PI / 6), Math.sin(-Math.PI / 6)],
   [Math.cos(Math.PI / 6), Math.sin(Math.PI / 6)],
@@ -62,11 +92,14 @@ const CORNER_OFFSETS = [
   [Math.cos((7 * Math.PI) / 6), Math.sin((7 * Math.PI) / 6)],
   [Math.cos((3 * Math.PI) / 2), Math.sin((3 * Math.PI) / 2)]
 ] as const;
+const OFFICIAL_PORT_SLOT_EDGE_INDICES = [0, 3, 6, 10, 13, 16, 20, 23, 26] as const;
 
-export function generateBaseBoard(seed: string): GeneratedBoard {
+export function generateBaseBoard(
+  seed: string,
+  setupMode: SetupMode = "official_variable"
+): GeneratedBoard {
   const rng = new SeededRandom(seed);
   const tileCoords = createRadiusTwoCoords();
-  const tileNeighbors = new Map<string, Set<string>>();
   const vertexByKey = new Map<string, MutableVertex>();
   const edgeByKey = new Map<string, MutableEdge>();
   const verticesById = new Map<string, MutableVertex>();
@@ -151,33 +184,30 @@ export function generateBaseBoard(seed: string): GeneratedBoard {
     if (!vertexB.adjacentVertexIds.includes(vertexA.id)) {
       vertexB.adjacentVertexIds.push(vertexA.id);
     }
+  }
 
-    if (edge.tileIds.length === 2) {
-      const [left, right] = edge.tileIds as [string, string];
-      if (!tileNeighbors.has(left)) {
-        tileNeighbors.set(left, new Set());
-      }
-      if (!tileNeighbors.has(right)) {
-        tileNeighbors.set(right, new Set());
-      }
-      tileNeighbors.get(left)!.add(right);
-      tileNeighbors.get(right)!.add(left);
+  if (setupMode === "beginner") {
+    tiles.forEach((tile, index) => {
+      const layout = BEGINNER_LAYOUT[index]!;
+      tile.resource = layout.resource;
+      tile.token = layout.token;
+      tile.robber = layout.resource === "desert";
+    });
+  } else {
+    const assignedResources = rng.shuffle(LAND_RESOURCES);
+    tiles.forEach((tile, index) => {
+      const resource = assignedResources[index]!;
+      tile.resource = resource;
+      tile.robber = resource === "desert";
+    });
+
+    const tokenMap = assignOfficialVariableTokens(rng, tiles);
+    for (const tile of tiles) {
+      tile.token = tile.resource === "desert" ? null : tokenMap.get(tile.id)!;
     }
   }
 
-  const assignedResources = rng.shuffle(LAND_RESOURCES);
-  tiles.forEach((tile, index) => {
-    const resource = assignedResources[index]!;
-    tile.resource = resource;
-    tile.robber = resource === "desert";
-  });
-
-  const tokenMap = assignTokens(rng, tiles, tileNeighbors);
-  for (const tile of tiles) {
-    tile.token = tile.resource === "desert" ? null : tokenMap.get(tile.id)!;
-  }
-
-  const ports = assignPorts(rng, edges, verticesById);
+  const ports = assignPorts(rng, edges, verticesById, setupMode);
   const portByVertexId = new Map<string, PortType>();
   for (const port of ports) {
     for (const vertexId of port.vertexIds) {
@@ -236,65 +266,85 @@ function axialToWorld(q: number, r: number): [number, number] {
   return [x, y];
 }
 
-function assignTokens(
-  rng: SeededRandom,
-  tiles: TileView[],
-  tileNeighbors: Map<string, Set<string>>
-): Map<string, number> {
-  for (let attempt = 0; attempt < 256; attempt += 1) {
-    const candidate = rng.shuffle(NUMBER_TOKENS);
-    const mapping = new Map<string, number>();
-    let numberIndex = 0;
-
-    for (const tile of tiles) {
-      if (tile.resource === "desert") {
-        continue;
-      }
-      mapping.set(tile.id, candidate[numberIndex]!);
-      numberIndex += 1;
-    }
-
-    let valid = true;
-    for (const tile of tiles) {
-      const token = mapping.get(tile.id);
-      if (token !== 6 && token !== 8) {
-        continue;
-      }
-
-      for (const neighborId of tileNeighbors.get(tile.id) ?? []) {
-        const neighborToken = mapping.get(neighborId);
-        if (neighborToken === 6 || neighborToken === 8) {
-          valid = false;
-          break;
-        }
-      }
-
-      if (!valid) {
-        break;
-      }
-    }
-
-    if (valid) {
-      return mapping;
-    }
-  }
-
-  const fallback = new Map<string, number>();
+function assignOfficialVariableTokens(rng: SeededRandom, tiles: TileView[]): Map<string, number> {
+  const placementOrder = createOfficialVariablePlacementOrder(tiles, rng.nextInt(0, 5));
+  const mapping = new Map<string, number>();
   let tokenIndex = 0;
-  for (const tile of tiles) {
+
+  for (const tile of placementOrder) {
     if (tile.resource === "desert") {
       continue;
     }
-    fallback.set(tile.id, NUMBER_TOKENS[tokenIndex]!);
+
+    mapping.set(tile.id, OFFICIAL_VARIABLE_NUMBER_TOKENS[tokenIndex]!);
     tokenIndex += 1;
   }
-  return fallback;
+
+  return mapping;
+}
+
+function createOfficialVariablePlacementOrder(tiles: TileView[], startCornerIndex: number): TileView[] {
+  const tilesByCoord = new Map(tiles.map((tile) => [toCoordKey(tile.q, tile.r), tile]));
+  const outerRing = createCounterclockwiseRing(2).map((coord) => {
+    const tile = tilesByCoord.get(toCoordKey(coord.q, coord.r));
+    if (!tile) {
+      throw new Error(`Missing outer-ring tile for ${coord.q}:${coord.r}.`);
+    }
+    return tile;
+  });
+  const innerRing = createCounterclockwiseRing(1).map((coord) => {
+    const tile = tilesByCoord.get(toCoordKey(coord.q, coord.r));
+    if (!tile) {
+      throw new Error(`Missing inner-ring tile for ${coord.q}:${coord.r}.`);
+    }
+    return tile;
+  });
+  const centerTile = tilesByCoord.get(toCoordKey(0, 0));
+  if (!centerTile) {
+    throw new Error("Missing center tile.");
+  }
+
+  return [
+    ...rotate(outerRing, startCornerIndex * 2),
+    ...rotate(innerRing, startCornerIndex),
+    centerTile
+  ];
+}
+
+function createCounterclockwiseRing(radius: number): Array<{ q: number; r: number }> {
+  const coords: Array<{ q: number; r: number }> = [];
+  let q = radius;
+  let r = -radius;
+
+  for (const direction of COUNTERCLOCKWISE_RING_DIRECTIONS) {
+    for (let step = 0; step < radius; step += 1) {
+      coords.push({ q, r });
+      q += direction.q;
+      r += direction.r;
+    }
+  }
+
+  return coords;
+}
+
+function rotate<T>(values: T[], startIndex: number): T[] {
+  if (!values.length) {
+    return [];
+  }
+
+  const offset = ((startIndex % values.length) + values.length) % values.length;
+  return [...values.slice(offset), ...values.slice(0, offset)];
+}
+
+function toCoordKey(q: number, r: number): string {
+  return `${q}:${r}`;
 }
 
 function assignPorts(
   rng: SeededRandom,
   edges: MutableEdge[],
-  verticesById: Map<string, MutableVertex>
+  verticesById: Map<string, MutableVertex>,
+  _setupMode: SetupMode
 ): PortView[] {
   const boundaryEdges = edges
     .filter((edge) => edge.tileIds.length === 1)
@@ -306,24 +356,9 @@ function assignPorts(
       return leftAngle - rightAngle;
     });
 
-  const portTypes = rng.shuffle(PORT_DISTRIBUTION);
-  const chosenIndices: number[] = [];
-  const taken = new Set<number>();
+  const portTypes = setupMode === "beginner" ? BEGINNER_PORT_DISTRIBUTION : rng.shuffle(PORT_DISTRIBUTION);
 
-  for (let index = 0; index < portTypes.length; index += 1) {
-    let candidate = Math.floor((index * boundaryEdges.length) / portTypes.length);
-    while (
-      taken.has(candidate) ||
-      taken.has((candidate + boundaryEdges.length - 1) % boundaryEdges.length) ||
-      taken.has((candidate + 1) % boundaryEdges.length)
-    ) {
-      candidate = (candidate + 1) % boundaryEdges.length;
-    }
-    taken.add(candidate);
-    chosenIndices.push(candidate);
-  }
-
-  return chosenIndices
+  return [...OFFICIAL_PORT_SLOT_EDGE_INDICES]
     .map((edgeIndex, portIndex) => {
       const edge = boundaryEdges[edgeIndex]!;
       return {

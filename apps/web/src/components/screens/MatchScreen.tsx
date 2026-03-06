@@ -58,6 +58,7 @@ const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = 
   { resource: "wool", note: "Wolle für Siedlungen und Entwicklungen." },
   { resource: "desert", note: "Wüste: keine Erträge, hier startet der Räuber." }
 ];
+let dicePreviewCursor = 0;
 
 interface FocusableEventResult {
   cue: BoardFocusCue;
@@ -196,7 +197,12 @@ export function MatchScreen(props: {
       ? (actionCue ?? (shouldAutoFocusRecentEvent ? (recentFocusableEvent?.cue ?? null) : null))
       : null;
   const spotlightCue = cameraCue ?? actionCue ?? recentFocusableEvent?.cue ?? null;
-  const tradeTargetPlayers = props.match.players.filter((player) => player.id !== props.match.you);
+  const tradeTargetPlayers = isCurrentPlayer
+    ? props.match.players.filter((player) => player.id !== props.match.you)
+    : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
+  const selectedTradeTargetPlayer =
+    tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId) ??
+    (!isCurrentPlayer ? activePlayer : null);
   const maritimeRatio =
     props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
   const ownedGiveResources = RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) > 0);
@@ -258,6 +264,7 @@ export function MatchScreen(props: {
     })
   ];
   const canSubmitTradeOffer =
+    props.match.allowedMoves.canCreateTradeOffer &&
     props.tradeForm.giveCount > 0 &&
     props.tradeForm.wantCount > 0 &&
     canAffordOffer(props.selfPlayer?.resources, props.tradeForm.give, props.tradeForm.giveCount);
@@ -871,7 +878,7 @@ export function MatchScreen(props: {
           </div>
           {tradeSection === "player" ? (
             <>
-              {props.match.currentTrade ? (
+              {props.match.tradeOffers.length > 0 ? (
                 <TradeBanner currentUserId={props.match.you} match={props.match} onAction={props.onAction} />
               ) : null}
               <div className="trade-builder">
@@ -965,7 +972,7 @@ export function MatchScreen(props: {
                 <button
                   type="button"
                   className="primary-button trade-submit-button"
-                  disabled={!props.match.allowedMoves.canOfferTrade || !canSubmitTradeOffer}
+                  disabled={!canSubmitTradeOffer}
                   onClick={props.onOfferTrade}
                 >
                   Angebot senden
@@ -1376,14 +1383,14 @@ function TradeBanner(props: {
   currentUserId: string;
   onAction: (message: ClientMessage) => void;
 }) {
-  const trade = props.match.currentTrade;
+  const trade = props.match.tradeOffers[0];
   if (!trade) {
     return null;
   }
 
   const responderVisible =
     props.currentUserId !== trade.fromPlayerId &&
-    (!trade.targetPlayerId || trade.targetPlayerId === props.currentUserId);
+    (!trade.toPlayerId || trade.toPlayerId === props.currentUserId);
 
   return (
     <div className="trade-banner">
@@ -1403,9 +1410,8 @@ function TradeBanner(props: {
                   type: "match.action",
                   matchId: props.match.matchId,
                   action: {
-                    type: "respond_trade",
-                    tradeId: trade.id,
-                    accept: true
+                    type: "accept_trade_offer",
+                    tradeId: trade.id
                   }
                 })
               }
@@ -1420,9 +1426,8 @@ function TradeBanner(props: {
                   type: "match.action",
                   matchId: props.match.matchId,
                   action: {
-                    type: "respond_trade",
-                    tradeId: trade.id,
-                    accept: false
+                    type: "decline_trade_offer",
+                    tradeId: trade.id
                   }
                 })
               }
@@ -1439,7 +1444,7 @@ function TradeBanner(props: {
                 type: "match.action",
                 matchId: props.match.matchId,
                 action: {
-                  type: "cancel_trade",
+                  type: "withdraw_trade_offer",
                   tradeId: trade.id
                 }
               })
@@ -1922,7 +1927,8 @@ function getPayloadDice(payload: Record<string, unknown>, key: string): [number,
 }
 
 function rollPreviewValue(): number {
-  return Math.floor(Math.random() * 6) + 1;
+  dicePreviewCursor = (dicePreviewCursor % 6) + 1;
+  return dicePreviewCursor;
 }
 
 function getDicePipPositions(value: number | null): string[] {
@@ -2016,7 +2022,17 @@ function getTurnStatus(
 ) : TurnStatus {
   const activePlayerName = activePlayer?.username ?? "Unbekannt";
   const isCurrentPlayer = match.currentPlayerId === match.you;
-  const trade = match.currentTrade;
+  const ownTrade =
+    match.tradeOffers.find((offer) => match.allowedMoves.withdrawableTradeOfferIds.includes(offer.id)) ??
+    match.tradeOffers.find((offer) => offer.fromPlayerId === match.you) ??
+    null;
+  const actionableTrade =
+    match.tradeOffers.find(
+      (offer) =>
+        match.allowedMoves.acceptableTradeOfferIds.includes(offer.id) ||
+        match.allowedMoves.declineableTradeOfferIds.includes(offer.id)
+    ) ?? null;
+  const trade = ownTrade ?? actionableTrade ?? match.tradeOffers[0] ?? null;
   const selfId = selfPlayer?.id ?? match.you;
   const withPlayer = (title: string, detail: string, playerId?: string): TurnStatus =>
     playerId ? { title, detail, playerId } : { title, detail };
@@ -2029,20 +2045,20 @@ function getTurnStatus(
   if (trade) {
     const proposer = match.players.find((player) => player.id === trade.fromPlayerId)?.username ?? "Unbekannt";
     if (trade.fromPlayerId === match.you) {
-      const target = trade.targetPlayerId
-        ? match.players.find((player) => player.id === trade.targetPlayerId)?.username ?? "dem Zielspieler"
+      const target = trade.toPlayerId
+        ? match.players.find((player) => player.id === trade.toPlayerId)?.username ?? "dem Zielspieler"
         : "einen Mitspieler";
       return withPlayer(
         "Warte auf Handelsantwort",
         trade.targetPlayerId ? `${target} entscheidet über dein Angebot.` : "Ein Mitspieler kann dein Angebot annehmen.",
-        trade.targetPlayerId ?? undefined
+        trade.toPlayerId ?? undefined
       );
     }
-    if (!trade.targetPlayerId || trade.targetPlayerId === match.you) {
+    if (!trade.toPlayerId || trade.toPlayerId === match.you) {
       return withPlayer("Antwort von dir", `${proposer} wartet auf deine Entscheidung zum Handel.`, selfId);
     }
-    const target = match.players.find((player) => player.id === trade.targetPlayerId)?.username ?? activePlayerName;
-    return withPlayer(`Warte auf ${target}`, `${proposer} hat ein Handelsangebot offen.`, trade.targetPlayerId);
+    const target = match.players.find((player) => player.id === trade.toPlayerId)?.username ?? activePlayerName;
+    return withPlayer(`Warte auf ${target}`, `${proposer} hat ein Handelsangebot offen.`, trade.toPlayerId);
   }
 
   if (match.allowedMoves.pendingDiscardCount > 0) {

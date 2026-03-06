@@ -1,5 +1,6 @@
 export const RESOURCES = ["brick", "lumber", "ore", "grain", "wool"] as const;
 export const PLAYER_COLORS = ["red", "blue", "white", "orange"] as const;
+export const SETUP_MODES = ["official_variable", "beginner"] as const;
 export const DEVELOPMENT_CARD_TYPES = [
   "knight",
   "victory_point",
@@ -11,6 +12,7 @@ export const PORT_TYPES = ["generic", ...RESOURCES] as const;
 
 export type Resource = (typeof RESOURCES)[number];
 export type PlayerColor = (typeof PLAYER_COLORS)[number];
+export type SetupMode = (typeof SETUP_MODES)[number];
 export type DevelopmentCardType = (typeof DEVELOPMENT_CARD_TYPES)[number];
 export type PortType = (typeof PORT_TYPES)[number];
 export type UserRole = "user" | "admin";
@@ -22,7 +24,6 @@ export type MatchPhase =
   | "turn_roll"
   | "turn_action"
   | "robber_interrupt"
-  | "trade_resolution"
   | "game_over";
 
 export interface ResourceMap extends Record<Resource, number> {}
@@ -113,7 +114,8 @@ export interface PlayerView extends PlayerSummary {
 export interface TradeOfferView {
   id: string;
   fromPlayerId: string;
-  targetPlayerId: string | null;
+  toPlayerId: string | null;
+  targetPlayerId?: string | null;
   give: ResourceMap;
   want: ResourceMap;
   createdAtTurn: number;
@@ -133,7 +135,7 @@ export interface AllowedMoves {
   canRoll: boolean;
   canBuyDevelopmentCard: boolean;
   canEndTurn: boolean;
-  canOfferTrade: boolean;
+  canCreateTradeOffer: boolean;
   initialSettlementVertexIds: string[];
   initialRoadEdgeIds: string[];
   settlementVertexIds: string[];
@@ -143,6 +145,9 @@ export interface AllowedMoves {
   pendingDiscardCount: number;
   playableDevelopmentCards: DevelopmentCardType[];
   maritimeRates: MaritimeRate[];
+  acceptableTradeOfferIds: string[];
+  declineableTradeOfferIds: string[];
+  withdrawableTradeOfferIds: string[];
 }
 
 export interface MatchEvent {
@@ -157,7 +162,9 @@ export interface MatchSnapshot {
   matchId: string;
   roomId: string;
   seed: string;
+  schemaVersion: number;
   version: number;
+  setupMode: SetupMode;
   you: string;
   phase: MatchPhase;
   previousPhase: MatchPhase | null;
@@ -167,7 +174,7 @@ export interface MatchSnapshot {
   players: PlayerView[];
   bank: ResourceMap;
   dice: [number, number] | null;
-  currentTrade: TradeOfferView | null;
+  tradeOffers: TradeOfferView[];
   allowedMoves: AllowedMoves;
   eventLog: MatchEvent[];
   winnerId: string | null;
@@ -185,6 +192,8 @@ export interface RoomSummary {
   id: string;
   code: string;
   ownerUserId: string;
+  setupMode: SetupMode;
+  startingSeatIndex: number;
   status: "open" | "in_match" | "closed";
   matchId: string | null;
   createdAt: string;
@@ -246,18 +255,21 @@ export type ActionIntent =
       targetPlayerId?: string;
     }
   | {
-      type: "offer_trade";
-      targetPlayerId: string | null;
+      type: "create_trade_offer";
+      toPlayerId: string | null;
       give: ResourceMap;
       want: ResourceMap;
     }
   | {
-      type: "respond_trade";
+      type: "accept_trade_offer";
       tradeId: string;
-      accept: boolean;
     }
   | {
-      type: "cancel_trade";
+      type: "decline_trade_offer";
+      tradeId: string;
+    }
+  | {
+      type: "withdraw_trade_offer";
       tradeId: string;
     }
   | {

@@ -8,6 +8,7 @@ import type {
   Resource,
   ResourceMap,
   RoomDetails,
+  SetupMode,
   ServerMessage,
   UserRole
 } from "@hexagonia/shared";
@@ -34,7 +35,8 @@ import {
   register,
   setReady,
   startRoom,
-  updateAdminUser
+  updateAdminUser,
+  updateRoomSettings
 } from "./api";
 import type { InteractionMode } from "./BoardScene";
 import { AppHeader } from "./components/shell/AppHeader";
@@ -135,6 +137,7 @@ export function App() {
   const heartbeatTimerRef = useRef<number | null>(null);
   const lastServerActivityRef = useRef(Date.now());
   const lastDisconnectToastAtRef = useRef(0);
+  const toastCounterRef = useRef(0);
 
   const selfPlayer = useMemo(
     () => match?.players.find((player) => player.id === match.you) ?? null,
@@ -213,7 +216,8 @@ export function App() {
 
   const pushToast = useCallback(
     (tone: ToastMessage["tone"], title: string, body?: string) => {
-      const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      toastCounterRef.current += 1;
+      const id = `toast-${Date.now()}-${toastCounterRef.current}`;
       const nextToast: ToastMessage = body ? { id, tone, title, body } : { id, tone, title };
       setToasts((current) => [...current, nextToast].slice(-4));
       window.setTimeout(() => {
@@ -370,7 +374,7 @@ export function App() {
     const nextAttempt = reconnectAttemptRef.current + 1;
     reconnectAttemptRef.current = nextAttempt;
     const baseDelay = Math.min(RECONNECT_BASE_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_MS);
-    const delay = baseDelay + Math.round(Math.random() * 350);
+    const delay = baseDelay + getReconnectJitter(nextAttempt);
     const seconds = Math.max(1, Math.round(delay / 1000));
     setConnectionState("connecting");
     setStatus(`Verbindung unterbrochen. Neuer Versuch in ${seconds}s.`);
@@ -968,17 +972,23 @@ export function App() {
     }
   };
 
-  const handleSeatJoin = async (seatIndex: number) => {
+  const handleJoinRoom = async () => {
     if (!room) {
       return;
     }
 
     try {
-      const nextRoom = await joinRoom(room.id, seatIndex);
+      const nextRoom = await joinRoom(room.id);
       setRoom(nextRoom);
       await loadMyRooms();
+      const joinedSeat = nextRoom.seats.find((seat) => seat.userId === sessionRef.current?.id) ?? null;
+      pushToast(
+        "success",
+        "Raum beigetreten",
+        joinedSeat ? `Du sitzt jetzt automatisch auf Platz ${joinedSeat.index + 1}.` : `Du bist jetzt im Raum ${nextRoom.code}.`
+      );
     } catch (joinError) {
-      pushToast("error", "Platz konnte nicht belegt werden", (joinError as Error).message);
+      pushToast("error", "Beitritt fehlgeschlagen", (joinError as Error).message);
     }
   };
 
@@ -993,6 +1003,47 @@ export function App() {
       await loadMyRooms();
     } catch (readyError) {
       pushToast("error", "Ready-Status fehlgeschlagen", (readyError as Error).message);
+    }
+  };
+
+  const handleRoomSetupModeChange = async (setupMode: SetupMode) => {
+    if (!room || room.setupMode === setupMode) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { setupMode });
+      setRoom(nextRoom);
+      await loadMyRooms();
+      pushToast(
+        "success",
+        "Aufbau aktualisiert",
+        setupMode === "beginner" ? "Der Anfängeraufbau ist für den nächsten Start vorgemerkt." : "Der variable Aufbau ist für den nächsten Start vorgemerkt."
+      );
+    } catch (settingsError) {
+      pushToast("error", "Aufbau konnte nicht geändert werden", (settingsError as Error).message);
+    }
+  };
+
+  const handleRoomStartingSeatChange = async (startingSeatIndex: number) => {
+    if (!room || room.startingSeatIndex === startingSeatIndex) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { startingSeatIndex });
+      setRoom(nextRoom);
+      await loadMyRooms();
+      const startingSeat = nextRoom.seats.find((seat) => seat.index === nextRoom.startingSeatIndex);
+      pushToast(
+        "success",
+        "Startspieler aktualisiert",
+        startingSeat?.username
+          ? `${startingSeat.username} eröffnet die Partie.`
+          : `Platz ${nextRoom.startingSeatIndex + 1} eröffnet die Partie.`
+      );
+    } catch (settingsError) {
+      pushToast("error", "Startspieler konnte nicht geändert werden", (settingsError as Error).message);
     }
   };
 
@@ -1388,12 +1439,14 @@ export function App() {
       return;
     }
 
+    const toPlayerId = match.currentPlayerId === match.you ? tradeForm.targetPlayerId || null : match.currentPlayerId;
+
     queueMatchConfirmation({
       type: "match.action",
       matchId: match.matchId,
       action: {
-        type: "offer_trade",
-        targetPlayerId: tradeForm.targetPlayerId || null,
+        type: "create_trade_offer",
+        toPlayerId,
         give: singleResourceMap(tradeForm.give, tradeForm.giveCount),
         want: singleResourceMap(tradeForm.want, tradeForm.wantCount)
       }
@@ -1488,10 +1541,12 @@ export function App() {
               session={session}
               onCopyCode={handleCopyRoomCode}
               onCopyInviteLink={handleCopyInviteLink}
-              onJoinSeat={handleSeatJoin}
+              onJoinRoom={handleJoinRoom}
               onKickUser={handleKickRoomUser}
               onLeave={handleLeaveRoom}
               onReady={handleReadyToggle}
+              onSetupModeChange={handleRoomSetupModeChange}
+              onStartingSeatChange={handleRoomStartingSeatChange}
               onStart={handleStartRoom}
             />
           ) : (
@@ -1555,6 +1610,10 @@ export function App() {
       <ToastStack onDismiss={removeToast} toasts={toasts} />
     </main>
   );
+}
+
+function getReconnectJitter(attempt: number): number {
+  return (attempt * 173) % 351;
 }
 
 function StatusSurface(props: { title: string; text: string }) {
@@ -1773,9 +1832,9 @@ function getMatchActionConfirmation(
         confirmLabel: "Räuber setzen"
       };
     }
-    case "offer_trade": {
-      const targetName = action.targetPlayerId
-        ? match.players.find((player) => player.id === action.targetPlayerId)?.username ?? "dem Zielspieler"
+    case "create_trade_offer": {
+      const targetName = action.toPlayerId
+        ? match.players.find((player) => player.id === action.toPlayerId)?.username ?? "dem Zielspieler"
         : "allen Mitspielern";
       return {
         title: "Handelsangebot senden?",

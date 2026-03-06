@@ -33,6 +33,15 @@ const readySchema = z.object({
   ready: z.boolean()
 });
 
+const roomSettingsSchema = z
+  .object({
+    setupMode: z.enum(["official_variable", "beginner"]).optional(),
+    startingSeatIndex: z.number().int().min(0).max(3).optional()
+  })
+  .refine((body) => body.setupMode !== undefined || body.startingSeatIndex !== undefined, {
+    message: "Mindestens eine Spieleinstellung muss gesetzt werden."
+  });
+
 const kickRoomSchema = z.object({
   userId: z.string().uuid()
 });
@@ -65,6 +74,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
   }
   await ensureBootstrapAdmin(db, config);
   const hub = new RealtimeHub(db, app.log);
+  await resetLegacyMatches(db, hub, app);
 
   app.addHook("onClose", async () => {
     await db.close();
@@ -443,7 +453,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     const seat = body.seatIndex !== undefined ? room.seats[body.seatIndex] : room.seats.find((entry) => !entry.userId);
     if (!seat || seat.userId) {
-      return reply.code(409).send({ error: "Der gewünschte Platz ist nicht verfügbar." });
+      return reply.code(409).send({ error: "Kein freier Platz mehr vorhanden." });
     }
 
     seat.userId = user.id;
@@ -535,6 +545,39 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     return { room: saved };
   });
 
+  app.patch("/api/rooms/:roomId/settings", async (request, reply) => {
+    const user = await requireUser(request, reply, db);
+    if (!user) {
+      return reply;
+    }
+
+    const room = await requireRoom(db, reply, (request.params as { roomId: string }).roomId);
+    if (!room) {
+      return reply;
+    }
+    if (room.ownerUserId !== user.id) {
+      return reply.code(403).send({ error: "Nur der Host kann die Spieleinstellungen ändern." });
+    }
+    if (room.status !== "open") {
+      return reply.code(409).send({ error: "Spieleinstellungen können nur in der Lobby geändert werden." });
+    }
+
+    const body = roomSettingsSchema.parse(request.body ?? {});
+    if (body.setupMode !== undefined) {
+      room.setupMode = body.setupMode;
+    }
+    if (body.startingSeatIndex !== undefined) {
+      const seat = room.seats.find((entry) => entry.index === body.startingSeatIndex);
+      if (!seat?.userId) {
+        return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
+      }
+      room.startingSeatIndex = body.startingSeatIndex;
+    }
+    const saved = await db.saveRoom(room);
+    await hub.broadcastRoom(saved);
+    return { room: saved };
+  });
+
   app.post("/api/rooms/:roomId/start", async (request, reply) => {
     const user = await requireUser(request, reply, db);
     if (!user) {
@@ -563,7 +606,9 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const state = createMatchState({
       matchId: randomUUID(),
       roomId: room.id,
-      seed: randomUUID(),
+      seed: randomBytes(32).toString("hex"),
+      setupMode: room.setupMode,
+      startingSeatIndex: room.startingSeatIndex,
       players: roomToPlayers(room)
     });
 
@@ -726,6 +771,38 @@ async function ensureBootstrapAdmin(db: Database, config: AppConfig): Promise<vo
     passwordHash,
     ...(config.ADMIN_EMAIL ? { email: config.ADMIN_EMAIL } : {})
   });
+}
+
+async function resetLegacyMatches(db: Database, hub: RealtimeHub, app: FastifyInstance): Promise<void> {
+  const rooms = await db.listRooms();
+  const activeRooms = rooms.filter((room) => !!room.matchId);
+  if (!activeRooms.length) {
+    return;
+  }
+
+  let resetMatches = 0;
+  for (const room of activeRooms) {
+    if (!room.matchId) {
+      continue;
+    }
+
+    const state = await db.loadMatchState(room.matchId);
+    if (state?.schemaVersion && state.schemaVersion >= 2) {
+      continue;
+    }
+
+    await resetMatchToRoom(
+      db,
+      hub,
+      room.matchId,
+      "Partie wurde nach dem Regel-Update beendet. Bitte startet eine neue Runde."
+    );
+    resetMatches += 1;
+  }
+
+  if (resetMatches > 0) {
+    app.log.info({ resetMatches }, "legacy matches reset on startup");
+  }
 }
 
 async function resetMatchToRoom(
