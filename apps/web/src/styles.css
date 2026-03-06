@@ -392,7 +392,7 @@ select {
 }
 
 button:disabled {
-  cursor: default;
+  cursor: not-allowed;
   opacity: 0.48;
   transform: none !important;
 }
@@ -413,6 +413,34 @@ button:disabled {
 .mini-segmented button:hover,
 .brand-mark:hover {
   transform: translateY(-1px);
+}
+
+.menu-action:hover:not(:disabled),
+.ghost-button:hover:not(:disabled),
+.secondary-button:hover:not(:disabled),
+.sheet-size-button:hover:not(:disabled),
+.tab-strip button:hover:not(:disabled),
+.segmented-control button:hover:not(:disabled),
+.mini-segmented button:hover:not(:disabled),
+.profile-trigger:hover,
+.brand-mark:hover {
+  border-color: rgba(224, 181, 93, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.primary-button:hover:not(:disabled),
+.segmented-control .is-active:hover,
+.mini-segmented .is-active:hover,
+.tab-strip .is-active:hover {
+  background: linear-gradient(135deg, #edc56d, #f6d899);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: rgba(240, 202, 124, 0.52);
+  box-shadow: 0 0 0 0.18rem rgba(224, 181, 93, 0.14);
 }
 
 .field,
@@ -450,6 +478,11 @@ select {
   border-radius: 1rem;
   color: var(--text);
   background: rgba(6, 15, 23, 0.92);
+}
+
+input:hover,
+select:hover {
+  border-color: rgba(224, 181, 93, 0.24);
 }
 
 .auth-shell {
@@ -828,6 +861,111 @@ select {
   background: #efab65;
 }
 
+.player-accent-red {
+  --player-accent: #df7a67;
+  --player-accent-soft: rgba(223, 122, 103, 0.14);
+  --player-accent-border: rgba(223, 122, 103, 0.42);
+  --player-text: #ffd4cc;
+}
+
+.player-accent-blue {
+  --player-accent: #7ca4f7;
+  --player-accent-soft: rgba(124, 164, 247, 0.14);
+  --player-accent-border: rgba(124, 164, 247, 0.4);
+  --player-text: #dce7ff;
+}
+
+.player-accent-white {
+  --player-accent: #eceef0;
+  --player-accent-soft: rgba(236, 238, 240, 0.12);
+  --player-accent-border: rgba(236, 238, 240, 0.28);
+  --player-text: #f4f7fb;
+}
+
+.player-accent-orange {
+  --player-accent: #efab65;
+  --player-accent-soft: rgba(239, 171, 101, 0.14);
+  --player-accent-border: rgba(239, 171, 101, 0.42);
+  --player-text: #ffdcb5;
+}
+
+.player-surface {
+  border-color: var(--player-accent-border, rgba(255, 255, 255, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.player-identity,
+.player-badge,
+.player-name-text,
+.seat-open-label {
+  color: var(--player-text, var(--text));
+}
+
+.player-identity,
+.player-badge,
+.seat-slot-meta,
+.resume-card-meta-row,
+.event-card-head,
+.turn-status-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.player-identity {
+  min-inline-size: 0;
+}
+
+.player-identity.is-compact {
+  gap: 0.45rem;
+}
+
+.player-identity-copy {
+  min-inline-size: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.player-identity-copy span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.player-name-text {
+  display: block;
+  line-height: 1.1;
+}
+
+.player-swatch {
+  inline-size: 0.76rem;
+  block-size: 0.76rem;
+  border-radius: 999px;
+  background: var(--player-accent, var(--accent));
+  border: 1px solid rgba(7, 16, 24, 0.4);
+  box-shadow: 0 0 0 0.16rem var(--player-accent-soft, rgba(255, 255, 255, 0.08));
+  flex: none;
+}
+
+.player-badge {
+  inline-size: fit-content;
+  min-block-size: 1.95rem;
+  padding: 0.34rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid var(--player-accent-border, var(--line-soft));
+  background: var(--player-accent-soft, rgba(255, 255, 255, 0.05));
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.player-badge.is-compact {
+  min-block-size: 1.78rem;
+  padding: 0.26rem 0.55rem;
+  font-size: 0.76rem;
+}
+
 .online-indicator {
   inline-size: 0.75rem;
   block-size: 0.75rem;
@@ -884,6 +1022,10 @@ select {
   justify-content: flex-end;
 }
 
+.seat-slot-meta {
+  gap: 0.45rem;
+}
+
 .room-code-row h1 {
   font-size: clamp(2rem, 4.6vw, 3.25rem);
   letter-spacing: 0.03em;
@@ -895,6 +1037,11 @@ select {
 }
 
 .seat-card strong {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.seat-open-label {
   font-size: 1.05rem;
   line-height: 1.1;
 }
@@ -955,6 +1102,7 @@ select {
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
   font-size: 0.84rem;
+  white-space: nowrap;
 }
 
 .board-toggle {
@@ -1052,6 +1200,13 @@ select {
   background: rgba(224, 181, 93, 0.12);
 }
 
+.build-action-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(224, 181, 93, 0.38);
+  background: rgba(224, 181, 93, 0.1);
+  box-shadow: 0 14px 32px rgba(8, 16, 24, 0.24);
+}
+
 .build-action-head,
 .turn-status-card,
 .board-hud-panel,
@@ -1093,6 +1248,10 @@ select {
   line-height: 1.1;
 }
 
+.turn-status-card > .player-badge {
+  margin-block-end: 0.2rem;
+}
+
 .status-strip.compact {
   gap: 0.55rem;
 }
@@ -1102,7 +1261,124 @@ select {
   inset-block-start: 0.95rem;
   inset-inline-start: 0.95rem;
   z-index: 2;
-  pointer-events: none;
+  display: grid;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+.board-hud-toggle {
+  inline-size: fit-content;
+  max-inline-size: min(18rem, calc(100% - 1rem));
+}
+
+.board-legend {
+  position: absolute;
+  inset-inline-start: 0.95rem;
+  inset-block-end: 0.95rem;
+  z-index: 2;
+  inline-size: min(21rem, calc(100% - 2rem));
+  pointer-events: auto;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.board-legend-toggle,
+.board-legend-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 15, 23, 0.86);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-md);
+}
+
+.board-legend-toggle {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 1rem;
+  color: var(--text);
+  text-align: left;
+}
+
+.board-legend-toggle-copy {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.board-legend-toggle-copy strong {
+  line-height: 1.08;
+}
+
+.board-legend-toggle-copy span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.board-legend-toggle-icon {
+  inline-size: 1.8rem;
+  block-size: 1.8rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 1.2rem;
+  line-height: 1;
+  flex: none;
+}
+
+.board-legend-toggle:hover:not(:disabled),
+.board-legend-toggle.is-open {
+  border-color: rgba(224, 181, 93, 0.28);
+}
+
+.board-legend-panel {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.82rem 0.85rem;
+  border-radius: 1rem;
+}
+
+.board-legend-section,
+.board-legend-list,
+.board-legend-notes {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.board-legend-player {
+  padding: 0.62rem 0.72rem;
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.board-legend-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.legend-signal {
+  inline-size: 0.9rem;
+  block-size: 0.9rem;
+  border-radius: 999px;
+  margin-block-start: 0.1rem;
+}
+
+.legend-signal.is-gold {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 0 0.2rem rgba(224, 181, 93, 0.16);
+}
+
+.legend-signal.is-pulse {
+  background: #b1dcff;
+  box-shadow: 0 0 0 0.2rem rgba(177, 220, 255, 0.14);
 }
 
 .board-spotlight {
@@ -1125,6 +1401,22 @@ select {
   border-color: rgba(224, 181, 93, 0.3);
 }
 
+.board-spotlight.is-compact {
+  inline-size: min(14.5rem, calc(100% - 1.5rem));
+  gap: 0.18rem;
+  padding: 0.68rem 0.74rem;
+}
+
+.board-spotlight.is-compact .board-spotlight-badges {
+  margin-block-start: 0.18rem;
+}
+
+.board-spotlight.is-compact .board-spotlight-badge {
+  min-block-size: 1.6rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+}
+
 .board-spotlight strong {
   display: block;
   line-height: 1.12;
@@ -1135,6 +1427,26 @@ select {
   line-height: 1.32;
 }
 
+.board-spotlight-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-block-start: 0.25rem;
+}
+
+.board-spotlight-badge {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 1.9rem;
+  padding: 0.34rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
 .board-hud-panel {
   gap: 0.5rem;
   max-inline-size: min(32rem, calc(100% - 2rem));
@@ -1142,7 +1454,7 @@ select {
 
 .board-hud-row {
   grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
+  grid-auto-columns: minmax(5.15rem, max-content);
   gap: 0.48rem;
 }
 
@@ -1157,16 +1469,20 @@ select {
 .board-hud-pill {
   display: inline-grid;
   gap: 0.12rem;
+  min-inline-size: 5.15rem;
   min-block-size: 2.35rem;
   padding: 0.46rem 0.7rem;
   border-radius: 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 15, 23, 0.82);
   backdrop-filter: blur(12px);
+  justify-items: start;
 }
 
 .board-hud-pill strong {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .board-hud-pill span {
@@ -1197,7 +1513,11 @@ select {
 }
 
 .tab-panel-shell {
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-inline-end: 0.2rem;
+  scrollbar-gutter: stable;
 }
 
 .panel-frame {
@@ -1213,6 +1533,8 @@ select {
 .actions-frame,
 .trade-frame {
   align-content: start;
+  block-size: max-content;
+  min-block-size: 100%;
 }
 
 .hand-frame {
@@ -1276,6 +1598,84 @@ select {
   flex-basis: calc(33.333% - 0.5rem);
 }
 
+.trade-builder,
+.trade-side-head,
+.trade-side-inputs {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.trade-builder {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.trade-builder.maritime-builder {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.trade-side-card,
+.trade-target-card {
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.trade-side-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.trade-side-give {
+  border-color: rgba(240, 142, 133, 0.22);
+  background: linear-gradient(180deg, rgba(240, 142, 133, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.trade-side-receive {
+  border-color: rgba(139, 209, 167, 0.2);
+  background: linear-gradient(180deg, rgba(139, 209, 167, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.trade-side-head {
+  gap: 0.2rem;
+}
+
+.trade-side-head strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.12;
+}
+
+.trade-side-inputs {
+  grid-template-columns: minmax(0, 1fr) 5.25rem;
+}
+
+.trade-direction-chip {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 3.8rem;
+  min-block-size: 3.8rem;
+  padding: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(224, 181, 93, 0.28);
+  background: rgba(224, 181, 93, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.trade-target-card {
+  display: grid;
+  gap: 0.7rem;
+  grid-column: 1 / -1;
+}
+
+.trade-submit-button {
+  grid-column: 1 / -1;
+}
+
 .trade-banner {
   align-items: center;
   justify-content: space-between;
@@ -1336,6 +1736,12 @@ select {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.player-card.is-active-turn {
+  background:
+    linear-gradient(180deg, var(--player-accent-soft, rgba(255, 255, 255, 0.06)), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.04);
+}
+
 .player-card-head {
   align-items: center;
   justify-content: space-between;
@@ -1366,7 +1772,8 @@ select {
 
 .metric-card strong,
 .summary-card strong,
-.info-card strong {
+.info-card strong,
+.info-card-value {
   display: block;
   font-size: 1rem;
   line-height: 1.1;
@@ -1383,6 +1790,18 @@ select {
 .event-card strong {
   display: block;
   line-height: 1.15;
+}
+
+.event-card-head {
+  justify-content: space-between;
+}
+
+.event-card-head strong {
+  min-inline-size: 0;
+}
+
+.resume-card-meta-row {
+  justify-content: flex-start;
 }
 
 .empty-state {
@@ -1440,6 +1859,43 @@ select {
   padding: 0.45rem 0.7rem;
 }
 
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  background: rgba(3, 8, 13, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.confirm-dialog {
+  inline-size: min(32rem, 100%);
+  padding: 1.15rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.confirm-copy,
+.confirm-actions {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.confirm-copy p {
+  color: var(--muted);
+  line-height: 1.42;
+}
+
+.confirm-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (max-width: 1180px) {
   .match-screen {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
@@ -1447,6 +1903,10 @@ select {
 
   .resource-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .confirm-dialog {
+    padding: 1rem;
   }
 }
 
@@ -1521,6 +1981,7 @@ select {
   .board-hud {
     inset-block-start: 0.75rem;
     inset-inline-start: 0.75rem;
+    inline-size: calc(100% - 1.5rem);
   }
 
   .board-spotlight {
@@ -1530,8 +1991,18 @@ select {
     inline-size: min(20rem, calc(100% - 1.5rem));
   }
 
+  .board-legend {
+    inset-inline-start: 0.75rem;
+    inset-block-end: 0.75rem;
+    inline-size: min(18rem, calc(100% - 1.5rem));
+  }
+
   .board-hud-panel {
     max-inline-size: calc(100% - 1.5rem);
+  }
+
+  .board-bottom-hint {
+    display: none;
   }
 
   .board-hud-row {
@@ -1542,6 +2013,11 @@ select {
   .board-hud-resources,
   .board-hud-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .board-legend-panel {
+    gap: 0.7rem;
+    padding: 0.72rem 0.75rem;
   }
 }
 
@@ -1646,21 +2122,43 @@ select {
   .match-dock-head,
   .code-join-row,
   .trade-grid,
-  .board-topbar,
   .status-strip {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .board-topbar {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
   }
 
   .board-toggle {
     margin-inline-start: 0;
   }
 
+  .board-topbar .board-toggle-focus {
+    margin-inline-start: auto;
+  }
+
+  .board-legend {
+    inline-size: min(15rem, calc(100% - 1.4rem));
+  }
+
+  .board-legend-toggle {
+    padding: 0.66rem 0.74rem;
+  }
+
+  .board-legend-toggle-copy span {
+    display: none;
+  }
+
   .trade-banner-actions,
   .tab-strip,
   .quick-action-grid,
   .build-action-grid,
-  .admin-card-actions {
+  .admin-card-actions,
+  .confirm-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1673,9 +2171,19 @@ select {
   }
 
   .triple-select,
+  .trade-builder,
   .admin-form-grid,
   .sheet-quick-actions .quick-action-grid {
     grid-template-columns: 1fr;
+  }
+
+  .trade-side-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-direction-chip {
+    min-inline-size: 100%;
+    min-block-size: 2.45rem;
   }
 
   .admin-side-stack,
@@ -1692,14 +2200,65 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .board-topbar .board-chip,
+  .board-topbar .board-toggle,
+  .board-topbar .player-badge {
+    min-block-size: 1.9rem;
+    padding: 0.32rem 0.56rem;
+    font-size: 0.75rem;
+  }
+
+  .board-topbar .player-badge {
+    max-inline-size: 9.8rem;
+  }
+
+  .board-topbar .player-badge span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .board-spotlight {
     inset-inline: 0.75rem;
     inline-size: auto;
   }
 
+  .board-spotlight.is-compact {
+    inline-size: min(13rem, calc(100% - 1.5rem));
+  }
+
+  .board-hud {
+    inset-block-start: 0.65rem;
+    inset-inline-start: 0.65rem;
+    inline-size: calc(100% - 1.3rem);
+  }
+
+  .board-hud-toggle {
+    max-inline-size: min(14rem, calc(100% - 0.4rem));
+  }
+
+  .board-hud-panel {
+    max-inline-size: min(14rem, calc(100% - 0.4rem));
+    gap: 0.4rem;
+  }
+
+  .board-hud-panel .player-badge {
+    max-inline-size: 100%;
+  }
+
+  .board-hud-panel .player-badge span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .board-hud-pill {
     min-block-size: 2.1rem;
     padding: 0.4rem 0.58rem;
+  }
+
+  .confirm-dialog {
+    padding: 0.92rem;
   }
 
   .triple-select > :last-child:nth-child(2) {
@@ -1712,6 +2271,13 @@ select {
 
   .match-sheet.is-full {
     block-size: min(34rem, 64svh);
+  }
+
+  .match-sheet-summary span:last-child {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }
 

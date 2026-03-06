@@ -74,6 +74,29 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
   await app.register(websocket);
 
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof z.ZodError) {
+      return reply.code(400).send({
+        error: formatZodError(error)
+      });
+    }
+
+    const statusCode =
+      typeof (error as { statusCode?: number }).statusCode === "number"
+        ? (error as { statusCode: number }).statusCode
+        : 500;
+
+    const safeMessage =
+      statusCode >= 500
+        ? "Interner Serverfehler. Bitte versuche es erneut."
+        : error.message;
+
+    request.log.error({ err: error }, "request failed");
+    return reply.code(statusCode).send({
+      error: safeMessage
+    });
+  });
+
   app.get("/api/health", async () => ({ ok: true }));
 
   app.post("/api/auth/register", async (request, reply) => {
@@ -228,11 +251,11 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     if (targetUser.id === admin.id) {
-      return reply.code(409).send({ error: "Den aktuell angemeldeten Admin kannst du nicht loeschen." });
+      return reply.code(409).send({ error: "Den aktuell angemeldeten Admin kannst du nicht löschen." });
     }
 
     if (targetUser.role === "admin" && (await db.countAdmins()) <= 1) {
-      return reply.code(409).send({ error: "Der letzte Admin kann nicht geloescht werden." });
+      return reply.code(409).send({ error: "Der letzte Admin kann nicht gelöscht werden." });
     }
 
     const affectedRooms = await db.listUserRooms(targetUser.id);
@@ -709,4 +732,39 @@ function isUniqueViolation(error: unknown): boolean {
 
 function generateRoomCode(): string {
   return randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
+}
+
+function formatZodError(error: z.ZodError): string {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) {
+    return "Ungültige Eingabe.";
+  }
+
+  const field = String(firstIssue.path[0] ?? "");
+
+  if (field === "username" && firstIssue.code === "too_small" && typeof firstIssue.minimum === "number") {
+    return `Der Nutzername muss mindestens ${firstIssue.minimum} Zeichen haben.`;
+  }
+
+  if (field === "username" && firstIssue.code === "too_big" && typeof firstIssue.maximum === "number") {
+    return `Der Nutzername darf höchstens ${firstIssue.maximum} Zeichen haben.`;
+  }
+
+  if (field === "password" && firstIssue.code === "too_small" && typeof firstIssue.minimum === "number") {
+    return `Das Passwort muss mindestens ${firstIssue.minimum} Zeichen haben.`;
+  }
+
+  if (field === "password" && firstIssue.code === "too_big" && typeof firstIssue.maximum === "number") {
+    return `Das Passwort darf höchstens ${firstIssue.maximum} Zeichen haben.`;
+  }
+
+  if (field === "seatIndex") {
+    return "Der gewählte Sitzplatz ist ungültig.";
+  }
+
+  if (field === "ready") {
+    return "Der Bereit-Status ist ungültig.";
+  }
+
+  return firstIssue.message || "Ungültige Eingabe.";
 }

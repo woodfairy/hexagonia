@@ -1,4 +1,6 @@
 import type { AuthUser, RoomDetails } from "@hexagonia/shared";
+import { PlayerColorBadge } from "../shared/PlayerIdentity";
+import { renderPlayerColorLabel } from "../../ui";
 
 export function LobbyScreen(props: {
   session: AuthUser;
@@ -17,7 +19,7 @@ export function LobbyScreen(props: {
           <div className="eyebrow">Spielzentrale</div>
           <h1>Willkommen, {props.session.username}</h1>
           <p className="hero-copy">
-            Starte einen privaten Spieltisch oder steig direkt wieder in deine laufenden Raeume und Partien ein.
+            Starte einen privaten Spieltisch oder steig direkt wieder in deine laufenden Räume und Partien ein.
           </p>
           <div className="lobby-summary-grid">
             <div className="summary-card">
@@ -26,7 +28,7 @@ export function LobbyScreen(props: {
             </div>
             <div className="summary-card">
               <strong>Nahtlos fortsetzen</strong>
-              <span>Offene Raeume und aktive Partien bleiben fuer dich griffbereit.</span>
+              <span>Offene Räume und aktive Partien bleiben für dich griffbereit.</span>
             </div>
           </div>
         </article>
@@ -35,7 +37,7 @@ export function LobbyScreen(props: {
           <div className="surface-head">
             <div>
               <div className="eyebrow">Fortsetzen</div>
-              <h2>Deine Raeume und Partien</h2>
+              <h2>Deine Räume und Partien</h2>
             </div>
           </div>
 
@@ -62,6 +64,11 @@ export function LobbyScreen(props: {
                         {canResumeMatch ? "Live" : "Bereit"}
                       </span>
                     </div>
+                    {mySeat ? (
+                      <div className="resume-card-meta-row">
+                        <PlayerColorBadge color={mySeat.color} label={`Deine Farbe: ${renderPlayerColorLabel(mySeat.color)}`} compact />
+                      </div>
+                    ) : null}
                     <div className="resume-card-actions">
                       <button
                         type="button"
@@ -70,14 +77,14 @@ export function LobbyScreen(props: {
                           canResumeMatch && room.matchId ? props.onResumeMatch(room.matchId) : props.onOpenRoom(room.id)
                         }
                       >
-                        {canResumeMatch ? "Partie fortsetzen" : "Raum oeffnen"}
+                        {canResumeMatch ? "Partie fortsetzen" : "Raum öffnen"}
                       </button>
                     </div>
                   </article>
                 );
               })
             ) : (
-              <div className="empty-state">Noch keine offenen Raeume oder laufenden Partien in deiner Liste.</div>
+              <div className="empty-state">Noch keine offenen Räume oder laufenden Partien in deiner Liste.</div>
             )}
           </div>
         </article>
@@ -88,10 +95,10 @@ export function LobbyScreen(props: {
           <div className="surface-head">
             <div>
               <div className="eyebrow">Schnellstart</div>
-              <h2>Neuen Raum eroefnen</h2>
+              <h2>Neuen Raum eröffnen</h2>
             </div>
           </div>
-          <p>Lege sofort einen privaten 4er-Raum an und uebernimm Platz 1.</p>
+          <p>Lege sofort einen privaten 4er-Raum an und übernimm Platz 1.</p>
           <button className="primary-button large-button" type="button" onClick={props.onCreateRoom}>
             Privaten Raum erstellen
           </button>
@@ -115,7 +122,7 @@ export function LobbyScreen(props: {
               Beitreten
             </button>
           </div>
-          <span className="muted-copy">Code eingeben, bestaetigen und direkt in den Raum springen.</span>
+          <span className="muted-copy">Code eingeben, bestätigen und direkt in den Raum springen.</span>
         </article>
       </div>
     </section>

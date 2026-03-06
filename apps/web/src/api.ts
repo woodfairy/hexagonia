@@ -36,8 +36,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error ?? "Unbekannter API-Fehler");
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? ((await response.json().catch(() => null)) as { error?: string; message?: string } | null)
+      : null;
+    const fallbackText = payload
+      ? null
+      : ((await response.text().catch(() => "")) || "").replace(/\s+/g, " ").trim();
+    const message =
+      payload?.error ??
+      payload?.message ??
+      (fallbackText && fallbackText.length < 240 ? fallbackText : null) ??
+      `${response.status} ${response.statusText || "Fehler"}`;
+    throw new Error(message);
   }
 
   return (await response.json()) as T;

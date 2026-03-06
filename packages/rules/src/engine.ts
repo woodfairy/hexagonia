@@ -449,7 +449,7 @@ function handleRollDice(state: GameState, playerId: string): void {
     return;
   }
 
-  distributeResourcesForRoll(state, total);
+  distributeResourcesForRoll(state, total, playerId, dice);
   state.phase = "turn_action";
   state.previousPhase = null;
 }
@@ -904,14 +904,22 @@ function grantInitialResources(state: GameState, playerId: string, vertexId: str
   });
 }
 
-function distributeResourcesForRoll(state: GameState, roll: number): void {
+function distributeResourcesForRoll(
+  state: GameState,
+  roll: number,
+  playerId: string,
+  dice: [number, number]
+): void {
   const demandByResource = new Map<Resource, number>();
   const grantByPlayerId = new Map<string, ResourceMap>();
+  const affectedTileIds: string[] = [];
 
   for (const tile of state.board.tiles) {
     if (tile.resource === "desert" || tile.robber || tile.token !== roll) {
       continue;
     }
+
+    affectedTileIds.push(tile.id);
 
     for (const vertexId of tile.vertexIds) {
       const vertex = getVertex(state, vertexId);
@@ -927,9 +935,11 @@ function distributeResourcesForRoll(state: GameState, roll: number): void {
     }
   }
 
+  const blockedResources: Resource[] = [];
   for (const resource of RESOURCES) {
     const demand = demandByResource.get(resource) ?? 0;
     if (demand > state.bank[resource]) {
+      blockedResources.push(resource);
       for (const grant of grantByPlayerId.values()) {
         grant[resource] = 0;
       }
@@ -946,7 +956,18 @@ function distributeResourcesForRoll(state: GameState, roll: number): void {
 
   appendEvent(state, {
     type: "resources_distributed",
-    payload: { roll }
+    byPlayerId: playerId,
+    payload: {
+      roll,
+      dice,
+      tileIds: affectedTileIds,
+      grantsByPlayerId: Object.fromEntries(
+        [...grantByPlayerId.entries()]
+          .filter(([, grant]) => !isEmptyResourceMap(grant))
+          .map(([targetPlayerId, grant]) => [targetPlayerId, cloneResourceMap(grant)])
+      ),
+      blockedResources
+    }
   });
 }
 

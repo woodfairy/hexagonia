@@ -405,11 +405,11 @@ export class Database {
       from rooms
       where status <> 'closed'
         and (
-          owner_user_id = $1
+          owner_user_id = $1::uuid
           or exists (
             select 1
             from jsonb_array_elements(seats) as seat
-            where seat->>'userId' = $1
+            where seat->>'userId' = $2::text
           )
         )
       order by
@@ -420,7 +420,7 @@ export class Database {
         end,
         created_at desc
       `,
-      [userId]
+      [userId, userId]
     );
 
     return result.rows.map((row) =>

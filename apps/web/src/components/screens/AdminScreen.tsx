@@ -111,7 +111,7 @@ export function AdminScreen(props: {
                       Speichern
                     </button>
                     <button type="button" className="ghost-button" onClick={() => props.onDeleteUser(user.id)}>
-                      Loeschen
+                      Löschen
                     </button>
                   </div>
                 </article>
@@ -125,10 +125,10 @@ export function AdminScreen(props: {
         <article className="surface admin-rooms-surface">
           <div className="surface-head">
             <div>
-              <div className="eyebrow">Raeume</div>
+              <div className="eyebrow">Räume</div>
               <h2>Aktive Tische</h2>
             </div>
-            <span className="status-pill">{props.rooms.length} Raeume</span>
+            <span className="status-pill">{props.rooms.length} Räume</span>
           </div>
           <div className="scroll-list admin-card-list">
             {props.rooms.map((room) => (
@@ -145,10 +145,10 @@ export function AdminScreen(props: {
                 </div>
                 <div className="admin-card-actions">
                   <button type="button" className="secondary-button" onClick={() => props.onOpenRoom(room.id)}>
-                    Raum oeffnen
+                    Raum öffnen
                   </button>
                   <button type="button" className="ghost-button" onClick={() => props.onCloseRoom(room.id)}>
-                    Raum schliessen
+                    Raum schließen
                   </button>
                 </div>
               </article>
