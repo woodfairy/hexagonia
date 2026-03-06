@@ -488,6 +488,7 @@ select:hover {
 .auth-shell {
   grid-template-columns: 1.12fr minmax(20rem, 0.88fr);
   gap: 0.95rem;
+  align-items: stretch;
 }
 
 .hero-surface,
@@ -504,6 +505,17 @@ select:hover {
 }
 
 .hero-surface {
+  align-content: start;
+}
+
+.auth-surface {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 0.9rem;
+}
+
+.auth-form {
   align-content: start;
 }
 
@@ -535,6 +547,29 @@ select:hover {
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 1.15rem;
   background: rgba(255, 255, 255, 0.035);
+}
+
+.resource-icon {
+  inline-size: var(--resource-icon-size, 1rem);
+  block-size: var(--resource-icon-size, 1rem);
+  display: inline-grid;
+  place-items: center;
+  color: var(--resource-icon-color, var(--text));
+  flex: none;
+}
+
+.resource-icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.resource-icon.is-shell {
+  inline-size: calc(var(--resource-icon-size, 1rem) + 0.8rem);
+  block-size: calc(var(--resource-icon-size, 1rem) + 0.8rem);
+  border-radius: 999px;
+  background: var(--resource-icon-surface, rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .lobby-shell {
@@ -1348,10 +1383,44 @@ select:hover {
   gap: 0.55rem;
 }
 
-.board-legend-player {
+.board-legend-resource {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
   padding: 0.62rem 0.72rem;
   border-radius: 0.95rem;
   background: rgba(255, 255, 255, 0.035);
+}
+
+.board-legend-resource-swatch {
+  inline-size: 2.6rem;
+  block-size: 2.3rem;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--legend-resource-color, rgba(255, 255, 255, 0.12));
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%);
+  box-shadow:
+    inset 0 -0.32rem 0 rgba(0, 0, 0, 0.16),
+    0 0.6rem 1rem rgba(0, 0, 0, 0.18);
+}
+
+.board-legend-resource-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-inline-size: 0;
+}
+
+.board-legend-resource-copy strong {
+  line-height: 1.1;
+}
+
+.board-legend-resource-copy span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .board-legend-note {
@@ -1469,7 +1538,7 @@ select:hover {
 .board-hud-pill {
   display: inline-grid;
   gap: 0.12rem;
-  min-inline-size: 5.15rem;
+  min-inline-size: 5.9rem;
   min-block-size: 2.35rem;
   padding: 0.46rem 0.7rem;
   border-radius: 0.95rem;
@@ -1477,6 +1546,12 @@ select:hover {
   background: rgba(6, 15, 23, 0.82);
   backdrop-filter: blur(12px);
   justify-items: start;
+}
+
+.board-hud-pill-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
 }
 
 .board-hud-pill strong {
@@ -1760,8 +1835,15 @@ select:hover {
 }
 
 .resource-card {
+  align-content: start;
   place-items: center;
   text-align: center;
+}
+
+.resource-card-head {
+  display: grid;
+  justify-items: center;
+  gap: 0.42rem;
 }
 
 .resource-card strong {
@@ -2063,6 +2145,11 @@ select:hover {
     gap: 0.75rem;
   }
 
+  .auth-shell {
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: start;
+  }
+
   .hero-surface,
   .auth-surface,
   .lobby-hero,
@@ -2088,6 +2175,27 @@ select:hover {
   .hero-copy {
     font-size: 0.92rem;
     line-height: 1.35;
+  }
+
+  .hero-surface {
+    gap: 0.5rem;
+  }
+
+  .hero-metrics {
+    display: none;
+  }
+
+  .auth-surface {
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+
+  .auth-form {
+    gap: 0.55rem;
+  }
+
+  .auth-submit {
+    min-block-size: 3rem;
   }
 
   .hero-metrics,
@@ -2297,6 +2405,36 @@ select:hover {
   .hero-copy,
   .seat-card .muted-copy {
     display: none;
+  }
+
+  .auth-shell {
+    grid-template-rows: 1fr;
+  }
+
+  .hero-surface {
+    display: none;
+  }
+
+  .auth-surface {
+    gap: 0.72rem;
+  }
+
+  .surface-head {
+    gap: 0.55rem;
+  }
+
+  .segmented-control {
+    inline-size: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+
+  .segmented-control button {
+    min-block-size: 2.5rem;
+  }
+
+  .auth-form {
+    gap: 0.5rem;
   }
 
   .hero-metrics,

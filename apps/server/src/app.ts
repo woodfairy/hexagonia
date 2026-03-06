@@ -55,6 +55,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
   const db = new Database(config.DATABASE_URL);
   await db.init();
+  const cleanedUpRooms = await db.cleanupInactiveRooms();
+  if (cleanedUpRooms > 0) {
+    app.log.info({ cleanedUpRooms }, "inactive rooms cleaned up");
+  }
   await ensureBootstrapAdmin(db, config);
   const hub = new RealtimeHub(db, app.log);
 
@@ -285,6 +289,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
       if (!remainingSeatOwner) {
         refreshedRoom.status = "closed";
+        refreshedRoom.matchId = null;
+        await hub.broadcastRoom(refreshedRoom);
+        await db.deleteRoom(refreshedRoom.id);
+        continue;
       }
 
       const saved = await db.saveRoom(refreshedRoom);
@@ -332,9 +340,9 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       ready: false
     }));
 
-    const saved = await db.saveRoom(refreshedRoom);
-    await hub.broadcastRoom(saved);
-    return { room: saved };
+    await hub.broadcastRoom(refreshedRoom);
+    await db.deleteRoom(refreshedRoom.id);
+    return { room: refreshedRoom };
   });
 
   app.get("/api/admin/matches", async (request, reply) => {
@@ -469,6 +477,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const occupiedSeats = room.seats.filter((entry) => entry.userId);
     if (!occupiedSeats.length) {
       room.status = "closed";
+      room.matchId = null;
+      await hub.broadcastRoom(room);
+      await db.deleteRoom(room.id);
+      return { room };
     }
     if (room.ownerUserId === user.id && occupiedSeats.length > 0) {
       room.ownerUserId = occupiedSeats[0]!.userId!;
@@ -722,6 +734,12 @@ async function resetMatchToRoom(
     ready: false
   }));
 
+  if (!hasOccupiedSeats(room)) {
+    await hub.broadcastRoom(room);
+    await db.deleteRoom(room.id);
+    return room;
+  }
+
   const saved = await db.saveRoom(room);
   await hub.broadcastRoom(saved);
   return saved;
@@ -733,6 +751,10 @@ function isUniqueViolation(error: unknown): boolean {
 
 function generateRoomCode(): string {
   return randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
+}
+
+function hasOccupiedSeats(room: RoomDetails): boolean {
+  return room.seats.some((seat) => !!seat.userId);
 }
 
 function formatZodError(error: z.ZodError): string {

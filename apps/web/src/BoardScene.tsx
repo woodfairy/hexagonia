@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, Resource } from "@hexagonia/shared";
+import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
 
 export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
 export interface BoardFocusCue {
@@ -27,7 +28,7 @@ interface BoardSceneProps {
   onTileSelect: (tileId: string) => void;
 }
 
-const TILE_COLORS: Record<Resource | "desert", string> = {
+export const TILE_COLORS: Record<Resource | "desert", string> = {
   brick: "#b6543d",
   lumber: "#3f7f4b",
   ore: "#6a7286",
@@ -120,7 +121,7 @@ export function BoardScene(props: BoardSceneProps) {
     controls.update();
     focusTargetRef.current.copy(DEFAULT_CAMERA_TARGET);
     focusCameraPositionRef.current.copy(DEFAULT_CAMERA_POSITION);
-    renderer.domElement.style.cursor = "grab";
+    renderer.domElement.style.cursor = "";
 
     scene.add(new THREE.AmbientLight("#d5e4f2", 1.35));
     const keyLight = new THREE.DirectionalLight("#f6efe0", 1.45);
@@ -145,7 +146,7 @@ export function BoardScene(props: BoardSceneProps) {
       userInteractingRef.current = false;
       focusTargetRef.current.copy(controlsRef.current.target);
       focusCameraPositionRef.current.copy(cameraRef.current.position);
-      renderer.domElement.style.cursor = hoveredInteractiveRef.current ? "pointer" : "grab";
+      renderer.domElement.style.cursor = hoveredInteractiveRef.current ? "pointer" : "";
     };
     controls.addEventListener("start", onControlStart);
     controls.addEventListener("end", onControlEnd);
@@ -195,7 +196,7 @@ export function BoardScene(props: BoardSceneProps) {
       hoveredInteractiveRef.current = nextObject;
       setInteractiveHoverState(nextObject, true);
       if (!userInteractingRef.current) {
-        renderer.domElement.style.cursor = nextObject ? "pointer" : "grab";
+        renderer.domElement.style.cursor = nextObject ? "pointer" : "";
       }
     };
 
@@ -221,7 +222,7 @@ export function BoardScene(props: BoardSceneProps) {
     const onPointerLeave = () => {
       updateHoveredObject(null);
       if (!userInteractingRef.current) {
-        renderer.domElement.style.cursor = "grab";
+        renderer.domElement.style.cursor = "";
       }
     };
 
@@ -328,6 +329,9 @@ export function BoardScene(props: BoardSceneProps) {
     if (boardGroupRef.current) {
       setInteractiveHoverState(hoveredInteractiveRef.current, false);
       hoveredInteractiveRef.current = null;
+      if (rendererRef.current && !userInteractingRef.current) {
+        rendererRef.current.domElement.style.cursor = "";
+      }
       disposeObjectTree(boardGroupRef.current);
       scene.remove(boardGroupRef.current);
     }
@@ -375,7 +379,7 @@ export function BoardScene(props: BoardSceneProps) {
       outline.position.set(tile.x, TILE_HEIGHT + 0.04, tile.y);
       group.add(outline);
 
-      const tokenSprite = createTokenSprite(tile.token, tile.robber);
+      const tokenSprite = createTokenSprite(tile.resource, tile.token, tile.robber);
       tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.62, tile.y);
       group.add(tokenSprite);
 
@@ -384,7 +388,7 @@ export function BoardScene(props: BoardSceneProps) {
         marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
         registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
         group.add(marker);
-        attachInteractiveMeta(base, "tile", tile.id, 1.02, marker);
+        attachInteractiveMeta(base, "tile", tile.id, 1.06, marker);
         interactiveRef.current.push(base);
       }
     }
@@ -408,18 +412,28 @@ export function BoardScene(props: BoardSceneProps) {
       const road = edge.ownerId
         ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected)
         : createRoadGuide(length, selected);
-      road.position.set(centerX, edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04 : TILE_HEIGHT + GUIDE_ROAD_RADIUS, centerZ);
-      road.quaternion.setFromUnitVectors(
+      const roadObject = new THREE.Group();
+      roadObject.position.set(centerX, 0, centerZ);
+      roadObject.quaternion.setFromUnitVectors(
         new THREE.Vector3(0, 1, 0),
         new THREE.Vector3(dx, 0, dz).normalize()
       );
+      road.position.y = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04 : TILE_HEIGHT + GUIDE_ROAD_RADIUS;
       road.castShadow = !!edge.ownerId;
-      group.add(road);
+      roadObject.add(road);
 
       if (active) {
-        registerPulseVisual(road, pulseObjectsRef.current, selected ? "strong" : "soft", 1.08);
-        attachInteractiveMeta(road, "edge", edge.id, selected ? 1.1 : 1.08);
-        interactiveRef.current.push(road);
+        const hitArea = createRoadHitArea(length);
+        hitArea.position.y = TILE_HEIGHT + 0.24;
+        roadObject.add(hitArea);
+      }
+
+      group.add(roadObject);
+
+      if (active) {
+        registerPulseVisual(roadObject, pulseObjectsRef.current, selected ? "strong" : "soft", selected ? 1.24 : 1.18);
+        attachInteractiveMeta(roadObject, "edge", edge.id, selected ? 1.18 : 1.14);
+        interactiveRef.current.push(roadObject);
       }
     }
 
@@ -450,7 +464,7 @@ export function BoardScene(props: BoardSceneProps) {
           registerPulseVisual(mesh, pulseObjectsRef.current, "soft", 1.1);
         }
 
-        attachInteractiveMeta(mesh, "vertex", vertex.id, building ? 1.05 : 1.12, marker);
+        attachInteractiveMeta(mesh, "vertex", vertex.id, building ? 1.1 : 1.18, marker);
         interactiveRef.current.push(mesh);
       }
     }
@@ -541,7 +555,7 @@ function createVertexMarker(): THREE.Mesh {
   );
 }
 
-function createTokenSprite(token: number | null, robber: boolean): THREE.Sprite {
+function createTokenSprite(resource: Resource | "desert", token: number | null, robber: boolean): THREE.Sprite {
   const canvas = document.createElement("canvas");
   canvas.width = 160;
   canvas.height = 160;
@@ -556,18 +570,27 @@ function createTokenSprite(token: number | null, robber: boolean): THREE.Sprite 
   context.strokeStyle = robber ? "#f3cf83" : "#6b4a1b";
   context.stroke();
 
+  context.beginPath();
+  context.fillStyle = robber ? "rgba(243, 207, 131, 0.18)" : "rgba(255, 255, 255, 0.72)";
+  context.arc(80, 42, 18, 0, Math.PI * 2);
+  context.fill();
+  context.lineWidth = 2.5;
+  context.strokeStyle = robber ? "#f3cf83" : "rgba(32, 50, 64, 0.18)";
+  context.stroke();
+  drawResourceIcon(context, resource, 80, 42, 22, robber ? "#f3cf83" : getResourceIconColor(resource));
+
   if (token !== null) {
     context.fillStyle = token === 6 || token === 8 ? "#b83e2f" : "#203240";
     context.font = "700 54px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(String(token), 80, 76);
+    context.fillText(String(token), 80, 88);
   } else {
     context.fillStyle = "#f3cf83";
     context.font = "700 22px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("RAUBER", 80, 80);
+    context.fillText("RÄUBER", 80, 88);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -675,11 +698,25 @@ function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
       roughness: 0.48,
       metalness: 0.02,
       transparent: true,
-      opacity: selected ? 0.95 : 0.62,
+      opacity: selected ? 0.98 : 0.76,
       emissive: new THREE.Color("#f0a93a"),
-      emissiveIntensity: selected ? 0.38 : 0.18
+      emissiveIntensity: selected ? 0.48 : 0.28
     })
   );
+}
+
+function createRoadHitArea(length: number): THREE.Mesh {
+  const hitLength = Math.max(length * 0.82, 1.1);
+  const hitArea = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.62, hitLength, 4, 10),
+    new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false
+    })
+  );
+  hitArea.userData.skipInteractiveVisualState = true;
+  return hitArea;
 }
 
 function appendFocusMarkers(
@@ -960,10 +997,15 @@ function setInteractiveHoverState(object: THREE.Object3D | null, hovered: boolea
 
   for (const state of meta.materialStates) {
     if (typeof state.opacity === "number") {
-      state.material.opacity = hovered ? Math.min(state.opacity + 0.18, 1) : state.opacity;
+      state.material.opacity = hovered ? Math.min(state.opacity + 0.3, 1) : state.opacity;
     }
     if (typeof state.emissiveIntensity === "number" && "emissiveIntensity" in state.material) {
-      state.material.emissiveIntensity = hovered ? state.emissiveIntensity + 0.18 : state.emissiveIntensity;
+      state.material.emissiveIntensity = hovered ? state.emissiveIntensity + 0.34 : state.emissiveIntensity;
+    }
+    if (state.color && "color" in state.material && state.material.color instanceof THREE.Color) {
+      state.material.color.copy(
+        hovered ? state.color.clone().lerp(new THREE.Color("#ffe6a6"), 0.28) : state.color
+      );
     }
   }
 
@@ -976,6 +1018,10 @@ function collectMaterialStates(root: THREE.Object3D): MaterialState[] {
   const states: MaterialState[] = [];
 
   root.traverse((object) => {
+    if (object.userData?.skipInteractiveVisualState) {
+      return;
+    }
+
     if (!(object instanceof THREE.Mesh || object instanceof THREE.Sprite || object instanceof THREE.Line)) {
       return;
     }

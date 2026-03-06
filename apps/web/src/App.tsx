@@ -538,6 +538,15 @@ export function App() {
           return;
         }
 
+        if (currentRoute.kind === "room" && currentRoute.roomId === message.room.id && message.room.status === "closed" && !isSeatedInRoom) {
+          setRoom(null);
+          setMatch(null);
+          setPresence([]);
+          navigateTo({ kind: "home" });
+          pushToast("info", "Raum geschlossen", "Dieser Raum wurde beendet und aus der Liste entfernt.");
+          return;
+        }
+
         if (message.room.matchId && isSeatedInRoom) {
           navigateTo({ kind: "match", matchId: message.room.matchId });
         }
@@ -1064,7 +1073,10 @@ export function App() {
     try {
       const savedRoom = await closeAdminRoom(roomId);
       if (room?.id === savedRoom.id) {
-        setRoom(savedRoom);
+        setRoom(null);
+        setMatch(null);
+        setPresence([]);
+        navigateTo({ kind: "home" });
       }
       await loadAdminData();
       await loadMyRooms();

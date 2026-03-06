@@ -324,7 +324,9 @@ export class RealtimeHub {
     }
 
     const timeout = setTimeout(() => {
-      void this.finalizeMatchDisconnect(matchId, userId);
+      void this.finalizeMatchDisconnect(matchId, userId).catch((error) => {
+        this.logger.warn({ error, matchId, userId }, "failed to finalize match disconnect");
+      });
     }, RealtimeHub.MATCH_DISCONNECT_GRACE_MS);
 
     this.pendingMatchDisconnects.set(key, timeout);
@@ -342,7 +344,9 @@ export class RealtimeHub {
     }
 
     const timeout = setTimeout(() => {
-      void this.finalizeRoomEviction(roomId, userId);
+      void this.finalizeRoomEviction(roomId, userId).catch((error) => {
+        this.logger.warn({ error, roomId, userId }, "failed to finalize room eviction");
+      });
     }, RealtimeHub.PLAYER_EVICTION_GRACE_MS);
 
     this.pendingRoomEvictions.set(key, timeout);
@@ -355,7 +359,9 @@ export class RealtimeHub {
     }
 
     const timeout = setTimeout(() => {
-      void this.finalizeMatchEviction(matchId, userId);
+      void this.finalizeMatchEviction(matchId, userId).catch((error) => {
+        this.logger.warn({ error, matchId, userId }, "failed to finalize match eviction");
+      });
     }, RealtimeHub.PLAYER_EVICTION_GRACE_MS);
 
     this.pendingMatchEvictions.set(key, timeout);
@@ -402,7 +408,13 @@ export class RealtimeHub {
       return;
     }
 
-    const state = await this.getMatchState(matchId);
+    let state: GameState | null = null;
+    try {
+      state = await this.getMatchState(matchId);
+    } catch {
+      return;
+    }
+
     if (!state.players.some((player) => player.id === userId)) {
       return;
     }
@@ -438,6 +450,10 @@ export class RealtimeHub {
     const occupiedSeats = room.seats.filter((entry) => entry.userId);
     if (!occupiedSeats.length) {
       room.status = "closed";
+      room.matchId = null;
+      await this.broadcastRoom(room);
+      await this.db.deleteRoom(room.id);
+      return;
     } else if (room.ownerUserId === userId) {
       room.ownerUserId = occupiedSeats[0]!.userId!;
     }
@@ -492,6 +508,9 @@ export class RealtimeHub {
     const occupiedSeats = room.seats.filter((entry) => entry.userId);
     if (!occupiedSeats.length) {
       room.status = "closed";
+      await this.broadcastRoom(room);
+      await this.db.deleteRoom(room.id);
+      return;
     } else if (room.ownerUserId === userId) {
       room.ownerUserId = occupiedSeats[0]!.userId!;
     }
