@@ -1030,31 +1030,15 @@ function maybeDeclareWinner(state: GameState): void {
 function createPlayerView(state: GameState, playerId: string, viewerId: string): PlayerView {
   const player = getPlayer(state, playerId);
   const isSelf = player.id === viewerId;
-  return {
+  const view: PlayerView = {
     id: player.id,
     username: player.username,
     color: player.color,
     seatIndex: player.seatIndex,
     connected: player.connected,
     resourceCount: totalResources(player.resources),
-    resources: isSelf ? cloneResourceMap(player.resources) : undefined,
     developmentCardCount: player.developmentCards.length,
-    developmentCards: isSelf
-      ? player.developmentCards.map((card) => ({
-          id: card.id,
-          type: card.type,
-          boughtOnTurn: card.boughtOnTurn,
-          playable:
-            card.type !== "victory_point" &&
-            card.boughtOnTurn < state.turn &&
-            !player.hasPlayedDevelopmentCardThisTurn
-        }))
-      : undefined,
-    hiddenVictoryPoints: isSelf
-      ? player.developmentCards.filter((card) => card.type === "victory_point").length
-      : undefined,
     publicVictoryPoints: getPublicVictoryPoints(state, player.id),
-    totalVictoryPoints: isSelf ? getVictoryPoints(state, player.id) : undefined,
     roadsBuilt: player.roads.length,
     settlementsBuilt: player.settlements.length,
     citiesBuilt: player.cities.length,
@@ -1062,6 +1046,25 @@ function createPlayerView(state: GameState, playerId: string, viewerId: string):
     hasLongestRoad: player.hasLongestRoad,
     hasLargestArmy: player.hasLargestArmy
   };
+
+  if (isSelf) {
+    view.resources = cloneResourceMap(player.resources);
+    view.developmentCards = player.developmentCards.map((card) => ({
+      id: card.id,
+      type: card.type,
+      boughtOnTurn: card.boughtOnTurn,
+      playable:
+        card.type !== "victory_point" &&
+        card.boughtOnTurn < state.turn &&
+        !player.hasPlayedDevelopmentCardThisTurn
+    }));
+    view.hiddenVictoryPoints = player.developmentCards.filter(
+      (card) => card.type === "victory_point"
+    ).length;
+    view.totalVictoryPoints = getVictoryPoints(state, player.id);
+  }
+
+  return view;
 }
 
 function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
@@ -1404,13 +1407,18 @@ function appendEvent(
     byPlayerId?: string;
   }
 ): void {
-  state.eventLog.push({
+  const event: MatchEvent = {
     id: `event-${state.eventLog.length + 1}`,
     type: input.type,
     atTurn: state.turn,
-    byPlayerId: input.byPlayerId,
     payload: input.payload
-  });
+  };
+
+  if (input.byPlayerId) {
+    event.byPlayerId = input.byPlayerId;
+  }
+
+  state.eventLog.push(event);
 }
 
 function toTradeView(trade: InternalTradeOffer): TradeOfferView {

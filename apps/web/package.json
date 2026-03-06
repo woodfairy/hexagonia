@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "npm run build -w @hexagonia/shared && tsc -p tsconfig.json && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "echo \"Web tests pending\"",
     "lint": "tsc -p tsconfig.json --noEmit",
