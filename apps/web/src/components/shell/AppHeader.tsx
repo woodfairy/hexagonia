@@ -49,9 +49,9 @@ export function AppHeader(props: {
           <ProfileMenu
             connectionState={props.connectionState}
             session={props.session}
-            onNavigateAdmin={props.onNavigateAdmin}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}
+            {...(props.onNavigateAdmin ? { onNavigateAdmin: props.onNavigateAdmin } : {})}
             {...profileRoomProps}
           />
         ) : null}

@@ -191,13 +191,15 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     try {
       const updated = await db.updateUser(userId, {
-        username: body.username,
-        role: body.role,
-        passwordHash: body.password
-          ? await argon2.hash(body.password, {
-              type: argon2.argon2id
-            })
-          : undefined
+        ...(body.username ? { username: body.username } : {}),
+        ...(body.role ? { role: body.role } : {}),
+        ...(body.password
+          ? {
+              passwordHash: await argon2.hash(body.password, {
+                type: argon2.argon2id
+              })
+            }
+          : {})
       });
 
       if (!updated) {
@@ -666,9 +668,9 @@ async function ensureBootstrapAdmin(db: Database, config: AppConfig): Promise<vo
   });
 
   await db.upsertBootstrapAdmin({
-    email: config.ADMIN_EMAIL,
     username: config.ADMIN_USERNAME,
-    passwordHash
+    passwordHash,
+    ...(config.ADMIN_EMAIL ? { email: config.ADMIN_EMAIL } : {})
   });
 }
 
