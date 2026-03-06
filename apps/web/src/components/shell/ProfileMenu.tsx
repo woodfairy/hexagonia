@@ -8,8 +8,8 @@ export function ProfileMenu(props: {
   connectionState: ConnectionState;
   roomCode?: string;
   onNavigateHome: () => void;
-  onCopyRoomCode?: () => void;
-  onLogout: () => void;
+  onCopyRoomCode?: () => void | Promise<void>;
+  onLogout: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -82,11 +82,11 @@ export function ProfileMenu(props: {
               <button
                 type="button"
                 className="menu-action"
-                onClick={() => {
-                  setOpen(false);
-                  props.onCopyRoomCode?.();
-                }}
-              >
+              onClick={() => {
+                setOpen(false);
+                void props.onCopyRoomCode?.();
+              }}
+            >
                 Raumcode {props.roomCode} kopieren
               </button>
             ) : null}
@@ -95,7 +95,7 @@ export function ProfileMenu(props: {
               className="menu-action danger"
               onClick={() => {
                 setOpen(false);
-                props.onLogout();
+                void props.onLogout();
               }}
             >
               Abmelden

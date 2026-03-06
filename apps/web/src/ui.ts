@@ -66,7 +66,6 @@ export function formatPhase(phase: MatchPhase): string {
     turn_action: "Aktionsphase",
     robber_interrupt: "Raeuber",
     trade_resolution: "Handel",
-    turn_end: "Zugende",
     game_over: "Spiel beendet"
   };
 

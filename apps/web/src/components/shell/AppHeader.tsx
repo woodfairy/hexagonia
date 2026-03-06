@@ -12,9 +12,17 @@ export function AppHeader(props: {
   meta?: string;
   roomCode?: string;
   onNavigateHome: () => void;
-  onCopyRoomCode?: () => void;
-  onLogout: () => void;
+  onCopyRoomCode?: () => void | Promise<void>;
+  onLogout: () => void | Promise<void>;
 }) {
+  const profileRoomProps =
+    props.roomCode && props.onCopyRoomCode
+      ? {
+          roomCode: props.roomCode,
+          onCopyRoomCode: props.onCopyRoomCode
+        }
+      : {};
+
   return (
     <header className="app-header">
       <div className="brand-cluster">
@@ -38,11 +46,10 @@ export function AppHeader(props: {
         {props.session ? (
           <ProfileMenu
             connectionState={props.connectionState}
-            roomCode={props.roomCode}
             session={props.session}
-            onCopyRoomCode={props.onCopyRoomCode}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}
+            {...profileRoomProps}
           />
         ) : null}
       </div>
