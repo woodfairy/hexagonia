@@ -1,0 +1,21 @@
+{
+  "name": "@hexagonia/rules",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "dependencies": {
+    "@hexagonia/shared": "file:../shared"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "format": "echo \"Formatting handled at repo level\""
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@hexagonia/shared",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "echo \"No tests in shared\"",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "format": "echo \"Formatting handled at repo level\""
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

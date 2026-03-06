@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hexagonia}
+      POSTGRES_USER: ${POSTGRES_USER:-hexagonia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hexagonia}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://hexagonia:hexagonia@postgres:5432/hexagonia}
+      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:-replace-me}
+      PORT: ${PORT:-3000}
+    ports:
+      - "3000:3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      - server
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:3000/ws}
+    ports:
+      - "4173:4173"
