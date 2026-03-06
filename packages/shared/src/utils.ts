@@ -1,5 +1,5 @@
-import type { Resource, ResourceMap } from "./game";
-import { RESOURCES } from "./game";
+import type { Resource, ResourceMap } from "./game.js";
+import { RESOURCES } from "./game.js";
 
 export function createEmptyResourceMap(): ResourceMap {
   return {

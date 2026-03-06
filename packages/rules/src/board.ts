@@ -1,5 +1,5 @@
 import type { EdgeView, PortType, PortView, Resource, TileView, VertexView } from "@hexagonia/shared";
-import { SeededRandom } from "./random";
+import { SeededRandom } from "./random.js";
 
 export interface GeneratedBoard {
   tiles: TileView[];

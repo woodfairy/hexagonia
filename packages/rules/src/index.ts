@@ -1,3 +1,3 @@
-export * from "./board";
-export * from "./engine";
-export * from "./random";
+export * from "./board.js";
+export * from "./engine.js";
+export * from "./random.js";

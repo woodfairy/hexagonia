@@ -8,9 +8,9 @@ import { createMatchState, roomToPlayers } from "@hexagonia/rules";
 import type { ActionIntent, AuthUser, ClientMessage, RoomDetails } from "@hexagonia/shared";
 import type { RawData } from "ws";
 import { z } from "zod";
-import type { AppConfig } from "./config";
-import { Database } from "./db";
-import { RealtimeHub } from "./realtime";
+import type { AppConfig } from "./config.js";
+import { Database } from "./db.js";
+import { RealtimeHub } from "./realtime.js";
 
 const SESSION_COOKIE_NAME = "hexagonia_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
