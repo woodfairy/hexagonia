@@ -1117,9 +1117,6 @@ export function MatchScreen(props: {
                   className={activeTab === tab.id ? "is-active" : ""}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    if (sheetState === "peek") {
-                      setSheetState("half");
-                    }
                   }}
                 >
                   {tab.label}
