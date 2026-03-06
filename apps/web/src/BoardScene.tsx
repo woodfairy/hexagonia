@@ -111,6 +111,7 @@ export function BoardScene(props: BoardSceneProps) {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enablePan = true;
+    controls.enableRotate = true;
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.screenSpacePanning = true;
@@ -118,6 +119,14 @@ export function BoardScene(props: BoardSceneProps) {
     controls.minDistance = 28;
     controls.maxDistance = 88;
     controls.maxPolarAngle = Math.PI / 2.12;
+    const applyControlScheme = (tiltMode: boolean) => {
+      controls.mouseButtons.LEFT = tiltMode ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+      controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+      controls.mouseButtons.RIGHT = tiltMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+      controls.touches.ONE = THREE.TOUCH.PAN;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+    };
+    applyControlScheme(false);
     controls.update();
     focusTargetRef.current.copy(DEFAULT_CAMERA_TARGET);
     focusCameraPositionRef.current.copy(DEFAULT_CAMERA_POSITION);
@@ -150,6 +159,25 @@ export function BoardScene(props: BoardSceneProps) {
     };
     controls.addEventListener("start", onControlStart);
     controls.addEventListener("end", onControlEnd);
+    const syncModifierScheme = (ctrlPressed: boolean) => {
+      applyControlScheme(ctrlPressed);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Control") {
+        syncModifierScheme(true);
+      }
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control") {
+        syncModifierScheme(false);
+      }
+    };
+    const onWindowBlur = () => {
+      syncModifierScheme(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onWindowBlur);
 
     const table = new THREE.Mesh(
       new THREE.CylinderGeometry(44, 48, 4, 48),
@@ -227,6 +255,7 @@ export function BoardScene(props: BoardSceneProps) {
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      syncModifierScheme(event.ctrlKey);
       const target = getInteractiveObjectAtPointer(event);
       const hit = target?.userData as { kind?: "tile" | "edge" | "vertex"; id?: string } | undefined;
       if (!hit?.kind || !hit.id) {
@@ -312,6 +341,9 @@ export function BoardScene(props: BoardSceneProps) {
       renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onWindowBlur);
       controls.removeEventListener("start", onControlStart);
       controls.removeEventListener("end", onControlEnd);
       controls.dispose();
