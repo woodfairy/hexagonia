@@ -112,8 +112,11 @@ export function BoardScene(props: BoardSceneProps) {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enablePan = true;
     controls.enableRotate = true;
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    controls.enableDamping = false;
+    controls.dampingFactor = 0;
+    controls.panSpeed = 1.08;
+    controls.rotateSpeed = 0.92;
+    controls.zoomSpeed = 1.05;
     controls.screenSpacePanning = true;
     controls.target.copy(DEFAULT_CAMERA_TARGET);
     controls.minDistance = 28;

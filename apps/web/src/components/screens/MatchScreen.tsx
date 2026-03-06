@@ -976,10 +976,14 @@ export function MatchScreen(props: {
                   ) : null}
                   <div className="board-hud-row board-hud-resources">
                     {RESOURCES.map((resource) => (
-                      <span key={resource} className="board-hud-pill">
+                      <span
+                        key={resource}
+                        className="board-hud-pill"
+                        title={renderResourceLabel(resource)}
+                        aria-label={`${renderResourceLabel(resource)}: ${props.selfPlayer?.resources?.[resource] ?? 0}`}
+                      >
                         <span className="board-hud-pill-head">
                           <ResourceIcon resource={resource} shell size={15} />
-                          <strong>{renderResourceLabel(resource)}</strong>
                         </span>
                         <span>{props.selfPlayer?.resources?.[resource] ?? 0}</span>
                       </span>

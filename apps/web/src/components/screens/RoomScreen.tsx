@@ -66,9 +66,13 @@ export function RoomScreen(props: {
                   <div className="seat-card-top">
                     <div className="seat-slot-meta">
                       <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
-                      <PlayerColorBadge color={seat.color} compact />
+                      {occupied ? (
+                        <div className="seat-status-meta">
+                          <PlayerColorBadge color={seat.color} compact />
+                          <span className={`online-indicator ${online ? "is-online" : "is-offline"}`} />
+                        </div>
+                      ) : null}
                     </div>
-                    {occupied ? <span className={`online-indicator ${online ? "is-online" : "is-offline"}`} /> : null}
                   </div>
                   {occupied && seat.username ? (
                     <PlayerIdentity
