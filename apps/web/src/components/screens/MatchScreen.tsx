@@ -1462,20 +1462,26 @@ function TradeQuantityControl(props: {
         <span className="trade-quantity-badge">{props.value}x</span>
       </div>
       <div className="trade-quantity-stepper">
-        <button type="button" className="trade-quantity-button" disabled={!canDecrement} onClick={() => props.onChange(props.value - 1)}>
-          -
-        </button>
-        <input
-          type="number"
-          min={props.min}
-          max={props.max}
-          disabled={props.disabled}
-          value={props.value}
-          onChange={(event) => props.onChange(event.target.value)}
-        />
-        <button type="button" className="trade-quantity-button" disabled={!canIncrement} onClick={() => props.onChange(props.value + 1)}>
-          +
-        </button>
+        <div className="trade-quantity-buttons">
+          <button type="button" className="trade-quantity-button" disabled={!canDecrement} onClick={() => props.onChange(props.value - 1)}>
+            -
+          </button>
+          <button type="button" className="trade-quantity-button" disabled={!canIncrement} onClick={() => props.onChange(props.value + 1)}>
+            +
+          </button>
+        </div>
+        <div className="trade-quantity-input-row">
+          <input
+            type="number"
+            inputMode="numeric"
+            className="trade-quantity-input"
+            min={props.min}
+            max={props.max}
+            disabled={props.disabled}
+            value={props.value}
+            onChange={(event) => props.onChange(event.target.value)}
+          />
+        </div>
       </div>
       <span className="trade-quantity-helper">{props.helper}</span>
       <span className="trade-quantity-summary">Aktuell: {props.value}x {renderResourceLabel(props.resource)}</span>
