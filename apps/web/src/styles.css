@@ -1036,6 +1036,7 @@ select:hover {
   inline-size: 0.75rem;
   block-size: 0.75rem;
   border-radius: var(--radius-pill);
+  flex: none;
 }
 
 .online-indicator.is-online {
@@ -1090,6 +1091,12 @@ select:hover {
 
 .seat-slot-meta {
   gap: var(--gap-inline);
+}
+
+.seat-status-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
 }
 
 .room-code-row h1 {
@@ -1603,6 +1610,13 @@ select:hover {
 
 .board-hud-resources .board-hud-pill {
   min-inline-size: 0;
+  gap: 0.26rem;
+  justify-items: center;
+  padding: 0.58rem 0.62rem;
+}
+
+.board-hud-resources .board-hud-pill-head {
+  justify-content: center;
 }
 
 .board-hud-stats {
@@ -2134,9 +2148,13 @@ select:hover {
   }
 
   .lobby-side-grid,
-  .room-side-stack,
   .admin-side-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
+  .room-side-stack {
+    grid-template-columns: 1fr;
     grid-template-rows: none;
   }
 
@@ -2382,6 +2400,12 @@ select:hover {
     gap: 0.75rem;
   }
 
+  .room-shell {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .auth-shell {
     grid-template-rows: auto minmax(0, 1fr);
     align-content: start;
@@ -2444,7 +2468,6 @@ select:hover {
   .player-stat-grid,
   .seat-grid,
   .lobby-side-grid,
-  .room-side-stack,
   .admin-side-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2478,6 +2501,31 @@ select:hover {
   .status-strip {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .room-main-grid {
+    block-size: auto;
+    align-content: start;
+  }
+
+  .room-side-stack {
+    grid-template-columns: 1fr;
+    order: -1;
+  }
+
+  .room-surface-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .room-share-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    inline-size: 100%;
+  }
+
+  .room-share-actions > button {
+    inline-size: 100%;
   }
 
   .board-topbar {
