@@ -1269,20 +1269,12 @@ function isSettlementVertexOpen(state: GameState, vertexId: string): boolean {
   if (vertex.building) {
     return false;
   }
-  return getAdjacentVertexIds(state, vertexId).every((neighborId) => !getVertex(state, neighborId).building);
-}
 
-function getAdjacentVertexIds(state: GameState, vertexId: string): string[] {
-  const vertex = getVertex(state, vertexId);
-  const neighborIds = new Set(vertex.adjacentVertexIds);
-
-  for (const edgeId of vertex.edgeIds) {
+  return vertex.edgeIds.every((edgeId) => {
     const edge = getEdge(state, edgeId);
     const neighborId = edge.vertexIds[0] === vertexId ? edge.vertexIds[1] : edge.vertexIds[0];
-    neighborIds.add(neighborId);
-  }
-
-  return [...neighborIds];
+    return !getVertex(state, neighborId).building;
+  });
 }
 
 function playDevelopmentCard(

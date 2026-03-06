@@ -33,6 +33,13 @@ const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "players", label: "Spieler" }
 ];
 
+const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
+  { id: "actions", label: "Aktionen" },
+  { id: "hand", label: "Hand" },
+  { id: "trade", label: "Handel" },
+  { id: "overview", label: "Mehr" }
+];
+
 const BUILD_COSTS: Record<BuildActionId, Partial<Record<Resource, number>>> = {
   road: { brick: 1, lumber: 1 },
   settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
@@ -85,7 +92,13 @@ export function MatchScreen(props: {
   setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
   setMonopolyResource: Dispatch<SetStateAction<Resource>>;
 }) {
-  const [activeTab, setActiveTab] = useState<MatchPanelTab>("overview");
+  const [activeTab, setActiveTab] = useState<MatchPanelTab>(() => {
+    if (typeof window === "undefined") {
+      return "overview";
+    }
+
+    return window.innerWidth <= 1023 ? "actions" : "overview";
+  });
   const [sheetState, setSheetState] = useState<SheetState>(() => {
     if (typeof window === "undefined") {
       return "half";
@@ -220,8 +233,15 @@ export function MatchScreen(props: {
   const canSubmitMaritimeTrade = (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const mobileHudSummary = props.selfPlayer
-    ? `Du · ${props.selfPlayer.publicVictoryPoints} VP · ${props.selfPlayer.resourceCount} Karten`
+    ? `${props.selfPlayer.publicVictoryPoints} VP · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
+  const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
+  const mobileBoardSummary = activePlayer
+    ? activePlayer.id === props.match.you
+      ? "Du bist am Zug"
+      : `${activePlayer.username} ist am Zug`
+    : "Warte auf Spieler";
+  const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
   const spotlightBadges = isCompactViewport ? spotlightCue?.badges?.slice(0, 1) : spotlightCue?.badges;
   const primaryActions = [
     {
@@ -307,6 +327,21 @@ export function MatchScreen(props: {
   }, [isCompactViewport, sheetState]);
 
   useEffect(() => {
+    if (!isMobileViewport) {
+      return;
+    }
+
+    setBoardLegendOpen(false);
+    setBoardHudOpen(false);
+  }, [isMobileViewport]);
+
+  useEffect(() => {
+    if (isMobileViewport && activeTab === "players") {
+      setActiveTab("overview");
+    }
+  }, [activeTab, isMobileViewport]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -322,9 +357,41 @@ export function MatchScreen(props: {
     window.localStorage.setItem(BOARD_HUD_STORAGE_KEY, boardHudOpen ? "open" : "closed");
   }, [boardHudOpen]);
 
+  const resourceLegendList = (
+    <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : ""}`}>
+      {RESOURCE_LEGEND.map((entry) => (
+        <div key={entry.resource} className="board-legend-resource">
+          <span
+            className="board-legend-resource-swatch"
+            style={{ "--legend-resource-color": TILE_COLORS[entry.resource] } as CSSProperties}
+            aria-hidden="true"
+          >
+            <ResourceIcon resource={entry.resource} tone="light" size={18} />
+          </span>
+          <div className="board-legend-resource-copy">
+            <strong>{renderResourceLabel(entry.resource)}</strong>
+            <span>{entry.note}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const boardHintLegend = (
+    <div className="board-legend-notes">
+      <div className="board-legend-note">
+        <span className="legend-signal is-gold" aria-hidden="true" />
+        <span>Goldene Hinweise markieren die aktuelle Aktion oder das Live-Geschehen.</span>
+      </div>
+      <div className="board-legend-note">
+        <span className="legend-signal is-pulse" aria-hidden="true" />
+        <span>Pulsierende Marker zeigen dir, was du gerade anklicken kannst.</span>
+      </div>
+    </div>
+  );
+
   const tabPanels: Record<MatchPanelTab, ReactNode> = {
     overview: (
-      <div className="panel-frame overview-frame">
+      <div className={`panel-frame overview-frame ${isMobileViewport ? "is-mobile-overview" : ""}`}>
         <div className="dock-card-grid match-overview-grid">
           <InfoCard label="Raum" value={props.room?.code ?? "Unbekannt"} />
           <InfoCard
@@ -343,7 +410,50 @@ export function MatchScreen(props: {
             }
             {...(activePlayer ? { className: `player-surface ${getPlayerAccentClass(activePlayer.color)}` } : {})}
           />
+          {isMobileViewport ? <InfoCard label="Phase" value={formatPhase(props.match.phase)} /> : null}
+          {isMobileViewport ? <InfoCard label="Würfel" value={boardDiceLabel} /> : null}
         </div>
+        {isMobileViewport ? (
+          <>
+            <section className="dock-section">
+              <div className="dock-section-head">
+                <h3>Spieler</h3>
+                <span>{props.match.players.length} im Match</span>
+              </div>
+              <div className="mobile-player-list">
+                {props.match.players.map((player) => (
+                  <article
+                    key={player.id}
+                    className={`mobile-player-row ${player.id === props.match.currentPlayerId ? "is-active-turn" : ""} ${getPlayerAccentClass(player.color)}`}
+                  >
+                    <PlayerIdentity
+                      username={player.username}
+                      color={player.color}
+                      compact
+                      isSelf={player.id === props.match.you}
+                    />
+                    <div className="mobile-player-row-meta">
+                      <span>{player.publicVictoryPoints} VP</span>
+                      <span>{player.resourceCount} Karten</span>
+                      {player.hasLongestRoad ? <span>Längste Straße</span> : null}
+                      {player.hasLargestArmy ? <span>Größte Rittermacht</span> : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+            <section className="dock-section">
+              <div className="dock-section-head">
+                <h3>Legende</h3>
+                <span>Rohstoffe und Hinweise</span>
+              </div>
+              <div className="mobile-legend-stack">
+                {resourceLegendList}
+                {boardHintLegend}
+              </div>
+            </section>
+          </>
+        ) : null}
         <section className="dock-section dock-section-fill">
           <div className="dock-section-head">
             <h3>Letzte Aktionen</h3>
@@ -793,30 +903,45 @@ export function MatchScreen(props: {
     <section className="screen-shell match-shell">
       <div className="match-screen">
         <div className="match-stage">
-          <div className="board-topbar">
-            <span className="board-chip">Zug {props.match.turn}</span>
-            {!isCompactViewport ? <span className="board-chip">{formatPhase(props.match.phase)}</span> : null}
-            {activePlayer ? (
-              <PlayerColorBadge
-                color={activePlayer.color}
-                label={isCompactViewport ? activePlayer.username : `Am Zug: ${activePlayer.username}`}
-                compact
-              />
+          <div className={`board-topbar ${isMobileViewport ? "is-mobile" : ""}`}>
+            {isMobileViewport ? (
+              <>
+                <div className={`board-mobile-summary ${activePlayer ? getPlayerAccentClass(activePlayer.color) : ""}`}>
+                  <span className="eyebrow">Partie</span>
+                  <strong>{mobileBoardSummary}</strong>
+                  <span className="board-mobile-meta">
+                    <span>Zug {props.match.turn}</span>
+                    <span>{formatPhase(props.match.phase)}</span>
+                    <span>{boardDiceLabel}</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={`board-toggle board-toggle-focus ${autoFocusEnabled ? "is-active" : ""}`}
+                  onClick={() => setAutoFocusEnabled((current) => !current)}
+                >
+                  {autoFocusEnabled ? "Fokus an" : "Fokus aus"}
+                </button>
+              </>
             ) : (
-              <span className="board-chip">Aktiv: -</span>
+              <>
+                <span className="board-chip">Zug {props.match.turn}</span>
+                <span className="board-chip">{formatPhase(props.match.phase)}</span>
+                {activePlayer ? (
+                  <PlayerColorBadge color={activePlayer.color} label={`Am Zug: ${activePlayer.username}`} compact />
+                ) : (
+                  <span className="board-chip">Aktiv: -</span>
+                )}
+                <span className="board-chip">Würfel: {props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "offen"}</span>
+                <button
+                  type="button"
+                  className={`board-toggle board-toggle-focus ${autoFocusEnabled ? "is-active" : ""}`}
+                  onClick={() => setAutoFocusEnabled((current) => !current)}
+                >
+                  {autoFocusEnabled ? "Auto-Fokus an" : "Auto-Fokus aus"}
+                </button>
+              </>
             )}
-            {!isCompactViewport || props.match.dice ? (
-              <span className="board-chip">
-                {isCompactViewport ? props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen" : `Würfel: ${props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "offen"}`}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              className={`board-toggle board-toggle-focus ${autoFocusEnabled ? "is-active" : ""}`}
-              onClick={() => setAutoFocusEnabled((current) => !current)}
-            >
-              {isCompactViewport ? "Fokus" : autoFocusEnabled ? "Auto-Fokus an" : "Auto-Fokus aus"}
-            </button>
           </div>
           <div className="board-stage-frame">
             <BoardScene
@@ -836,12 +961,12 @@ export function MatchScreen(props: {
                   className={`board-toggle board-hud-toggle ${boardHudOpen ? "is-active" : ""}`}
                   onClick={() => setBoardHudOpen((current) => !current)}
                 >
-                  {boardHudOpen ? "HUD ausblenden" : mobileHudSummary}
+                  {boardHudOpen ? "HUD schließen" : mobileHudSummary}
                 </button>
               ) : null}
               {!isMobileViewport || boardHudOpen ? (
-                <div className="board-hud-panel">
-                  {props.selfPlayer ? (
+                <div className={`board-hud-panel ${isMobileViewport ? "is-mobile" : ""}`}>
+                  {!isMobileViewport && props.selfPlayer ? (
                     <div className="board-hud-row">
                       <PlayerColorBadge
                         color={props.selfPlayer.color}
@@ -877,60 +1002,37 @@ export function MatchScreen(props: {
                 </div>
               ) : null}
             </div>
-            <div className={`board-legend ${boardLegendOpen ? "is-open" : "is-collapsed"}`}>
-              <button
-                type="button"
-                className={`board-legend-toggle ${boardLegendOpen ? "is-open" : ""}`}
-                onClick={() => setBoardLegendOpen((current) => !current)}
-                aria-expanded={boardLegendOpen}
-              >
-                <span className="board-legend-toggle-copy">
-                  <strong>Legende</strong>
-                  <span>Rohstoffe und Brett-Hinweise</span>
-                </span>
-                <span className="board-legend-toggle-icon" aria-hidden="true">
-                  {boardLegendOpen ? "-" : "+"}
-                </span>
-              </button>
-              {boardLegendOpen ? (
-                <div className="board-legend-panel">
-                  <div className="board-legend-section">
-                    <span className="eyebrow">Spielfeldfarben</span>
-                    <div className="board-legend-list">
-                      {RESOURCE_LEGEND.map((entry) => (
-                        <div key={entry.resource} className="board-legend-resource">
-                          <span
-                            className="board-legend-resource-swatch"
-                            style={{ "--legend-resource-color": TILE_COLORS[entry.resource] } as CSSProperties}
-                            aria-hidden="true"
-                          >
-                            <ResourceIcon resource={entry.resource} tone="light" size={18} />
-                          </span>
-                          <div className="board-legend-resource-copy">
-                            <strong>{renderResourceLabel(entry.resource)}</strong>
-                            <span>{entry.note}</span>
-                          </div>
-                        </div>
-                      ))}
+            {!isMobileViewport ? (
+              <div className={`board-legend ${boardLegendOpen ? "is-open" : "is-collapsed"}`}>
+                <button
+                  type="button"
+                  className={`board-legend-toggle ${boardLegendOpen ? "is-open" : ""}`}
+                  onClick={() => setBoardLegendOpen((current) => !current)}
+                  aria-expanded={boardLegendOpen}
+                >
+                  <span className="board-legend-toggle-copy">
+                    <strong>Legende</strong>
+                    <span>Rohstoffe und Brett-Hinweise</span>
+                  </span>
+                  <span className="board-legend-toggle-icon" aria-hidden="true">
+                    {boardLegendOpen ? "-" : "+"}
+                  </span>
+                </button>
+                {boardLegendOpen ? (
+                  <div className="board-legend-panel">
+                    <div className="board-legend-section">
+                      <span className="eyebrow">Spielfeldfarben</span>
+                      {resourceLegendList}
+                    </div>
+                    <div className="board-legend-section">
+                      <span className="eyebrow">Brett-Hinweise</span>
+                      {boardHintLegend}
                     </div>
                   </div>
-                  <div className="board-legend-section">
-                    <span className="eyebrow">Brett-Hinweise</span>
-                    <div className="board-legend-notes">
-                      <div className="board-legend-note">
-                        <span className="legend-signal is-gold" aria-hidden="true" />
-                        <span>Goldene Hinweise markieren die aktuelle Aktion oder das Live-Geschehen.</span>
-                      </div>
-                      <div className="board-legend-note">
-                        <span className="legend-signal is-pulse" aria-hidden="true" />
-                        <span>Pulsierende Marker zeigen dir, was du gerade anklicken kannst.</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            {spotlightCue ? (
+                ) : null}
+              </div>
+            ) : null}
+            {!isMobileViewport && spotlightCue ? (
               <div
                 className={`board-spotlight ${spotlightCue.mode === "event" ? "is-event" : "is-action"} ${isCompactViewport ? "is-compact" : ""}`}
               >
@@ -949,7 +1051,7 @@ export function MatchScreen(props: {
               </div>
             ) : null}
           </div>
-          {!spotlightCue ? (
+          {!spotlightCue && !isMobileViewport ? (
             <div className="board-bottom-hint">
               <div
                 className={`turn-status-card ${
@@ -999,30 +1101,32 @@ export function MatchScreen(props: {
               Voll
             </button>
           </div>
-          <div className="match-sheet-summary">
+          <div className={`match-sheet-summary ${isMobileViewport ? "is-mobile" : ""}`}>
             {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
             <strong>{turnStatus.title}</strong>
-            <span>{formatPhase(props.match.phase)}</span>
-            <span>{turnStatus.detail}</span>
+            <span>{`${formatPhase(props.match.phase)} · Zug ${props.match.turn}`}</span>
+            {sheetState !== "peek" ? <span>{turnStatus.detail}</span> : null}
           </div>
-          {hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
-          <div className="tab-strip mobile" role="tablist" aria-label="Mobile Match Navigation">
-            {MATCH_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={activeTab === tab.id ? "is-active" : ""}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  if (sheetState === "peek") {
-                    setSheetState("half");
-                  }
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {sheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
+          {sheetState !== "peek" ? (
+            <div className="tab-strip mobile" role="tablist" aria-label="Mobile Match Navigation">
+              {visibleTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={activeTab === tab.id ? "is-active" : ""}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (sheetState === "peek") {
+                      setSheetState("half");
+                    }
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {sheetState !== "peek" ? <div className="tab-panel-shell mobile">{tabPanels[activeTab]}</div> : null}
         </section>
       </div>

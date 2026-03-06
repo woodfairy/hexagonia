@@ -186,6 +186,14 @@ export async function leaveRoom(roomId: string): Promise<RoomDetails> {
   return response.room;
 }
 
+export async function kickRoomUser(roomId: string, userId: string): Promise<RoomDetails> {
+  const response = await request<{ room: RoomDetails }>(`/api/rooms/${roomId}/kick`, {
+    method: "POST",
+    body: JSON.stringify({ userId })
+  });
+  return response.room;
+}
+
 export async function setReady(roomId: string, ready: boolean): Promise<RoomDetails> {
   const response = await request<{ room: RoomDetails }>(`/api/rooms/${roomId}/ready`, {
     method: "POST",

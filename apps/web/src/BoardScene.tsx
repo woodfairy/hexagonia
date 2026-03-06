@@ -412,19 +412,20 @@ export function BoardScene(props: BoardSceneProps) {
       const road = edge.ownerId
         ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected)
         : createRoadGuide(length, selected);
+      const roadHeight = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04 : TILE_HEIGHT + GUIDE_ROAD_RADIUS;
       const roadObject = new THREE.Group();
-      roadObject.position.set(centerX, 0, centerZ);
+      roadObject.position.set(centerX, roadHeight, centerZ);
       roadObject.quaternion.setFromUnitVectors(
         new THREE.Vector3(0, 1, 0),
         new THREE.Vector3(dx, 0, dz).normalize()
       );
-      road.position.y = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04 : TILE_HEIGHT + GUIDE_ROAD_RADIUS;
+      road.position.y = 0;
       road.castShadow = !!edge.ownerId;
       roadObject.add(road);
 
       if (active) {
         const hitArea = createRoadHitArea(length);
-        hitArea.position.y = TILE_HEIGHT + 0.24;
+        hitArea.position.y = 0;
         roadObject.add(hitArea);
       }
 
@@ -557,40 +558,41 @@ function createVertexMarker(): THREE.Mesh {
 
 function createTokenSprite(resource: Resource | "desert", token: number | null, robber: boolean): THREE.Sprite {
   const canvas = document.createElement("canvas");
-  canvas.width = 160;
-  canvas.height = 160;
+  canvas.width = 192;
+  canvas.height = 192;
   const context = canvas.getContext("2d")!;
 
   context.fillStyle = robber ? "#17212b" : "#f4edd8";
   context.beginPath();
-  context.arc(80, 80, 50, 0, Math.PI * 2);
+  context.arc(96, 96, 58, 0, Math.PI * 2);
   context.fill();
 
-  context.lineWidth = 6;
+  context.lineWidth = 7;
   context.strokeStyle = robber ? "#f3cf83" : "#6b4a1b";
   context.stroke();
 
   context.beginPath();
-  context.fillStyle = robber ? "rgba(243, 207, 131, 0.18)" : "rgba(255, 255, 255, 0.72)";
-  context.arc(80, 42, 18, 0, Math.PI * 2);
+  context.fillStyle = robber ? "rgba(243, 207, 131, 0.22)" : "rgba(255, 255, 255, 0.92)";
+  context.arc(96, 46, 24, 0, Math.PI * 2);
   context.fill();
-  context.lineWidth = 2.5;
-  context.strokeStyle = robber ? "#f3cf83" : "rgba(32, 50, 64, 0.18)";
+  context.lineWidth = 3.5;
+  context.strokeStyle = robber ? "#f3cf83" : "rgba(32, 50, 64, 0.3)";
   context.stroke();
-  drawResourceIcon(context, resource, 80, 42, 22, robber ? "#f3cf83" : getResourceIconColor(resource));
+  drawResourceIcon(context, resource, 98, 48, 32, robber ? "rgba(14, 26, 36, 0.82)" : "rgba(16, 30, 42, 0.78)");
+  drawResourceIcon(context, resource, 96, 46, 30, robber ? "#f3cf83" : getResourceIconColor(resource));
 
   if (token !== null) {
     context.fillStyle = token === 6 || token === 8 ? "#b83e2f" : "#203240";
-    context.font = "700 54px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.font = "700 62px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(String(token), 80, 88);
+    context.fillText(String(token), 96, 104);
   } else {
     context.fillStyle = "#f3cf83";
-    context.font = "700 22px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.font = "700 24px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("RÄUBER", 80, 88);
+    context.fillText("RÄUBER", 96, 104);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -600,7 +602,7 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
       transparent: true
     })
   );
-  sprite.scale.set(4.8, 4.8, 1);
+  sprite.scale.set(5.35, 5.35, 1);
   return sprite;
 }
 
@@ -676,7 +678,7 @@ function createTileShape(
 }
 
 function createRoadPiece(length: number, color: string, selected: boolean): THREE.Mesh {
-  const roadLength = Math.max(length * 0.74 - BUILT_ROAD_RADIUS * 2, 0.1);
+  const roadLength = Math.max(length * 0.84 - BUILT_ROAD_RADIUS * 2, 0.1);
   return new THREE.Mesh(
     new THREE.CapsuleGeometry(BUILT_ROAD_RADIUS, roadLength, 4, 10),
     new THREE.MeshStandardMaterial({
@@ -690,7 +692,7 @@ function createRoadPiece(length: number, color: string, selected: boolean): THRE
 }
 
 function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
-  const guideLength = Math.max(length * 0.68 - GUIDE_ROAD_RADIUS * 2, 0.1);
+  const guideLength = Math.max(length * 0.8 - GUIDE_ROAD_RADIUS * 2, 0.1);
   return new THREE.Mesh(
     new THREE.CapsuleGeometry(GUIDE_ROAD_RADIUS, guideLength, 4, 10),
     new THREE.MeshStandardMaterial({
@@ -706,7 +708,7 @@ function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
 }
 
 function createRoadHitArea(length: number): THREE.Mesh {
-  const hitLength = Math.max(length * 0.82, 1.1);
+  const hitLength = Math.max(length * 0.96, 1.2);
   const hitArea = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.62, hitLength, 4, 10),
     new THREE.MeshBasicMaterial({
