@@ -14,9 +14,8 @@ services:
       - ./postgres-data:/var/lib/postgresql/data
 
   server:
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-woodfairy}/hexagonia-server:${IMAGE_TAG:-latest}
+    pull_policy: always
     depends_on:
       - postgres
     environment:
@@ -27,13 +26,9 @@ services:
       - "3000:3000"
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-woodfairy}/hexagonia-web:${IMAGE_TAG:-latest}
+    pull_policy: always
     depends_on:
       - server
-    environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
-      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:3000/ws}
     ports:
       - "4173:4173"

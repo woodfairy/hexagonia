@@ -1,6 +1,24 @@
 import type { AuthUser, RoomDetails } from "@hexagonia/shared";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+function getDefaultApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return "http://localhost:3000";
+  }
+
+  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
+  return `${protocol}//${window.location.hostname}:3000`;
+}
+
+function getDefaultWebSocketUrl(): string {
+  if (typeof window === "undefined") {
+    return "ws://localhost:3000/ws";
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.hostname}:3000/ws`;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? getDefaultApiBaseUrl();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -101,6 +119,6 @@ export async function startRoom(roomId: string): Promise<{ room: RoomDetails; ma
 }
 
 export function createWebSocket(): WebSocket {
-  const url = import.meta.env.VITE_WS_URL ?? "ws://localhost:3000/ws";
+  const url = import.meta.env.VITE_WS_URL ?? getDefaultWebSocketUrl();
   return new WebSocket(url);
 }

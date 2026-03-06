@@ -16,6 +16,27 @@ Monorepo for a browser-based, real-time, Catan-like strategy game with:
 5. Start the backend with `npm run dev:server`.
 6. Start the frontend in a second terminal with `npm run dev:web`.
 
+## Docker
+
+`docker-compose.yml` is configured to pull prebuilt images from GHCR by default:
+
+- `ghcr.io/woodfairy/hexagonia-server`
+- `ghcr.io/woodfairy/hexagonia-web`
+
+You can override the image owner and tag in `.env`:
+
+- `GHCR_OWNER`
+- `IMAGE_TAG`
+
+Typical startup:
+
+1. Copy `.env.example` to `.env`.
+2. If the GHCR packages are private, run `docker login ghcr.io`.
+3. Run `docker compose pull`.
+4. Run `docker compose up -d`.
+
+The web client defaults to talking to the same host on port `3000`, so a standard local deployment works without rebuilding the frontend image.
+
 ## Scope
 
 The current implementation establishes the full architecture and a functional base-game core:
