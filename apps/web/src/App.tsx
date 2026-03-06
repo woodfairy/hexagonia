@@ -1,14 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
-import type {
-  AuthUser,
-  ClientMessage,
-  MatchSnapshot,
-  Resource,
-  ResourceMap,
-  RoomDetails,
-  ServerMessage
-} from "@hexagonia/shared";
-import { RESOURCES, createEmptyResourceMap } from "@hexagonia/shared";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import type { AuthUser, ClientMessage, MatchSnapshot, Resource, ResourceMap, RoomDetails, ServerMessage } from "@hexagonia/shared";
+import { createEmptyResourceMap } from "@hexagonia/shared";
 import {
   createRoom,
   createWebSocket,
@@ -23,26 +15,24 @@ import {
   setReady,
   startRoom
 } from "./api";
-import { BoardScene, type InteractionMode } from "./BoardScene";
-
-type AuthMode = "login" | "register";
-type RouteState =
-  | { kind: "home" }
-  | { kind: "room"; roomId: string }
-  | { kind: "match"; matchId: string };
+import type { InteractionMode } from "./BoardScene";
+import { AppHeader } from "./components/shell/AppHeader";
+import { ToastStack, type ToastMessage } from "./components/shell/ToastStack";
+import { AuthScreen } from "./components/screens/AuthScreen";
+import { LobbyScreen } from "./components/screens/LobbyScreen";
+import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
+import { RoomScreen } from "./components/screens/RoomScreen";
+import {
+  type AuthMode,
+  type ConnectionState,
+  type RouteState,
+  readRoute,
+  renderEventLabel
+} from "./ui";
 
 const TEXT = {
   title: "Hexagonia",
-  subtitle: "Serverautoritatives Echtzeit-Tabletop im Browser",
-  login: "Anmelden",
-  register: "Registrieren",
-  createRoom: "Privaten Raum erstellen",
-  joinByCode: "Per Code beitreten",
-  startMatch: "Partie starten",
-  ready: "Bereit",
-  notReady: "Nicht bereit",
-  leaveRoom: "Raum verlassen",
-  logout: "Abmelden"
+  subtitle: "Serverautoritatives Echtzeit-Tabletop im Browser"
 } as const;
 
 export function App() {
@@ -50,8 +40,9 @@ export function App() {
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [match, setMatch] = useState<MatchSnapshot | null>(null);
   const [presence, setPresence] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("Verbindung wird initialisiert.");
+  const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState({
     email: "",
@@ -61,21 +52,23 @@ export function App() {
   const [joinCode, setJoinCode] = useState("");
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(null);
   const [selectedRoadEdges, setSelectedRoadEdges] = useState<string[]>([]);
-  const [tradeForm, setTradeForm] = useState({
-    give: "brick" as Resource,
+  const [tradeForm, setTradeForm] = useState<TradeFormState>({
+    give: "brick",
     giveCount: 1,
-    want: "grain" as Resource,
+    want: "grain",
     wantCount: 1,
     targetPlayerId: ""
   });
-  const [maritimeForm, setMaritimeForm] = useState({
-    give: "brick" as Resource,
-    receive: "grain" as Resource
+  const [maritimeForm, setMaritimeForm] = useState<MaritimeFormState>({
+    give: "brick",
+    receive: "grain"
   });
   const [yearOfPlenty, setYearOfPlenty] = useState<[Resource, Resource]>(["brick", "grain"]);
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
   const [route, setRoute] = useState<RouteState>(readRoute());
+
   const wsRef = useRef<WebSocket | null>(null);
+  const suppressCloseToastRef = useRef(false);
   const roomRef = useRef<RoomDetails | null>(null);
   const matchRef = useRef<MatchSnapshot | null>(null);
   const routeRef = useRef<RouteState>(route);
@@ -83,6 +76,68 @@ export function App() {
   const selfPlayer = useMemo(
     () => match?.players.find((player) => player.id === match.you) ?? null,
     [match]
+  );
+
+  const activeScreen = useMemo(() => {
+    if (!session) {
+      return "auth" as const;
+    }
+    if (route.kind === "match") {
+      return "match" as const;
+    }
+    if (route.kind === "room") {
+      return "room" as const;
+    }
+    return "lobby" as const;
+  }, [route.kind, session]);
+
+  const headerContext = useMemo(() => {
+    if (!session) {
+      return {
+        eyebrow: "Premium Tabletop Plattform",
+        title: TEXT.title,
+        meta: TEXT.subtitle
+      };
+    }
+
+    if (activeScreen === "lobby") {
+      return {
+        eyebrow: "Spielzentrale",
+        title: `Willkommen, ${session.username}`,
+        meta: "Private Raeume, Reconnect und Echtzeit-Partien"
+      };
+    }
+
+    if (activeScreen === "room") {
+      return {
+        eyebrow: "Privater Raum",
+        title: room ? `Code ${room.code}` : "Raum wird geladen",
+        meta: room ? `${room.seats.filter((seat) => seat.userId).length}/4 Spieler im Raum` : "Synchronisation laeuft"
+      };
+    }
+
+    return {
+      eyebrow: "Laufende Partie",
+      title: match ? `Zug ${match.turn}` : "Partie wird geladen",
+      meta: match
+        ? `Aktiver Spieler: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+        : "Reconnect laeuft"
+    };
+  }, [activeScreen, match, room, session]);
+
+  const removeToast = useCallback((toastId: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const pushToast = useCallback(
+    (tone: ToastMessage["tone"], title: string, body?: string) => {
+      const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      setToasts((current) => [...current, { id, tone, title, body }].slice(-4));
+      window.setTimeout(() => {
+        removeToast(id);
+      }, tone === "error" ? 5400 : 3600);
+    },
+    [removeToast]
   );
 
   useEffect(() => {
@@ -107,25 +162,32 @@ export function App() {
     void getCurrentUser()
       .then((user) => {
         setSession(user);
-        setStatus(`Willkommen zurück, ${user.username}.`);
+        setConnectionState("connecting");
+        setStatus(`Willkommen zurueck, ${user.username}.`);
       })
       .catch(() => {
         setSession(null);
+        setConnectionState("offline");
         setStatus("Bitte an- oder registrieren.");
       });
   }, []);
 
   useEffect(() => {
     if (!session) {
+      suppressCloseToastRef.current = true;
       wsRef.current?.close();
       wsRef.current = null;
+      setConnectionState("offline");
       return;
     }
 
+    setConnectionState("connecting");
+    suppressCloseToastRef.current = false;
     const socket = createWebSocket();
     wsRef.current = socket;
 
     socket.onopen = () => {
+      setConnectionState("online");
       setStatus("Realtime-Verbindung aktiv.");
       if (roomRef.current) {
         sendMessage(socket, {
@@ -162,27 +224,36 @@ export function App() {
         }
       }
       if (message.type === "match.error") {
-        setError(message.error);
+        pushToast("error", "Aktion fehlgeschlagen", message.error);
       }
       if (message.type === "presence.state") {
         setPresence(message.onlineUserIds);
       }
       if (message.type === "match.event") {
-        setStatus(renderEvent(message.event.type));
+        setStatus(renderEventLabel(message.event.type));
       }
     };
 
     socket.onclose = () => {
+      setConnectionState("offline");
       setStatus("Realtime-Verbindung getrennt.");
+      if (suppressCloseToastRef.current) {
+        suppressCloseToastRef.current = false;
+        return;
+      }
+      if (session) {
+        pushToast("info", "Verbindung getrennt", "Hexagonia versucht beim naechsten Oeffnen automatisch zu verbinden.");
+      }
     };
 
     return () => {
+      suppressCloseToastRef.current = true;
       socket.close();
       if (wsRef.current === socket) {
         wsRef.current = null;
       }
     };
-  }, [session?.id]);
+  }, [pushToast, session]);
 
   useEffect(() => {
     if (!session) {
@@ -195,7 +266,10 @@ export function App() {
           setRoom(nextRoom);
           subscribeRoom(nextRoom.id);
         })
-        .catch((routeError: Error) => setError(routeError.message));
+        .catch((routeError: Error) => {
+          pushToast("error", "Raum konnte nicht geladen werden", routeError.message);
+          navigateTo({ kind: "home" });
+        });
     }
 
     if (route.kind === "match" && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -204,7 +278,7 @@ export function App() {
         matchId: route.matchId
       });
     }
-  }, [route, session?.id]);
+  }, [pushToast, route, session]);
 
   useEffect(() => {
     if (!match) {
@@ -224,7 +298,7 @@ export function App() {
     }
   }, [interactionMode, match]);
 
-  function subscribeRoom(roomId: string) {
+  const subscribeRoom = useCallback((roomId: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -232,17 +306,20 @@ export function App() {
       type: "room.subscribe",
       roomId
     });
-  }
+  }, []);
 
-  function sendCurrent(message: ClientMessage) {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      setError("WebSocket noch nicht verbunden.");
-      return;
-    }
-    sendMessage(wsRef.current, message);
-  }
+  const sendCurrent = useCallback(
+    (message: ClientMessage) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        pushToast("error", "WebSocket nicht verbunden", "Die Realtime-Verbindung ist gerade nicht verfuegbar.");
+        return;
+      }
+      sendMessage(wsRef.current, message);
+    },
+    [pushToast]
+  );
 
-  function navigateTo(next: RouteState) {
+  const navigateTo = useCallback((next: RouteState) => {
     setRoute(next);
     if (next.kind === "home") {
       window.location.hash = "";
@@ -253,11 +330,10 @@ export function App() {
     if (next.kind === "match") {
       window.location.hash = `match/${next.matchId}`;
     }
-  }
+  }, []);
 
   const handleAuthSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError(null);
 
     try {
       const user =
@@ -275,33 +351,34 @@ export function App() {
       setSession(user);
       setAuthForm({ email: "", username: "", password: "" });
       setStatus(`${user.username} ist angemeldet.`);
+      pushToast("success", "Willkommen", `${user.username} ist jetzt in Hexagonia angemeldet.`);
     } catch (authError) {
-      setError((authError as Error).message);
+      pushToast("error", "Anmeldung fehlgeschlagen", (authError as Error).message);
     }
   };
 
   const handleCreateRoom = async () => {
-    setError(null);
     try {
       const nextRoom = await createRoom();
       setRoom(nextRoom);
       navigateTo({ kind: "room", roomId: nextRoom.id });
       subscribeRoom(nextRoom.id);
+      pushToast("success", "Raum erstellt", `Code ${nextRoom.code} ist bereit.`);
     } catch (roomError) {
-      setError((roomError as Error).message);
+      pushToast("error", "Raum konnte nicht erstellt werden", (roomError as Error).message);
     }
   };
 
   const handleJoinByCode = async () => {
-    setError(null);
     try {
       const targetRoom = await getRoomByCode(joinCode);
       const joinedRoom = await joinRoom(targetRoom.id);
       setRoom(joinedRoom);
       navigateTo({ kind: "room", roomId: joinedRoom.id });
       subscribeRoom(joinedRoom.id);
+      pushToast("success", "Raum beigetreten", `Du bist jetzt im Raum ${joinedRoom.code}.`);
     } catch (joinError) {
-      setError((joinError as Error).message);
+      pushToast("error", "Beitritt fehlgeschlagen", (joinError as Error).message);
     }
   };
 
@@ -314,7 +391,7 @@ export function App() {
       const nextRoom = await joinRoom(room.id, seatIndex);
       setRoom(nextRoom);
     } catch (joinError) {
-      setError((joinError as Error).message);
+      pushToast("error", "Platz konnte nicht belegt werden", (joinError as Error).message);
     }
   };
 
@@ -327,7 +404,7 @@ export function App() {
       const nextRoom = await setReady(room.id, ready);
       setRoom(nextRoom);
     } catch (readyError) {
-      setError((readyError as Error).message);
+      pushToast("error", "Ready-Status fehlgeschlagen", (readyError as Error).message);
     }
   };
 
@@ -337,12 +414,14 @@ export function App() {
     }
 
     try {
-      const nextRoom = await leaveRoom(room.id);
-      setRoom(nextRoom.status === "closed" ? null : nextRoom);
+      await leaveRoom(room.id);
+      setRoom(null);
       setMatch(null);
+      setPresence([]);
       navigateTo({ kind: "home" });
+      pushToast("info", "Raum verlassen", "Du bist zurueck in der Zentrale.");
     } catch (leaveError) {
-      setError((leaveError as Error).message);
+      pushToast("error", "Raum konnte nicht verlassen werden", (leaveError as Error).message);
     }
   };
 
@@ -359,18 +438,39 @@ export function App() {
         type: "match.reconnect",
         matchId: result.matchId
       });
+      pushToast("success", "Partie startet", "Die neue Runde wurde erfolgreich gestartet.");
     } catch (startError) {
-      setError((startError as Error).message);
+      pushToast("error", "Start fehlgeschlagen", (startError as Error).message);
     }
   };
 
   const handleLogout = async () => {
-    await logout();
-    setSession(null);
-    setRoom(null);
-    setMatch(null);
-    setPresence([]);
-    navigateTo({ kind: "home" });
+    try {
+      suppressCloseToastRef.current = true;
+      await logout();
+      setSession(null);
+      setRoom(null);
+      setMatch(null);
+      setPresence([]);
+      setJoinCode("");
+      navigateTo({ kind: "home" });
+      pushToast("info", "Abgemeldet", "Deine Sitzung wurde beendet.");
+    } catch (logoutError) {
+      pushToast("error", "Logout fehlgeschlagen", (logoutError as Error).message);
+    }
+  };
+
+  const handleCopyRoomCode = async () => {
+    if (!room?.code) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(room.code);
+      pushToast("success", "Raumcode kopiert", room.code);
+    } catch {
+      pushToast("error", "Kopieren fehlgeschlagen", "Der Raumcode konnte nicht in die Zwischenablage kopiert werden.");
+    }
   };
 
   const handleVertexSelect = (vertexId: string) => {
@@ -509,552 +609,101 @@ export function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <div className="brand-mark">HX</div>
-          <div>
-            <strong>{TEXT.title}</strong>
-            <span>{status}</span>
-          </div>
-        </div>
-        {error ? <div className="error-banner">{error}</div> : null}
-      </header>
+      <AppHeader
+        connectionState={connectionState}
+        connectionStatusText={status}
+        eyebrow={headerContext.eyebrow}
+        meta={headerContext.meta}
+        roomCode={activeScreen === "room" || activeScreen === "match" ? room?.code : undefined}
+        session={session}
+        title={headerContext.title}
+        onCopyRoomCode={activeScreen === "room" || activeScreen === "match" ? handleCopyRoomCode : undefined}
+        onLogout={handleLogout}
+        onNavigateHome={() => navigateTo({ kind: "home" })}
+      />
 
-      {!session ? (
-        <section className="panel auth-panel">
-          <div className="eyebrow">Realtime Browser Strategy</div>
-          <h1>{TEXT.title}</h1>
-          <p className="lede">{TEXT.subtitle}</p>
-          <div className="toggle-row">
-            <button className={authMode === "login" ? "is-active" : ""} onClick={() => setAuthMode("login")}>
-              {TEXT.login}
-            </button>
-            <button className={authMode === "register" ? "is-active" : ""} onClick={() => setAuthMode("register")}>
-              {TEXT.register}
-            </button>
-          </div>
-          <form className="auth-form" onSubmit={handleAuthSubmit}>
-            <label>
-              E-Mail
-              <input
-                autoComplete="email"
-                type="email"
-                value={authForm.email}
-                onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
-              />
-            </label>
-            {authMode === "register" ? (
-              <label>
-                Nutzername
-                <input
-                  autoComplete="username"
-                  type="text"
-                  value={authForm.username}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, username: event.target.value }))}
-                />
-              </label>
-            ) : null}
-            <label>
-              Passwort
-              <input
-                autoComplete={authMode === "login" ? "current-password" : "new-password"}
-                type="password"
-                value={authForm.password}
-                onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
-              />
-            </label>
-            <button className="primary" type="submit">
-              {authMode === "login" ? TEXT.login : TEXT.register}
-            </button>
-          </form>
-        </section>
-      ) : null}
-
-      {session && !room && !match ? (
-        <section className="panel lobby-panel">
-          <div className="section-head">
-            <div>
-              <div className="eyebrow">Willkommen</div>
-              <h2>{session.username}</h2>
-            </div>
-            <button onClick={handleLogout}>{TEXT.logout}</button>
-          </div>
-          <div className="action-grid">
-            <button className="primary action-card" onClick={handleCreateRoom}>
-              <strong>{TEXT.createRoom}</strong>
-              <span>Legt einen 4er-Raum an und setzt dich auf Platz 1.</span>
-            </button>
-            <div className="action-card join-card">
-              <strong>{TEXT.joinByCode}</strong>
-              <div className="inline-input">
-                <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
-                <button className="primary" onClick={handleJoinByCode}>
-                  Beitreten
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {session && room && !match ? (
-        <RoomPanel
-          onJoinSeat={handleSeatJoin}
-          onLeave={handleLeaveRoom}
-          onReady={handleReadyToggle}
-          onStart={handleStartRoom}
-          presence={presence}
-          room={room}
-          session={session}
-        />
-      ) : null}
-
-      {session && match ? (
-        <section className="match-layout">
-          <BoardScene
-            interactionMode={interactionMode}
-            onEdgeSelect={handleEdgeSelect}
-            onTileSelect={handleTileSelect}
-            onVertexSelect={handleVertexSelect}
-            selectedRoadEdges={selectedRoadEdges}
-            snapshot={match}
+      <div className="app-stage">
+        {activeScreen === "auth" ? (
+          <AuthScreen
+            authForm={authForm}
+            authMode={authMode}
+            onAuthFieldChange={(field, value) => setAuthForm((current) => ({ ...current, [field]: value }))}
+            onAuthModeChange={setAuthMode}
+            onSubmit={handleAuthSubmit}
           />
-          <MatchSidebar
-            interactionMode={interactionMode}
-            maritimeForm={maritimeForm}
-            match={match}
-            monopolyResource={monopolyResource}
-            onAction={sendCurrent}
-            onOfferTrade={sendTradeOffer}
-            selectedRoadEdges={selectedRoadEdges}
-            selfPlayer={selfPlayer}
-            setInteractionMode={setInteractionMode}
-            setMaritimeForm={setMaritimeForm}
-            setMonopolyResource={setMonopolyResource}
-            setSelectedRoadEdges={setSelectedRoadEdges}
-            setTradeForm={setTradeForm}
-            setYearOfPlenty={setYearOfPlenty}
-            tradeForm={tradeForm}
-            yearOfPlenty={yearOfPlenty}
+        ) : null}
+
+        {activeScreen === "lobby" && session ? (
+          <LobbyScreen
+            joinCode={joinCode}
+            session={session}
+            onCreateRoom={handleCreateRoom}
+            onJoinByCode={handleJoinByCode}
+            onJoinCodeChange={setJoinCode}
           />
-        </section>
-      ) : null}
+        ) : null}
+
+        {activeScreen === "room" && session ? (
+          room ? (
+            <RoomScreen
+              presence={presence}
+              room={room}
+              session={session}
+              onCopyCode={handleCopyRoomCode}
+              onJoinSeat={handleSeatJoin}
+              onLeave={handleLeaveRoom}
+              onReady={handleReadyToggle}
+              onStart={handleStartRoom}
+            />
+          ) : (
+            <StatusSurface title="Raum wird geladen" text="Hexagonia verbindet den privaten Raum mit deiner Sitzung." />
+          )
+        ) : null}
+
+        {activeScreen === "match" && session ? (
+          match ? (
+            <MatchScreen
+              interactionMode={interactionMode}
+              maritimeForm={maritimeForm}
+              match={match}
+              monopolyResource={monopolyResource}
+              room={room}
+              selfPlayer={selfPlayer}
+              selectedRoadEdges={selectedRoadEdges}
+              setInteractionMode={setInteractionMode}
+              setMaritimeForm={setMaritimeForm}
+              setMonopolyResource={setMonopolyResource}
+              setSelectedRoadEdges={setSelectedRoadEdges}
+              setTradeForm={setTradeForm}
+              setYearOfPlenty={setYearOfPlenty}
+              tradeForm={tradeForm}
+              yearOfPlenty={yearOfPlenty}
+              onAction={sendCurrent}
+              onEdgeSelect={handleEdgeSelect}
+              onOfferTrade={sendTradeOffer}
+              onTileSelect={handleTileSelect}
+              onVertexSelect={handleVertexSelect}
+            />
+          ) : (
+            <StatusSurface title="Partie wird verbunden" text="Die Realtime-Partie wird wieder an dein Geraet angebunden." />
+          )
+        ) : null}
+      </div>
+
+      <ToastStack onDismiss={removeToast} toasts={toasts} />
     </main>
   );
 }
 
-function RoomPanel(props: {
-  room: RoomDetails;
-  session: AuthUser;
-  presence: string[];
-  onJoinSeat: (seatIndex: number) => void;
-  onReady: (ready: boolean) => void;
-  onStart: () => void;
-  onLeave: () => void;
-}) {
-  const currentSeat = props.room.seats.find((seat) => seat.userId === props.session.id) ?? null;
-  const canStart =
-    props.room.ownerUserId === props.session.id &&
-    props.room.seats.filter((seat) => seat.userId).length >= 3 &&
-    props.room.seats.filter((seat) => seat.userId).every((seat) => seat.ready);
-
+function StatusSurface(props: { title: string; text: string }) {
   return (
-    <section className="panel room-panel">
-      <div className="section-head">
-        <div>
-          <div className="eyebrow">Privater Raum</div>
-          <h2>Code {props.room.code}</h2>
-        </div>
-        <div className="room-actions">
-          {currentSeat ? (
-            <button className={currentSeat.ready ? "primary" : ""} onClick={() => props.onReady(!currentSeat.ready)}>
-              {currentSeat.ready ? TEXT.notReady : TEXT.ready}
-            </button>
-          ) : null}
-          {canStart ? (
-            <button className="primary" onClick={props.onStart}>
-              {TEXT.startMatch}
-            </button>
-          ) : null}
-          <button onClick={props.onLeave}>{TEXT.leaveRoom}</button>
-        </div>
-      </div>
-      <div className="seat-grid">
-        {props.room.seats.map((seat) => {
-          const online = seat.userId ? props.presence.includes(seat.userId) : false;
-          return (
-            <article className="seat-card" key={seat.index}>
-              <div className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</div>
-              <strong>{seat.username ?? "Frei"}</strong>
-              <span>{seat.ready ? "Bereit" : seat.userId ? "Wartet" : "Offen"}</span>
-              {seat.userId ? <span>{online ? "Online" : "Offline"}</span> : null}
-              {!seat.userId && props.room.status === "open" ? (
-                <button className="primary" onClick={() => props.onJoinSeat(seat.index)}>
-                  Platz nehmen
-                </button>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
+    <section className="screen-shell status-shell">
+      <article className="surface status-surface">
+        <div className="eyebrow">Synchronisation</div>
+        <h1>{props.title}</h1>
+        <p className="hero-copy">{props.text}</p>
+      </article>
     </section>
-  );
-}
-
-function MatchSidebar(props: {
-  match: MatchSnapshot;
-  selfPlayer: MatchSnapshot["players"][number] | null;
-  interactionMode: InteractionMode;
-  selectedRoadEdges: string[];
-  tradeForm: {
-    give: Resource;
-    giveCount: number;
-    want: Resource;
-    wantCount: number;
-    targetPlayerId: string;
-  };
-  maritimeForm: {
-    give: Resource;
-    receive: Resource;
-  };
-  yearOfPlenty: [Resource, Resource];
-  monopolyResource: Resource;
-  setInteractionMode: (mode: InteractionMode) => void;
-  setSelectedRoadEdges: Dispatch<SetStateAction<string[]>>;
-  setTradeForm: Dispatch<
-    SetStateAction<{
-      give: Resource;
-      giveCount: number;
-      want: Resource;
-      wantCount: number;
-      targetPlayerId: string;
-    }>
-  >;
-  setMaritimeForm: Dispatch<
-    SetStateAction<{
-      give: Resource;
-      receive: Resource;
-    }>
-  >;
-  setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
-  setMonopolyResource: Dispatch<SetStateAction<Resource>>;
-  onAction: (message: ClientMessage) => void;
-  onOfferTrade: () => void;
-}) {
-  const tradeTargetPlayers = props.match.players.filter((player) => player.id !== props.match.you);
-  const maritimeRatio =
-    props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
-
-  return (
-    <aside className="sidebar">
-      <section className="panel slim-panel">
-        <div className="eyebrow">Partie</div>
-        <h3>Zug {props.match.turn}</h3>
-        <p>Phase: {props.match.phase}</p>
-        <p>Aktiver Spieler: {props.match.players.find((player) => player.id === props.match.currentPlayerId)?.username}</p>
-        <p>Würfel: {props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Noch nicht geworfen"}</p>
-      </section>
-      <section className="panel slim-panel">
-        <div className="eyebrow">Spieler</div>
-        <div className="player-list">
-          {props.match.players.map((player) => (
-            <article className="player-row" key={player.id}>
-              <strong>{player.username}</strong>
-              <span>{player.publicVictoryPoints} VP</span>
-              <span>{player.resourceCount} Karten</span>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className="panel slim-panel">
-        <div className="eyebrow">Hand</div>
-        <div className="resource-row">
-          {RESOURCES.map((resource) => (
-            <span key={resource} className="resource-pill">
-              {resource}: {props.selfPlayer?.resources?.[resource] ?? 0}
-            </span>
-          ))}
-        </div>
-      </section>
-      <section className="panel slim-panel">
-        <div className="eyebrow">Aktionen</div>
-        <div className="button-grid">
-          <button
-            className="primary"
-            disabled={!props.match.allowedMoves.canRoll}
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "roll_dice" }
-              })
-            }
-          >
-            Würfeln
-          </button>
-          <button onClick={() => props.setInteractionMode("road")} disabled={!props.match.allowedMoves.roadEdgeIds.length}>
-            Straße
-          </button>
-          <button onClick={() => props.setInteractionMode("settlement")} disabled={!props.match.allowedMoves.settlementVertexIds.length}>
-            Siedlung
-          </button>
-          <button onClick={() => props.setInteractionMode("city")} disabled={!props.match.allowedMoves.cityVertexIds.length}>
-            Stadt
-          </button>
-          <button
-            disabled={!props.match.allowedMoves.canBuyDevelopmentCard}
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "buy_development_card" }
-              })
-            }
-          >
-            Entwicklung
-          </button>
-          <button
-            className="primary"
-            disabled={!props.match.allowedMoves.canEndTurn}
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "end_turn" }
-              })
-            }
-          >
-            Zug beenden
-          </button>
-        </div>
-      </section>
-      <section className="panel slim-panel">
-        <div className="eyebrow">Entwicklungskarten</div>
-        <div className="button-grid">
-          <button
-            disabled={!props.match.allowedMoves.playableDevelopmentCards.includes("knight")}
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "play_knight" }
-              })
-            }
-          >
-            Ritter
-          </button>
-          <button
-            disabled={!props.match.allowedMoves.playableDevelopmentCards.includes("road_building")}
-            onClick={() => {
-              props.setInteractionMode("road_building");
-              props.setSelectedRoadEdges([]);
-            }}
-          >
-            Straßenbau
-          </button>
-          <button
-            disabled={!props.match.allowedMoves.playableDevelopmentCards.includes("year_of_plenty")}
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: {
-                  type: "play_year_of_plenty",
-                  resources: props.yearOfPlenty
-                }
-              })
-            }
-          >
-            Erfindung
-          </button>
-          <button
-            disabled={!props.match.allowedMoves.playableDevelopmentCards.includes("monopoly")}
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: {
-                  type: "play_monopoly",
-                  resource: props.monopolyResource
-                }
-              })
-            }
-          >
-            Monopol
-          </button>
-        </div>
-        <div className="inline-select-row">
-          <select
-            value={props.yearOfPlenty[0]}
-            onChange={(event) => props.setYearOfPlenty(([_, second]) => [event.target.value as Resource, second])}
-          >
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-          <select
-            value={props.yearOfPlenty[1]}
-            onChange={(event) => props.setYearOfPlenty(([first]) => [first, event.target.value as Resource])}
-          >
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-          <select value={props.monopolyResource} onChange={(event) => props.setMonopolyResource(event.target.value as Resource)}>
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-        </div>
-      </section>
-      <section className="panel slim-panel">
-        <div className="eyebrow">Spielerhandel</div>
-        <div className="trade-grid">
-          <select value={props.tradeForm.give} onChange={(event) => props.setTradeForm((current) => ({ ...current, give: event.target.value as Resource }))}>
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-          <input type="number" min={1} value={props.tradeForm.giveCount} onChange={(event) => props.setTradeForm((current) => ({ ...current, giveCount: Number(event.target.value) || 1 }))} />
-          <select value={props.tradeForm.want} onChange={(event) => props.setTradeForm((current) => ({ ...current, want: event.target.value as Resource }))}>
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-          <input type="number" min={1} value={props.tradeForm.wantCount} onChange={(event) => props.setTradeForm((current) => ({ ...current, wantCount: Number(event.target.value) || 1 }))} />
-          <select value={props.tradeForm.targetPlayerId} onChange={(event) => props.setTradeForm((current) => ({ ...current, targetPlayerId: event.target.value }))}>
-            <option value="">Offen</option>
-            {tradeTargetPlayers.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.username}
-              </option>
-            ))}
-          </select>
-          <button onClick={props.onOfferTrade} disabled={!props.match.allowedMoves.canOfferTrade}>
-            Anbieten
-          </button>
-        </div>
-        {props.match.currentTrade ? <TradeBanner currentUserId={props.match.you} match={props.match} onAction={props.onAction} /> : null}
-      </section>
-      <section className="panel slim-panel">
-        <div className="eyebrow">Hafenhandel</div>
-        <div className="trade-grid">
-          <select value={props.maritimeForm.give} onChange={(event) => props.setMaritimeForm((current) => ({ ...current, give: event.target.value as Resource }))}>
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-          <span>{maritimeRatio}:1</span>
-          <select value={props.maritimeForm.receive} onChange={(event) => props.setMaritimeForm((current) => ({ ...current, receive: event.target.value as Resource }))}>
-            {RESOURCES.map((resource) => (
-              <option key={resource} value={resource}>
-                {resource}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: {
-                  type: "maritime_trade",
-                  give: props.maritimeForm.give,
-                  receive: props.maritimeForm.receive,
-                  giveCount: maritimeRatio
-                }
-              })
-            }
-          >
-            Tauschen
-          </button>
-        </div>
-      </section>
-    </aside>
-  );
-}
-
-function TradeBanner(props: {
-  match: MatchSnapshot;
-  currentUserId: string;
-  onAction: (message: ClientMessage) => void;
-}) {
-  const trade = props.match.currentTrade;
-  if (!trade) {
-    return null;
-  }
-
-  const responderVisible =
-    props.currentUserId !== trade.fromPlayerId &&
-    (!trade.targetPlayerId || trade.targetPlayerId === props.currentUserId);
-
-  return (
-    <div className="selection-banner">
-      <span>
-        Handel: {renderResourceMap(trade.give)} gegen {renderResourceMap(trade.want)}
-      </span>
-      {responderVisible ? (
-        <>
-          <button
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: {
-                  type: "respond_trade",
-                  tradeId: trade.id,
-                  accept: true
-                }
-              })
-            }
-          >
-            Annehmen
-          </button>
-          <button
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: {
-                  type: "respond_trade",
-                  tradeId: trade.id,
-                  accept: false
-                }
-              })
-            }
-          >
-            Ablehnen
-          </button>
-        </>
-      ) : trade.fromPlayerId === props.currentUserId ? (
-        <button
-          onClick={() =>
-            props.onAction({
-              type: "match.action",
-              matchId: props.match.matchId,
-              action: {
-                type: "cancel_trade",
-                tradeId: trade.id
-              }
-            })
-          }
-        >
-          Abbrechen
-        </button>
-      ) : null}
-    </div>
   );
 }
 
@@ -1062,47 +711,8 @@ function sendMessage(socket: WebSocket, message: ClientMessage) {
   socket.send(JSON.stringify(message));
 }
 
-function renderEvent(type: string): string {
-  const labels: Record<string, string> = {
-    match_started: "Partie gestartet.",
-    initial_settlement_placed: "Start-Siedlung gesetzt.",
-    initial_road_placed: "Start-Straße gesetzt.",
-    dice_rolled: "Würfel geworfen.",
-    road_built: "Straße gebaut.",
-    settlement_built: "Siedlung gebaut.",
-    city_built: "Stadt gebaut.",
-    robber_moved: "Räuber versetzt.",
-    trade_completed: "Handel abgeschlossen.",
-    turn_ended: "Zug beendet."
-  };
-  return labels[type] ?? "Spielstatus aktualisiert.";
-}
-
 function singleResourceMap(resource: Resource, count: number): ResourceMap {
   const map = createEmptyResourceMap();
   map[resource] = count;
   return map;
-}
-
-function renderResourceMap(resourceMap: ResourceMap): string {
-  return RESOURCES.map((resource) => [resource, resourceMap[resource]] as const)
-    .filter(([, count]) => count > 0)
-    .map(([resource, count]) => `${count} ${resource}`)
-    .join(", ");
-}
-
-function readRoute(): RouteState {
-  const hash = window.location.hash.replace(/^#/, "");
-  if (!hash) {
-    return { kind: "home" };
-  }
-
-  const [kind, id] = hash.split("/");
-  if (kind === "room" && id) {
-    return { kind: "room", roomId: id };
-  }
-  if (kind === "match" && id) {
-    return { kind: "match", matchId: id };
-  }
-  return { kind: "home" };
 }
