@@ -1585,7 +1585,7 @@ select:hover {
 
 .board-hud-panel {
   gap: var(--gap-inline);
-  max-inline-size: min(32rem, calc(100% - 2rem));
+  max-inline-size: min(42rem, calc(100% - 2rem));
 }
 
 .board-hud-row {
@@ -1593,6 +1593,21 @@ select:hover {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.48rem;
+}
+
+.board-hud-resources {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.board-hud-resources .board-hud-pill {
+  min-inline-size: 0;
+}
+
+.board-hud-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .board-hud-pill {
