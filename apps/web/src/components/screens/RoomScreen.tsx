@@ -1,4 +1,6 @@
 import type { AuthUser, RoomDetails } from "@hexagonia/shared";
+import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
+import { renderPlayerColorLabel } from "../../ui";
 
 export function RoomScreen(props: {
   room: RoomDetails;
@@ -32,7 +34,7 @@ export function RoomScreen(props: {
                 <h1>{props.room.code}</h1>
                 <span className="status-pill">{props.room.status === "open" ? "Offen" : "Laufend"}</span>
               </div>
-              <p className="muted-copy room-subline">Private Einladung fuer bis zu vier Spieler.</p>
+              <p className="muted-copy room-subline">Private Einladung für bis zu vier Spieler.</p>
             </div>
             <div className="room-share-actions">
               <button type="button" className="ghost-button" onClick={props.onCopyInviteLink}>
@@ -58,13 +60,26 @@ export function RoomScreen(props: {
               const occupied = !!seat.userId;
               const mine = seat.userId === props.session.id;
               return (
-                <article key={seat.index} className={`seat-card ${mine ? "is-mine" : ""}`}>
+                <article key={seat.index} className={`seat-card player-surface player-accent-${seat.color} ${mine ? "is-mine" : ""}`}>
                   <div className="seat-card-top">
-                    <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
+                    <div className="seat-slot-meta">
+                      <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
+                      <PlayerColorBadge color={seat.color} compact />
+                    </div>
                     {occupied ? <span className={`online-indicator ${online ? "is-online" : "is-offline"}`} /> : null}
                   </div>
-                  <strong>{seat.username ?? "Offen"}</strong>
-                  <span>{seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfuegbar"}</span>
+                  {occupied && seat.username ? (
+                    <PlayerIdentity
+                      username={seat.username}
+                      color={seat.color}
+                      compact
+                      isSelf={mine}
+                      meta={mine ? `Deine Farbe: ${renderPlayerColorLabel(seat.color)}` : undefined}
+                    />
+                  ) : (
+                    <strong className="seat-open-label">Offen</strong>
+                  )}
+                  <span>{seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfügbar"}</span>
                   <span className="muted-copy">
                     {occupied ? (online ? "Online im Raum" : "Nicht verbunden") : "Jeder eingeladene Spieler kann beitreten"}
                   </span>

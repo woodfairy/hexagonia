@@ -9,6 +9,7 @@ export interface BoardFocusCue {
   mode: "event" | "action";
   title: string;
   detail: string;
+  badges?: string[];
   vertexIds: string[];
   edgeIds: string[];
   tileIds: string[];
@@ -41,6 +42,22 @@ const GUIDE_ROAD_RADIUS = 0.14;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 
+interface MaterialState {
+  material: THREE.Material | THREE.SpriteMaterial;
+  opacity?: number;
+  emissiveIntensity?: number;
+  color?: THREE.Color;
+}
+
+interface InteractiveMeta {
+  kind: "tile" | "edge" | "vertex";
+  id: string;
+  baseScale: THREE.Vector3;
+  hoverScale: number;
+  materialStates: MaterialState[];
+  marker?: THREE.Object3D;
+}
+
 export function BoardScene(props: BoardSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -55,6 +72,7 @@ export function BoardScene(props: BoardSceneProps) {
   const lastFocusKeyRef = useRef<string | null>(null);
   const autoFlightRef = useRef(false);
   const userInteractingRef = useRef(false);
+  const hoveredInteractiveRef = useRef<THREE.Object3D | null>(null);
   const handlersRef = useRef({
     onVertexSelect: props.onVertexSelect,
     onEdgeSelect: props.onEdgeSelect,
@@ -102,6 +120,7 @@ export function BoardScene(props: BoardSceneProps) {
     controls.update();
     focusTargetRef.current.copy(DEFAULT_CAMERA_TARGET);
     focusCameraPositionRef.current.copy(DEFAULT_CAMERA_POSITION);
+    renderer.domElement.style.cursor = "grab";
 
     scene.add(new THREE.AmbientLight("#d5e4f2", 1.35));
     const keyLight = new THREE.DirectionalLight("#f6efe0", 1.45);
@@ -116,6 +135,7 @@ export function BoardScene(props: BoardSceneProps) {
     const onControlStart = () => {
       userInteractingRef.current = true;
       autoFlightRef.current = false;
+      renderer.domElement.style.cursor = "grabbing";
     };
     const onControlEnd = () => {
       if (!cameraRef.current || !controlsRef.current) {
@@ -125,6 +145,7 @@ export function BoardScene(props: BoardSceneProps) {
       userInteractingRef.current = false;
       focusTargetRef.current.copy(controlsRef.current.target);
       focusCameraPositionRef.current.copy(cameraRef.current.position);
+      renderer.domElement.style.cursor = hoveredInteractiveRef.current ? "pointer" : "grab";
     };
     controls.addEventListener("start", onControlStart);
     controls.addEventListener("end", onControlEnd);
@@ -165,19 +186,48 @@ export function BoardScene(props: BoardSceneProps) {
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
 
-    const onPointerDown = (event: PointerEvent) => {
+    const updateHoveredObject = (nextObject: THREE.Object3D | null) => {
+      if (hoveredInteractiveRef.current === nextObject) {
+        return;
+      }
+
+      setInteractiveHoverState(hoveredInteractiveRef.current, false);
+      hoveredInteractiveRef.current = nextObject;
+      setInteractiveHoverState(nextObject, true);
+      if (!userInteractingRef.current) {
+        renderer.domElement.style.cursor = nextObject ? "pointer" : "grab";
+      }
+    };
+
+    const getInteractiveObjectAtPointer = (event: PointerEvent) => {
       const rendererNode = rendererRef.current?.domElement;
       const cameraNode = cameraRef.current;
       if (!rendererNode || !cameraNode) {
-        return;
+        return null;
       }
 
       const rect = rendererNode.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, cameraNode);
-      const intersections = raycaster.intersectObjects(interactiveRef.current, false);
-      const hit = intersections[0]?.object.userData as { kind?: "tile" | "edge" | "vertex"; id?: string } | undefined;
+      const intersections = raycaster.intersectObjects(interactiveRef.current, true);
+      return resolveInteractiveObject(intersections[0]?.object ?? null);
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      updateHoveredObject(getInteractiveObjectAtPointer(event));
+    };
+
+    const onPointerLeave = () => {
+      updateHoveredObject(null);
+      if (!userInteractingRef.current) {
+        renderer.domElement.style.cursor = "grab";
+      }
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = getInteractiveObjectAtPointer(event);
+      const hit = target?.userData as { kind?: "tile" | "edge" | "vertex"; id?: string } | undefined;
       if (!hit?.kind || !hit.id) {
         return;
       }
@@ -193,6 +243,8 @@ export function BoardScene(props: BoardSceneProps) {
       }
     };
 
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerleave", onPointerLeave);
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.setAnimationLoop(() => {
       const pulse = performance.now() * 0.005;
@@ -215,23 +267,32 @@ export function BoardScene(props: BoardSceneProps) {
           continue;
         }
 
-        const intensity = object.userData.pulseIntensity === "strong" ? 0.14 : 0.08;
+        const hovered = !!object.userData.hovered;
+        const hoverScaleMultiplier = hovered ? (object.userData.hoverScaleMultiplier as number | undefined) ?? 1.12 : 1;
+        const pulseIntensity = hovered ? "strong" : object.userData.pulseIntensity;
+        const intensity = pulseIntensity === "strong" ? 0.14 : 0.08;
         const scale = 1 + Math.sin(pulse) * intensity;
-        object.scale.set(baseScale.x * scale, baseScale.y * scale, baseScale.z * scale);
+        object.scale.set(
+          baseScale.x * hoverScaleMultiplier * scale,
+          baseScale.y * hoverScaleMultiplier * scale,
+          baseScale.z * hoverScaleMultiplier * scale
+        );
 
-        const material = object.userData.material as
-          | THREE.Material
-          | THREE.Material[]
-          | THREE.SpriteMaterial
-          | undefined;
-        if (!material) {
-          continue;
-        }
-
-        const materials = Array.isArray(material) ? material : [material];
-        for (const entry of materials) {
-          if ("opacity" in entry) {
-            entry.opacity = object.userData.pulseIntensity === "strong" ? 0.88 : 0.68;
+        const materialStates = (object.userData.materialStates as MaterialState[] | undefined) ?? [];
+        for (const state of materialStates) {
+          if (typeof state.opacity === "number") {
+            state.material.opacity = hovered
+              ? Math.min(state.opacity + 0.24, 1)
+              : pulseIntensity === "strong"
+                ? Math.min(state.opacity + 0.18, 1)
+                : Math.min(state.opacity + 0.08, 1);
+          }
+          if (typeof state.emissiveIntensity === "number" && "emissiveIntensity" in state.material) {
+            state.material.emissiveIntensity = hovered
+              ? state.emissiveIntensity + 0.24
+              : pulseIntensity === "strong"
+                ? state.emissiveIntensity + 0.12
+                : state.emissiveIntensity;
           }
         }
       }
@@ -246,6 +307,8 @@ export function BoardScene(props: BoardSceneProps) {
         boardGroupRef.current = null;
       }
       renderer.setAnimationLoop(null);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("resize", handleResize);
       controls.removeEventListener("start", onControlStart);
@@ -263,6 +326,8 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     if (boardGroupRef.current) {
+      setInteractiveHoverState(hoveredInteractiveRef.current, false);
+      hoveredInteractiveRef.current = null;
       disposeObjectTree(boardGroupRef.current);
       scene.remove(boardGroupRef.current);
     }
@@ -315,7 +380,11 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(tokenSprite);
 
       if (active) {
-        base.userData = { kind: "tile", id: tile.id };
+        const marker = createTileFocusMarker(tile, verticesById, false);
+        marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
+        registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
+        group.add(marker);
+        attachInteractiveMeta(base, "tile", tile.id, 1.02, marker);
         interactiveRef.current.push(base);
       }
     }
@@ -348,7 +417,8 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(road);
 
       if (active) {
-        road.userData = { kind: "edge", id: edge.id };
+        registerPulseVisual(road, pulseObjectsRef.current, selected ? "strong" : "soft", 1.08);
+        attachInteractiveMeta(road, "edge", edge.id, selected ? 1.1 : 1.08);
         interactiveRef.current.push(road);
       }
     }
@@ -371,7 +441,16 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(mesh);
 
       if (active) {
-        mesh.userData = { kind: "vertex", id: vertex.id };
+        const marker = building ? createVertexFocusMarker(false) : null;
+        if (marker) {
+          marker.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
+          registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.1);
+          group.add(marker);
+        } else {
+          registerPulseVisual(mesh, pulseObjectsRef.current, "soft", 1.1);
+        }
+
+        attachInteractiveMeta(mesh, "vertex", vertex.id, building ? 1.05 : 1.12, marker);
         interactiveRef.current.push(mesh);
       }
     }
@@ -454,6 +533,8 @@ function createVertexMarker(): THREE.Mesh {
       color: "#f3cf83",
       roughness: 0.5,
       metalness: 0.08,
+      transparent: true,
+      opacity: 0.9,
       emissive: new THREE.Color("#f0a93a"),
       emissiveIntensity: 0.22
     })
@@ -622,7 +703,7 @@ function appendFocusMarkers(
     const marker = createTileFocusMarker(tile, verticesById, cue.mode === "event");
     marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
     focusGroup.add(marker);
-    pulseObjects.push(marker);
+    registerPulseVisual(marker, pulseObjects, cue.mode === "event" ? "strong" : "soft", 1.12);
   }
 
   for (const edgeId of edgeSet) {
@@ -640,7 +721,7 @@ function appendFocusMarkers(
 
     const marker = createEdgeFocusMarker(left, right, cue.mode === "event");
     focusGroup.add(marker);
-    pulseObjects.push(marker);
+    registerPulseVisual(marker, pulseObjects, cue.mode === "event" ? "strong" : "soft", 1.12);
   }
 
   for (const vertexId of vertexSet) {
@@ -652,7 +733,7 @@ function appendFocusMarkers(
     const marker = createVertexFocusMarker(cue.mode === "event");
     marker.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
     focusGroup.add(marker);
-    pulseObjects.push(marker);
+    registerPulseVisual(marker, pulseObjects, cue.mode === "event" ? "strong" : "soft", 1.12);
   }
 
   group.add(focusGroup);
@@ -819,4 +900,107 @@ function colorToHex(color: string): string {
     orange: "#eb8e47"
   };
   return mapping[color] ?? color;
+}
+
+function resolveInteractiveObject(object: THREE.Object3D | null): THREE.Object3D | null {
+  let current = object;
+  while (current) {
+    if (current.userData?.interactiveMeta) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function attachInteractiveMeta(
+  object: THREE.Object3D,
+  kind: InteractiveMeta["kind"],
+  id: string,
+  hoverScale: number,
+  marker?: THREE.Object3D | null
+): void {
+  object.userData.kind = kind;
+  object.userData.id = id;
+  object.userData.interactiveMeta = {
+    kind,
+    id,
+    baseScale: object.scale.clone(),
+    hoverScale,
+    materialStates: collectMaterialStates(object),
+    ...(marker ? { marker } : {})
+  } satisfies InteractiveMeta;
+}
+
+function registerPulseVisual(
+  object: THREE.Object3D,
+  pulseObjects: THREE.Object3D[],
+  intensity: "soft" | "strong",
+  hoverScaleMultiplier: number
+): void {
+  object.userData.baseScale = object.scale.clone();
+  object.userData.materialStates = collectMaterialStates(object);
+  object.userData.pulseIntensity = intensity;
+  object.userData.hoverScaleMultiplier = hoverScaleMultiplier;
+  pulseObjects.push(object);
+}
+
+function setInteractiveHoverState(object: THREE.Object3D | null, hovered: boolean): void {
+  if (!object) {
+    return;
+  }
+
+  const meta = object.userData.interactiveMeta as InteractiveMeta | undefined;
+  if (!meta) {
+    return;
+  }
+
+  object.userData.hovered = hovered;
+  object.scale.copy(meta.baseScale).multiplyScalar(hovered ? meta.hoverScale : 1);
+
+  for (const state of meta.materialStates) {
+    if (typeof state.opacity === "number") {
+      state.material.opacity = hovered ? Math.min(state.opacity + 0.18, 1) : state.opacity;
+    }
+    if (typeof state.emissiveIntensity === "number" && "emissiveIntensity" in state.material) {
+      state.material.emissiveIntensity = hovered ? state.emissiveIntensity + 0.18 : state.emissiveIntensity;
+    }
+  }
+
+  if (meta.marker) {
+    meta.marker.userData.hovered = hovered;
+  }
+}
+
+function collectMaterialStates(root: THREE.Object3D): MaterialState[] {
+  const states: MaterialState[] = [];
+
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh || object instanceof THREE.Sprite || object instanceof THREE.Line)) {
+      return;
+    }
+
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      const state: MaterialState = {
+        material
+      };
+
+      if ("opacity" in material && typeof material.opacity === "number") {
+        state.opacity = material.opacity;
+      }
+
+      if ("emissiveIntensity" in material && typeof material.emissiveIntensity === "number") {
+        state.emissiveIntensity = material.emissiveIntensity;
+      }
+
+      if ("color" in material && material.color instanceof THREE.Color) {
+        state.color = material.color.clone();
+      }
+
+      states.push(state);
+    }
+  });
+
+  return states;
 }

@@ -1,4 +1,4 @@
-import type { AuthUser, MatchPhase, ResourceMap } from "@hexagonia/shared";
+import type { AuthUser, MatchPhase, PlayerColor, ResourceMap } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
 
 export type AuthMode = "login" | "register";
@@ -52,12 +52,17 @@ export function renderEventLabel(type: string): string {
   const labels: Record<string, string> = {
     match_started: "Partie gestartet.",
     initial_settlement_placed: "Start-Siedlung gesetzt.",
-    initial_road_placed: "Start-Strasse gesetzt.",
-    dice_rolled: "Wuerfel geworfen.",
-    road_built: "Strasse gebaut.",
+    initial_road_placed: "Start-Straße gesetzt.",
+    dice_rolled: "Würfel geworfen.",
+    resources_distributed: "Rohstoffe verteilt.",
+    resources_discarded: "Rohstoffe abgeworfen.",
+    initial_resources_granted: "Start-Rohstoffe erhalten.",
+    road_built: "Straße gebaut.",
     settlement_built: "Siedlung gebaut.",
     city_built: "Stadt gebaut.",
-    robber_moved: "Raeuber versetzt.",
+    development_card_bought: "Entwicklung gekauft.",
+    development_card_played: "Entwicklung gespielt.",
+    robber_moved: "Räuber versetzt.",
     trade_completed: "Handel abgeschlossen.",
     turn_ended: "Zug beendet."
   };
@@ -68,11 +73,11 @@ export function renderEventLabel(type: string): string {
 export function formatPhase(phase: MatchPhase): string {
   const labels: Record<MatchPhase, string> = {
     room: "Raum",
-    setup_forward: "Startaufbau vorwaerts",
-    setup_reverse: "Startaufbau rueckwaerts",
-    turn_roll: "Wuerfeln",
+    setup_forward: "Startaufbau vorwärts",
+    setup_reverse: "Startaufbau rückwärts",
+    turn_roll: "Würfeln",
     turn_action: "Aktionsphase",
-    robber_interrupt: "Raeuber",
+    robber_interrupt: "Räuber",
     trade_resolution: "Handel",
     game_over: "Spiel beendet"
   };
@@ -94,10 +99,25 @@ export function renderResourceLabel(resource: string): string {
     ore: "Erz",
     grain: "Getreide",
     wool: "Wolle",
-    desert: "Wueste"
+    desert: "Wüste"
   };
 
   return labels[resource] ?? resource;
+}
+
+export function renderPlayerColorLabel(color: PlayerColor): string {
+  const labels: Record<PlayerColor, string> = {
+    red: "Rot",
+    blue: "Blau",
+    white: "Weiß",
+    orange: "Orange"
+  };
+
+  return labels[color];
+}
+
+export function getPlayerAccentClass(color: PlayerColor | null | undefined): string {
+  return color ? `player-accent-${color}` : "";
 }
 
 export function toInitials(name: string): string {

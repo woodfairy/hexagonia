@@ -11,7 +11,7 @@ import type {
   ServerMessage,
   UserRole
 } from "@hexagonia/shared";
-import { createEmptyResourceMap } from "@hexagonia/shared";
+import { createEmptyResourceMap, hasResources } from "@hexagonia/shared";
 import {
   closeAdminRoom,
   createRoom,
@@ -47,7 +47,9 @@ import {
   type AuthMode,
   type ConnectionState,
   type RouteState,
-  readRoute
+  readRoute,
+  renderResourceLabel,
+  renderResourceMap
 } from "./ui";
 
 const TEXT = {
@@ -60,6 +62,21 @@ const HEARTBEAT_TIMEOUT_MS = 40000;
 const RECONNECT_BASE_MS = 1200;
 const RECONNECT_MAX_MS = 12000;
 const DISCONNECT_TOAST_COOLDOWN_MS = 30000;
+const BUILD_COSTS = {
+  road: { brick: 1, lumber: 1 },
+  settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
+  city: { grain: 2, ore: 3 }
+} as const;
+
+type MatchAction = Extract<ClientMessage, { type: "match.action" }>["action"];
+
+interface PendingMatchConfirmation {
+  title: string;
+  detail: string;
+  confirmLabel: string;
+  message: Extract<ClientMessage, { type: "match.action" }>;
+  afterConfirm?: () => void;
+}
 
 export function App() {
   const [session, setSession] = useState<AuthUser | null | undefined>(undefined);
@@ -102,6 +119,7 @@ export function App() {
   const [yearOfPlenty, setYearOfPlenty] = useState<[Resource, Resource]>(["brick", "grain"]);
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
   const [route, setRoute] = useState<RouteState>(readRoute());
+  const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<PendingMatchConfirmation | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
@@ -157,7 +175,7 @@ export function App() {
       return {
         eyebrow: "Administration",
         title: "Admin-Konsole",
-        meta: "Konten, Raeume und laufende Partien zentral verwalten"
+        meta: "Konten, Räume und laufende Partien zentral verwalten"
       };
     }
 
@@ -165,7 +183,7 @@ export function App() {
       return {
         eyebrow: "Privater Raum",
         title: room ? "Raumlobby" : "Raum wird geladen",
-        meta: room ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/4 Spieler` : "Synchronisation laeuft"
+        meta: room ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/4 Spieler` : "Synchronisation läuft"
       };
     }
 
@@ -174,7 +192,7 @@ export function App() {
       title: match ? `Zug ${match.turn}` : "Partie wird geladen",
       meta: match
         ? `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
-        : "Verbindung laeuft"
+        : "Verbindung läuft"
     };
   }, [activeScreen, match, room, session]);
 
@@ -215,6 +233,10 @@ export function App() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    setPendingMatchConfirmation(null);
+  }, [match?.matchId, match?.version, route.kind]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -361,7 +383,7 @@ export function App() {
       .then((user) => {
         setSession(user);
         setConnectionState("connecting");
-        setStatus(`Willkommen zurueck, ${user.username}.`);
+        setStatus(`Willkommen zurück, ${user.username}.`);
       })
       .catch(() => {
         setSession(null);
@@ -413,7 +435,7 @@ export function App() {
       }
 
       reconnectAttemptRef.current = 0;
-      triggerReconnect("Realtime-Verbindung wird nach Rueckkehr wiederhergestellt.");
+      triggerReconnect("Realtime-Verbindung wird nach Rückkehr wiederhergestellt.");
     };
 
     const onVisibilityChange = () => {
@@ -508,7 +530,7 @@ export function App() {
           );
           pushToast(
             "info",
-            "Partie zur Lobby zurueckgesetzt",
+            "Partie zur Lobby zurückgesetzt",
             isSeatedInRoom
               ? "Ein Spieler wurde entfernt. Der Raum wartet jetzt wieder auf Spieler."
               : "Die laufende Partie existiert nicht mehr. Du bist wieder in der Raumansicht."
@@ -560,7 +582,7 @@ export function App() {
       const now = Date.now();
       if (now - lastDisconnectToastAtRef.current > DISCONNECT_TOAST_COOLDOWN_MS) {
         lastDisconnectToastAtRef.current = now;
-        pushToast("info", "Verbindung wird wiederhergestellt", "Hexagonia verbindet deine laufenden Raeume und Partien automatisch neu.");
+        pushToast("info", "Verbindung wird wiederhergestellt", "Hexagonia verbindet deine laufenden Räume und Partien automatisch neu.");
       }
 
       scheduleReconnect();
@@ -608,10 +630,10 @@ export function App() {
           setRoom(nextRoom);
           navigateTo({ kind: "room", roomId: nextRoom.id });
           subscribeRoom(nextRoom.id);
-          pushToast("success", "Einladung geoeffnet", `Du bist jetzt im Raum ${nextRoom.code}.`);
+          pushToast("success", "Einladung geöffnet", `Du bist jetzt im Raum ${nextRoom.code}.`);
         })
         .catch((routeError: Error) => {
-          pushToast("error", "Einladung ungueltig", routeError.message);
+          pushToast("error", "Einladung ungültig", routeError.message);
           navigateTo({ kind: "home" });
         });
       return;
@@ -619,7 +641,7 @@ export function App() {
 
     if (route.kind === "room") {
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
-        triggerReconnect("Realtime-Verbindung wird fuer den Raum wiederhergestellt.");
+        triggerReconnect("Realtime-Verbindung wird für den Raum wiederhergestellt.");
       }
       void getRoom(route.roomId)
         .then((nextRoom) => {
@@ -639,7 +661,7 @@ export function App() {
           matchId: route.matchId
         });
       } else {
-        triggerReconnect("Realtime-Verbindung wird fuer die Partie wiederhergestellt.");
+        triggerReconnect("Realtime-Verbindung wird für die Partie wiederhergestellt.");
       }
     }
   }, [loadAdminData, pushToast, route, session, triggerReconnect]);
@@ -653,6 +675,23 @@ export function App() {
 
     if (match.allowedMoves.robberMoveOptions.length > 0) {
       setInteractionMode("robber");
+      return;
+    }
+
+    const selfPlayer = match.players.find((player) => player.id === match.you);
+    const selfResources = selfPlayer?.resources;
+    const canBuildRoad = !!selfResources && hasResources(selfResources, BUILD_COSTS.road);
+    const canBuildSettlement = !!selfResources && hasResources(selfResources, BUILD_COSTS.settlement);
+    const canBuildCity = !!selfResources && hasResources(selfResources, BUILD_COSTS.city);
+
+    if (
+      (interactionMode === "road" && (!canBuildRoad || !match.allowedMoves.roadEdgeIds.length)) ||
+      (interactionMode === "settlement" &&
+        (!canBuildSettlement || !match.allowedMoves.settlementVertexIds.length)) ||
+      (interactionMode === "city" && (!canBuildCity || !match.allowedMoves.cityVertexIds.length))
+    ) {
+      setInteractionMode(null);
+      setSelectedRoadEdges([]);
       return;
     }
 
@@ -687,13 +726,62 @@ export function App() {
     (message: ClientMessage) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         triggerReconnect("Realtime-Verbindung wird wiederhergestellt.");
-        pushToast("error", "WebSocket nicht verbunden", "Die Realtime-Verbindung ist gerade nicht verfuegbar.");
+        pushToast("error", "WebSocket nicht verbunden", "Die Realtime-Verbindung ist gerade nicht verfügbar.");
         return;
       }
       sendMessage(wsRef.current, message);
     },
     [pushToast, triggerReconnect]
   );
+
+  const queueMatchConfirmation = useCallback(
+    (message: Extract<ClientMessage, { type: "match.action" }>, afterConfirm?: () => void) => {
+      const currentMatch = matchRef.current;
+      if (!currentMatch) {
+        return;
+      }
+
+      const confirmation = getMatchActionConfirmation(currentMatch, message.action);
+      if (!confirmation) {
+        sendCurrent(message);
+        afterConfirm?.();
+        return;
+      }
+
+      setPendingMatchConfirmation({
+        ...confirmation,
+        message,
+        ...(afterConfirm ? { afterConfirm } : {})
+      });
+    },
+    [sendCurrent]
+  );
+
+  const handleMatchAction = useCallback(
+    (message: ClientMessage) => {
+      if (message.type !== "match.action") {
+        sendCurrent(message);
+        return;
+      }
+
+      queueMatchConfirmation(message);
+    },
+    [queueMatchConfirmation, sendCurrent]
+  );
+
+  const handleConfirmPendingAction = useCallback(() => {
+    if (!pendingMatchConfirmation) {
+      return;
+    }
+
+    sendCurrent(pendingMatchConfirmation.message);
+    pendingMatchConfirmation.afterConfirm?.();
+    setPendingMatchConfirmation(null);
+  }, [pendingMatchConfirmation, sendCurrent]);
+
+  const handleCancelPendingAction = useCallback(() => {
+    setPendingMatchConfirmation(null);
+  }, []);
 
   const navigateTo = useCallback((next: RouteState) => {
     setRoute(next);
@@ -717,7 +805,7 @@ export function App() {
   const handleOpenTrackedRoom = useCallback(
     (roomId: string) => {
       navigateTo({ kind: "room", roomId });
-      triggerReconnect("Realtime-Verbindung wird fuer den Raum wiederhergestellt.");
+      triggerReconnect("Realtime-Verbindung wird für den Raum wiederhergestellt.");
     },
     [navigateTo, triggerReconnect]
   );
@@ -725,7 +813,7 @@ export function App() {
   const handleResumeMatch = useCallback(
     (matchId: string) => {
       navigateTo({ kind: "match", matchId });
-      triggerReconnect("Realtime-Verbindung wird fuer die Partie wiederhergestellt.");
+      triggerReconnect("Realtime-Verbindung wird für die Partie wiederhergestellt.");
     },
     [navigateTo, triggerReconnect]
   );
@@ -825,7 +913,7 @@ export function App() {
       setPresence([]);
       await loadMyRooms();
       navigateTo({ kind: "home" });
-      pushToast("info", "Raum verlassen", "Du bist zurueck in der Zentrale.");
+      pushToast("info", "Raum verlassen", "Du bist zurück in der Zentrale.");
     } catch (leaveError) {
       pushToast("error", "Raum konnte nicht verlassen werden", (leaveError as Error).message);
     }
@@ -946,7 +1034,7 @@ export function App() {
       }
 
       if (!Object.keys(payload).length) {
-        pushToast("info", "Keine Aenderung", "Fuer dieses Konto wurden keine neuen Werte gesetzt.");
+        pushToast("info", "Keine Änderung", "Für dieses Konto wurden keine neuen Werte gesetzt.");
         return;
       }
 
@@ -966,9 +1054,9 @@ export function App() {
       await deleteAdminUser(userId);
       await loadAdminData();
       await loadMyRooms();
-      pushToast("info", "Nutzer geloescht", "Das Konto wurde entfernt und betroffene Raeume aktualisiert.");
+      pushToast("info", "Nutzer gelöscht", "Das Konto wurde entfernt und betroffene Räume aktualisiert.");
     } catch (error) {
-      pushToast("error", "Nutzer konnte nicht geloescht werden", (error as Error).message);
+      pushToast("error", "Nutzer konnte nicht gelöscht werden", (error as Error).message);
     }
   };
 
@@ -997,9 +1085,9 @@ export function App() {
       }
       await loadAdminData();
       await loadMyRooms();
-      pushToast("info", "Match zurueckgesetzt", "Die Partie wurde entfernt und der Raum wieder geoeffnet.");
+      pushToast("info", "Match zurückgesetzt", "Die Partie wurde entfernt und der Raum wieder geöffnet.");
     } catch (error) {
-      pushToast("error", "Match konnte nicht zurueckgesetzt werden", (error as Error).message);
+      pushToast("error", "Match konnte nicht zurückgesetzt werden", (error as Error).message);
     }
   };
 
@@ -1036,8 +1124,11 @@ export function App() {
       return;
     }
 
+    const selfPlayer = match.players.find((player) => player.id === match.you);
+    const selfResources = selfPlayer?.resources;
+
     if (match.allowedMoves.initialSettlementVertexIds.includes(vertexId)) {
-      sendCurrent({
+      queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
         action: {
@@ -1048,28 +1139,42 @@ export function App() {
       return;
     }
 
-    if (interactionMode === "settlement" && match.allowedMoves.settlementVertexIds.includes(vertexId)) {
-      sendCurrent({
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "build_settlement",
-          vertexId
-        }
-      });
-      setInteractionMode(null);
+    if (
+      interactionMode === "settlement" &&
+      !!selfResources &&
+      hasResources(selfResources, BUILD_COSTS.settlement) &&
+      match.allowedMoves.settlementVertexIds.includes(vertexId)
+    ) {
+      queueMatchConfirmation(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "build_settlement",
+            vertexId
+          }
+        },
+        () => setInteractionMode(null)
+      );
     }
 
-    if (interactionMode === "city" && match.allowedMoves.cityVertexIds.includes(vertexId)) {
-      sendCurrent({
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "build_city",
-          vertexId
-        }
-      });
-      setInteractionMode(null);
+    if (
+      interactionMode === "city" &&
+      !!selfResources &&
+      hasResources(selfResources, BUILD_COSTS.city) &&
+      match.allowedMoves.cityVertexIds.includes(vertexId)
+    ) {
+      queueMatchConfirmation(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "build_city",
+            vertexId
+          }
+        },
+        () => setInteractionMode(null)
+      );
     }
   };
 
@@ -1078,8 +1183,11 @@ export function App() {
       return;
     }
 
+    const selfPlayer = match.players.find((player) => player.id === match.you);
+    const selfResources = selfPlayer?.resources;
+
     if (match.allowedMoves.initialRoadEdgeIds.includes(edgeId)) {
-      sendCurrent({
+      queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
         action: {
@@ -1090,16 +1198,23 @@ export function App() {
       return;
     }
 
-    if (interactionMode === "road" && match.allowedMoves.roadEdgeIds.includes(edgeId)) {
-      sendCurrent({
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "build_road",
-          edgeId
-        }
-      });
-      setInteractionMode(null);
+    if (
+      interactionMode === "road" &&
+      !!selfResources &&
+      hasResources(selfResources, BUILD_COSTS.road) &&
+      match.allowedMoves.roadEdgeIds.includes(edgeId)
+    ) {
+      queueMatchConfirmation(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "build_road",
+            edgeId
+          }
+        },
+        () => setInteractionMode(null)
+      );
     }
 
     if (interactionMode === "road_building" && match.allowedMoves.roadEdgeIds.includes(edgeId)) {
@@ -1110,16 +1225,21 @@ export function App() {
 
         const next = [...current, edgeId].slice(0, 2);
         if (next.length === 2) {
-          sendCurrent({
-            type: "match.action",
-            matchId: match.matchId,
-            action: {
-              type: "play_road_building",
-              edgeIds: next
+          queueMatchConfirmation(
+            {
+              type: "match.action",
+              matchId: match.matchId,
+              action: {
+                type: "play_road_building",
+                edgeIds: next
+              }
+            },
+            () => {
+              setInteractionMode(null);
+              setSelectedRoadEdges([]);
             }
-          });
-          setInteractionMode(null);
-          return [];
+          );
+          return next;
         }
 
         return next;
@@ -1140,12 +1260,14 @@ export function App() {
     if (option?.targetPlayerIds[0]) {
       action.targetPlayerId = option.targetPlayerIds[0];
     }
-    sendCurrent({
-      type: "match.action",
-      matchId: match.matchId,
-      action
-    });
-    setInteractionMode(null);
+    queueMatchConfirmation(
+      {
+        type: "match.action",
+        matchId: match.matchId,
+        action
+      },
+      () => setInteractionMode(null)
+    );
   };
 
   const sendTradeOffer = () => {
@@ -1153,7 +1275,7 @@ export function App() {
       return;
     }
 
-    sendCurrent({
+    queueMatchConfirmation({
       type: "match.action",
       matchId: match.matchId,
       action: {
@@ -1281,17 +1403,27 @@ export function App() {
               setYearOfPlenty={setYearOfPlenty}
               tradeForm={tradeForm}
               yearOfPlenty={yearOfPlenty}
-              onAction={sendCurrent}
+              onAction={handleMatchAction}
               onEdgeSelect={handleEdgeSelect}
               onOfferTrade={sendTradeOffer}
               onTileSelect={handleTileSelect}
               onVertexSelect={handleVertexSelect}
             />
           ) : (
-            <StatusSurface title="Partie wird verbunden" text="Die Realtime-Partie wird wieder an dein Geraet angebunden." />
+            <StatusSurface title="Partie wird verbunden" text="Die Realtime-Partie wird wieder an dein Gerät angebunden." />
           )
         ) : null}
       </div>
+
+      {pendingMatchConfirmation ? (
+        <ConfirmActionDialog
+          confirmLabel={pendingMatchConfirmation.confirmLabel}
+          detail={pendingMatchConfirmation.detail}
+          title={pendingMatchConfirmation.title}
+          onCancel={handleCancelPendingAction}
+          onConfirm={handleConfirmPendingAction}
+        />
+      ) : null}
 
       <ToastStack onDismiss={removeToast} toasts={toasts} />
     </main>
@@ -1310,6 +1442,40 @@ function StatusSurface(props: { title: string; text: string }) {
   );
 }
 
+function ConfirmActionDialog(props: {
+  title: string;
+  detail: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="confirm-overlay" role="presentation" onClick={props.onCancel}>
+      <div
+        className="confirm-dialog surface"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-action-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="confirm-copy">
+          <span className="eyebrow">Bestätigung</span>
+          <h2 id="confirm-action-title">{props.title}</h2>
+          <p>{props.detail}</p>
+        </div>
+        <div className="confirm-actions">
+          <button type="button" className="ghost-button" onClick={props.onCancel}>
+            Abbrechen
+          </button>
+          <button type="button" className="primary-button" onClick={props.onConfirm}>
+            {props.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function sendMessage(socket: WebSocket, message: ClientMessage) {
   socket.send(JSON.stringify(message));
 }
@@ -1318,6 +1484,119 @@ function singleResourceMap(resource: Resource, count: number): ResourceMap {
   const map = createEmptyResourceMap();
   map[resource] = count;
   return map;
+}
+
+function getMatchActionConfirmation(
+  match: MatchSnapshot,
+  action: MatchAction
+): { title: string; detail: string; confirmLabel: string } | null {
+  switch (action.type) {
+    case "place_initial_settlement":
+      return {
+        title: "Start-Siedlung setzen?",
+        detail: "Die ausgewählte Position wird als deine Start-Siedlung gesetzt.",
+        confirmLabel: "Siedlung setzen"
+      };
+    case "place_initial_road":
+      return {
+        title: "Start-Straße setzen?",
+        detail: "Die ausgewählte Kante wird als deine Start-Straße gesetzt.",
+        confirmLabel: "Straße setzen"
+      };
+    case "build_road":
+      return {
+        title: "Straße bauen?",
+        detail: "Die Straße wird sofort gebaut und die Baukosten werden bezahlt.",
+        confirmLabel: "Straße bauen"
+      };
+    case "build_settlement":
+      return {
+        title: "Siedlung bauen?",
+        detail: "Die Siedlung wird sofort gebaut und die Baukosten werden bezahlt.",
+        confirmLabel: "Siedlung bauen"
+      };
+    case "build_city":
+      return {
+        title: "Stadt bauen?",
+        detail: "Die ausgewählte Siedlung wird zur Stadt ausgebaut und die Baukosten werden bezahlt.",
+        confirmLabel: "Stadt bauen"
+      };
+    case "buy_development_card":
+      return {
+        title: "Entwicklungskarte kaufen?",
+        detail: "Die Rohstoffe werden direkt abgezogen und du ziehst eine verdeckte Entwicklungskarte.",
+        confirmLabel: "Karte kaufen"
+      };
+    case "play_knight":
+      return {
+        title: "Ritter spielen?",
+        detail: "Der Ritter wird ausgespielt und danach setzt du den Räuber.",
+        confirmLabel: "Ritter spielen"
+      };
+    case "play_road_building":
+      return {
+        title: "Kostenlose Straßen setzen?",
+        detail:
+          action.edgeIds.length === 2
+            ? "Beide ausgewählten Kanten werden als kostenlose Straßen gesetzt."
+            : "Die ausgewählte Kante wird als kostenlose Straße gesetzt.",
+        confirmLabel: "Straßen setzen"
+      };
+    case "play_year_of_plenty":
+      return {
+        title: "Erfindung ausspielen?",
+        detail: `Du nimmst ${renderResourceLabel(action.resources[0])} und ${renderResourceLabel(action.resources[1])} aus der Bank.`,
+        confirmLabel: "Erfindung spielen"
+      };
+    case "play_monopoly":
+      return {
+        title: "Monopol ausspielen?",
+        detail: `Alle Mitspieler geben dir ihre ${renderResourceLabel(action.resource)}-Karten.`,
+        confirmLabel: "Monopol spielen"
+      };
+    case "move_robber": {
+      const targetName = action.targetPlayerId
+        ? match.players.find((player) => player.id === action.targetPlayerId)?.username
+        : null;
+      return {
+        title: "Räuber versetzen?",
+        detail: targetName
+          ? `Der Räuber wird auf das gewählte Feld versetzt und ${targetName} wird als Zielspieler verwendet.`
+          : "Der Räuber wird auf das gewählte Feld versetzt.",
+        confirmLabel: "Räuber setzen"
+      };
+    }
+    case "offer_trade": {
+      const targetName = action.targetPlayerId
+        ? match.players.find((player) => player.id === action.targetPlayerId)?.username ?? "dem Zielspieler"
+        : "allen Mitspielern";
+      return {
+        title: "Handelsangebot senden?",
+        detail: `${renderResourceMap(action.give)} gegen ${renderResourceMap(action.want)} an ${targetName}.`,
+        confirmLabel: "Angebot senden"
+      };
+    }
+    case "maritime_trade":
+      return {
+        title: "Hafenhandel bestätigen?",
+        detail: `Tausche ${action.giveCount} ${renderResourceLabel(action.give)} gegen 1 ${renderResourceLabel(action.receive)}.`,
+        confirmLabel: "Tausch senden"
+      };
+    case "discard_resources":
+      return {
+        title: "Karten abwerfen?",
+        detail: `Diese Karten werden abgelegt: ${renderResourceMap(action.resources)}.`,
+        confirmLabel: "Karten abwerfen"
+      };
+    case "end_turn":
+      return {
+        title: "Zug beenden?",
+        detail: "Danach kann in diesem Zug nichts mehr gebaut oder gespielt werden.",
+        confirmLabel: "Zug beenden"
+      };
+    default:
+      return null;
+  }
 }
 
 function getNextAdminUserDraft(

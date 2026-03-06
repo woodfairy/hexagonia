@@ -28,7 +28,7 @@ export function AuthScreen(props: {
           </div>
           <div className="metric-card">
             <strong>Alles an einem Ort</strong>
-            <span>Konto anlegen, anmelden und wieder an offene Partien anknuepfen.</span>
+            <span>Konto anlegen, anmelden und wieder an offene Partien anknüpfen.</span>
           </div>
         </div>
       </article>

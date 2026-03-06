@@ -18,7 +18,7 @@ export function ToastStack(props: {
             {toast.body ? <span>{toast.body}</span> : null}
           </div>
           <button type="button" className="ghost-button toast-close" onClick={() => props.onDismiss(toast.id)}>
-            Schliessen
+            Schließen
           </button>
         </article>
       ))}
