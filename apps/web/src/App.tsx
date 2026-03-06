@@ -1,10 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import type { AuthUser, ClientMessage, MatchSnapshot, Resource, ResourceMap, RoomDetails, ServerMessage } from "@hexagonia/shared";
+import type {
+  AdminMatchSummary,
+  AdminUserRecord,
+  AuthUser,
+  ClientMessage,
+  MatchSnapshot,
+  Resource,
+  ResourceMap,
+  RoomDetails,
+  ServerMessage,
+  UserRole
+} from "@hexagonia/shared";
 import { createEmptyResourceMap } from "@hexagonia/shared";
 import {
+  closeAdminRoom,
   createRoom,
+  createAdminUser,
   createWebSocket,
+  deleteAdminMatch,
+  deleteAdminUser,
+  getAdminMatches,
+  getAdminRooms,
+  getAdminUsers,
   getCurrentUser,
+  getMyRooms,
   getRoom,
   getRoomByCode,
   joinRoom,
@@ -13,11 +32,13 @@ import {
   logout,
   register,
   setReady,
-  startRoom
+  startRoom,
+  updateAdminUser
 } from "./api";
 import type { InteractionMode } from "./BoardScene";
 import { AppHeader } from "./components/shell/AppHeader";
 import { ToastStack, type ToastMessage } from "./components/shell/ToastStack";
+import { AdminScreen, type AdminCreateFormState, type AdminUserDraftState } from "./components/screens/AdminScreen";
 import { AuthScreen } from "./components/screens/AuthScreen";
 import { LobbyScreen } from "./components/screens/LobbyScreen";
 import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
@@ -26,30 +47,45 @@ import {
   type AuthMode,
   type ConnectionState,
   type RouteState,
-  readRoute,
-  renderEventLabel
+  readRoute
 } from "./ui";
 
 const TEXT = {
   title: "Hexagonia",
-  subtitle: "Serverautoritatives Echtzeit-Tabletop im Browser"
+  subtitle: "Privat spielen, einladen und direkt loslegen"
 } as const;
+
+const HEARTBEAT_INTERVAL_MS = 15000;
+const HEARTBEAT_TIMEOUT_MS = 40000;
+const RECONNECT_BASE_MS = 1200;
+const RECONNECT_MAX_MS = 12000;
+const DISCONNECT_TOAST_COOLDOWN_MS = 30000;
 
 export function App() {
   const [session, setSession] = useState<AuthUser | null | undefined>(undefined);
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [match, setMatch] = useState<MatchSnapshot | null>(null);
+  const [myRooms, setMyRooms] = useState<RoomDetails[]>([]);
   const [presence, setPresence] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("Verbindung wird initialisiert.");
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const [socketEpoch, setSocketEpoch] = useState(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState({
-    email: "",
     username: "",
     password: ""
   });
   const [joinCode, setJoinCode] = useState("");
+  const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>([]);
+  const [adminRooms, setAdminRooms] = useState<RoomDetails[]>([]);
+  const [adminMatches, setAdminMatches] = useState<AdminMatchSummary[]>([]);
+  const [adminCreateForm, setAdminCreateForm] = useState<AdminCreateFormState>({
+    username: "",
+    password: "",
+    role: "user"
+  });
+  const [adminUserDrafts, setAdminUserDrafts] = useState<Record<string, AdminUserDraftState>>({});
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(null);
   const [selectedRoadEdges, setSelectedRoadEdges] = useState<string[]>([]);
   const [tradeForm, setTradeForm] = useState<TradeFormState>({
@@ -69,9 +105,15 @@ export function App() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
+  const sessionRef = useRef<AuthUser | null | undefined>(session);
   const roomRef = useRef<RoomDetails | null>(null);
   const matchRef = useRef<MatchSnapshot | null>(null);
   const routeRef = useRef<RouteState>(route);
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const heartbeatTimerRef = useRef<number | null>(null);
+  const lastServerActivityRef = useRef(Date.now());
+  const lastDisconnectToastAtRef = useRef(0);
 
   const selfPlayer = useMemo(
     () => match?.players.find((player) => player.id === match.you) ?? null,
@@ -81,6 +123,9 @@ export function App() {
   const activeScreen = useMemo(() => {
     if (!session) {
       return "auth" as const;
+    }
+    if (route.kind === "admin" && session.role === "admin") {
+      return "admin" as const;
     }
     if (route.kind === "match") {
       return "match" as const;
@@ -94,7 +139,7 @@ export function App() {
   const headerContext = useMemo(() => {
     if (!session) {
       return {
-        eyebrow: "Premium Tabletop Plattform",
+        eyebrow: "Mit Freunden spielen",
         title: TEXT.title,
         meta: TEXT.subtitle
       };
@@ -104,15 +149,23 @@ export function App() {
       return {
         eyebrow: "Spielzentrale",
         title: `Willkommen, ${session.username}`,
-        meta: "Private Raeume, Reconnect und Echtzeit-Partien"
+        meta: "Raum erstellen oder mit einem Code beitreten"
+      };
+    }
+
+    if (activeScreen === "admin") {
+      return {
+        eyebrow: "Administration",
+        title: "Admin-Konsole",
+        meta: "Konten, Raeume und laufende Partien zentral verwalten"
       };
     }
 
     if (activeScreen === "room") {
       return {
         eyebrow: "Privater Raum",
-        title: room ? `Code ${room.code}` : "Raum wird geladen",
-        meta: room ? `${room.seats.filter((seat) => seat.userId).length}/4 Spieler im Raum` : "Synchronisation laeuft"
+        title: room ? "Raumlobby" : "Raum wird geladen",
+        meta: room ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/4 Spieler` : "Synchronisation laeuft"
       };
     }
 
@@ -120,8 +173,8 @@ export function App() {
       eyebrow: "Laufende Partie",
       title: match ? `Zug ${match.turn}` : "Partie wird geladen",
       meta: match
-        ? `Aktiver Spieler: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
-        : "Reconnect laeuft"
+        ? `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+        : "Verbindung laeuft"
     };
   }, [activeScreen, match, room, session]);
 
@@ -160,6 +213,150 @@ export function App() {
   }, [route]);
 
   useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    setAdminUserDrafts((current) =>
+      Object.fromEntries(
+        adminUsers.map((user) => [
+          user.id,
+          {
+            username: current[user.id]?.username ?? user.username,
+            password: current[user.id]?.password ?? "",
+            role: current[user.id]?.role ?? user.role
+          }
+        ])
+      )
+    );
+  }, [adminUsers]);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const clearHeartbeatTimer = useCallback(() => {
+    if (heartbeatTimerRef.current !== null) {
+      window.clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    }
+  }, []);
+
+  const loadMyRooms = useCallback(
+    async (silent = true) => {
+      if (!sessionRef.current) {
+        setMyRooms([]);
+        return;
+      }
+
+      try {
+        const rooms = await getMyRooms();
+        setMyRooms(rooms);
+      } catch (error) {
+        if (!silent) {
+          pushToast("error", "Partien konnten nicht geladen werden", (error as Error).message);
+        }
+      }
+    },
+    [pushToast]
+  );
+
+  const loadAdminData = useCallback(
+    async (silent = true) => {
+      if (sessionRef.current?.role !== "admin") {
+        setAdminUsers([]);
+        setAdminRooms([]);
+        setAdminMatches([]);
+        setAdminUserDrafts({});
+        return;
+      }
+
+      try {
+        const [users, rooms, matches] = await Promise.all([getAdminUsers(), getAdminRooms(), getAdminMatches()]);
+        setAdminUsers(users);
+        setAdminRooms(rooms);
+        setAdminMatches(matches);
+      } catch (error) {
+        if (!silent) {
+          pushToast("error", "Admin-Daten konnten nicht geladen werden", (error as Error).message);
+        }
+      }
+    },
+    [pushToast]
+  );
+
+  const triggerReconnect = useCallback(
+    (nextStatus = "Realtime-Verbindung wird wiederhergestellt.") => {
+      if (!sessionRef.current) {
+        return;
+      }
+
+      const currentSocket = wsRef.current;
+      if (
+        currentSocket &&
+        (currentSocket.readyState === WebSocket.OPEN || currentSocket.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
+
+      clearReconnectTimer();
+      setConnectionState("connecting");
+      setStatus(nextStatus);
+      setSocketEpoch((current) => current + 1);
+    },
+    [clearReconnectTimer]
+  );
+
+  const scheduleReconnect = useCallback(() => {
+    if (!sessionRef.current || reconnectTimerRef.current !== null) {
+      return;
+    }
+
+    const nextAttempt = reconnectAttemptRef.current + 1;
+    reconnectAttemptRef.current = nextAttempt;
+    const baseDelay = Math.min(RECONNECT_BASE_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_MS);
+    const delay = baseDelay + Math.round(Math.random() * 350);
+    const seconds = Math.max(1, Math.round(delay / 1000));
+    setConnectionState("connecting");
+    setStatus(`Verbindung unterbrochen. Neuer Versuch in ${seconds}s.`);
+
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      triggerReconnect("Realtime-Verbindung wird wiederhergestellt.");
+    }, delay);
+  }, [triggerReconnect]);
+
+  const syncRealtimeSubscriptions = useCallback((socket: WebSocket) => {
+    const currentRoute = routeRef.current;
+
+    if (currentRoute.kind === "room") {
+      sendMessage(socket, {
+        type: "room.subscribe",
+        roomId: currentRoute.roomId
+      });
+      return;
+    }
+
+    if (currentRoute.kind === "match") {
+      const currentRoomId = roomRef.current?.id;
+      if (currentRoomId) {
+        sendMessage(socket, {
+          type: "room.subscribe",
+          roomId: currentRoomId
+        });
+      }
+
+      sendMessage(socket, {
+        type: "match.reconnect",
+        matchId: matchRef.current?.matchId ?? currentRoute.matchId
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     void getCurrentUser()
       .then((user) => {
         setSession(user);
@@ -175,46 +372,151 @@ export function App() {
 
   useEffect(() => {
     if (!session) {
+      clearReconnectTimer();
+      clearHeartbeatTimer();
+      reconnectAttemptRef.current = 0;
+      setMyRooms([]);
+      setAdminUsers([]);
+      setAdminRooms([]);
+      setAdminMatches([]);
+      setAdminUserDrafts({});
+      setAdminCreateForm({
+        username: "",
+        password: "",
+        role: "user"
+      });
       suppressCloseToastRef.current = true;
       wsRef.current?.close();
       wsRef.current = null;
       setConnectionState("offline");
+      setStatus("Bitte an- oder registrieren.");
       return;
     }
 
-    setConnectionState("connecting");
+    reconnectAttemptRef.current = 0;
+    void loadMyRooms();
+    if (session.role === "admin") {
+      void loadAdminData();
+    } else {
+      setAdminUsers([]);
+      setAdminRooms([]);
+      setAdminMatches([]);
+      setAdminUserDrafts({});
+    }
+    triggerReconnect("Realtime-Verbindung wird hergestellt.");
+  }, [clearHeartbeatTimer, clearReconnectTimer, loadAdminData, loadMyRooms, session, triggerReconnect]);
+
+  useEffect(() => {
+    const reconnectIfNeeded = () => {
+      if (!sessionRef.current) {
+        return;
+      }
+
+      reconnectAttemptRef.current = 0;
+      triggerReconnect("Realtime-Verbindung wird nach Rueckkehr wiederhergestellt.");
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        reconnectIfNeeded();
+      }
+    };
+
+    window.addEventListener("online", reconnectIfNeeded);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("online", reconnectIfNeeded);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [triggerReconnect]);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
     suppressCloseToastRef.current = false;
     const socket = createWebSocket();
     wsRef.current = socket;
+    lastServerActivityRef.current = Date.now();
+
+    const startHeartbeat = () => {
+      clearHeartbeatTimer();
+      heartbeatTimerRef.current = window.setInterval(() => {
+        if (wsRef.current !== socket || socket.readyState !== WebSocket.OPEN) {
+          return;
+        }
+
+        if (Date.now() - lastServerActivityRef.current > HEARTBEAT_TIMEOUT_MS) {
+          setStatus("Realtime-Verbindung antwortet nicht. Neuer Verbindungsversuch folgt.");
+          socket.close();
+          return;
+        }
+
+        sendMessage(socket, {
+          type: "client.ping",
+          at: Date.now()
+        });
+      }, HEARTBEAT_INTERVAL_MS);
+    };
 
     socket.onopen = () => {
+      clearReconnectTimer();
+      reconnectAttemptRef.current = 0;
+      lastServerActivityRef.current = Date.now();
       setConnectionState("online");
       setStatus("Realtime-Verbindung aktiv.");
-      if (roomRef.current) {
-        sendMessage(socket, {
-          type: "room.subscribe",
-          roomId: roomRef.current.id
-        });
-      }
-
-      if (matchRef.current) {
-        sendMessage(socket, {
-          type: "match.reconnect",
-          matchId: matchRef.current.matchId
-        });
-      } else if (routeRef.current.kind === "match") {
-        sendMessage(socket, {
-          type: "match.reconnect",
-          matchId: routeRef.current.matchId
-        });
+      startHeartbeat();
+      syncRealtimeSubscriptions(socket);
+      void loadMyRooms();
+      if (sessionRef.current?.role === "admin") {
+        void loadAdminData();
       }
     };
 
     socket.onmessage = (event) => {
+      lastServerActivityRef.current = Date.now();
       const message = JSON.parse(event.data) as ServerMessage;
+
+      if (message.type === "server.pong") {
+        return;
+      }
+
       if (message.type === "room.state") {
         setRoom(message.room);
-        if (message.room.matchId) {
+        void loadMyRooms();
+        const sessionUserId = sessionRef.current?.id;
+        const isSeatedInRoom = sessionUserId
+          ? message.room.seats.some((seat) => seat.userId === sessionUserId)
+          : false;
+        const currentRoute = routeRef.current;
+        const currentMatchRoomId = matchRef.current?.roomId;
+
+        if (
+          currentRoute.kind === "match" &&
+          !message.room.matchId &&
+          (currentMatchRoomId === message.room.id || roomRef.current?.id === message.room.id)
+        ) {
+          setMatch(null);
+          setInteractionMode(null);
+          setSelectedRoadEdges([]);
+          navigateTo(
+            message.room.status === "closed" && !isSeatedInRoom
+              ? { kind: "home" }
+              : { kind: "room", roomId: message.room.id }
+          );
+          pushToast(
+            "info",
+            "Partie zur Lobby zurueckgesetzt",
+            isSeatedInRoom
+              ? "Ein Spieler wurde entfernt. Der Raum wartet jetzt wieder auf Spieler."
+              : "Die laufende Partie existiert nicht mehr. Du bist wieder in der Raumansicht."
+          );
+          return;
+        }
+
+        if (message.room.matchId && isSeatedInRoom) {
           navigateTo({ kind: "match", matchId: message.room.matchId });
         }
       }
@@ -230,38 +532,95 @@ export function App() {
       if (message.type === "presence.state") {
         setPresence(message.onlineUserIds);
       }
-      if (message.type === "match.event") {
-        setStatus(renderEventLabel(message.event.type));
+    };
+
+    socket.onerror = () => {
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close();
       }
     };
 
     socket.onclose = () => {
-      setConnectionState("offline");
-      setStatus("Realtime-Verbindung getrennt.");
+      clearHeartbeatTimer();
+      if (wsRef.current === socket) {
+        wsRef.current = null;
+      }
+
       if (suppressCloseToastRef.current) {
         suppressCloseToastRef.current = false;
         return;
       }
-      if (session) {
-        pushToast("info", "Verbindung getrennt", "Hexagonia versucht beim naechsten Oeffnen automatisch zu verbinden.");
+
+      if (!sessionRef.current) {
+        setConnectionState("offline");
+        setStatus("Bitte an- oder registrieren.");
+        return;
       }
+
+      const now = Date.now();
+      if (now - lastDisconnectToastAtRef.current > DISCONNECT_TOAST_COOLDOWN_MS) {
+        lastDisconnectToastAtRef.current = now;
+        pushToast("info", "Verbindung wird wiederhergestellt", "Hexagonia verbindet deine laufenden Raeume und Partien automatisch neu.");
+      }
+
+      scheduleReconnect();
     };
 
     return () => {
-      suppressCloseToastRef.current = true;
-      socket.close();
+      clearHeartbeatTimer();
       if (wsRef.current === socket) {
         wsRef.current = null;
       }
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        suppressCloseToastRef.current = true;
+        socket.close();
+      }
     };
-  }, [pushToast, session]);
+  }, [
+    clearHeartbeatTimer,
+    clearReconnectTimer,
+    loadAdminData,
+    loadMyRooms,
+    pushToast,
+    scheduleReconnect,
+    session,
+    socketEpoch,
+    syncRealtimeSubscriptions
+  ]);
 
   useEffect(() => {
     if (!session) {
       return;
     }
 
+    if (route.kind === "admin") {
+      if (session.role !== "admin") {
+        navigateTo({ kind: "home" });
+        return;
+      }
+      void loadAdminData(false);
+      return;
+    }
+
+    if (route.kind === "invite") {
+      void getRoomByCode(route.code)
+        .then((nextRoom) => {
+          setRoom(nextRoom);
+          navigateTo({ kind: "room", roomId: nextRoom.id });
+          subscribeRoom(nextRoom.id);
+          pushToast("success", "Einladung geoeffnet", `Du bist jetzt im Raum ${nextRoom.code}.`);
+        })
+        .catch((routeError: Error) => {
+          pushToast("error", "Einladung ungueltig", routeError.message);
+          navigateTo({ kind: "home" });
+        });
+      return;
+    }
+
     if (route.kind === "room") {
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        triggerReconnect("Realtime-Verbindung wird fuer den Raum wiederhergestellt.");
+      }
       void getRoom(route.roomId)
         .then((nextRoom) => {
           setRoom(nextRoom);
@@ -273,13 +632,17 @@ export function App() {
         });
     }
 
-    if (route.kind === "match" && wsRef.current?.readyState === WebSocket.OPEN) {
-      sendMessage(wsRef.current, {
-        type: "match.reconnect",
-        matchId: route.matchId
-      });
+    if (route.kind === "match") {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        sendMessage(wsRef.current, {
+          type: "match.reconnect",
+          matchId: route.matchId
+        });
+      } else {
+        triggerReconnect("Realtime-Verbindung wird fuer die Partie wiederhergestellt.");
+      }
     }
-  }, [pushToast, route, session]);
+  }, [loadAdminData, pushToast, route, session, triggerReconnect]);
 
   useEffect(() => {
     if (!match) {
@@ -309,21 +672,39 @@ export function App() {
     });
   }, []);
 
+  useEffect(() => {
+    if (route.kind !== "match" || !room?.id || wsRef.current?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    sendMessage(wsRef.current, {
+      type: "room.subscribe",
+      roomId: room.id
+    });
+  }, [room?.id, route.kind]);
+
   const sendCurrent = useCallback(
     (message: ClientMessage) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        triggerReconnect("Realtime-Verbindung wird wiederhergestellt.");
         pushToast("error", "WebSocket nicht verbunden", "Die Realtime-Verbindung ist gerade nicht verfuegbar.");
         return;
       }
       sendMessage(wsRef.current, message);
     },
-    [pushToast]
+    [pushToast, triggerReconnect]
   );
 
   const navigateTo = useCallback((next: RouteState) => {
     setRoute(next);
     if (next.kind === "home") {
       window.location.hash = "";
+    }
+    if (next.kind === "admin") {
+      window.location.hash = "admin";
+    }
+    if (next.kind === "invite") {
+      window.location.hash = `invite/${next.code}`;
     }
     if (next.kind === "room") {
       window.location.hash = `room/${next.roomId}`;
@@ -333,6 +714,26 @@ export function App() {
     }
   }, []);
 
+  const handleOpenTrackedRoom = useCallback(
+    (roomId: string) => {
+      navigateTo({ kind: "room", roomId });
+      triggerReconnect("Realtime-Verbindung wird fuer den Raum wiederhergestellt.");
+    },
+    [navigateTo, triggerReconnect]
+  );
+
+  const handleResumeMatch = useCallback(
+    (matchId: string) => {
+      navigateTo({ kind: "match", matchId });
+      triggerReconnect("Realtime-Verbindung wird fuer die Partie wiederhergestellt.");
+    },
+    [navigateTo, triggerReconnect]
+  );
+
+  const handleOpenAdmin = useCallback(() => {
+    navigateTo({ kind: "admin" });
+  }, [navigateTo]);
+
   const handleAuthSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -340,17 +741,16 @@ export function App() {
       const user =
         authMode === "login"
           ? await login({
-              email: authForm.email,
+              username: authForm.username,
               password: authForm.password
             })
           : await register({
-              email: authForm.email,
               username: authForm.username,
               password: authForm.password
             });
 
       setSession(user);
-      setAuthForm({ email: "", username: "", password: "" });
+      setAuthForm({ username: "", password: "" });
       setStatus(`${user.username} ist angemeldet.`);
       pushToast("success", "Willkommen", `${user.username} ist jetzt in Hexagonia angemeldet.`);
     } catch (authError) {
@@ -362,6 +762,7 @@ export function App() {
     try {
       const nextRoom = await createRoom();
       setRoom(nextRoom);
+      await loadMyRooms();
       navigateTo({ kind: "room", roomId: nextRoom.id });
       subscribeRoom(nextRoom.id);
       pushToast("success", "Raum erstellt", `Code ${nextRoom.code} ist bereit.`);
@@ -375,6 +776,7 @@ export function App() {
       const targetRoom = await getRoomByCode(joinCode);
       const joinedRoom = await joinRoom(targetRoom.id);
       setRoom(joinedRoom);
+      await loadMyRooms();
       navigateTo({ kind: "room", roomId: joinedRoom.id });
       subscribeRoom(joinedRoom.id);
       pushToast("success", "Raum beigetreten", `Du bist jetzt im Raum ${joinedRoom.code}.`);
@@ -391,6 +793,7 @@ export function App() {
     try {
       const nextRoom = await joinRoom(room.id, seatIndex);
       setRoom(nextRoom);
+      await loadMyRooms();
     } catch (joinError) {
       pushToast("error", "Platz konnte nicht belegt werden", (joinError as Error).message);
     }
@@ -404,6 +807,7 @@ export function App() {
     try {
       const nextRoom = await setReady(room.id, ready);
       setRoom(nextRoom);
+      await loadMyRooms();
     } catch (readyError) {
       pushToast("error", "Ready-Status fehlgeschlagen", (readyError as Error).message);
     }
@@ -419,6 +823,7 @@ export function App() {
       setRoom(null);
       setMatch(null);
       setPresence([]);
+      await loadMyRooms();
       navigateTo({ kind: "home" });
       pushToast("info", "Raum verlassen", "Du bist zurueck in der Zentrale.");
     } catch (leaveError) {
@@ -434,6 +839,7 @@ export function App() {
     try {
       const result = await startRoom(room.id);
       setRoom(result.room);
+      await loadMyRooms();
       navigateTo({ kind: "match", matchId: result.matchId });
       sendCurrent({
         type: "match.reconnect",
@@ -454,10 +860,146 @@ export function App() {
       setMatch(null);
       setPresence([]);
       setJoinCode("");
+      setMyRooms([]);
+      clearReconnectTimer();
+      clearHeartbeatTimer();
+      reconnectAttemptRef.current = 0;
+      setAdminCreateForm({
+        username: "",
+        password: "",
+        role: "user"
+      });
       navigateTo({ kind: "home" });
       pushToast("info", "Abgemeldet", "Deine Sitzung wurde beendet.");
     } catch (logoutError) {
       pushToast("error", "Logout fehlgeschlagen", (logoutError as Error).message);
+    }
+  };
+
+  const handleAdminCreateFormChange = (field: keyof AdminCreateFormState, value: string) => {
+    setAdminCreateForm((current) => {
+      if (field === "role") {
+        return {
+          ...current,
+          role: value as UserRole
+        };
+      }
+
+      if (field === "username") {
+        return {
+          ...current,
+          username: value
+        };
+      }
+
+      return {
+        ...current,
+        password: value
+      };
+    });
+  };
+
+  const handleAdminCreateUser = async () => {
+    try {
+      await createAdminUser(adminCreateForm);
+      setAdminCreateForm({
+        username: "",
+        password: "",
+        role: "user"
+      });
+      await loadAdminData();
+      pushToast("success", "Nutzer angelegt", "Das Konto wurde in der Admin-Konsole angelegt.");
+    } catch (error) {
+      pushToast("error", "Nutzer konnte nicht angelegt werden", (error as Error).message);
+    }
+  };
+
+  const handleAdminUserDraftChange = (userId: string, field: keyof AdminUserDraftState, value: string) => {
+    setAdminUserDrafts((current) => ({
+      ...current,
+      [userId]: getNextAdminUserDraft(current, adminUsers, userId, field, value)
+    }));
+  };
+
+  const handleAdminSaveUser = async (userId: string) => {
+    const draft = adminUserDrafts[userId];
+    const currentUser = adminUsers.find((user) => user.id === userId);
+    if (!draft || !currentUser) {
+      return;
+    }
+
+    try {
+      const payload: {
+        username?: string;
+        password?: string;
+        role?: UserRole;
+      } = {};
+
+      if (draft.username !== currentUser.username) {
+        payload.username = draft.username;
+      }
+      if (draft.role !== currentUser.role) {
+        payload.role = draft.role;
+      }
+      if (draft.password.trim()) {
+        payload.password = draft.password;
+      }
+
+      if (!Object.keys(payload).length) {
+        pushToast("info", "Keine Aenderung", "Fuer dieses Konto wurden keine neuen Werte gesetzt.");
+        return;
+      }
+
+      const updated = await updateAdminUser(userId, payload);
+      if (session?.id === updated.id) {
+        setSession(updated);
+      }
+      await loadAdminData();
+      pushToast("success", "Nutzer gespeichert", `${updated.username} wurde aktualisiert.`);
+    } catch (error) {
+      pushToast("error", "Nutzer konnte nicht gespeichert werden", (error as Error).message);
+    }
+  };
+
+  const handleAdminDeleteUser = async (userId: string) => {
+    try {
+      await deleteAdminUser(userId);
+      await loadAdminData();
+      await loadMyRooms();
+      pushToast("info", "Nutzer geloescht", "Das Konto wurde entfernt und betroffene Raeume aktualisiert.");
+    } catch (error) {
+      pushToast("error", "Nutzer konnte nicht geloescht werden", (error as Error).message);
+    }
+  };
+
+  const handleAdminCloseRoom = async (roomId: string) => {
+    try {
+      const savedRoom = await closeAdminRoom(roomId);
+      if (room?.id === savedRoom.id) {
+        setRoom(savedRoom);
+      }
+      await loadAdminData();
+      await loadMyRooms();
+      pushToast("info", "Raum geschlossen", `Raum ${savedRoom.code} wurde administrativ geschlossen.`);
+    } catch (error) {
+      pushToast("error", "Raum konnte nicht geschlossen werden", (error as Error).message);
+    }
+  };
+
+  const handleAdminDeleteMatch = async (matchId: string) => {
+    try {
+      const savedRoom = await deleteAdminMatch(matchId);
+      if (match?.matchId === matchId) {
+        setMatch(null);
+      }
+      if (room?.id === savedRoom.id) {
+        setRoom(savedRoom);
+      }
+      await loadAdminData();
+      await loadMyRooms();
+      pushToast("info", "Match zurueckgesetzt", "Die Partie wurde entfernt und der Raum wieder geoeffnet.");
+    } catch (error) {
+      pushToast("error", "Match konnte nicht zurueckgesetzt werden", (error as Error).message);
     }
   };
 
@@ -471,6 +1013,21 @@ export function App() {
       pushToast("success", "Raumcode kopiert", room.code);
     } catch {
       pushToast("error", "Kopieren fehlgeschlagen", "Der Raumcode konnte nicht in die Zwischenablage kopiert werden.");
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!room?.code) {
+      return;
+    }
+
+    try {
+      const inviteUrl = new URL(window.location.href);
+      inviteUrl.hash = `invite/${room.code}`;
+      await navigator.clipboard.writeText(inviteUrl.toString());
+      pushToast("success", "Einladungslink kopiert", room.code);
+    } catch {
+      pushToast("error", "Kopieren fehlgeschlagen", "Der Einladungslink konnte nicht in die Zwischenablage kopiert werden.");
     }
   };
 
@@ -612,21 +1169,36 @@ export function App() {
     (activeScreen === "room" || activeScreen === "match") && room?.code
       ? {
           roomCode: room.code,
+          onCopyInviteLink: handleCopyInviteLink,
           onCopyRoomCode: handleCopyRoomCode
         }
       : {};
+  const headerAdminProps = session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {};
+
+  const displayEyebrow = !session ? "Mit Freunden spielen" : headerContext.eyebrow;
+  const displayMeta =
+    !session
+      ? TEXT.subtitle
+      : activeScreen === "lobby"
+        ? "Raum erstellen oder mit einem Code beitreten"
+        : activeScreen === "room" && room
+          ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/4 Spieler`
+          : activeScreen === "match" && match
+            ? `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+            : headerContext.meta;
 
   return (
     <main className="app-shell">
       <AppHeader
         connectionState={connectionState}
         connectionStatusText={status}
-        eyebrow={headerContext.eyebrow}
-        meta={headerContext.meta}
+        eyebrow={displayEyebrow}
+        meta={displayMeta}
         session={session}
         title={headerContext.title}
         onLogout={handleLogout}
         onNavigateHome={() => navigateTo({ kind: "home" })}
+        {...headerAdminProps}
         {...headerRoomProps}
       />
 
@@ -644,10 +1216,32 @@ export function App() {
         {activeScreen === "lobby" && session ? (
           <LobbyScreen
             joinCode={joinCode}
+            rooms={myRooms}
             session={session}
             onCreateRoom={handleCreateRoom}
             onJoinByCode={handleJoinByCode}
             onJoinCodeChange={setJoinCode}
+            onOpenRoom={handleOpenTrackedRoom}
+            onResumeMatch={handleResumeMatch}
+          />
+        ) : null}
+
+        {activeScreen === "admin" && session?.role === "admin" ? (
+          <AdminScreen
+            createForm={adminCreateForm}
+            matches={adminMatches}
+            rooms={adminRooms}
+            session={session}
+            userDrafts={adminUserDrafts}
+            users={adminUsers}
+            onCloseRoom={handleAdminCloseRoom}
+            onCreateFormChange={handleAdminCreateFormChange}
+            onCreateUser={handleAdminCreateUser}
+            onDeleteMatch={handleAdminDeleteMatch}
+            onDeleteUser={handleAdminDeleteUser}
+            onOpenRoom={handleOpenTrackedRoom}
+            onSaveUser={handleAdminSaveUser}
+            onUserDraftChange={handleAdminUserDraftChange}
           />
         ) : null}
 
@@ -658,6 +1252,7 @@ export function App() {
               room={room}
               session={session}
               onCopyCode={handleCopyRoomCode}
+              onCopyInviteLink={handleCopyInviteLink}
               onJoinSeat={handleSeatJoin}
               onLeave={handleLeaveRoom}
               onReady={handleReadyToggle}
@@ -723,4 +1318,39 @@ function singleResourceMap(resource: Resource, count: number): ResourceMap {
   const map = createEmptyResourceMap();
   map[resource] = count;
   return map;
+}
+
+function getNextAdminUserDraft(
+  currentDrafts: Record<string, AdminUserDraftState>,
+  users: AdminUserRecord[],
+  userId: string,
+  field: keyof AdminUserDraftState,
+  value: string
+): AdminUserDraftState {
+  const baseUser = users.find((user) => user.id === userId);
+  const current = currentDrafts[userId];
+  const draft: AdminUserDraftState = {
+    username: current?.username ?? baseUser?.username ?? "",
+    password: current?.password ?? "",
+    role: current?.role ?? baseUser?.role ?? "user"
+  };
+
+  if (field === "role") {
+    return {
+      ...draft,
+      role: value as UserRole
+    };
+  }
+
+  if (field === "username") {
+    return {
+      ...draft,
+      username: value
+    };
+  }
+
+  return {
+    ...draft,
+    password: value
+  };
 }

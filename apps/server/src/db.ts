@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import type { GameState } from "@hexagonia/rules";
-import type { AuthUser, MatchEvent, RoomDetails, SeatState } from "@hexagonia/shared";
+import type { AdminMatchSummary, AdminUserRecord, AuthUser, MatchEvent, RoomDetails, SeatState, UserRole } from "@hexagonia/shared";
 import { PLAYER_COLORS } from "@hexagonia/shared";
 
 interface StoredUser extends AuthUser {
+  email: string;
   passwordHash: string;
 }
 
@@ -19,6 +20,7 @@ create table if not exists users (
   id uuid primary key,
   email text unique not null,
   username text unique not null,
+  role text not null default 'user',
   password_hash text not null,
   created_at timestamptz not null default now()
 );
@@ -66,6 +68,10 @@ create table if not exists match_events (
 );
 `;
 
+const MIGRATION_SQL = `
+alter table users add column if not exists role text not null default 'user';
+`;
+
 export class Database {
   private readonly pool: Pool;
 
@@ -75,6 +81,7 @@ export class Database {
 
   async init(): Promise<void> {
     await this.pool.query(SCHEMA_SQL);
+    await this.pool.query(MIGRATION_SQL);
   }
 
   async close(): Promise<void> {
@@ -82,18 +89,20 @@ export class Database {
   }
 
   async createUser(input: {
-    email: string;
+    email?: string;
     username: string;
     passwordHash: string;
+    role?: UserRole;
   }): Promise<AuthUser> {
     const id = randomUUID();
+    const email = (input.email ?? `${id}@users.hexagonia.local`).toLowerCase();
     const result = await this.pool.query(
       `
-      insert into users (id, email, username, password_hash)
-      values ($1, $2, $3, $4)
-      returning id, email, username
+      insert into users (id, email, username, role, password_hash)
+      values ($1, $2, $3, $4, $5)
+      returning id, username, role
       `,
-      [id, input.email.toLowerCase(), input.username, input.passwordHash]
+      [id, email, input.username, input.role ?? "user", input.passwordHash]
     );
 
     return result.rows[0] as AuthUser;
@@ -102,7 +111,7 @@ export class Database {
   async getUserWithPasswordByEmail(email: string): Promise<StoredUser | null> {
     const result = await this.pool.query(
       `
-      select id, email, username, password_hash as "passwordHash"
+      select id, email, username, role, password_hash as "passwordHash"
       from users
       where email = $1
       limit 1
@@ -113,10 +122,24 @@ export class Database {
     return (result.rows[0] as StoredUser | undefined) ?? null;
   }
 
+  async getUserWithPasswordByUsername(username: string): Promise<StoredUser | null> {
+    const result = await this.pool.query(
+      `
+      select id, email, username, role, password_hash as "passwordHash"
+      from users
+      where username = $1
+      limit 1
+      `,
+      [username]
+    );
+
+    return (result.rows[0] as StoredUser | undefined) ?? null;
+  }
+
   async getUserById(id: string): Promise<AuthUser | null> {
     const result = await this.pool.query(
       `
-      select id, email, username
+      select id, username, role
       from users
       where id = $1
       limit 1
@@ -125,6 +148,129 @@ export class Database {
     );
 
     return (result.rows[0] as AuthUser | undefined) ?? null;
+  }
+
+  async listUsers(): Promise<AdminUserRecord[]> {
+    const result = await this.pool.query(
+      `
+      select id, username, role, created_at as "createdAt"
+      from users
+      order by
+        case role when 'admin' then 0 else 1 end,
+        created_at desc
+      `
+    );
+
+    return result.rows.map((row) => normalizeUser(row as AdminUserRecordRow));
+  }
+
+  async countAdmins(): Promise<number> {
+    const result = await this.pool.query(
+      `
+      select count(*)::int as count
+      from users
+      where role = 'admin'
+      `
+    );
+
+    return (result.rows[0]?.count as number | undefined) ?? 0;
+  }
+
+  async updateUser(
+    userId: string,
+    patch: {
+      email?: string;
+      username?: string;
+      role?: UserRole;
+      passwordHash?: string;
+    }
+  ): Promise<AuthUser | null> {
+    const current = await this.getUserWithPasswordById(userId);
+    if (!current) {
+      return null;
+    }
+
+    const result = await this.pool.query(
+      `
+      update users
+      set email = $2,
+          username = $3,
+          role = $4,
+          password_hash = $5
+      where id = $1
+      returning id, username, role
+      `,
+      [
+        userId,
+        patch.email?.toLowerCase() ?? current.email,
+        patch.username ?? current.username,
+        patch.role ?? current.role,
+        patch.passwordHash ?? current.passwordHash
+      ]
+    );
+
+    return (result.rows[0] as AuthUser | undefined) ?? null;
+  }
+
+  async createManagedUser(input: {
+    email?: string;
+    username: string;
+    passwordHash: string;
+    role: UserRole;
+  }): Promise<AdminUserRecord> {
+    const created = await this.createUser(input);
+    const user = await this.getAdminUserById(created.id);
+    if (!user) {
+      throw new Error("User konnte nach Erstellung nicht geladen werden.");
+    }
+    return user;
+  }
+
+  async getAdminUserById(userId: string): Promise<AdminUserRecord | null> {
+    const result = await this.pool.query(
+      `
+      select id, username, role, created_at as "createdAt"
+      from users
+      where id = $1
+      limit 1
+      `,
+      [userId]
+    );
+
+    return result.rows[0] ? normalizeUser(result.rows[0] as AdminUserRecordRow) : null;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await this.pool.query(`delete from users where id = $1`, [userId]);
+  }
+
+  async upsertBootstrapAdmin(input: {
+    email?: string;
+    username: string;
+    passwordHash: string;
+  }): Promise<AuthUser> {
+    const existing = input.email
+      ? await this.getUserWithPasswordByEmail(input.email)
+      : await this.getUserWithPasswordByUsername(input.username);
+    if (existing) {
+      const updated = await this.updateUser(existing.id, {
+        email: input.email,
+        username: input.username,
+        role: "admin",
+        passwordHash: input.passwordHash
+      });
+      if (!updated) {
+        throw new Error("Bootstrap-Admin konnte nicht aktualisiert werden.");
+      }
+      return updated;
+    }
+
+    return this.createUser({
+      email: input.email,
+      username: input.username,
+      passwordHash: input.passwordHash,
+      role: "admin"
+    });
   }
 
   async createSession(userId: string, expiresAt: Date): Promise<SessionRecord> {
@@ -154,7 +300,8 @@ export class Database {
         s.expires_at as "expiresAt",
         u.id as "userIdResolved",
         u.email as "userEmail",
-        u.username as "userUsername"
+        u.username as "userUsername",
+        u.role as "userRole"
       from sessions s
       join users u on u.id = s.user_id
       where s.id = $1 and s.expires_at > now()
@@ -171,6 +318,7 @@ export class Database {
           userIdResolved: string;
           userEmail: string;
           userUsername: string;
+          userRole: UserRole;
         }
       | undefined;
 
@@ -186,14 +334,18 @@ export class Database {
       },
       user: {
         id: row.userIdResolved,
-        email: row.userEmail,
-        username: row.userUsername
+        username: row.userUsername,
+        role: row.userRole
       }
     };
   }
 
   async deleteSession(sessionId: string): Promise<void> {
     await this.pool.query(`delete from sessions where id = $1`, [sessionId]);
+  }
+
+  async deleteSessionsByUserId(userId: string): Promise<void> {
+    await this.pool.query(`delete from sessions where user_id = $1`, [userId]);
   }
 
   async createRoom(owner: AuthUser, code: string): Promise<RoomDetails> {
@@ -244,6 +396,76 @@ export class Database {
     );
 
     return result.rows[0] ? normalizeRoom(result.rows[0]) : null;
+  }
+
+  async listUserRooms(userId: string): Promise<RoomDetails[]> {
+    const result = await this.pool.query(
+      `
+      select id, code, owner_user_id as "ownerUserId", status, match_id as "matchId", seats, created_at as "createdAt"
+      from rooms
+      where status <> 'closed'
+        and (
+          owner_user_id = $1
+          or exists (
+            select 1
+            from jsonb_array_elements(seats) as seat
+            where seat->>'userId' = $1
+          )
+        )
+      order by
+        case status
+          when 'in_match' then 0
+          when 'open' then 1
+          else 2
+        end,
+        created_at desc
+      `,
+      [userId]
+    );
+
+    return result.rows.map((row) =>
+      normalizeRoom(
+        row as {
+          id: string;
+          code: string;
+          ownerUserId: string;
+          status: "open" | "in_match" | "closed";
+          matchId: string | null;
+          seats: SeatState[] | string;
+          createdAt: Date | string;
+        }
+      )
+    );
+  }
+
+  async listRooms(): Promise<RoomDetails[]> {
+    const result = await this.pool.query(
+      `
+      select id, code, owner_user_id as "ownerUserId", status, match_id as "matchId", seats, created_at as "createdAt"
+      from rooms
+      order by
+        case status
+          when 'in_match' then 0
+          when 'open' then 1
+          else 2
+        end,
+        created_at desc
+      `
+    );
+
+    return result.rows.map((row) =>
+      normalizeRoom(
+        row as {
+          id: string;
+          code: string;
+          ownerUserId: string;
+          status: "open" | "in_match" | "closed";
+          matchId: string | null;
+          seats: SeatState[] | string;
+          createdAt: Date | string;
+        }
+      )
+    );
   }
 
   async saveRoom(room: RoomDetails): Promise<RoomDetails> {
@@ -324,6 +546,53 @@ export class Database {
 
     return (result.rows[0]?.snapshot as GameState | undefined) ?? null;
   }
+
+  async listMatches(): Promise<AdminMatchSummary[]> {
+    const result = await this.pool.query(
+      `
+      select
+        m.id,
+        m.room_id as "roomId",
+        m.status,
+        m.winner_id as "winnerId",
+        coalesce(jsonb_array_length(ms.snapshot->'players'), 0)::int as "playerCount",
+        m.created_at as "createdAt",
+        m.updated_at as "updatedAt"
+      from matches m
+      left join match_snapshots ms on ms.match_id = m.id
+      order by m.updated_at desc
+      `
+    );
+
+    return result.rows.map((row) => normalizeAdminMatch(row as AdminMatchSummaryRow));
+  }
+
+  async deleteMatch(matchId: string): Promise<{ roomId: string } | null> {
+    const result = await this.pool.query(
+      `
+      delete from matches
+      where id = $1
+      returning room_id as "roomId"
+      `,
+      [matchId]
+    );
+
+    return (result.rows[0] as { roomId: string } | undefined) ?? null;
+  }
+
+  private async getUserWithPasswordById(userId: string): Promise<StoredUser | null> {
+    const result = await this.pool.query(
+      `
+      select id, email, username, role, password_hash as "passwordHash"
+      from users
+      where id = $1
+      limit 1
+      `,
+      [userId]
+    );
+
+    return (result.rows[0] as StoredUser | undefined) ?? null;
+  }
 }
 
 function normalizeRoom(row: {
@@ -344,5 +613,43 @@ function normalizeRoom(row: {
     matchId: row.matchId,
     seats,
     createdAt: new Date(row.createdAt).toISOString()
+  };
+}
+
+interface AdminUserRecordRow {
+  id: string;
+  username: string;
+  role: UserRole;
+  createdAt: Date | string;
+}
+
+interface AdminMatchSummaryRow {
+  id: string;
+  roomId: string;
+  status: AdminMatchSummary["status"];
+  winnerId: string | null;
+  playerCount: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+function normalizeUser(row: AdminUserRecordRow): AdminUserRecord {
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    createdAt: new Date(row.createdAt).toISOString()
+  };
+}
+
+function normalizeAdminMatch(row: AdminMatchSummaryRow): AdminMatchSummary {
+  return {
+    id: row.id,
+    roomId: row.roomId,
+    status: row.status,
+    winnerId: row.winnerId,
+    playerCount: row.playerCount,
+    createdAt: new Date(row.createdAt).toISOString(),
+    updatedAt: new Date(row.updatedAt).toISOString()
   };
 }

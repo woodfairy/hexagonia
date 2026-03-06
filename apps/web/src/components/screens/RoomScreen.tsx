@@ -9,12 +9,14 @@ export function RoomScreen(props: {
   onStart: () => void;
   onLeave: () => void;
   onCopyCode: () => void;
+  onCopyInviteLink: () => void;
 }) {
   const currentSeat = props.room.seats.find((seat) => seat.userId === props.session.id) ?? null;
   const seatedPlayers = props.room.seats.filter((seat) => seat.userId);
   const readyPlayers = seatedPlayers.filter((seat) => seat.ready).length;
+  const isOwner = props.room.ownerUserId === props.session.id;
   const canStart =
-    props.room.ownerUserId === props.session.id &&
+    isOwner &&
     seatedPlayers.length >= 3 &&
     seatedPlayers.length <= 4 &&
     readyPlayers === seatedPlayers.length;
@@ -23,29 +25,31 @@ export function RoomScreen(props: {
     <section className="screen-shell room-shell">
       <div className="room-main-grid">
         <article className="surface room-hero">
-          <div className="surface-head">
-            <div>
-              <div className="eyebrow">Privater Raum</div>
-              <h1>Code {props.room.code}</h1>
+          <div className="surface-head room-surface-head">
+            <div className="room-title-stack">
+              <div className="eyebrow">Raumlobby</div>
+              <div className="room-code-row">
+                <h1>{props.room.code}</h1>
+                <span className="status-pill">{props.room.status === "open" ? "Offen" : "Laufend"}</span>
+              </div>
+              <p className="muted-copy room-subline">Private Einladung fuer bis zu vier Spieler.</p>
             </div>
-            <button type="button" className="ghost-button" onClick={props.onCopyCode}>
-              Code kopieren
-            </button>
+            <div className="room-share-actions">
+              <button type="button" className="ghost-button" onClick={props.onCopyInviteLink}>
+                Link kopieren
+              </button>
+              <button type="button" className="ghost-button" onClick={props.onCopyCode}>
+                Code kopieren
+              </button>
+            </div>
           </div>
 
-          <div className="room-kpi-row">
-            <div className="summary-card">
-              <strong>{seatedPlayers.length}/4 Spieler</strong>
-              <span>Besetzte Plaetze</span>
-            </div>
-            <div className="summary-card">
-              <strong>{readyPlayers}/{seatedPlayers.length || 1}</strong>
-              <span>Bereit</span>
-            </div>
-            <div className="summary-card">
-              <strong>{props.room.ownerUserId === props.session.id ? "Du" : "Host"}</strong>
-              <span>Raumleitung</span>
-            </div>
+          <div className="room-meta-strip">
+            <span className="status-pill">{seatedPlayers.length}/4 besetzt</span>
+            <span className={`status-pill ${readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"}`}>
+              {readyPlayers} bereit
+            </span>
+            <span className="status-pill">{isOwner ? "Du hostest" : "Host verwaltet den Start"}</span>
           </div>
 
           <div className="seat-grid">
@@ -78,8 +82,8 @@ export function RoomScreen(props: {
         <div className="room-side-stack">
           <article className="surface room-control-card">
             <div className="eyebrow">Steuerung</div>
-            <h2>Bereit machen</h2>
-            <p className="muted-copy">Alle sitzenden Spieler muessen bereit sein, bevor die Partie gestartet werden kann.</p>
+            <h2>Startklar machen</h2>
+            <p className="muted-copy room-action-hint">Startet mit 3 bis 4 sitzenden Spielern, sobald alle bereit sind.</p>
             <div className="room-action-stack">
               {currentSeat ? (
                 <button
@@ -99,14 +103,6 @@ export function RoomScreen(props: {
                 Raum verlassen
               </button>
             </div>
-          </article>
-
-          <article className="surface room-note-card">
-            <div className="eyebrow">Hinweis</div>
-            <h2>Mobile first</h2>
-            <p className="muted-copy">
-              Die fertige Partie oeffnet ohne Seitenscrollen. Raumcode und Spielstatus bleiben auch auf kleineren Geraeten direkt greifbar.
-            </p>
           </article>
         </div>
       </div>

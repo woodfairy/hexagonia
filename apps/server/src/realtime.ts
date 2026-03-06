@@ -12,10 +12,15 @@ interface SocketContext {
 }
 
 export class RealtimeHub {
+  private static readonly MATCH_DISCONNECT_GRACE_MS = 12000;
+  private static readonly PLAYER_EVICTION_GRACE_MS = 1000 * 60 * 5;
   private readonly contexts = new Set<SocketContext>();
   private readonly roomSubscribers = new Map<string, Set<SocketContext>>();
   private readonly matchSubscribers = new Map<string, Set<SocketContext>>();
   private readonly activeMatches = new Map<string, GameState>();
+  private readonly pendingMatchDisconnects = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly pendingRoomEvictions = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly pendingMatchEvictions = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly db: Database,
@@ -42,6 +47,7 @@ export class RealtimeHub {
   async subscribeRoom(context: SocketContext, roomId: string): Promise<void> {
     await this.unsubscribeRoom(context);
     context.roomId = roomId;
+    this.clearPendingRoomEviction(roomId, context.user.id);
 
     if (!this.roomSubscribers.has(roomId)) {
       this.roomSubscribers.set(roomId, new Set());
@@ -62,6 +68,8 @@ export class RealtimeHub {
   async subscribeMatch(context: SocketContext, matchId: string): Promise<void> {
     await this.unsubscribeMatch(context);
     context.matchId = matchId;
+    this.clearPendingMatchDisconnect(matchId, context.user.id);
+    this.clearPendingMatchEviction(matchId, context.user.id);
 
     if (!this.matchSubscribers.has(matchId)) {
       this.matchSubscribers.set(matchId, new Set());
@@ -88,8 +96,22 @@ export class RealtimeHub {
   }
 
   async initializeMatch(state: GameState): Promise<void> {
-    this.activeMatches.set(state.matchId, state);
-    this.broadcastMatchState(state);
+    let nextState = state;
+
+    for (const player of state.players) {
+      if (this.hasActiveRoomSubscription(state.roomId, player.id) || this.hasActiveMatchSubscription(state.matchId, player.id)) {
+        continue;
+      }
+
+      nextState = updatePlayerConnection(nextState, player.id, false);
+      this.scheduleMatchEviction(state.matchId, player.id);
+    }
+
+    this.activeMatches.set(state.matchId, nextState);
+    if (nextState !== state) {
+      await this.db.saveMatchState(nextState);
+    }
+    this.broadcastMatchState(nextState);
   }
 
   async broadcastRoom(room: RoomDetails): Promise<void> {
@@ -122,6 +144,37 @@ export class RealtimeHub {
     this.broadcastMatchState(nextState, latestEvent);
   }
 
+  terminateMatch(matchId: string, reason: string): void {
+    const subscribers = this.matchSubscribers.get(matchId);
+    if (subscribers) {
+      for (const context of subscribers) {
+        context.matchId = null;
+        this.send(context.socket, {
+          type: "match.error",
+          error: reason
+        });
+      }
+
+      this.matchSubscribers.delete(matchId);
+    }
+
+    for (const [key, timeout] of this.pendingMatchDisconnects.entries()) {
+      if (key.startsWith(`${matchId}:`)) {
+        clearTimeout(timeout);
+        this.pendingMatchDisconnects.delete(key);
+      }
+    }
+
+    for (const [key, timeout] of this.pendingMatchEvictions.entries()) {
+      if (key.startsWith(`${matchId}:`)) {
+        clearTimeout(timeout);
+        this.pendingMatchEvictions.delete(key);
+      }
+    }
+
+    this.activeMatches.delete(matchId);
+  }
+
   private async unsubscribeRoom(context: SocketContext): Promise<void> {
     if (!context.roomId) {
       return;
@@ -135,6 +188,7 @@ export class RealtimeHub {
 
     const roomId = context.roomId;
     context.roomId = null;
+    await this.scheduleRoomEviction(roomId, context.user.id);
     this.broadcastRoomPresence(roomId);
   }
 
@@ -152,12 +206,9 @@ export class RealtimeHub {
 
     context.matchId = null;
 
-    const state = await this.getMatchState(matchId);
-    if (state.players.some((player) => player.id === context.user.id)) {
-      const disconnectedState = updatePlayerConnection(state, context.user.id, false);
-      this.activeMatches.set(matchId, disconnectedState);
-      await this.db.saveMatchState(disconnectedState);
-      this.broadcastMatchState(disconnectedState);
+    if (!this.hasActiveMatchSubscription(matchId, context.user.id)) {
+      this.scheduleMatchDisconnect(matchId, context.user.id);
+      this.scheduleMatchEviction(matchId, context.user.id);
     }
 
     this.broadcastMatchPresence(matchId);
@@ -246,5 +297,218 @@ export class RealtimeHub {
     } catch (error) {
       this.logger.warn({ error }, "failed to send websocket message");
     }
+  }
+
+  private hasActiveRoomSubscription(roomId: string, userId: string): boolean {
+    const subscribers = this.roomSubscribers.get(roomId);
+    if (!subscribers) {
+      return false;
+    }
+
+    return [...subscribers].some((context) => context.user.id === userId);
+  }
+
+  private hasActiveMatchSubscription(matchId: string, userId: string): boolean {
+    const subscribers = this.matchSubscribers.get(matchId);
+    if (!subscribers) {
+      return false;
+    }
+
+    return [...subscribers].some((context) => context.user.id === userId);
+  }
+
+  private scheduleMatchDisconnect(matchId: string, userId: string): void {
+    const key = this.getMatchDisconnectKey(matchId, userId);
+    if (this.pendingMatchDisconnects.has(key)) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void this.finalizeMatchDisconnect(matchId, userId);
+    }, RealtimeHub.MATCH_DISCONNECT_GRACE_MS);
+
+    this.pendingMatchDisconnects.set(key, timeout);
+  }
+
+  private async scheduleRoomEviction(roomId: string, userId: string): Promise<void> {
+    const key = this.getRoomEvictionKey(roomId, userId);
+    if (this.pendingRoomEvictions.has(key) || this.hasActiveRoomSubscription(roomId, userId)) {
+      return;
+    }
+
+    const room = await this.db.getRoom(roomId);
+    if (!room || room.status !== "open" || !room.seats.some((seat) => seat.userId === userId)) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void this.finalizeRoomEviction(roomId, userId);
+    }, RealtimeHub.PLAYER_EVICTION_GRACE_MS);
+
+    this.pendingRoomEvictions.set(key, timeout);
+  }
+
+  private scheduleMatchEviction(matchId: string, userId: string): void {
+    const key = this.getMatchEvictionKey(matchId, userId);
+    if (this.pendingMatchEvictions.has(key) || this.hasActiveMatchSubscription(matchId, userId)) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void this.finalizeMatchEviction(matchId, userId);
+    }, RealtimeHub.PLAYER_EVICTION_GRACE_MS);
+
+    this.pendingMatchEvictions.set(key, timeout);
+  }
+
+  private clearPendingMatchDisconnect(matchId: string, userId: string): void {
+    const key = this.getMatchDisconnectKey(matchId, userId);
+    const timeout = this.pendingMatchDisconnects.get(key);
+    if (!timeout) {
+      return;
+    }
+
+    clearTimeout(timeout);
+    this.pendingMatchDisconnects.delete(key);
+  }
+
+  private clearPendingRoomEviction(roomId: string, userId: string): void {
+    const key = this.getRoomEvictionKey(roomId, userId);
+    const timeout = this.pendingRoomEvictions.get(key);
+    if (!timeout) {
+      return;
+    }
+
+    clearTimeout(timeout);
+    this.pendingRoomEvictions.delete(key);
+  }
+
+  private clearPendingMatchEviction(matchId: string, userId: string): void {
+    const key = this.getMatchEvictionKey(matchId, userId);
+    const timeout = this.pendingMatchEvictions.get(key);
+    if (!timeout) {
+      return;
+    }
+
+    clearTimeout(timeout);
+    this.pendingMatchEvictions.delete(key);
+  }
+
+  private async finalizeMatchDisconnect(matchId: string, userId: string): Promise<void> {
+    const key = this.getMatchDisconnectKey(matchId, userId);
+    this.pendingMatchDisconnects.delete(key);
+
+    if (this.hasActiveMatchSubscription(matchId, userId)) {
+      return;
+    }
+
+    const state = await this.getMatchState(matchId);
+    if (!state.players.some((player) => player.id === userId)) {
+      return;
+    }
+
+    const disconnectedState = updatePlayerConnection(state, userId, false);
+    this.activeMatches.set(matchId, disconnectedState);
+    await this.db.saveMatchState(disconnectedState);
+    this.broadcastMatchState(disconnectedState);
+  }
+
+  private async finalizeRoomEviction(roomId: string, userId: string): Promise<void> {
+    const key = this.getRoomEvictionKey(roomId, userId);
+    this.pendingRoomEvictions.delete(key);
+
+    if (this.hasActiveRoomSubscription(roomId, userId)) {
+      return;
+    }
+
+    const room = await this.db.getRoom(roomId);
+    if (!room || room.status !== "open") {
+      return;
+    }
+
+    const seat = room.seats.find((entry) => entry.userId === userId);
+    if (!seat) {
+      return;
+    }
+
+    seat.userId = null;
+    seat.username = null;
+    seat.ready = false;
+
+    const occupiedSeats = room.seats.filter((entry) => entry.userId);
+    if (!occupiedSeats.length) {
+      room.status = "closed";
+    } else if (room.ownerUserId === userId) {
+      room.ownerUserId = occupiedSeats[0]!.userId!;
+    }
+
+    const savedRoom = await this.db.saveRoom(room);
+    await this.broadcastRoom(savedRoom);
+  }
+
+  private async finalizeMatchEviction(matchId: string, userId: string): Promise<void> {
+    const key = this.getMatchEvictionKey(matchId, userId);
+    this.pendingMatchEvictions.delete(key);
+
+    if (this.hasActiveMatchSubscription(matchId, userId)) {
+      return;
+    }
+
+    let state: GameState | null = null;
+    try {
+      state = await this.getMatchState(matchId);
+    } catch {
+      return;
+    }
+
+    if (!state.players.some((player) => player.id === userId)) {
+      return;
+    }
+
+    const evictedPlayer = state.players.find((player) => player.id === userId);
+    const room = await this.db.getRoom(state.roomId);
+    if (!room || room.matchId !== matchId || room.status !== "in_match") {
+      return;
+    }
+
+    const reason = `${evictedPlayer?.username ?? "Ein Spieler"} war ueber 5 Minuten getrennt und wurde aus dem Raum entfernt. Die Partie kehrt in die Lobby zurueck.`;
+    this.terminateMatch(matchId, reason);
+    await this.db.deleteMatch(matchId);
+
+    room.matchId = null;
+    room.status = "open";
+    room.seats = room.seats.map((seat) => ({
+      ...seat,
+      ready: false
+    }));
+
+    const seat = room.seats.find((entry) => entry.userId === userId);
+    if (seat) {
+      seat.userId = null;
+      seat.username = null;
+      seat.ready = false;
+    }
+
+    const occupiedSeats = room.seats.filter((entry) => entry.userId);
+    if (!occupiedSeats.length) {
+      room.status = "closed";
+    } else if (room.ownerUserId === userId) {
+      room.ownerUserId = occupiedSeats[0]!.userId!;
+    }
+
+    const savedRoom = await this.db.saveRoom(room);
+    await this.broadcastRoom(savedRoom);
+  }
+
+  private getMatchDisconnectKey(matchId: string, userId: string): string {
+    return `${matchId}:${userId}`;
+  }
+
+  private getRoomEvictionKey(roomId: string, userId: string): string {
+    return `${roomId}:${userId}`;
+  }
+
+  private getMatchEvictionKey(matchId: string, userId: string): string {
+    return `${matchId}:${userId}`;
   }
 }

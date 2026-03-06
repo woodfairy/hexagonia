@@ -4,34 +4,31 @@ import type { AuthMode } from "../../ui";
 export function AuthScreen(props: {
   authMode: AuthMode;
   authForm: {
-    email: string;
     username: string;
     password: string;
   };
   onAuthModeChange: (mode: AuthMode) => void;
-  onAuthFieldChange: (field: "email" | "username" | "password", value: string) => void;
+  onAuthFieldChange: (field: "username" | "password", value: string) => void;
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
     <section className="screen-shell auth-shell">
       <article className="surface hero-surface">
-        <div className="eyebrow">Premium Tabletop Plattform</div>
+        <div className="eyebrow">Mit Freunden spielen</div>
         <h1>Hexagonia</h1>
-        <p className="hero-copy">
-          Private Echtzeit-Partien im Browser, optimiert fuer Desktop, iPhone und iPad.
-        </p>
+        <p className="hero-copy">Erstelle einen privaten Spieltisch, teile den Code und starte direkt zusammen.</p>
         <div className="hero-metrics">
           <div className="metric-card">
-            <strong>Echtzeit</strong>
-            <span>Serverautoritativ ueber WebSockets</span>
+            <strong>Eigener Tisch</strong>
+            <span>Raum erstellen und deine Runde selbst starten.</span>
           </div>
           <div className="metric-card">
-            <strong>Mobil tauglich</strong>
-            <span>Viewport-feste UI ohne Seitenscrollen</span>
+            <strong>Schnell drin</strong>
+            <span>Mit einem Code kommen alle ohne Umwege in denselben Raum.</span>
           </div>
           <div className="metric-card">
-            <strong>Private Raeume</strong>
-            <span>Schneller Einstieg per Code und Einladung</span>
+            <strong>Alles an einem Ort</strong>
+            <span>Konto anlegen, anmelden und wieder an offene Partien anknuepfen.</span>
           </div>
         </div>
       </article>
@@ -62,26 +59,14 @@ export function AuthScreen(props: {
 
         <form className="auth-form" onSubmit={props.onSubmit}>
           <label className="field">
-            <span>E-Mail</span>
+            <span>Nutzername</span>
             <input
-              autoComplete="email"
-              type="email"
-              value={props.authForm.email}
-              onChange={(event) => props.onAuthFieldChange("email", event.target.value)}
+              autoComplete="username"
+              type="text"
+              value={props.authForm.username}
+              onChange={(event) => props.onAuthFieldChange("username", event.target.value)}
             />
           </label>
-
-          {props.authMode === "register" ? (
-            <label className="field">
-              <span>Nutzername</span>
-              <input
-                autoComplete="username"
-                type="text"
-                value={props.authForm.username}
-                onChange={(event) => props.onAuthFieldChange("username", event.target.value)}
-              />
-            </label>
-          ) : null}
 
           <label className="field">
             <span>Passwort</span>

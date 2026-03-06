@@ -8,6 +8,8 @@ export function ProfileMenu(props: {
   connectionState: ConnectionState;
   roomCode?: string;
   onNavigateHome: () => void;
+  onNavigateAdmin?: () => void;
+  onCopyInviteLink?: () => void | Promise<void>;
   onCopyRoomCode?: () => void | Promise<void>;
   onLogout: () => void | Promise<void>;
 }) {
@@ -51,7 +53,7 @@ export function ProfileMenu(props: {
         <span className="profile-avatar">{toInitials(props.session.username)}</span>
         <span className="profile-trigger-copy">
           <strong>{props.session.username}</strong>
-          <span>{props.session.email}</span>
+          <span>{props.session.role === "admin" ? "Administrator" : "Spielkonto"}</span>
         </span>
       </button>
 
@@ -61,7 +63,7 @@ export function ProfileMenu(props: {
             <span className="profile-avatar is-large">{toInitials(props.session.username)}</span>
             <div className="profile-dropdown-copy">
               <strong>{props.session.username}</strong>
-              <span>{props.session.email}</span>
+              <span>{props.session.role === "admin" ? "Administrator" : "Spielkonto"}</span>
               <span className={`profile-status is-${props.connectionState}`}>
                 {renderConnectionLabel(props.session, props.connectionState)}
               </span>
@@ -78,16 +80,40 @@ export function ProfileMenu(props: {
             >
               Zur Zentrale
             </button>
+            {props.session.role === "admin" && props.onNavigateAdmin ? (
+              <button
+                type="button"
+                className="menu-action"
+                onClick={() => {
+                  setOpen(false);
+                  props.onNavigateAdmin?.();
+                }}
+              >
+                Admin-Konsole
+              </button>
+            ) : null}
             {props.roomCode && props.onCopyRoomCode ? (
               <button
                 type="button"
                 className="menu-action"
-              onClick={() => {
-                setOpen(false);
-                void props.onCopyRoomCode?.();
-              }}
-            >
+                onClick={() => {
+                  setOpen(false);
+                  void props.onCopyRoomCode?.();
+                }}
+              >
                 Raumcode {props.roomCode} kopieren
+              </button>
+            ) : null}
+            {props.roomCode && props.onCopyInviteLink ? (
+              <button
+                type="button"
+                className="menu-action"
+                onClick={() => {
+                  setOpen(false);
+                  void props.onCopyInviteLink?.();
+                }}
+              >
+                Einladungslink kopieren
               </button>
             ) : null}
             <button

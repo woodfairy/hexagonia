@@ -11,17 +11,19 @@ export function AppHeader(props: {
   title: string;
   meta?: string;
   roomCode?: string;
+  onCopyInviteLink?: () => void | Promise<void>;
   onNavigateHome: () => void;
+  onNavigateAdmin?: () => void;
   onCopyRoomCode?: () => void | Promise<void>;
   onLogout: () => void | Promise<void>;
 }) {
-  const profileRoomProps =
-    props.roomCode && props.onCopyRoomCode
-      ? {
-          roomCode: props.roomCode,
-          onCopyRoomCode: props.onCopyRoomCode
-        }
-      : {};
+  const profileRoomProps = props.roomCode
+    ? {
+        roomCode: props.roomCode,
+        ...(props.onCopyRoomCode ? { onCopyRoomCode: props.onCopyRoomCode } : {}),
+        ...(props.onCopyInviteLink ? { onCopyInviteLink: props.onCopyInviteLink } : {})
+      }
+    : {};
 
   return (
     <header className="app-header">
@@ -47,6 +49,7 @@ export function AppHeader(props: {
           <ProfileMenu
             connectionState={props.connectionState}
             session={props.session}
+            onNavigateAdmin={props.onNavigateAdmin}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}
             {...profileRoomProps}

@@ -1,31 +1,87 @@
-import type { AuthUser } from "@hexagonia/shared";
+import type { AuthUser, RoomDetails } from "@hexagonia/shared";
 
 export function LobbyScreen(props: {
   session: AuthUser;
+  rooms: RoomDetails[];
   joinCode: string;
   onJoinCodeChange: (value: string) => void;
   onCreateRoom: () => void;
   onJoinByCode: () => void;
+  onOpenRoom: (roomId: string) => void;
+  onResumeMatch: (matchId: string) => void;
 }) {
   return (
     <section className="screen-shell lobby-shell">
-      <article className="surface lobby-hero">
-        <div className="eyebrow">Spielzentrale</div>
-        <h1>Willkommen, {props.session.username}</h1>
-        <p className="hero-copy">
-          Starte einen privaten Spieltisch oder tritt einem bestehenden Raum ueber den Code bei.
-        </p>
-        <div className="lobby-summary-grid">
-          <div className="summary-card">
-            <strong>Basis-Spiel</strong>
-            <span>3-4 Spieler, private Raeume, Reconnect im Browser.</span>
+      <div className="lobby-primary-stack">
+        <article className="surface lobby-hero">
+          <div className="eyebrow">Spielzentrale</div>
+          <h1>Willkommen, {props.session.username}</h1>
+          <p className="hero-copy">
+            Starte einen privaten Spieltisch oder steig direkt wieder in deine laufenden Raeume und Partien ein.
+          </p>
+          <div className="lobby-summary-grid">
+            <div className="summary-card">
+              <strong>Sofort starten</strong>
+              <span>Privaten Raum anlegen, Freunde einladen und die Runde aufsetzen.</span>
+            </div>
+            <div className="summary-card">
+              <strong>Nahtlos fortsetzen</strong>
+              <span>Offene Raeume und aktive Partien bleiben fuer dich griffbereit.</span>
+            </div>
           </div>
-          <div className="summary-card">
-            <strong>Plattform</strong>
-            <span>Feste Produktshell, mobile first und optimiert fuer Safari.</span>
+        </article>
+
+        <article className="surface resume-surface">
+          <div className="surface-head">
+            <div>
+              <div className="eyebrow">Fortsetzen</div>
+              <h2>Deine Raeume und Partien</h2>
+            </div>
           </div>
-        </div>
-      </article>
+
+          <div className="scroll-list resume-list">
+            {props.rooms.length ? (
+              props.rooms.map((room) => {
+                const occupiedSeats = room.seats.filter((seat) => seat.userId).length;
+                const mySeat = room.seats.find((seat) => seat.userId === props.session.id);
+                const canResumeMatch = room.status === "in_match" && !!room.matchId;
+                const meta = [
+                  room.status === "in_match" ? "Laufende Partie" : "Raum offen",
+                  `${occupiedSeats}/4 Spieler`,
+                  mySeat ? `Du auf Platz ${mySeat.index + 1}` : "Teilnahme gespeichert"
+                ].join(" - ");
+
+                return (
+                  <article key={room.id} className="resume-card">
+                    <div className="resume-card-head">
+                      <div>
+                        <strong>Code {room.code}</strong>
+                        <span>{meta}</span>
+                      </div>
+                      <span className={`status-pill ${canResumeMatch ? "is-warning" : ""}`}>
+                        {canResumeMatch ? "Live" : "Bereit"}
+                      </span>
+                    </div>
+                    <div className="resume-card-actions">
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() =>
+                          canResumeMatch && room.matchId ? props.onResumeMatch(room.matchId) : props.onOpenRoom(room.id)
+                        }
+                      >
+                        {canResumeMatch ? "Partie fortsetzen" : "Raum oeffnen"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <div className="empty-state">Noch keine offenen Raeume oder laufenden Partien in deiner Liste.</div>
+            )}
+          </div>
+        </article>
+      </div>
 
       <div className="lobby-side-grid">
         <article className="surface action-surface">
@@ -59,7 +115,7 @@ export function LobbyScreen(props: {
               Beitreten
             </button>
           </div>
-          <span className="muted-copy">Codes sind kompakt gehalten, damit Einladungen mobil schnell funktionieren.</span>
+          <span className="muted-copy">Code eingeben, bestaetigen und direkt in den Raum springen.</span>
         </article>
       </div>
     </section>
