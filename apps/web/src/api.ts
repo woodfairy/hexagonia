@@ -5,8 +5,7 @@ function getDefaultApiBaseUrl(): string {
     return "http://localhost:3000";
   }
 
-  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${window.location.hostname}:3000`;
+  return "";
 }
 
 function getDefaultWebSocketUrl(): string {
@@ -14,8 +13,12 @@ function getDefaultWebSocketUrl(): string {
     return "ws://localhost:3000/ws";
   }
 
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:3000/ws`;
+  const url = new URL(window.location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = "/ws";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? getDefaultApiBaseUrl();
