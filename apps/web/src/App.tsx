@@ -8,7 +8,7 @@ import type {
   RoomDetails,
   ServerMessage
 } from "@hexagonia/shared";
-import { RESOURCES, cloneResourceMap, createEmptyResourceMap } from "@hexagonia/shared";
+import { RESOURCES, createEmptyResourceMap } from "@hexagonia/shared";
 import {
   createRoom,
   createWebSocket,
@@ -1085,7 +1085,7 @@ function singleResourceMap(resource: Resource, count: number): ResourceMap {
 }
 
 function renderResourceMap(resourceMap: ResourceMap): string {
-  return Object.entries(cloneResourceMap(resourceMap))
+  return RESOURCES.map((resource) => [resource, resourceMap[resource]] as const)
     .filter(([, count]) => count > 0)
     .map(([resource, count]) => `${count} ${resource}`)
     .join(", ");
