@@ -2554,6 +2554,20 @@ select:hover {
     grid-template-columns: 1fr;
   }
 
+  .lobby-shell,
+  .room-shell {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lobby-primary-stack,
+  .resume-surface {
+    min-block-size: auto;
+    grid-template-rows: auto auto;
+    align-content: start;
+  }
+
   .lobby-side-grid,
   .admin-side-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2563,6 +2577,11 @@ select:hover {
   .room-side-stack {
     grid-template-columns: 1fr;
     grid-template-rows: none;
+  }
+
+  .room-main-grid {
+    block-size: auto;
+    align-content: start;
   }
 
   .match-screen {
