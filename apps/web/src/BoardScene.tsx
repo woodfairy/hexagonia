@@ -4,11 +4,23 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, Resource } from "@hexagonia/shared";
 
 export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
+export interface BoardFocusCue {
+  key: string;
+  mode: "event" | "action";
+  title: string;
+  detail: string;
+  vertexIds: string[];
+  edgeIds: string[];
+  tileIds: string[];
+  scale: "tight" | "medium" | "wide";
+}
 
 interface BoardSceneProps {
   snapshot: MatchSnapshot;
   interactionMode: InteractionMode;
   selectedRoadEdges: string[];
+  focusCue: BoardFocusCue | null;
+  cameraCue: BoardFocusCue | null;
   onVertexSelect: (vertexId: string) => void;
   onEdgeSelect: (edgeId: string) => void;
   onTileSelect: (tileId: string) => void;
@@ -23,6 +35,12 @@ const TILE_COLORS: Record<Resource | "desert", string> = {
   desert: "#c6ad72"
 };
 
+const TILE_HEIGHT = 1.18;
+const BUILT_ROAD_RADIUS = 0.24;
+const GUIDE_ROAD_RADIUS = 0.14;
+const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
+const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
+
 export function BoardScene(props: BoardSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -31,6 +49,12 @@ export function BoardScene(props: BoardSceneProps) {
   const controlsRef = useRef<OrbitControls | null>(null);
   const boardGroupRef = useRef<THREE.Group | null>(null);
   const interactiveRef = useRef<THREE.Object3D[]>([]);
+  const pulseObjectsRef = useRef<THREE.Object3D[]>([]);
+  const focusTargetRef = useRef(DEFAULT_CAMERA_TARGET.clone());
+  const focusCameraPositionRef = useRef(DEFAULT_CAMERA_POSITION.clone());
+  const lastFocusKeyRef = useRef<string | null>(null);
+  const autoFlightRef = useRef(false);
+  const userInteractingRef = useRef(false);
   const handlersRef = useRef({
     onVertexSelect: props.onVertexSelect,
     onEdgeSelect: props.onEdgeSelect,
@@ -55,7 +79,7 @@ export function BoardScene(props: BoardSceneProps) {
     scene.fog = new THREE.Fog("#091520", 80, 180);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
-    camera.position.set(0, 52, 46);
+    camera.position.copy(DEFAULT_CAMERA_POSITION);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -67,12 +91,17 @@ export function BoardScene(props: BoardSceneProps) {
     mountRef.current.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enablePan = false;
-    controls.target.set(0, 0, 0);
+    controls.enablePan = true;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.screenSpacePanning = true;
+    controls.target.copy(DEFAULT_CAMERA_TARGET);
     controls.minDistance = 28;
     controls.maxDistance = 88;
     controls.maxPolarAngle = Math.PI / 2.12;
     controls.update();
+    focusTargetRef.current.copy(DEFAULT_CAMERA_TARGET);
+    focusCameraPositionRef.current.copy(DEFAULT_CAMERA_POSITION);
 
     scene.add(new THREE.AmbientLight("#d5e4f2", 1.35));
     const keyLight = new THREE.DirectionalLight("#f6efe0", 1.45);
@@ -83,6 +112,22 @@ export function BoardScene(props: BoardSceneProps) {
     const fillLight = new THREE.DirectionalLight("#89b9ff", 0.55);
     fillLight.position.set(-20, 18, -20);
     scene.add(fillLight);
+
+    const onControlStart = () => {
+      userInteractingRef.current = true;
+      autoFlightRef.current = false;
+    };
+    const onControlEnd = () => {
+      if (!cameraRef.current || !controlsRef.current) {
+        return;
+      }
+
+      userInteractingRef.current = false;
+      focusTargetRef.current.copy(controlsRef.current.target);
+      focusCameraPositionRef.current.copy(cameraRef.current.position);
+    };
+    controls.addEventListener("start", onControlStart);
+    controls.addEventListener("end", onControlEnd);
 
     const table = new THREE.Mesh(
       new THREE.CylinderGeometry(44, 48, 4, 48),
@@ -150,14 +195,61 @@ export function BoardScene(props: BoardSceneProps) {
 
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.setAnimationLoop(() => {
+      const pulse = performance.now() * 0.005;
+      if (autoFlightRef.current && !userInteractingRef.current) {
+        controls.target.lerp(focusTargetRef.current, 0.12);
+        camera.position.lerp(focusCameraPositionRef.current, 0.12);
+
+        if (
+          controls.target.distanceToSquared(focusTargetRef.current) < 0.04 &&
+          camera.position.distanceToSquared(focusCameraPositionRef.current) < 0.08
+        ) {
+          controls.target.copy(focusTargetRef.current);
+          camera.position.copy(focusCameraPositionRef.current);
+          autoFlightRef.current = false;
+        }
+      }
+      for (const object of pulseObjectsRef.current) {
+        const baseScale = object.userData.baseScale as THREE.Vector3 | undefined;
+        if (!baseScale) {
+          continue;
+        }
+
+        const intensity = object.userData.pulseIntensity === "strong" ? 0.14 : 0.08;
+        const scale = 1 + Math.sin(pulse) * intensity;
+        object.scale.set(baseScale.x * scale, baseScale.y * scale, baseScale.z * scale);
+
+        const material = object.userData.material as
+          | THREE.Material
+          | THREE.Material[]
+          | THREE.SpriteMaterial
+          | undefined;
+        if (!material) {
+          continue;
+        }
+
+        const materials = Array.isArray(material) ? material : [material];
+        for (const entry of materials) {
+          if ("opacity" in entry) {
+            entry.opacity = object.userData.pulseIntensity === "strong" ? 0.88 : 0.68;
+          }
+        }
+      }
       controls.update();
       renderer.render(scene, camera);
     });
 
     return () => {
+      if (boardGroupRef.current) {
+        disposeObjectTree(boardGroupRef.current);
+        scene.remove(boardGroupRef.current);
+        boardGroupRef.current = null;
+      }
       renderer.setAnimationLoop(null);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("resize", handleResize);
+      controls.removeEventListener("start", onControlStart);
+      controls.removeEventListener("end", onControlEnd);
       controls.dispose();
       renderer.dispose();
       mountRef.current?.removeChild(renderer.domElement);
@@ -171,13 +263,16 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     if (boardGroupRef.current) {
+      disposeObjectTree(boardGroupRef.current);
       scene.remove(boardGroupRef.current);
     }
 
     const group = new THREE.Group();
     interactiveRef.current = [];
+    pulseObjectsRef.current = [];
     boardGroupRef.current = group;
     scene.add(group);
+    const verticesById = new Map(props.snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
 
     const legalVertices = new Set(
       props.snapshot.allowedMoves.initialSettlementVertexIds.length
@@ -204,45 +299,31 @@ export function BoardScene(props: BoardSceneProps) {
     );
 
     for (const tile of props.snapshot.board.tiles) {
-      const base = new THREE.Mesh(
-        new THREE.CylinderGeometry(4.45, 4.45, 1.6, 6),
-        new THREE.MeshStandardMaterial({
-          color: TILE_COLORS[tile.resource],
-          roughness: 0.92,
-          metalness: 0.04
-        })
-      );
-      base.rotation.y = Math.PI / 6;
+      const active = robberTileIds.has(tile.id);
+      const base = createTileMesh(tile, verticesById, active);
       base.position.set(tile.x, 0, tile.y);
       base.castShadow = true;
       base.receiveShadow = true;
       group.add(base);
 
+      const outline = createTileOutline(tile, verticesById);
+      outline.position.set(tile.x, TILE_HEIGHT + 0.04, tile.y);
+      group.add(outline);
+
       const tokenSprite = createTokenSprite(tile.token, tile.robber);
-      tokenSprite.position.set(tile.x, 1.2, tile.y);
+      tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.62, tile.y);
       group.add(tokenSprite);
 
-      if (robberTileIds.has(tile.id)) {
-        const hotspot = new THREE.Mesh(
-          new THREE.CylinderGeometry(4.9, 4.9, 0.3, 6),
-          new THREE.MeshStandardMaterial({
-            color: "#ffcc66",
-            transparent: true,
-            opacity: 0.4
-          })
-        );
-        hotspot.rotation.y = Math.PI / 6;
-        hotspot.position.set(tile.x, 1.95, tile.y);
-        hotspot.userData = { kind: "tile", id: tile.id };
-        group.add(hotspot);
-        interactiveRef.current.push(hotspot);
+      if (active) {
+        base.userData = { kind: "tile", id: tile.id };
+        interactiveRef.current.push(base);
       }
     }
 
     for (const edge of props.snapshot.board.edges) {
       const [leftId, rightId] = edge.vertexIds;
-      const left = props.snapshot.board.vertices.find((vertex) => vertex.id === leftId)!;
-      const right = props.snapshot.board.vertices.find((vertex) => vertex.id === rightId)!;
+      const left = verticesById.get(leftId)!;
+      const right = verticesById.get(rightId)!;
       const dx = right.x - left.x;
       const dz = right.y - left.y;
       const length = Math.sqrt(dx * dx + dz * dz);
@@ -251,19 +332,19 @@ export function BoardScene(props: BoardSceneProps) {
 
       const active = legalEdges.has(edge.id);
       const selected = props.selectedRoadEdges.includes(edge.id);
-      const road = new THREE.Mesh(
-        new THREE.BoxGeometry(length * 0.94, 0.45, 0.8),
-        new THREE.MeshStandardMaterial({
-          color: edge.color ? colorToHex(edge.color) : active ? "#f5d06f" : "#1a2e40",
-          roughness: 0.7,
-          metalness: 0.12,
-          emissive: selected ? new THREE.Color("#ffbf4d") : new THREE.Color("#000000"),
-          emissiveIntensity: selected ? 0.7 : 0
-        })
+      if (!edge.ownerId && !active && !selected) {
+        continue;
+      }
+
+      const road = edge.ownerId
+        ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected)
+        : createRoadGuide(length, selected);
+      road.position.set(centerX, edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04 : TILE_HEIGHT + GUIDE_ROAD_RADIUS, centerZ);
+      road.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(dx, 0, dz).normalize()
       );
-      road.position.set(centerX, edge.ownerId ? 0.95 : 0.6, centerZ);
-      road.rotation.y = Math.atan2(dx, dz);
-      road.castShadow = true;
+      road.castShadow = !!edge.ownerId;
       group.add(road);
 
       if (active) {
@@ -275,21 +356,18 @@ export function BoardScene(props: BoardSceneProps) {
     for (const vertex of props.snapshot.board.vertices) {
       const active = legalVertices.has(vertex.id);
       const building = vertex.building;
-      const mesh = building
-        ? createBuildingMesh(building.type, building.color)
-        : new THREE.Mesh(
-            new THREE.SphereGeometry(active ? 0.88 : 0.58, 18, 18),
-            new THREE.MeshStandardMaterial({
-              color: active ? "#f3cf83" : vertex.portType ? "#3f5f78" : "#1e3245",
-              roughness: 0.62,
-              metalness: 0.1,
-              emissive: active ? new THREE.Color("#f0a93a") : new THREE.Color("#000000"),
-              emissiveIntensity: active ? 0.25 : 0
-            })
-          );
+      if (!building && !active) {
+        continue;
+      }
 
-      mesh.position.set(vertex.x, building ? 1.65 : 1.25, vertex.y);
-      mesh.castShadow = true;
+      const mesh = building ? createBuildingMesh(building.type, building.color) : createVertexMarker();
+      mesh.position.set(vertex.x, building ? TILE_HEIGHT + 0.02 : TILE_HEIGHT + 0.08, vertex.y);
+      mesh.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true;
+          object.receiveShadow = true;
+        }
+      });
       group.add(mesh);
 
       if (active) {
@@ -297,7 +375,42 @@ export function BoardScene(props: BoardSceneProps) {
         interactiveRef.current.push(mesh);
       }
     }
-  }, [props.interactionMode, props.selectedRoadEdges, props.snapshot]);
+
+    if (props.focusCue) {
+      appendFocusMarkers(group, props.snapshot, verticesById, props.focusCue, pulseObjectsRef.current);
+    }
+  }, [props.focusCue, props.interactionMode, props.selectedRoadEdges, props.snapshot]);
+
+  useEffect(() => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) {
+      return;
+    }
+
+    if (!props.cameraCue) {
+      return;
+    }
+
+    if (lastFocusKeyRef.current === props.cameraCue.key) {
+      return;
+    }
+
+    lastFocusKeyRef.current = props.cameraCue.key;
+
+    const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue);
+    const currentDirection = camera.position.clone().sub(controls.target);
+    const direction = currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
+    const distance =
+      props.cameraCue.scale === "tight" ? 26 : props.cameraCue.scale === "medium" ? 34 : 44;
+    const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);
+    const nextCameraPosition = target.clone().add(direction.multiplyScalar(distance));
+    nextCameraPosition.y = Math.max(nextCameraPosition.y, props.cameraCue.scale === "tight" ? 18 : 24);
+
+    focusTargetRef.current.copy(target);
+    focusCameraPositionRef.current.copy(nextCameraPosition);
+    autoFlightRef.current = true;
+  }, [props.cameraCue, props.snapshot]);
 
   return <div className="board-canvas" ref={mountRef} />;
 }
@@ -305,25 +418,46 @@ export function BoardScene(props: BoardSceneProps) {
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
   const material = new THREE.MeshStandardMaterial({
     color: colorToHex(color),
-    roughness: 0.58,
-    metalness: 0.12
+    roughness: 0.64,
+    metalness: 0.08
   });
 
   if (type === "city") {
     const group = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.2, 1.45), material);
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.7, 0.75), material);
-    tower.position.y = 1.35;
-    group.add(base, tower);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.9, 1.35), material);
+    base.position.y = 0.45;
+    const hall = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.15, 0.9), material);
+    hall.position.set(-0.28, 1.02, 0);
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.7, 0.62), material);
+    tower.position.set(0.38, 1.12, 0);
+    const towerRoof = new THREE.Mesh(new THREE.ConeGeometry(0.54, 0.7, 4), material);
+    towerRoof.position.set(0.38, 2.25, 0);
+    towerRoof.rotation.y = Math.PI / 4;
+    group.add(base, hall, tower, towerRoof);
     return group;
   }
 
   const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.8, 1.2, 5), material);
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.88, 0.95, 5), material);
-  roof.position.y = 0.95;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.82, 1.02), material);
+  body.position.y = 0.41;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.86, 0.7, 4), material);
+  roof.position.y = 1.15;
+  roof.rotation.y = Math.PI / 4;
   group.add(body, roof);
   return group;
+}
+
+function createVertexMarker(): THREE.Mesh {
+  return new THREE.Mesh(
+    new THREE.CylinderGeometry(0.54, 0.6, 0.16, 12),
+    new THREE.MeshStandardMaterial({
+      color: "#f3cf83",
+      roughness: 0.5,
+      metalness: 0.08,
+      emissive: new THREE.Color("#f0a93a"),
+      emissiveIntensity: 0.22
+    })
+  );
 }
 
 function createTokenSprite(token: number | null, robber: boolean): THREE.Sprite {
@@ -364,6 +498,317 @@ function createTokenSprite(token: number | null, robber: boolean): THREE.Sprite 
   );
   sprite.scale.set(4.8, 4.8, 1);
   return sprite;
+}
+
+function createTileMesh(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  active: boolean
+): THREE.Mesh {
+  const shape = createTileShape(tile, verticesById);
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: TILE_HEIGHT,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.24,
+    bevelThickness: 0.12,
+    curveSegments: 6
+  });
+  geometry.rotateX(-Math.PI / 2);
+
+  const topMaterial = new THREE.MeshStandardMaterial({
+    color: TILE_COLORS[tile.resource],
+    roughness: 0.9,
+    metalness: 0.02,
+    emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
+    emissiveIntensity: active ? 0.18 : 0
+  });
+  const sideMaterial = new THREE.MeshStandardMaterial({
+    color: shadeColor(TILE_COLORS[tile.resource], -0.18),
+    roughness: 0.96,
+    metalness: 0.01
+  });
+
+  return new THREE.Mesh(geometry, [topMaterial, sideMaterial]);
+}
+
+function createTileOutline(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.LineLoop {
+  const points = tile.vertexIds.map((vertexId) => {
+    const vertex = verticesById.get(vertexId)!;
+    return new THREE.Vector3(vertex.x - tile.x, 0, vertex.y - tile.y);
+  });
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  return new THREE.LineLoop(
+    geometry,
+    new THREE.LineBasicMaterial({
+      color: "#f4edd8",
+      transparent: true,
+      opacity: 0.22
+    })
+  );
+}
+
+function createTileShape(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Shape {
+  const shape = new THREE.Shape();
+  tile.vertexIds.forEach((vertexId, index) => {
+    const vertex = verticesById.get(vertexId)!;
+    const x = vertex.x - tile.x;
+    const y = vertex.y - tile.y;
+    if (index === 0) {
+      shape.moveTo(x, y);
+      return;
+    }
+    shape.lineTo(x, y);
+  });
+  shape.closePath();
+  return shape;
+}
+
+function createRoadPiece(length: number, color: string, selected: boolean): THREE.Mesh {
+  const roadLength = Math.max(length * 0.74 - BUILT_ROAD_RADIUS * 2, 0.1);
+  return new THREE.Mesh(
+    new THREE.CapsuleGeometry(BUILT_ROAD_RADIUS, roadLength, 4, 10),
+    new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.72,
+      metalness: 0.03,
+      emissive: selected ? new THREE.Color("#ffbf4d") : new THREE.Color("#000000"),
+      emissiveIntensity: selected ? 0.42 : 0
+    })
+  );
+}
+
+function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
+  const guideLength = Math.max(length * 0.68 - GUIDE_ROAD_RADIUS * 2, 0.1);
+  return new THREE.Mesh(
+    new THREE.CapsuleGeometry(GUIDE_ROAD_RADIUS, guideLength, 4, 10),
+    new THREE.MeshStandardMaterial({
+      color: selected ? "#ffd68a" : "#f5d06f",
+      roughness: 0.48,
+      metalness: 0.02,
+      transparent: true,
+      opacity: selected ? 0.95 : 0.62,
+      emissive: new THREE.Color("#f0a93a"),
+      emissiveIntensity: selected ? 0.38 : 0.18
+    })
+  );
+}
+
+function appendFocusMarkers(
+  group: THREE.Group,
+  snapshot: MatchSnapshot,
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  cue: BoardFocusCue,
+  pulseObjects: THREE.Object3D[]
+): void {
+  const focusGroup = new THREE.Group();
+  const tileSet = new Set(cue.tileIds);
+  const edgeSet = new Set(cue.edgeIds);
+  const vertexSet = new Set(cue.vertexIds);
+
+  for (const tileId of tileSet) {
+    const tile = snapshot.board.tiles.find((entry) => entry.id === tileId);
+    if (!tile) {
+      continue;
+    }
+
+    const marker = createTileFocusMarker(tile, verticesById, cue.mode === "event");
+    marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
+    focusGroup.add(marker);
+    pulseObjects.push(marker);
+  }
+
+  for (const edgeId of edgeSet) {
+    const edge = snapshot.board.edges.find((entry) => entry.id === edgeId);
+    if (!edge) {
+      continue;
+    }
+
+    const [leftId, rightId] = edge.vertexIds;
+    const left = verticesById.get(leftId);
+    const right = verticesById.get(rightId);
+    if (!left || !right) {
+      continue;
+    }
+
+    const marker = createEdgeFocusMarker(left, right, cue.mode === "event");
+    focusGroup.add(marker);
+    pulseObjects.push(marker);
+  }
+
+  for (const vertexId of vertexSet) {
+    const vertex = verticesById.get(vertexId);
+    if (!vertex) {
+      continue;
+    }
+
+    const marker = createVertexFocusMarker(cue.mode === "event");
+    marker.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
+    focusGroup.add(marker);
+    pulseObjects.push(marker);
+  }
+
+  group.add(focusGroup);
+}
+
+function createTileFocusMarker(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  strong: boolean
+): THREE.Mesh {
+  const radius = tile.vertexIds.reduce((sum, vertexId) => {
+    const vertex = verticesById.get(vertexId)!;
+    return sum + Math.hypot(vertex.x - tile.x, vertex.y - tile.y);
+  }, 0) / Math.max(tile.vertexIds.length, 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: strong ? "#ffd88a" : "#b1dcff",
+    transparent: true,
+    opacity: strong ? 0.78 : 0.62
+  });
+  const marker = new THREE.Mesh(new THREE.TorusGeometry(Math.max(radius * 0.76, 2.6), 0.18, 12, 48), material);
+  marker.rotation.x = Math.PI / 2;
+  marker.userData.baseScale = marker.scale.clone();
+  marker.userData.material = material;
+  marker.userData.pulseIntensity = strong ? "strong" : "soft";
+  return marker;
+}
+
+function createEdgeFocusMarker(
+  left: MatchSnapshot["board"]["vertices"][number],
+  right: MatchSnapshot["board"]["vertices"][number],
+  strong: boolean
+): THREE.Mesh {
+  const dx = right.x - left.x;
+  const dz = right.y - left.y;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  const markerLength = Math.max(length * 0.8 - 0.14, 0.8);
+  const material = new THREE.MeshBasicMaterial({
+    color: strong ? "#ffd88a" : "#b1dcff",
+    transparent: true,
+    opacity: strong ? 0.8 : 0.62
+  });
+  const marker = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, markerLength, 4, 10), material);
+  marker.position.set((left.x + right.x) / 2, TILE_HEIGHT + 0.34, (left.y + right.y) / 2);
+  marker.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(dx, 0, dz).normalize()
+  );
+  marker.userData.baseScale = marker.scale.clone();
+  marker.userData.material = material;
+  marker.userData.pulseIntensity = strong ? "strong" : "soft";
+  return marker;
+}
+
+function createVertexFocusMarker(strong: boolean): THREE.Mesh {
+  const material = new THREE.MeshBasicMaterial({
+    color: strong ? "#ffd88a" : "#b1dcff",
+    transparent: true,
+    opacity: strong ? 0.82 : 0.64
+  });
+  const marker = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.13, 10, 36), material);
+  marker.rotation.x = Math.PI / 2;
+  marker.userData.baseScale = marker.scale.clone();
+  marker.userData.material = material;
+  marker.userData.pulseIntensity = strong ? "strong" : "soft";
+  return marker;
+}
+
+function resolveFocusCuePosition(
+  snapshot: MatchSnapshot,
+  cue: BoardFocusCue
+): { x: number; z: number } {
+  const verticesById = new Map(snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
+  const positions: Array<{ x: number; z: number }> = [];
+
+  for (const tileId of cue.tileIds) {
+    const tile = snapshot.board.tiles.find((entry) => entry.id === tileId);
+    if (tile) {
+      positions.push({ x: tile.x, z: tile.y });
+    }
+  }
+
+  for (const edgeId of cue.edgeIds) {
+    const edge = snapshot.board.edges.find((entry) => entry.id === edgeId);
+    if (!edge) {
+      continue;
+    }
+
+    const [leftId, rightId] = edge.vertexIds;
+    const left = verticesById.get(leftId);
+    const right = verticesById.get(rightId);
+    if (!left || !right) {
+      continue;
+    }
+
+    positions.push({
+      x: (left.x + right.x) / 2,
+      z: (left.y + right.y) / 2
+    });
+  }
+
+  for (const vertexId of cue.vertexIds) {
+    const vertex = verticesById.get(vertexId);
+    if (vertex) {
+      positions.push({ x: vertex.x, z: vertex.y });
+    }
+  }
+
+  if (!positions.length) {
+    return { x: 0, z: 0 };
+  }
+
+  const aggregate = positions.reduce(
+    (current, position) => ({
+      x: current.x + position.x,
+      z: current.z + position.z
+    }),
+    { x: 0, z: 0 }
+  );
+
+  return {
+    x: aggregate.x / positions.length,
+    z: aggregate.z / positions.length
+  };
+}
+
+function shadeColor(color: string, lightnessOffset: number): string {
+  const shaded = new THREE.Color(color);
+  shaded.offsetHSL(0, 0, lightnessOffset);
+  return `#${shaded.getHexString()}`;
+}
+
+function disposeObjectTree(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    if (object instanceof THREE.Mesh) {
+      object.geometry.dispose();
+      if (Array.isArray(object.material)) {
+        object.material.forEach((material) => material.dispose());
+      } else {
+        object.material.dispose();
+      }
+    }
+
+    if (object instanceof THREE.Sprite) {
+      object.material.map?.dispose();
+      object.material.dispose();
+    }
+
+    if (object instanceof THREE.Line) {
+      object.geometry.dispose();
+      if (Array.isArray(object.material)) {
+        object.material.forEach((material) => material.dispose());
+      } else {
+        object.material.dispose();
+      }
+    }
+  });
 }
 
 function colorToHex(color: string): string {

@@ -13,6 +13,7 @@ export type Resource = (typeof RESOURCES)[number];
 export type PlayerColor = (typeof PLAYER_COLORS)[number];
 export type DevelopmentCardType = (typeof DEVELOPMENT_CARD_TYPES)[number];
 export type PortType = (typeof PORT_TYPES)[number];
+export type UserRole = "user" | "admin";
 export type BuildingType = "settlement" | "city";
 export type MatchPhase =
   | "room"
@@ -279,6 +280,10 @@ export type ClientMessage =
       matchId: string;
     }
   | {
+      type: "client.ping";
+      at: number;
+    }
+  | {
       type: "match.action";
       matchId: string;
       action: ActionIntent;
@@ -288,6 +293,10 @@ export type ServerMessage =
   | {
       type: "room.state";
       room: RoomDetails;
+    }
+  | {
+      type: "server.pong";
+      at: number;
     }
   | {
       type: "match.snapshot";
@@ -311,8 +320,22 @@ export type ServerMessage =
 
 export interface AuthUser {
   id: string;
-  email: string;
   username: string;
+  role: UserRole;
+}
+
+export interface AdminUserRecord extends AuthUser {
+  createdAt: string;
+}
+
+export interface AdminMatchSummary {
+  id: string;
+  roomId: string;
+  status: MatchPhase;
+  winnerId: string | null;
+  playerCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RuleModule {

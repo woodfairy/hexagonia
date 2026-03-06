@@ -1,4 +1,4 @@
-import type { AuthUser, RoomDetails } from "@hexagonia/shared";
+import type { AdminMatchSummary, AdminUserRecord, AuthUser, RoomDetails, UserRole } from "@hexagonia/shared";
 
 function getDefaultApiBaseUrl(): string {
   if (typeof window === "undefined") {
@@ -44,7 +44,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function register(payload: {
-  email: string;
   username: string;
   password: string;
 }): Promise<AuthUser> {
@@ -56,7 +55,7 @@ export async function register(payload: {
 }
 
 export async function login(payload: {
-  email: string;
+  username: string;
   password: string;
 }): Promise<AuthUser> {
   const response = await request<{ user: AuthUser }>("/api/auth/login", {
@@ -77,11 +76,78 @@ export async function getCurrentUser(): Promise<AuthUser> {
   return response.user;
 }
 
+export async function getAdminUsers(): Promise<AdminUserRecord[]> {
+  const response = await request<{ users: AdminUserRecord[] }>("/api/admin/users");
+  return response.users;
+}
+
+export async function createAdminUser(payload: {
+  username: string;
+  password: string;
+  role: UserRole;
+}): Promise<AdminUserRecord> {
+  const response = await request<{ user: AdminUserRecord }>("/api/admin/users", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  return response.user;
+}
+
+export async function updateAdminUser(
+  userId: string,
+  payload: {
+    username?: string;
+    password?: string;
+    role?: UserRole;
+  }
+): Promise<AuthUser> {
+  const response = await request<{ user: AuthUser }>(`/api/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+  return response.user;
+}
+
+export async function deleteAdminUser(userId: string): Promise<void> {
+  await request<{ ok: true }>(`/api/admin/users/${userId}`, {
+    method: "DELETE"
+  });
+}
+
+export async function getAdminRooms(): Promise<RoomDetails[]> {
+  const response = await request<{ rooms: RoomDetails[] }>("/api/admin/rooms");
+  return response.rooms;
+}
+
+export async function closeAdminRoom(roomId: string): Promise<RoomDetails> {
+  const response = await request<{ room: RoomDetails }>(`/api/admin/rooms/${roomId}/close`, {
+    method: "POST"
+  });
+  return response.room;
+}
+
+export async function getAdminMatches(): Promise<AdminMatchSummary[]> {
+  const response = await request<{ matches: AdminMatchSummary[] }>("/api/admin/matches");
+  return response.matches;
+}
+
+export async function deleteAdminMatch(matchId: string): Promise<RoomDetails> {
+  const response = await request<{ room: RoomDetails }>(`/api/admin/matches/${matchId}`, {
+    method: "DELETE"
+  });
+  return response.room;
+}
+
 export async function createRoom(): Promise<RoomDetails> {
   const response = await request<{ room: RoomDetails }>("/api/rooms", {
     method: "POST"
   });
   return response.room;
+}
+
+export async function getMyRooms(): Promise<RoomDetails[]> {
+  const response = await request<{ rooms: RoomDetails[] }>("/api/rooms/mine");
+  return response.rooms;
 }
 
 export async function getRoom(roomId: string): Promise<RoomDetails> {

@@ -5,6 +5,8 @@ export type AuthMode = "login" | "register";
 export type ConnectionState = "offline" | "connecting" | "online";
 export type RouteState =
   | { kind: "home" }
+  | { kind: "admin" }
+  | { kind: "invite"; code: string }
   | { kind: "room"; roomId: string }
   | { kind: "match"; matchId: string };
 
@@ -15,6 +17,12 @@ export function readRoute(): RouteState {
   }
 
   const [kind, id] = hash.split("/");
+  if (kind === "admin") {
+    return { kind: "admin" };
+  }
+  if (kind === "invite" && id) {
+    return { kind: "invite", code: id.toUpperCase() };
+  }
   if (kind === "room" && id) {
     return { kind: "room", roomId: id };
   }

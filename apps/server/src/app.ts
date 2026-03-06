@@ -16,13 +16,12 @@ const SESSION_COOKIE_NAME = "hexagonia_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
 
 const registerSchema = z.object({
-  email: z.string().email(),
   username: z.string().min(3).max(24),
   password: z.string().min(8).max(128)
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(3).max(24),
   password: z.string().min(8).max(128)
 });
 
@@ -34,10 +33,29 @@ const readySchema = z.object({
   ready: z.boolean()
 });
 
+const userRoleSchema = z.enum(["user", "admin"]);
+
+const adminCreateUserSchema = z.object({
+  username: z.string().min(3).max(24),
+  password: z.string().min(8).max(128),
+  role: userRoleSchema.default("user")
+});
+
+const adminUpdateUserSchema = z
+  .object({
+    username: z.string().min(3).max(24).optional(),
+    password: z.string().min(8).max(128).optional(),
+    role: userRoleSchema.optional()
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "Mindestens ein Feld muss aktualisiert werden."
+  });
+
 export async function createApp(config: AppConfig): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
   const db = new Database(config.DATABASE_URL);
   await db.init();
+  await ensureBootstrapAdmin(db, config);
   const hub = new RealtimeHub(db, app.log);
 
   app.addHook("onClose", async () => {
@@ -67,7 +85,6 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       });
 
       const user = await db.createUser({
-        email: body.email,
         username: body.username,
         passwordHash
       });
@@ -76,7 +93,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return { user };
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return reply.code(409).send({ error: "E-Mail oder Nutzername ist bereits vergeben." });
+        return reply.code(409).send({ error: "Der Nutzername ist bereits vergeben." });
       }
       throw error;
     }
@@ -84,7 +101,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
   app.post("/api/auth/login", async (request, reply) => {
     const body = loginSchema.parse(request.body);
-    const record = await db.getUserWithPasswordByEmail(body.email);
+    const record = await db.getUserWithPasswordByUsername(body.username);
 
     if (!record || !(await argon2.verify(record.passwordHash, body.password))) {
       return reply.code(401).send({ error: "Ungültige Zugangsdaten." });
@@ -94,8 +111,8 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     return {
       user: {
         id: record.id,
-        email: record.email,
-        username: record.username
+        username: record.username,
+        role: record.role
       }
     };
   });
@@ -117,6 +134,208 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     return { user };
   });
 
+  app.get("/api/admin/users", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const users = await db.listUsers();
+    return { users };
+  });
+
+  app.post("/api/admin/users", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const body = adminCreateUserSchema.parse(request.body);
+
+    try {
+      const passwordHash = await argon2.hash(body.password, {
+        type: argon2.argon2id
+      });
+
+      const user = await db.createManagedUser({
+        username: body.username,
+        passwordHash,
+        role: body.role
+      });
+
+      return { user };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: "Der Nutzername ist bereits vergeben." });
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/admin/users/:userId", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const body = adminUpdateUserSchema.parse(request.body ?? {});
+    const userId = (request.params as { userId: string }).userId;
+    const currentUser = await db.getUserById(userId);
+    if (!currentUser) {
+      return reply.code(404).send({ error: "Nutzer nicht gefunden." });
+    }
+
+    if (currentUser.role === "admin" && body.role === "user" && (await db.countAdmins()) <= 1) {
+      return reply.code(409).send({ error: "Der letzte Admin kann nicht entzogen werden." });
+    }
+
+    try {
+      const updated = await db.updateUser(userId, {
+        username: body.username,
+        role: body.role,
+        passwordHash: body.password
+          ? await argon2.hash(body.password, {
+              type: argon2.argon2id
+            })
+          : undefined
+      });
+
+      if (!updated) {
+        return reply.code(404).send({ error: "Nutzer nicht gefunden." });
+      }
+
+      return { user: updated };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: "Der Nutzername ist bereits vergeben." });
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/admin/users/:userId", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const userId = (request.params as { userId: string }).userId;
+    const targetUser = await db.getUserById(userId);
+    if (!targetUser) {
+      return reply.code(404).send({ error: "Nutzer nicht gefunden." });
+    }
+
+    if (targetUser.id === admin.id) {
+      return reply.code(409).send({ error: "Den aktuell angemeldeten Admin kannst du nicht loeschen." });
+    }
+
+    if (targetUser.role === "admin" && (await db.countAdmins()) <= 1) {
+      return reply.code(409).send({ error: "Der letzte Admin kann nicht geloescht werden." });
+    }
+
+    const affectedRooms = await db.listUserRooms(targetUser.id);
+    for (const room of affectedRooms) {
+      if (room.matchId) {
+        await resetMatchToRoom(db, hub, room.matchId, `Partie durch Admin beendet, weil ${targetUser.username} entfernt wurde.`);
+      }
+
+      const refreshedRoom = await db.getRoom(room.id);
+      if (!refreshedRoom) {
+        continue;
+      }
+
+      for (const seat of refreshedRoom.seats) {
+        if (seat.userId === targetUser.id) {
+          seat.userId = null;
+          seat.username = null;
+          seat.ready = false;
+        }
+      }
+
+      const remainingSeatOwner = refreshedRoom.seats.find((seat) => seat.userId)?.userId ?? null;
+      if (refreshedRoom.ownerUserId === targetUser.id) {
+        refreshedRoom.ownerUserId = remainingSeatOwner ?? admin.id;
+      }
+
+      if (!remainingSeatOwner) {
+        refreshedRoom.status = "closed";
+      }
+
+      const saved = await db.saveRoom(refreshedRoom);
+      await hub.broadcastRoom(saved);
+    }
+
+    await db.deleteSessionsByUserId(targetUser.id);
+    await db.deleteUser(targetUser.id);
+    return { ok: true };
+  });
+
+  app.get("/api/admin/rooms", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const rooms = await db.listRooms();
+    return { rooms };
+  });
+
+  app.post("/api/admin/rooms/:roomId/close", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const room = await requireRoom(db, reply, (request.params as { roomId: string }).roomId);
+    if (!room) {
+      return reply;
+    }
+
+    if (room.matchId) {
+      await resetMatchToRoom(db, hub, room.matchId, "Partie wurde vom Admin gestoppt.");
+    }
+
+    const refreshedRoom = (await db.getRoom(room.id)) ?? room;
+    refreshedRoom.status = "closed";
+    refreshedRoom.matchId = null;
+    refreshedRoom.ownerUserId = admin.id;
+    refreshedRoom.seats = refreshedRoom.seats.map((seat) => ({
+      ...seat,
+      userId: null,
+      username: null,
+      ready: false
+    }));
+
+    const saved = await db.saveRoom(refreshedRoom);
+    await hub.broadcastRoom(saved);
+    return { room: saved };
+  });
+
+  app.get("/api/admin/matches", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const matches = await db.listMatches();
+    return { matches };
+  });
+
+  app.delete("/api/admin/matches/:matchId", async (request, reply) => {
+    const admin = await requireAdmin(request, reply, db);
+    if (!admin) {
+      return reply;
+    }
+
+    const matchId = (request.params as { matchId: string }).matchId;
+    const room = await resetMatchToRoom(db, hub, matchId, "Partie wurde vom Admin zur Reparatur entfernt.");
+    if (!room) {
+      return reply.code(404).send({ error: "Partie nicht gefunden." });
+    }
+
+    return { room };
+  });
+
   app.post("/api/rooms", async (request, reply) => {
     const user = await requireUser(request, reply, db);
     if (!user) {
@@ -126,6 +345,16 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const room = await db.createRoom(user, generateRoomCode());
     await hub.broadcastRoom(room);
     return { room };
+  });
+
+  app.get("/api/rooms/mine", async (request, reply) => {
+    const user = await requireUser(request, reply, db);
+    if (!user) {
+      return reply;
+    }
+
+    const rooms = await db.listUserRooms(user.id);
+    return { rooms };
   });
 
   app.get("/api/rooms/:roomId", async (request, reply) => {
@@ -315,6 +544,14 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
           case "match.reconnect":
             await hub.subscribeMatch(context, message.matchId);
             break;
+          case "client.ping":
+            socket.send(
+              JSON.stringify({
+                type: "server.pong",
+                at: message.at
+              })
+            );
+            break;
           case "match.action":
             await hub.applyMatchAction(user.id, message.matchId, message.action as ActionIntent);
             break;
@@ -375,6 +612,24 @@ async function requireUser(
   return user;
 }
 
+async function requireAdmin(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: Database
+): Promise<AuthUser | null> {
+  const user = await requireUser(request, reply, db);
+  if (!user) {
+    return null;
+  }
+
+  if (user.role !== "admin") {
+    reply.code(403).send({ error: "Adminrechte erforderlich." });
+    return null;
+  }
+
+  return user;
+}
+
 async function getUserFromRequest(
   request: FastifyRequest,
   db: Database
@@ -399,6 +654,51 @@ async function requireRoom(
     return null;
   }
   return room;
+}
+
+async function ensureBootstrapAdmin(db: Database, config: AppConfig): Promise<void> {
+  if (!config.ADMIN_USERNAME || !config.ADMIN_PASSWORD) {
+    return;
+  }
+
+  const passwordHash = await argon2.hash(config.ADMIN_PASSWORD, {
+    type: argon2.argon2id
+  });
+
+  await db.upsertBootstrapAdmin({
+    email: config.ADMIN_EMAIL,
+    username: config.ADMIN_USERNAME,
+    passwordHash
+  });
+}
+
+async function resetMatchToRoom(
+  db: Database,
+  hub: RealtimeHub,
+  matchId: string,
+  reason: string
+): Promise<RoomDetails | null> {
+  hub.terminateMatch(matchId, reason);
+  const deleted = await db.deleteMatch(matchId);
+  if (!deleted) {
+    return null;
+  }
+
+  const room = await db.getRoom(deleted.roomId);
+  if (!room) {
+    return null;
+  }
+
+  room.matchId = null;
+  room.status = room.seats.some((seat) => seat.userId) ? "open" : "closed";
+  room.seats = room.seats.map((seat) => ({
+    ...seat,
+    ready: false
+  }));
+
+  const saved = await db.saveRoom(room);
+  await hub.broadcastRoom(saved);
+  return saved;
 }
 
 function isUniqueViolation(error: unknown): boolean {

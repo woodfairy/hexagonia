@@ -43,7 +43,7 @@ The web client uses same-origin `/api` and `/ws` endpoints by default. In Docker
 
 The current implementation establishes the full architecture and a functional base-game core:
 
-- email/password auth with secure cookie sessions
+- username/password auth with secure cookie sessions
 - private rooms with seating and ready states
 - server-authoritative match state via WebSockets
 - seeded base-board generation, setup rounds, robber, building, development cards and scoring
