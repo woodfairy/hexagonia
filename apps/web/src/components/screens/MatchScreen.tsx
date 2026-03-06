@@ -212,6 +212,7 @@ export function MatchScreen(props: {
     return (props.selfPlayer?.resources?.[resource] ?? 0) >= ratio;
   });
   const turnStatus = getTurnStatus(props.match, activePlayer, props.selfPlayer, props.interactionMode, props.selectedRoadEdges.length);
+  const robberDiscardGroups = useMemo(() => getRobberDiscardGroups(props.match), [props.match]);
   const canAffordRoad = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.road);
   const canAffordSettlement = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.settlement);
   const canAffordCity = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.city);
@@ -602,6 +603,61 @@ export function MatchScreen(props: {
           <InfoCard label="Phase" value={formatPhase(props.match.phase)} />
           <InfoCard label="Würfel" value={boardDiceLabel} />
         </div>
+        {props.match.phase === "robber_interrupt" && props.match.robberDiscardStatus.length > 0 ? (
+          <section className="dock-section robber-discard-surface">
+            <div className="dock-section-head">
+              <h3>Räuberphase</h3>
+              <span>
+                {robberDiscardGroups.pending.length > 0
+                  ? `${robberDiscardGroups.pending.length} offen`
+                  : "Alle Abwürfe erledigt"}
+              </span>
+            </div>
+            <div className="robber-discard-columns">
+              <div className="robber-discard-column">
+                <div className="robber-discard-column-head">
+                  <strong>Noch offen</strong>
+                  <span>{robberDiscardGroups.pending.length}</span>
+                </div>
+                {robberDiscardGroups.pending.length ? (
+                  <div className="robber-discard-list">
+                    {robberDiscardGroups.pending.map(({ player, requiredCount }) => (
+                      <article key={player.id} className="robber-discard-row">
+                        <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
+                        <div className="robber-discard-row-meta">
+                          <span className="status-pill is-warning">offen</span>
+                          <span>{requiredCount} Karten</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="robber-discard-empty">Niemand muss mehr abwerfen.</div>
+                )}
+              </div>
+              <div className="robber-discard-column">
+                <div className="robber-discard-column-head">
+                  <strong>Bereits abgeworfen</strong>
+                  <span>{robberDiscardGroups.done.length}</span>
+                </div>
+                {robberDiscardGroups.done.length ? (
+                  <div className="robber-discard-list">
+                    {robberDiscardGroups.done.map(({ player }) => (
+                      <article key={player.id} className="robber-discard-row">
+                        <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
+                        <div className="robber-discard-row-meta">
+                          <span className="status-pill">fertig</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="robber-discard-empty">Noch kein Spieler hat den Abwurf abgeschlossen.</div>
+                )}
+              </div>
+            </div>
+          </section>
+        ) : null}
         {isMobileViewport ? (
           <>
             <section className="dock-section">
@@ -826,24 +882,7 @@ export function MatchScreen(props: {
       <div className="panel-frame hand-frame">
         <section className="dock-section">
           <div className="dock-section-head">
-            <h3>Rohstoffe</h3>
-            <span>Geheime Handkarten bleiben lokal sichtbar.</span>
-          </div>
-          <div className="resource-grid">
-            {RESOURCES.map((resource) => (
-              <article key={resource} className="resource-card">
-                <div className="resource-card-head">
-                  <ResourceIcon resource={resource} shell />
-                  <strong>{renderResourceLabel(resource)}</strong>
-                </div>
-                <span>{props.selfPlayer?.resources?.[resource] ?? 0}</span>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section className="dock-section">
-          <div className="dock-section-head">
-            <h3>Entwicklung</h3>
+            <h3>Entwicklungskarten</h3>
             <span>{props.selfPlayer?.developmentCards?.length ?? 0} Karten</span>
           </div>
           <div className="scroll-list card-list">
@@ -885,28 +924,39 @@ export function MatchScreen(props: {
                 <article className="trade-side-card trade-side-give">
                   <div className="trade-side-head">
                     <span className="eyebrow">Du gibst</span>
-                    <strong>{props.tradeForm.giveCount}x {renderResourceLabel(props.tradeForm.give)}</strong>
+                    <strong>{tradeGiveMax > 0 ? `${props.tradeForm.giveCount}x ${renderResourceLabel(props.tradeForm.give)}` : "Wähle einen Rohstoff aus"}</strong>
+                    <span>Aus deiner Hand. Nur vorhandene Rohstoffe sind wählbar.</span>
                   </div>
-                  <div className="trade-side-inputs">
-                    <ResourceChoiceGrid
-                      value={props.tradeForm.give}
-                      disabledResources={RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) <= 0)}
-                      onChange={(resource) => props.setTradeForm((current) => ({ ...current, give: resource }))}
-                    />
-                    <input
-                      type="number"
-                      min={tradeGiveMax > 0 ? 1 : 0}
-                      max={Math.max(0, tradeGiveMax)}
-                      disabled={tradeGiveMax <= 0}
-                      value={props.tradeForm.giveCount}
-                      onChange={(event) =>
-                        props.setTradeForm((current) => ({
-                          ...current,
-                          giveCount: clampTradeCount(event.target.value, props.selfPlayer?.resources?.[current.give] ?? 0)
-                        }))
-                      }
-                    />
-                  </div>
+                  <TradeResourceCardGrid
+                    value={props.tradeForm.give}
+                    resources={RESOURCES.map((resource) => ({
+                      resource,
+                      count: props.selfPlayer?.resources?.[resource] ?? 0,
+                      disabled: (props.selfPlayer?.resources?.[resource] ?? 0) <= 0
+                    }))}
+                    onChange={(resource) =>
+                      props.setTradeForm((current) => ({
+                        ...current,
+                        give: resource,
+                        giveCount: clampTradeCount(current.giveCount, props.selfPlayer?.resources?.[resource] ?? 0)
+                      }))
+                    }
+                  />
+                  <TradeQuantityControl
+                    label="Abgeben"
+                    resource={props.tradeForm.give}
+                    value={props.tradeForm.giveCount}
+                    min={tradeGiveMax > 0 ? 1 : 0}
+                    max={Math.max(0, tradeGiveMax)}
+                    disabled={tradeGiveMax <= 0}
+                    helper={tradeGiveMax > 0 ? `Maximal ${tradeGiveMax} aus deiner Hand.` : "Von diesem Rohstoff hast du aktuell nichts."}
+                    onChange={(value) =>
+                      props.setTradeForm((current) => ({
+                        ...current,
+                        giveCount: clampTradeCount(value, props.selfPlayer?.resources?.[current.give] ?? 0)
+                      }))
+                    }
+                  />
                 </article>
 
                 <div className="trade-direction-chip">gegen</div>
@@ -915,24 +965,30 @@ export function MatchScreen(props: {
                   <div className="trade-side-head">
                     <span className="eyebrow">Du erhältst</span>
                     <strong>{props.tradeForm.wantCount}x {renderResourceLabel(props.tradeForm.want)}</strong>
+                    <span>Wähle den Rohstoff, den du dafür erhalten möchtest.</span>
                   </div>
-                  <div className="trade-side-inputs">
-                    <ResourceChoiceGrid
-                      value={props.tradeForm.want}
-                      onChange={(resource) => props.setTradeForm((current) => ({ ...current, want: resource }))}
-                    />
-                    <input
-                      type="number"
-                      min={1}
-                      value={props.tradeForm.wantCount}
-                      onChange={(event) =>
-                        props.setTradeForm((current) => ({
-                          ...current,
-                          wantCount: Number(event.target.value) || 1
-                        }))
-                      }
-                    />
-                  </div>
+                  <TradeResourceCardGrid
+                    value={props.tradeForm.want}
+                    resources={RESOURCES.map((resource) => ({
+                      resource,
+                      count: 0,
+                      meta: resource === props.tradeForm.want ? `${props.tradeForm.wantCount} angefragt` : "Anfragen"
+                    }))}
+                    onChange={(resource) => props.setTradeForm((current) => ({ ...current, want: resource }))}
+                  />
+                  <TradeQuantityControl
+                    label="Erhalten"
+                    resource={props.tradeForm.want}
+                    value={props.tradeForm.wantCount}
+                    min={1}
+                    helper="Lege fest, wie viele Karten du im Gegenzug möchtest."
+                    onChange={(value) =>
+                      props.setTradeForm((current) => ({
+                        ...current,
+                        wantCount: sanitizeRequestedTradeCount(value)
+                      }))
+                    }
+                  />
                 </article>
 
                 <article className="trade-target-card">
@@ -985,12 +1041,25 @@ export function MatchScreen(props: {
                 <div className="trade-side-head">
                   <span className="eyebrow">Du gibst</span>
                   <strong>{maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)}</strong>
+                  <span>Nur handelbare Rohstoffe mit passender Hafenrate sind wählbar.</span>
                 </div>
-                <ResourceChoiceGrid
+                <TradeResourceCardGrid
                   value={props.maritimeForm.give}
-                  disabledResources={RESOURCES.filter((resource) => !affordableMaritimeGiveResources.includes(resource))}
+                  resources={RESOURCES.map((resource) => {
+                    const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
+                    const count = props.selfPlayer?.resources?.[resource] ?? 0;
+                    return {
+                      resource,
+                      count,
+                      disabled: count < ratio,
+                      meta: `${ratio}:1`
+                    };
+                  })}
                   onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
                 />
+                <TradeFixedHint>
+                  {maritimeRatio}:1 bedeutet {maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)} gegen genau 1 Wunschkarte.
+                </TradeFixedHint>
               </article>
 
               <div className="trade-direction-chip">{maritimeRatio}:1</div>
@@ -999,11 +1068,18 @@ export function MatchScreen(props: {
                 <div className="trade-side-head">
                   <span className="eyebrow">Du erhältst</span>
                   <strong>1x {renderResourceLabel(props.maritimeForm.receive)}</strong>
+                  <span>Wähle den Zielrohstoff für den Seehandel.</span>
                 </div>
-                <ResourceChoiceGrid
+                <TradeResourceCardGrid
                   value={props.maritimeForm.receive}
+                  resources={RESOURCES.map((resource) => ({
+                    resource,
+                    count: resource === props.maritimeForm.receive ? 1 : 0,
+                    meta: resource === props.maritimeForm.receive ? "Ausgewählt" : "Tauschen"
+                  }))}
                   onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, receive: resource }))}
                 />
+                <TradeFixedHint>Du erhältst immer genau 1 Karte der gewählten Sorte.</TradeFixedHint>
               </article>
 
               <button
@@ -1327,29 +1403,84 @@ export function MatchScreen(props: {
   );
 }
 
-function ResourceChoiceGrid(props: {
+function TradeResourceCardGrid(props: {
   value: Resource;
-  disabledResources?: Resource[];
+  resources: Array<{
+    resource: Resource;
+    count: number;
+    meta?: string;
+    disabled?: boolean;
+  }>;
   onChange: (resource: Resource) => void;
 }) {
   return (
-    <div className="trade-resource-picker" role="listbox" aria-label="Rohstoff auswählen">
-      {RESOURCES.map((resource) => (
+    <div className="trade-resource-card-grid" role="listbox" aria-label="Rohstoff auswählen">
+      {props.resources.map(({ resource, count, meta, disabled }) => (
         <button
           key={resource}
           type="button"
-          className={`trade-resource-option ${props.value === resource ? "is-active" : ""}`}
+          className={`trade-resource-card resource-card ${props.value === resource ? "is-active" : ""}`}
           onClick={() => props.onChange(resource)}
           title={renderResourceLabel(resource)}
           aria-label={renderResourceLabel(resource)}
           aria-selected={props.value === resource}
-          disabled={props.disabledResources?.includes(resource) ?? false}
+          disabled={disabled ?? false}
         >
-          <ResourceIcon resource={resource} shell size={15} />
+          <div className="trade-resource-card-head">
+            <ResourceIcon resource={resource} shell />
+            <strong>{renderResourceLabel(resource)}</strong>
+          </div>
+          <span className="trade-resource-card-count">{count}</span>
+          <span className="trade-resource-card-meta">{meta ?? "Auf der Hand"}</span>
         </button>
       ))}
     </div>
   );
+}
+
+function TradeQuantityControl(props: {
+  label: string;
+  resource: Resource;
+  value: number;
+  min: number;
+  max?: number;
+  disabled?: boolean;
+  helper: string;
+  onChange: (value: number | string) => void;
+}) {
+  const max = props.max ?? 99;
+  const canDecrement = !props.disabled && props.value > props.min;
+  const canIncrement = !props.disabled && props.value < max;
+
+  return (
+    <div className={`trade-quantity-card ${props.disabled ? "is-disabled" : ""}`}>
+      <div className="trade-quantity-head">
+        <span className="eyebrow">{props.label}</span>
+        <strong>{renderResourceLabel(props.resource)}</strong>
+      </div>
+      <div className="trade-quantity-stepper">
+        <button type="button" className="trade-quantity-button" disabled={!canDecrement} onClick={() => props.onChange(props.value - 1)}>
+          -
+        </button>
+        <input
+          type="number"
+          min={props.min}
+          max={props.max}
+          disabled={props.disabled}
+          value={props.value}
+          onChange={(event) => props.onChange(event.target.value)}
+        />
+        <button type="button" className="trade-quantity-button" disabled={!canIncrement} onClick={() => props.onChange(props.value + 1)}>
+          +
+        </button>
+      </div>
+      <span className="trade-quantity-helper">{props.helper}</span>
+    </div>
+  );
+}
+
+function TradeFixedHint(props: { children: ReactNode }) {
+  return <div className="trade-fixed-hint">{props.children}</div>;
 }
 
 function DiceFace(props: { value: number | null }) {
@@ -1376,6 +1507,12 @@ function clampTradeCount(value: number | string, maxAvailable: number): number {
 
   const upperBound = Math.max(1, maxAvailable);
   return Math.min(Math.max(sanitized, 1), upperBound);
+}
+
+function sanitizeRequestedTradeCount(value: number | string): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  const sanitized = Number.isFinite(numeric) ? Math.floor(numeric) : 1;
+  return Math.min(Math.max(sanitized, 1), 99);
 }
 
 function TradeBanner(props: {
@@ -1482,6 +1619,27 @@ function PlayerBadge(props: { match: MatchSnapshot; playerId: string; compact?: 
   );
 }
 
+function getRobberDiscardGroups(match: MatchSnapshot) {
+  const entries = match.robberDiscardStatus
+    .map((entry) => {
+      const player = getPlayerById(match, entry.playerId);
+      if (!player) {
+        return null;
+      }
+
+      return {
+        ...entry,
+        player
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => !!entry);
+
+  return {
+    pending: entries.filter((entry) => !entry.done),
+    done: entries.filter((entry) => entry.done)
+  };
+}
+
 function renderDevelopmentLabel(type: string): string {
   const labels: Record<string, string> = {
     knight: "Ritter",
@@ -1552,21 +1710,7 @@ function createOwnActionCue(
   }
 
   if (match.allowedMoves.initialSettlementVertexIds.length > 0) {
-    const vertexId = match.allowedMoves.initialSettlementVertexIds[0];
-    if (!vertexId) {
-      return null;
-    }
-
-    return {
-      key: `action-initial-settlement-${match.version}-${vertexId}`,
-      mode: "action",
-      title: "Setze deine Start-Siedlung",
-      detail: "Der erste gültige Bauplatz ist markiert. Du kannst die Kamera trotzdem frei bewegen.",
-      vertexIds: [vertexId],
-      edgeIds: [],
-      tileIds: [],
-      scale: "tight"
-    };
+    return null;
   }
 
   if (match.allowedMoves.initialRoadEdgeIds.length > 0) {
@@ -2061,7 +2205,7 @@ function getTurnStatus(
     return withPlayer(`Warte auf ${target}`, `${proposer} hat ein Handelsangebot offen.`, trade.toPlayerId);
   }
 
-  if (match.allowedMoves.pendingDiscardCount > 0) {
+  if (match.allowedMoves.pendingDiscardCount > 0 && match.phase !== "robber_interrupt") {
     return withPlayer(
       "Aktion von dir",
       `Lege ${match.allowedMoves.pendingDiscardCount} Karten ab, damit ${activePlayerName} weitermachen kann.`,
@@ -2082,8 +2226,35 @@ function getTurnStatus(
   }
 
   if (match.phase === "robber_interrupt") {
+    const { pending, done } = getRobberDiscardGroups(match);
+    if (match.allowedMoves.pendingDiscardCount > 0) {
+      const othersPending = pending.filter((entry) => entry.player.id !== selfId);
+      const suffix =
+        othersPending.length > 0
+          ? ` Danach warten noch ${summarizeRobberPlayers(othersPending.map((entry) => entry.player.username))}.`
+          : "";
+      return withPlayer(
+        "Aktion von dir",
+        `Lege ${match.allowedMoves.pendingDiscardCount} Karten ab, damit die Räuberphase weitergehen kann.${suffix}`,
+        selfId
+      );
+    }
     if (isCurrentPlayer && interactionMode === "robber") {
-      return withPlayer("Aktion von dir", "Wähle das Zielfeld für den Räuber.", selfId);
+      return withPlayer("Aktion von dir", "Alle Abwürfe sind erledigt. Wähle jetzt das Zielfeld für den Räuber.", selfId);
+    }
+    if (pending.length > 0) {
+      return withPlayer(
+        "Warte auf Abwürfe",
+        `${summarizeRobberPlayers(pending.map((entry) => entry.player.username))} müssen noch Karten abwerfen.`,
+        pending[0]?.player.id
+      );
+    }
+    if (done.length > 0) {
+      return withPlayer(
+        `Warte auf ${activePlayerName}`,
+        "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt.",
+        activePlayer?.id
+      );
     }
     return withPlayer(`Warte auf ${activePlayerName}`, `${activePlayerName} schließt die Räuberphase ab.`, activePlayer?.id);
   }
@@ -2131,6 +2302,20 @@ function getTurnStatus(
   }
 
   return { title: "Warte auf die nächste Aktion", detail: "Sobald ein legaler Schritt möglich ist, wird er hier angezeigt." };
+}
+
+function summarizeRobberPlayers(names: string[]): string {
+  if (names.length === 0) {
+    return "niemand";
+  }
+  if (names.length === 1) {
+    return names[0]!;
+  }
+  if (names.length === 2) {
+    return `${names[0]} und ${names[1]}`;
+  }
+
+  return `${names.slice(0, -1).join(", ")} und ${names.at(-1)}`;
 }
 
 function renderCostText(cost: Partial<Record<Resource, number>>): string {

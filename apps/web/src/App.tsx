@@ -46,6 +46,7 @@ import { AuthScreen } from "./components/screens/AuthScreen";
 import { LobbyScreen } from "./components/screens/LobbyScreen";
 import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
 import { RoomScreen } from "./components/screens/RoomScreen";
+import { PlayerIdentity } from "./components/shared/PlayerIdentity";
 import { ResourceIcon } from "./resourceIcons";
 import {
   type AuthMode,
@@ -125,6 +126,7 @@ export function App() {
   const [route, setRoute] = useState<RouteState>(readRoute());
   const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<PendingMatchConfirmation | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
+  const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
@@ -151,6 +153,7 @@ export function App() {
   const remainingDiscardCount = Math.max(0, requiredDiscardCount - selectedDiscardCount);
   const canSubmitRobberDiscard =
     !!match && !!selfPlayer?.resources && requiredDiscardCount > 0 && selectedDiscardCount === requiredDiscardCount;
+  const robberDiscardStatus = match?.robberDiscardStatus ?? [];
 
   const activeScreen = useMemo(() => {
     if (!session) {
@@ -271,6 +274,12 @@ export function App() {
       return next;
     });
   }, [match?.matchId, requiredDiscardCount, selfPlayer?.id, selfPlayer?.resources]);
+
+  useEffect(() => {
+    if (requiredDiscardCount <= 0) {
+      setRobberDiscardMinimized(false);
+    }
+  }, [requiredDiscardCount, match?.matchId]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -1598,12 +1607,17 @@ export function App() {
         <RobberDiscardDialog
           canConfirm={canSubmitRobberDiscard}
           draft={robberDiscardDraft}
+          minimized={robberDiscardMinimized}
           ownedResources={selfPlayer?.resources ?? null}
           remainingCount={remainingDiscardCount}
           requiredCount={requiredDiscardCount}
+          players={match?.players ?? []}
+          robberDiscardStatus={robberDiscardStatus}
           selectedCount={selectedDiscardCount}
           onAdjust={handleAdjustRobberDiscard}
           onConfirm={handleSubmitRobberDiscard}
+          onExpand={() => setRobberDiscardMinimized(false)}
+          onMinimize={() => setRobberDiscardMinimized(true)}
         />
       ) : null}
 
@@ -1669,9 +1683,48 @@ function RobberDiscardDialog(props: {
   remainingCount: number;
   ownedResources: ResourceMap | null;
   draft: ResourceMap;
+  minimized: boolean;
+  players: MatchSnapshot["players"];
+  robberDiscardStatus: MatchSnapshot["robberDiscardStatus"];
   onAdjust: (resource: Resource, delta: -1 | 1) => void;
   onConfirm: () => void;
+  onMinimize: () => void;
+  onExpand: () => void;
 }) {
+  const pendingPlayers = props.robberDiscardStatus.flatMap((entry) => {
+    if (entry.done) {
+      return [];
+    }
+
+    const player = props.players.find((candidate) => candidate.id === entry.playerId);
+    return player ? [{ ...entry, player }] : [];
+  });
+  const completedPlayers = props.robberDiscardStatus.flatMap((entry) => {
+    if (!entry.done) {
+      return [];
+    }
+
+    const player = props.players.find((candidate) => candidate.id === entry.playerId);
+    return player ? [{ ...entry, player }] : [];
+  });
+
+  if (props.minimized) {
+    return (
+      <aside className="robber-discard-mini surface" role="dialog" aria-modal="false" aria-labelledby="robber-discard-mini-title">
+        <div className="robber-discard-mini-copy">
+          <span className="eyebrow">Räuberphase</span>
+          <strong id="robber-discard-mini-title">
+            {props.remainingCount > 0 ? `Noch ${props.remainingCount} Karten offen` : "Auswahl vollständig"}
+          </strong>
+          <span>{pendingPlayers.length > 0 ? `${pendingPlayers.length} Spieler warten noch auf den Abwurf.` : "Alle Abwürfe sind erledigt."}</span>
+        </div>
+        <button type="button" className="primary-button" onClick={props.onExpand}>
+          Auswahl fortsetzen
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <div className="confirm-overlay robber-discard-overlay" role="presentation">
       <div className="confirm-dialog discard-dialog surface" role="dialog" aria-modal="true" aria-labelledby="discard-dialog-title">
@@ -1689,6 +1742,54 @@ function RobberDiscardDialog(props: {
           <span className={`status-pill ${props.remainingCount === 0 ? "" : "is-warning"}`}>
             {props.remainingCount === 0 ? "Auswahl vollständig" : `Noch ${props.remainingCount} offen`}
           </span>
+          <button type="button" className="ghost-button discard-minimize-button" onClick={props.onMinimize}>
+            Verkleinern
+          </button>
+        </div>
+
+        <div className="discard-status-grid">
+          <section className="discard-status-card">
+            <div className="discard-status-head">
+              <strong>Noch offen</strong>
+              <span>{pendingPlayers.length}</span>
+            </div>
+            {pendingPlayers.length ? (
+              <div className="discard-status-list">
+                {pendingPlayers.map(({ player, requiredCount }) => (
+                  <article key={player.id} className="discard-status-player">
+                    <PlayerIdentity username={player.username} color={player.color} compact />
+                    <div className="discard-status-player-meta">
+                      <span className="status-pill is-warning">offen</span>
+                      <span>{requiredCount} Karten</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="discard-status-empty">Niemand wartet mehr auf einen Abwurf.</div>
+            )}
+          </section>
+
+          <section className="discard-status-card">
+            <div className="discard-status-head">
+              <strong>Bereits abgeworfen</strong>
+              <span>{completedPlayers.length}</span>
+            </div>
+            {completedPlayers.length ? (
+              <div className="discard-status-list">
+                {completedPlayers.map(({ player }) => (
+                  <article key={player.id} className="discard-status-player">
+                    <PlayerIdentity username={player.username} color={player.color} compact />
+                    <div className="discard-status-player-meta">
+                      <span className="status-pill">fertig</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="discard-status-empty">Bisher hat noch niemand seinen Abwurf abgeschlossen.</div>
+            )}
+          </section>
         </div>
 
         <div className="discard-resource-grid">
@@ -1733,9 +1834,14 @@ function RobberDiscardDialog(props: {
               ? "Die Auswahl ist vollständig. Du kannst jetzt abwerfen."
               : `Wähle noch ${props.remainingCount} Karten aus.`}
           </div>
-          <button type="button" className="primary-button" onClick={props.onConfirm} disabled={!props.canConfirm}>
+          <div className="discard-actions-buttons">
+            <button type="button" className="ghost-button" onClick={props.onMinimize}>
+              Spielfeld ansehen
+            </button>
+            <button type="button" className="primary-button" onClick={props.onConfirm} disabled={!props.canConfirm}>
             Karten abwerfen
-          </button>
+            </button>
+          </div>
         </div>
       </div>
     </div>

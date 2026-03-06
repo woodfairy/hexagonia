@@ -121,6 +121,12 @@ export interface TradeOfferView {
   createdAtTurn: number;
 }
 
+export interface RobberDiscardStatusView {
+  playerId: string;
+  requiredCount: number;
+  done: boolean;
+}
+
 export interface RobberMoveOption {
   tileId: string;
   targetPlayerIds: string[];
@@ -175,6 +181,7 @@ export interface MatchSnapshot {
   bank: ResourceMap;
   dice: [number, number] | null;
   tradeOffers: TradeOfferView[];
+  robberDiscardStatus: RobberDiscardStatusView[];
   allowedMoves: AllowedMoves;
   eventLog: MatchEvent[];
   winnerId: string | null;
