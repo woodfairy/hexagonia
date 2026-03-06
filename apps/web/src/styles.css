@@ -164,8 +164,8 @@ select {
 .profile-trigger-copy span,
 .profile-dropdown-copy span,
 .info-card span,
-.resource-card strong,
-.resource-card span,
+.resource-card:not(.trade-resource-card) strong,
+.resource-card:not(.trade-resource-card) span,
 .event-card span,
 .mini-card span,
 .summary-card span {
@@ -1958,7 +1958,8 @@ select:hover {
 
 .trade-builder,
 .trade-side-head,
-.trade-side-inputs {
+.trade-quantity-card,
+.trade-quantity-head {
   display: grid;
   gap: var(--gap-stack-tight);
 }
@@ -2005,55 +2006,140 @@ select:hover {
   line-height: 1.12;
 }
 
-.trade-side-inputs {
-  grid-template-columns: minmax(0, 1fr) 5.25rem;
-}
-
-.trade-resource-picker {
+.trade-resource-card-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.42rem;
+  grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
+  gap: 0.58rem;
   min-inline-size: 0;
 }
 
-.trade-resource-option {
-  display: inline-grid;
-  place-items: center;
-  min-block-size: 3.1rem;
+.trade-resource-card {
+  display: grid;
+  inline-size: 100%;
+  justify-items: start;
+  align-content: start;
+  gap: 0.44rem;
   min-inline-size: 0;
-  padding: 0.38rem;
+  min-block-size: 7.6rem;
+  padding: 0.8rem 0.88rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.92rem;
-  background: rgba(6, 15, 23, 0.8);
+  border-radius: var(--radius-card);
+  background: rgba(6, 15, 23, 0.84);
+  text-align: left;
   transition:
     border-color 160ms ease,
     background 160ms ease,
     transform 160ms ease,
-    box-shadow 160ms ease;
+    box-shadow 160ms ease,
+    opacity 160ms ease;
 }
 
-.trade-resource-option:hover {
+.trade-resource-card:hover {
   border-color: rgba(224, 181, 93, 0.34);
   background: rgba(224, 181, 93, 0.08);
 }
 
-.trade-resource-option:disabled {
-  opacity: 0.38;
+.trade-resource-card:disabled {
+  opacity: 0.46;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.trade-resource-option:disabled:hover {
+.trade-resource-card:disabled:hover {
   border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(6, 15, 23, 0.8);
+  background: rgba(6, 15, 23, 0.84);
 }
 
-.trade-resource-option.is-active {
-  border-color: rgba(224, 181, 93, 0.48);
-  background: rgba(224, 181, 93, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(224, 181, 93, 0.14);
+.trade-resource-card.is-active {
+  border-color: rgba(224, 181, 93, 0.5);
+  background:
+    linear-gradient(180deg, rgba(224, 181, 93, 0.18), rgba(255, 255, 255, 0.04)),
+    rgba(6, 15, 23, 0.84);
+  box-shadow:
+    inset 0 0 0 1px rgba(224, 181, 93, 0.12),
+    0 10px 24px rgba(0, 0, 0, 0.18);
   transform: translateY(-1px);
+}
+
+.trade-resource-card .trade-resource-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+}
+
+.trade-resource-card .trade-resource-card-head .resource-icon-shell {
+  flex: none;
+}
+
+.trade-resource-card .trade-resource-card-head strong {
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.15;
+}
+
+.trade-resource-card .trade-resource-card-count {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent-strong);
+}
+
+.trade-resource-card .trade-resource-card-meta {
+  font-size: 0.76rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.trade-quantity-card,
+.trade-fixed-hint {
+  padding: 0.8rem 0.88rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: calc(var(--radius-card) - 0.18rem);
+  background: rgba(6, 15, 23, 0.6);
+}
+
+.trade-quantity-card.is-disabled {
+  opacity: 0.56;
+}
+
+.trade-quantity-head {
+  gap: 0.18rem;
+}
+
+.trade-quantity-head strong {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.12;
+}
+
+.trade-quantity-stepper {
+  display: grid;
+  grid-template-columns: 2.7rem minmax(0, 1fr) 2.7rem;
+  gap: 0.48rem;
+  align-items: center;
+}
+
+.trade-quantity-button {
+  min-block-size: 2.7rem;
+  padding: 0.4rem;
+  border-radius: 0.9rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.trade-quantity-stepper > input {
+  min-block-size: 2.7rem;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.trade-quantity-helper,
+.trade-fixed-hint {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
 }
 
 .trade-direction-chip {
@@ -2210,23 +2296,23 @@ select:hover {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.resource-card {
+.resource-card:not(.trade-resource-card) {
   align-content: start;
   place-items: center;
   text-align: center;
 }
 
-.resource-card-head {
+.resource-card:not(.trade-resource-card) .resource-card-head {
   display: grid;
   justify-items: center;
   gap: 0.42rem;
 }
 
-.resource-card strong {
+.resource-card:not(.trade-resource-card) strong {
   color: var(--text);
 }
 
-.resource-card span {
+.resource-card:not(.trade-resource-card) span {
   font-size: 1.25rem;
   font-weight: 800;
   color: var(--accent-strong);
@@ -2362,8 +2448,10 @@ select:hover {
 }
 
 .discard-dialog {
-  inline-size: min(42rem, 100%);
+  inline-size: min(38rem, 100%);
+  max-block-size: min(82svh, 46rem);
   gap: 1.1rem;
+  overflow: auto;
 }
 
 .confirm-copy,
@@ -2391,6 +2479,67 @@ select:hover {
   justify-content: space-between;
   gap: 0.72rem;
   flex-wrap: wrap;
+}
+
+.discard-minimize-button {
+  min-block-size: 2.6rem;
+}
+
+.discard-status-grid,
+.robber-discard-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.discard-status-card,
+.robber-discard-column {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.discard-status-head,
+.robber-discard-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.72rem;
+}
+
+.discard-status-list,
+.robber-discard-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.discard-status-player,
+.robber-discard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.discard-status-player-meta,
+.robber-discard-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-inline-size: 0;
+  color: var(--muted);
+  text-align: right;
+}
+
+.discard-status-empty,
+.robber-discard-empty {
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .discard-resource-grid {
@@ -2474,6 +2623,14 @@ select:hover {
   align-items: center;
 }
 
+.discard-actions-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
 .discard-helper {
   color: var(--muted);
   line-height: 1.35;
@@ -2481,6 +2638,32 @@ select:hover {
 
 .discard-helper.is-complete {
   color: var(--text);
+}
+
+.robber-discard-mini {
+  position: fixed;
+  inset-inline-end: max(1rem, env(safe-area-inset-right));
+  inset-block-end: max(1rem, env(safe-area-inset-bottom));
+  z-index: 36;
+  inline-size: min(21rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  box-shadow: 0 1.2rem 2.4rem rgba(0, 0, 0, 0.26);
+}
+
+.robber-discard-mini-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.robber-discard-mini-copy strong {
+  font-size: 1.05rem;
+}
+
+.robber-discard-surface {
+  display: grid;
+  gap: 0.85rem;
 }
 
 @media (max-width: 1180px) {
@@ -2957,7 +3140,7 @@ select:hover {
   .metric-card,
   .summary-card,
   .info-card,
-  .resource-card,
+  .resource-card:not(.trade-resource-card),
   .mini-card,
   .event-card,
   .seat-card,
@@ -3058,12 +3241,8 @@ select:hover {
     grid-template-columns: 1fr;
   }
 
-  .trade-side-inputs {
-    grid-template-columns: 1fr;
-  }
-
-  .trade-resource-picker {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .trade-resource-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .trade-target-picker {
@@ -3190,9 +3369,18 @@ select:hover {
     padding: 0.38rem 0.5rem;
   }
 
-  .trade-resource-option {
-    min-block-size: 2.75rem;
-    padding: 0.34rem;
+  .trade-resource-card {
+    min-block-size: 6.7rem;
+    padding: 0.72rem 0.74rem;
+  }
+
+  .trade-quantity-stepper {
+    grid-template-columns: 2.4rem minmax(0, 1fr) 2.4rem;
+  }
+
+  .trade-quantity-button,
+  .trade-quantity-stepper > input {
+    min-block-size: 2.4rem;
   }
 
   .board-mobile-summary {
@@ -3216,8 +3404,27 @@ select:hover {
     grid-template-columns: 1fr;
   }
 
+  .discard-status-grid,
+  .robber-discard-columns {
+    grid-template-columns: 1fr;
+  }
+
   .discard-actions {
     grid-template-columns: 1fr;
+  }
+
+  .discard-actions-buttons {
+    justify-content: stretch;
+  }
+
+  .discard-actions-buttons > button {
+    inline-size: 100%;
+  }
+
+  .robber-discard-mini {
+    inset-inline: max(0.85rem, env(safe-area-inset-left)) max(0.85rem, env(safe-area-inset-right));
+    inline-size: auto;
+    inset-block-end: max(0.85rem, env(safe-area-inset-bottom));
   }
 
   .triple-select > :last-child:nth-child(2) {

@@ -274,6 +274,67 @@ describe("rules engine", () => {
     expect(nextState.bank.grain).toBe(1);
   });
 
+  it("exposes public robber discard progress in the snapshot", () => {
+    const state = createMatchState({
+      matchId: "match-robber-status",
+      roomId: "room-1",
+      seed: "robber-status",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    state.phase = "turn_roll";
+    state.setupState = null;
+    state.turn = 1;
+    state.currentPlayerIndex = 0;
+    state.players.find((entry) => entry.id === "p1")!.resources = {
+      brick: 4,
+      lumber: 4,
+      ore: 0,
+      grain: 0,
+      wool: 0
+    };
+    state.players.find((entry) => entry.id === "p2")!.resources = {
+      brick: 3,
+      lumber: 3,
+      ore: 1,
+      grain: 1,
+      wool: 0
+    };
+    state.players.find((entry) => entry.id === "p3")!.resources = createEmptyResourceMap();
+    state.randomState = findRandomStateForTotal(7);
+
+    const robberState = applyAction(state, "p1", { type: "roll_dice" });
+    const beforeDiscard = createSnapshot(robberState, "p1");
+
+    expect(beforeDiscard.robberDiscardStatus).toEqual(
+      expect.arrayContaining([
+        { playerId: "p1", requiredCount: 4, done: false },
+        { playerId: "p2", requiredCount: 4, done: false }
+      ])
+    );
+
+    const afterDiscard = applyAction(robberState, "p1", {
+      type: "discard_resources",
+      resources: {
+        brick: 4,
+        lumber: 0,
+        ore: 0,
+        grain: 0,
+        wool: 0
+      }
+    });
+    const afterSnapshot = createSnapshot(afterDiscard, "p2");
+
+    expect(afterSnapshot.robberDiscardStatus).toEqual(
+      expect.arrayContaining([
+        { playerId: "p1", requiredCount: 0, done: true },
+        { playerId: "p2", requiredCount: 4, done: false }
+      ])
+    );
+  });
+
   it("removes longest road when the previous holder is no longer tied for the lead", () => {
     const state = createMatchState({
       matchId: "match-road-award",

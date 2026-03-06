@@ -287,6 +287,7 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
     bank: cloneResourceMap(state.bank),
     dice: state.dice,
     tradeOffers: state.tradeOffers.map((trade) => toTradeView(trade)),
+    robberDiscardStatus: getRobberDiscardStatusView(state),
     allowedMoves: getAllowedMoves(state, viewerId),
     eventLog: state.eventLog.slice(-25),
     winnerId: state.winnerId
@@ -1259,6 +1260,27 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
       .filter((offer) => canPlayerWithdrawTradeOffer(playerId, offer))
       .map((offer) => offer.id)
   };
+}
+
+function getRobberDiscardStatusView(state: GameState): MatchSnapshot["robberDiscardStatus"] {
+  if (!state.robberState) {
+    return [];
+  }
+
+  return state.players
+    .map((player) => {
+      const requiredCount = state.robberState?.pendingDiscardByPlayerId[player.id];
+      if (requiredCount === undefined) {
+        return null;
+      }
+
+      return {
+        playerId: player.id,
+        requiredCount,
+        done: requiredCount === 0
+      };
+    })
+    .filter((entry): entry is MatchSnapshot["robberDiscardStatus"][number] => !!entry);
 }
 
 function getInitialSettlementVertices(state: GameState): string[] {
