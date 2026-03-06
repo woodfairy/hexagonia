@@ -475,14 +475,17 @@ export function App() {
     }
 
     const option = match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === tileId);
+    const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+      type: "move_robber",
+      tileId
+    };
+    if (option?.targetPlayerIds[0]) {
+      action.targetPlayerId = option.targetPlayerIds[0];
+    }
     sendCurrent({
       type: "match.action",
       matchId: match.matchId,
-      action: {
-        type: "move_robber",
-        tileId,
-        targetPlayerId: option?.targetPlayerIds[0]
-      }
+      action
     });
     setInteractionMode(null);
   };

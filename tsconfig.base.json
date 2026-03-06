@@ -15,10 +15,6 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@hexagonia/shared": ["packages/shared/src/index.ts"],
-      "@hexagonia/rules": ["packages/rules/src/index.ts"]
-    }
+    "baseUrl": "."
   }
 }

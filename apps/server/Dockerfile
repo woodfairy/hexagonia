@@ -5,6 +5,8 @@ COPY apps/server ./apps/server
 COPY packages/shared ./packages/shared
 COPY packages/rules ./packages/rules
 RUN npm install
+RUN npm run build -w @hexagonia/shared
+RUN npm run build -w @hexagonia/rules
 RUN npm run build -w @hexagonia/server
 
 FROM node:22-alpine AS runner
