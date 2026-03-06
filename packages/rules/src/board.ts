@@ -344,7 +344,7 @@ function assignPorts(
   rng: SeededRandom,
   edges: MutableEdge[],
   verticesById: Map<string, MutableVertex>,
-  _setupMode: SetupMode
+  setupMode: SetupMode
 ): PortView[] {
   const boundaryEdges = edges
     .filter((edge) => edge.tileIds.length === 1)
