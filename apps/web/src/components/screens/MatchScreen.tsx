@@ -949,7 +949,7 @@ export function MatchScreen(props: {
                     min={tradeGiveMax > 0 ? 1 : 0}
                     max={Math.max(0, tradeGiveMax)}
                     disabled={tradeGiveMax <= 0}
-                    helper={tradeGiveMax > 0 ? `Maximal ${tradeGiveMax} aus deiner Hand.` : "Von diesem Rohstoff hast du aktuell nichts."}
+                    helper={tradeGiveMax > 0 ? `Maximal ${tradeGiveMax} Karten aus deiner Hand.` : "Von diesem Rohstoff hast du aktuell nichts."}
                     onChange={(value) =>
                       props.setTradeForm((current) => ({
                         ...current,
@@ -981,7 +981,7 @@ export function MatchScreen(props: {
                     resource={props.tradeForm.want}
                     value={props.tradeForm.wantCount}
                     min={1}
-                    helper="Lege fest, wie viele Karten du im Gegenzug möchtest."
+                    helper="Lege die gewünschte Kartenanzahl fest."
                     onChange={(value) =>
                       props.setTradeForm((current) => ({
                         ...current,
@@ -1455,8 +1455,11 @@ function TradeQuantityControl(props: {
   return (
     <div className={`trade-quantity-card ${props.disabled ? "is-disabled" : ""}`}>
       <div className="trade-quantity-head">
-        <span className="eyebrow">{props.label}</span>
-        <strong>{renderResourceLabel(props.resource)}</strong>
+        <div className="trade-quantity-copy">
+          <span className="eyebrow">{props.label}</span>
+          <strong>{renderResourceLabel(props.resource)}</strong>
+        </div>
+        <span className="trade-quantity-badge">{props.value}x</span>
       </div>
       <div className="trade-quantity-stepper">
         <button type="button" className="trade-quantity-button" disabled={!canDecrement} onClick={() => props.onChange(props.value - 1)}>
@@ -1475,6 +1478,7 @@ function TradeQuantityControl(props: {
         </button>
       </div>
       <span className="trade-quantity-helper">{props.helper}</span>
+      <span className="trade-quantity-summary">Aktuell: {props.value}x {renderResourceLabel(props.resource)}</span>
     </div>
   );
 }
@@ -1528,13 +1532,24 @@ function TradeBanner(props: {
   const responderVisible =
     props.currentUserId !== trade.fromPlayerId &&
     (!trade.toPlayerId || trade.toPlayerId === props.currentUserId);
+  const proposerName = getPlayerName(props.match, trade.fromPlayerId);
+  const summary = getTradePerspectiveSummary(props.match, props.currentUserId, trade);
+  const targetLabel = trade.toPlayerId ? `An ${getPlayerName(props.match, trade.toPlayerId)}` : "Offen für alle";
 
   return (
     <div className="trade-banner">
       <div className="trade-banner-copy">
-        <strong>Aktuelles Angebot</strong>
-        <span>Gibt: {renderResourceMap(trade.give)}</span>
-        <span>Erhält: {renderResourceMap(trade.want)}</span>
+        <strong>{trade.fromPlayerId === props.currentUserId ? "Dein Angebot" : `Angebot von ${proposerName}`}</strong>
+        <span>{targetLabel}</span>
+        <div className="trade-banner-summary">
+          {summary.map((entry) => (
+            <article key={entry.label} className="trade-banner-lane">
+              <span className="eyebrow">{entry.label}</span>
+              <strong>{entry.value}</strong>
+              <span>{entry.helper}</span>
+            </article>
+          ))}
+        </div>
       </div>
       <div className="trade-banner-actions">
         {responderVisible ? (
@@ -1593,6 +1608,60 @@ function TradeBanner(props: {
       </div>
     </div>
   );
+}
+
+function getTradePerspectiveSummary(
+  match: MatchSnapshot,
+  currentUserId: string,
+  trade: MatchSnapshot["tradeOffers"][number]
+): Array<{ label: string; value: string; helper: string }> {
+  const giveText = renderResourceMap(trade.give) || "nichts";
+  const wantText = renderResourceMap(trade.want) || "nichts";
+  const proposerName = getPlayerName(match, trade.fromPlayerId);
+  const targetName = trade.toPlayerId ? getPlayerName(match, trade.toPlayerId) : "Die andere Seite";
+
+  if (trade.fromPlayerId === currentUserId) {
+    return [
+      {
+        label: "Du erhältst",
+        value: wantText,
+        helper: `Du gibst dafür ${giveText}.`
+      },
+      {
+        label: `${trade.toPlayerId ? targetName : "Andere Seite"} erhält`,
+        value: giveText,
+        helper: `${trade.toPlayerId ? targetName : "Der annehmende Spieler"} gibt dafür ${wantText}.`
+      }
+    ];
+  }
+
+  if (!trade.toPlayerId || trade.toPlayerId === currentUserId) {
+    return [
+      {
+        label: "Du erhältst",
+        value: giveText,
+        helper: `Du gibst dafür ${wantText}.`
+      },
+      {
+        label: `${proposerName} erhält`,
+        value: wantText,
+        helper: `${proposerName} gibt dafür ${giveText}.`
+      }
+    ];
+  }
+
+  return [
+    {
+      label: `${proposerName} erhält`,
+      value: wantText,
+      helper: `${proposerName} gibt dafür ${giveText}.`
+    },
+    {
+      label: `${targetName} erhält`,
+      value: giveText,
+      helper: `${targetName} gibt dafür ${wantText}.`
+    }
+  ];
 }
 
 function InfoCard(props: { label: string; value: ReactNode; className?: string }) {
