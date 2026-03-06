@@ -536,10 +536,10 @@ export function BoardScene(props: BoardSceneProps) {
     const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue);
     const currentDirection = camera.position.clone().sub(controls.target);
     const direction = currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
-    const baseDistance = props.cameraCue.scale === "tight" ? 26 : props.cameraCue.scale === "medium" ? 34 : 44;
+    const baseDistance = props.cameraCue.scale === "tight" ? 24 : props.cameraCue.scale === "medium" ? 31 : 39;
     const fitDistance =
-      props.cameraCue.tileIds.length > 1
-        ? nextFocus.span * (props.cameraCue.scale === "tight" ? 1.95 : props.cameraCue.scale === "medium" ? 1.82 : 1.7) + 16
+      nextFocus.span > 0.01
+        ? nextFocus.span * (props.cameraCue.scale === "tight" ? 1.6 : props.cameraCue.scale === "medium" ? 1.5 : 1.4) + 12
         : baseDistance;
     const distance = Math.max(baseDistance, fitDistance);
     const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);

@@ -192,9 +192,8 @@ export function MatchScreen(props: {
       recentFocusableEvent.event.type === "resources_distributed" ||
       recentFocusableEvent.event.byPlayerId !== props.match.you);
   const cameraCue =
-    autoFocusEnabled &&
-    shouldAutoFocusRecentEvent
-      ? (recentFocusableEvent?.cue ?? null)
+    autoFocusEnabled
+      ? (actionCue ?? (shouldAutoFocusRecentEvent ? (recentFocusableEvent?.cue ?? null) : null))
       : null;
   const spotlightCue = cameraCue ?? actionCue ?? recentFocusableEvent?.cue ?? null;
   const tradeTargetPlayers = props.match.players.filter((player) => player.id !== props.match.you);
