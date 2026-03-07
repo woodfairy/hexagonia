@@ -703,7 +703,7 @@ export function BoardScene(props: BoardSceneProps) {
       requestRender();
     };
 
-    const renderScene = (time: number) => {
+    function renderScene(time: number): void {
       renderFrameRef.current = null;
       if (contextLostRef.current || !rendererRef.current || !cameraRef.current || !controlsRef.current) {
         return;
@@ -782,7 +782,7 @@ export function BoardScene(props: BoardSceneProps) {
       if (autoFlightRef.current || pulseObjectsRef.current.length > 0 || pointerDirtyRef.current || renderDirtyRef.current) {
         requestRender(false);
       }
-    };
+    }
 
     const onContextLost = (event: Event) => {
       event.preventDefault();
