@@ -241,7 +241,7 @@ function paintLumberTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 240; index += 1) {
+  for (let index = 0; index < 340; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const radius = 16 + random() * 38;
@@ -250,7 +250,7 @@ function paintLumberTerrain(
     drawSoftBlob(roughnessContext, x, y, radius * 0.92, "rgba(210,210,210,0.08)");
   }
 
-  for (let index = 0; index < 120; index += 1) {
+  for (let index = 0; index < 180; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const radius = 8 + random() * 18;
@@ -258,7 +258,7 @@ function paintLumberTerrain(
     drawSoftBlob(overlayContext, x, y, radius * 1.35, "rgba(255,255,255,0.14)");
   }
 
-  drawSpeckles(colorContext, random, 2200, "rgba(8,24,12,0.06)", 0.8, 2.4);
+  drawSpeckles(colorContext, random, 3200, "rgba(8,24,12,0.06)", 0.8, 2.4);
 }
 
 function paintOreTerrain(
@@ -268,14 +268,14 @@ function paintOreTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let band = 0; band < 9; band += 1) {
-    const y = 28 + band * 56 + random() * 18;
-    const height = 38 + random() * 24;
+  for (let band = 0; band < 13; band += 1) {
+    const y = 18 + band * 38 + random() * 16;
+    const height = 42 + random() * 34;
     const ridge = new Path2D();
     ridge.moveTo(-20, y + height);
-    for (let x = 0; x <= TERRAIN_TEXTURE_SIZE + 20; x += 36) {
+    for (let x = 0; x <= TERRAIN_TEXTURE_SIZE + 20; x += 28) {
       ridge.lineTo(x, y - random() * height);
-      ridge.lineTo(x + 18, y + height * (0.5 + random() * 0.7));
+      ridge.lineTo(x + 14, y + height * (0.45 + random() * 0.82));
     }
     ridge.lineTo(TERRAIN_TEXTURE_SIZE + 20, TERRAIN_TEXTURE_SIZE + 20);
     ridge.lineTo(-20, TERRAIN_TEXTURE_SIZE + 20);
@@ -292,7 +292,7 @@ function paintOreTerrain(
   colorContext.lineCap = "round";
   bumpContext.lineCap = "round";
   overlayContext.lineCap = "round";
-  for (let index = 0; index < 24; index += 1) {
+  for (let index = 0; index < 38; index += 1) {
     const startX = random() * TERRAIN_TEXTURE_SIZE;
     const startY = random() * TERRAIN_TEXTURE_SIZE;
     const endX = startX + (random() - 0.5) * 180;
@@ -328,7 +328,7 @@ function paintGrainTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  const lineCount = 84;
+  const lineCount = 120;
   for (let line = 0; line < lineCount; line += 1) {
     const xOffset = (line / lineCount) * TERRAIN_TEXTURE_SIZE;
     const width = 4 + random() * 5;
@@ -360,11 +360,18 @@ function paintGrainTerrain(
     bumpContext.stroke();
   }
 
-  for (let index = 0; index < 40; index += 1) {
+  for (let index = 0; index < 72; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     drawSoftBlob(overlayContext, x, y, 26 + random() * 34, "rgba(255,255,255,0.12)");
     drawSoftBlob(roughnessContext, x, y, 18 + random() * 20, "rgba(220,220,220,0.06)");
+  }
+
+  for (let track = 0; track < 22; track += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    drawEllipse(colorContext, x, y, 24 + random() * 28, 4 + random() * 6, "rgba(129,93,36,0.1)", random() * Math.PI);
+    drawEllipse(bumpContext, x, y, 18 + random() * 18, 2 + random() * 3, "rgba(188,188,188,0.08)", random() * Math.PI);
   }
 }
 
@@ -375,8 +382,8 @@ function paintBrickTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let layer = 0; layer < 12; layer += 1) {
-    const y = layer * 42 + random() * 16;
+  for (let layer = 0; layer < 18; layer += 1) {
+    const y = layer * 28 + random() * 14;
     const bandHeight = 18 + random() * 14;
     colorContext.fillStyle = pick(random, ["rgba(158,88,61,0.32)", "rgba(194,121,85,0.28)", "rgba(120,63,47,0.24)"]);
     colorContext.fillRect(-10, y, TERRAIN_TEXTURE_SIZE + 20, bandHeight);
@@ -387,7 +394,7 @@ function paintBrickTerrain(
   colorContext.strokeStyle = "rgba(83,44,29,0.34)";
   bumpContext.strokeStyle = "rgba(255,255,255,0.22)";
   roughnessContext.strokeStyle = "rgba(60,60,60,0.12)";
-  for (let crack = 0; crack < 90; crack += 1) {
+  for (let crack = 0; crack < 140; crack += 1) {
     const startX = random() * TERRAIN_TEXTURE_SIZE;
     const startY = random() * TERRAIN_TEXTURE_SIZE;
     colorContext.lineWidth = 1 + random() * 1.8;
@@ -413,7 +420,7 @@ function paintBrickTerrain(
     roughnessContext.stroke();
   }
 
-  for (let index = 0; index < 22; index += 1) {
+  for (let index = 0; index < 36; index += 1) {
     drawSoftBlob(overlayContext, random() * TERRAIN_TEXTURE_SIZE, random() * TERRAIN_TEXTURE_SIZE, 20 + random() * 28, "rgba(255,246,232,0.08)");
   }
 }
@@ -425,7 +432,7 @@ function paintWoolTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 180; index += 1) {
+  for (let index = 0; index < 280; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const radiusX = 14 + random() * 30;
@@ -434,7 +441,7 @@ function paintWoolTerrain(
     drawEllipse(bumpContext, x, y, radiusX * 0.82, radiusY * 0.82, "rgba(210,210,210,0.12)");
   }
 
-  for (let index = 0; index < 64; index += 1) {
+  for (let index = 0; index < 120; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     drawSoftBlob(colorContext, x, y, 10 + random() * 16, "rgba(248,255,241,0.08)");
@@ -442,7 +449,7 @@ function paintWoolTerrain(
     drawSoftBlob(roughnessContext, x, y, 12 + random() * 18, "rgba(228,228,228,0.05)");
   }
 
-  drawSpeckles(colorContext, random, 1200, "rgba(32,64,20,0.05)", 0.8, 1.8);
+  drawSpeckles(colorContext, random, 2000, "rgba(32,64,20,0.05)", 0.8, 1.8);
 }
 
 function paintDesertTerrain(
@@ -452,8 +459,8 @@ function paintDesertTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let dune = 0; dune < 18; dune += 1) {
-    const baseY = dune * 32 + random() * 14;
+  for (let dune = 0; dune < 28; dune += 1) {
+    const baseY = dune * 20 + random() * 12;
     colorContext.strokeStyle = pick(random, ["rgba(236,198,126,0.18)", "rgba(196,152,88,0.15)", "rgba(255,232,191,0.12)"]);
     bumpContext.strokeStyle = "rgba(198,198,198,0.1)";
     roughnessContext.strokeStyle = "rgba(230,230,230,0.05)";
@@ -480,14 +487,14 @@ function paintDesertTerrain(
     roughnessContext.stroke();
   }
 
-  for (let ripple = 0; ripple < 260; ripple += 1) {
+  for (let ripple = 0; ripple < 360; ripple += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     drawEllipse(bumpContext, x, y, 8 + random() * 14, 1.2 + random() * 2.4, "rgba(220,220,220,0.08)", random() * Math.PI);
     drawEllipse(overlayContext, x, y, 12 + random() * 18, 2 + random() * 3, "rgba(255,255,255,0.06)", random() * Math.PI);
   }
 
-  drawSpeckles(colorContext, random, 1600, "rgba(107,76,37,0.06)", 0.8, 2.2);
+  drawSpeckles(colorContext, random, 2300, "rgba(107,76,37,0.06)", 0.8, 2.2);
 }
 
 function drawBaseGradients(
