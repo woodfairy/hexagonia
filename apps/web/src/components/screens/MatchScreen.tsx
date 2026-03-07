@@ -1126,6 +1126,16 @@ export function MatchScreen(props: {
                 />
               </article>
 
+              <article className="trade-target-card trade-target-card-placeholder" aria-hidden="true">
+                <div className="trade-side-head">
+                  <span className="eyebrow">Angebot an</span>
+                  <strong>Bank / Hafen</strong>
+                </div>
+                <div className="trade-target-placeholder-copy">
+                  Kein Zielspieler nötig. Du tauschst direkt mit dem Hafen.
+                </div>
+              </article>
+
               <button
                 type="button"
                 className="secondary-button trade-submit-button"
