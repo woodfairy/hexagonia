@@ -351,7 +351,7 @@ select {
 }
 
 .profile-dropdown-actions {
-  max-block-size: 14rem;
+  max-block-size: min(20rem, calc(100svh - 10rem));
   overflow: auto;
 }
 
@@ -385,6 +385,35 @@ select {
 .menu-toggle-copy span {
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.profile-music-panel {
+  display: grid;
+  gap: var(--gap-stack-tight);
+  padding: 0.78rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.profile-music-copy,
+.profile-music-select-shell {
+  display: grid;
+  gap: var(--gap-copy-tight);
+}
+
+.profile-music-copy strong {
+  font-size: 0.92rem;
+}
+
+.profile-music-copy span,
+.profile-music-select-shell > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.profile-music-toggle {
+  inline-size: 100%;
 }
 
 .profile-status {

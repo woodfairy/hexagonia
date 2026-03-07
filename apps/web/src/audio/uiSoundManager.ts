@@ -5,6 +5,11 @@ import notifyUrl from "../../../../assets/sounds/ui-notify.wav";
 import openUrl from "../../../../assets/sounds/ui-open.wav";
 import successUrl from "../../../../assets/sounds/ui-success.wav";
 
+const MUSIC_TRACK_IMPORTS = import.meta.glob("../../../../assets/songs/*.{mp3,wav,ogg,m4a,aac,flac}", {
+  eager: true,
+  import: "default"
+}) as Record<string, string>;
+
 export type UiSoundId = "click" | "open" | "close" | "success" | "notify" | "error";
 
 type UiSoundDirective = UiSoundId | "off";
@@ -15,12 +20,21 @@ interface UiSoundDefinition {
   playbackRate?: number;
 }
 
+export interface MusicTrack {
+  id: string;
+  name: string;
+  url: string;
+}
+
 interface UiSoundPlayOptions {
   volume?: number;
   playbackRate?: number;
 }
 
 const UI_SOUND_STORAGE_KEY = "hexagonia:ui-sound-muted";
+const MUSIC_TRACK_STORAGE_KEY = "hexagonia:music-track";
+const MUSIC_PLAYBACK_STORAGE_KEY = "hexagonia:music-playback";
+const MUSIC_VOLUME = 0.68;
 const INTERACTIVE_SELECTOR = [
   "[data-ui-sound]",
   "button",
@@ -40,6 +54,16 @@ const SOUND_LIBRARY: Record<UiSoundId, UiSoundDefinition> = {
   notify: { url: notifyUrl, volume: 0.56 },
   error: { url: errorUrl, volume: 0.52 }
 };
+const MUSIC_LIBRARY: MusicTrack[] = Object.entries(MUSIC_TRACK_IMPORTS)
+  .map(([path, url]) => {
+    const fileName = path.split("/").pop() ?? path;
+    return {
+      id: fileName,
+      name: fileName.replace(/\.[^.]+$/, ""),
+      url
+    };
+  })
+  .sort((left, right) => left.name.localeCompare(right.name, "de", { sensitivity: "base" }));
 
 type AudioContextConstructor = typeof AudioContext;
 
@@ -93,16 +117,62 @@ function readDirective(element: HTMLElement): UiSoundDirective | null {
   return null;
 }
 
+function resolveMusicTrack(trackId: string | null): MusicTrack | null {
+  if (!trackId) {
+    return MUSIC_LIBRARY[0] ?? null;
+  }
+
+  return MUSIC_LIBRARY.find((track) => track.id === trackId) ?? MUSIC_LIBRARY[0] ?? null;
+}
+
+function resolveInitialMusicTrackId(): string | null {
+  if (typeof window === "undefined") {
+    return MUSIC_LIBRARY[0]?.id ?? null;
+  }
+
+  const stored = window.localStorage.getItem(MUSIC_TRACK_STORAGE_KEY);
+  return resolveMusicTrack(stored)?.id ?? null;
+}
+
+function resolveInitialMusicPaused(): boolean {
+  if (!MUSIC_LIBRARY.length) {
+    return true;
+  }
+
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(MUSIC_PLAYBACK_STORAGE_KEY) !== "playing";
+}
+
 class UiSoundManager {
   private context: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private buffers = new Map<UiSoundId, AudioBuffer>();
   private loading = new Map<UiSoundId, Promise<AudioBuffer | null>>();
+  private musicElement: HTMLAudioElement | null = null;
+  private currentMusicTrackId: string | null = null;
   private muted =
     typeof window !== "undefined" && window.localStorage.getItem(UI_SOUND_STORAGE_KEY) === "muted";
+  private selectedMusicTrackId = resolveInitialMusicTrackId();
+  private musicPaused = resolveInitialMusicPaused();
+  private musicResumePending = false;
 
   isMuted(): boolean {
     return this.muted;
+  }
+
+  getMusicTracks(): readonly MusicTrack[] {
+    return MUSIC_LIBRARY;
+  }
+
+  getSelectedMusicTrackId(): string | null {
+    return this.selectedMusicTrackId;
+  }
+
+  isMusicPaused(): boolean {
+    return this.musicPaused;
   }
 
   setMuted(nextMuted: boolean): void {
@@ -127,14 +197,19 @@ class UiSoundManager {
 
   async unlock(): Promise<void> {
     const context = this.ensureContext();
-    if (!context || context.state !== "suspended") {
-      return;
+    if (context && context.state === "suspended") {
+      try {
+        await context.resume();
+      } catch {
+        // Browsers may still block resume until a later gesture.
+      }
     }
 
-    try {
-      await context.resume();
-    } catch {
-      // Browsers may still block resume until a later gesture.
+    if (
+      !this.musicPaused &&
+      (this.musicResumePending || this.musicElement?.paused || this.currentMusicTrackId !== this.selectedMusicTrackId)
+    ) {
+      await this.playSelectedMusic();
     }
   }
 
@@ -178,6 +253,44 @@ class UiSoundManager {
     source.start(0);
   }
 
+  async setMusicTrack(trackId: string): Promise<void> {
+    const track = resolveMusicTrack(trackId);
+    if (!track) {
+      return;
+    }
+
+    this.selectedMusicTrackId = track.id;
+    this.persistMusicTrack();
+    this.musicPaused = false;
+    this.persistMusicPlaybackState();
+    this.musicResumePending = true;
+    await this.playSelectedMusic();
+  }
+
+  async setMusicPaused(nextPaused: boolean): Promise<boolean> {
+    if (!resolveMusicTrack(this.selectedMusicTrackId)) {
+      this.musicPaused = true;
+      this.persistMusicPlaybackState();
+      return this.musicPaused;
+    }
+
+    this.musicPaused = nextPaused;
+    this.persistMusicPlaybackState();
+    if (nextPaused) {
+      this.musicResumePending = false;
+      this.musicElement?.pause();
+      return this.musicPaused;
+    }
+
+    this.musicResumePending = true;
+    await this.playSelectedMusic();
+    return this.musicPaused;
+  }
+
+  async toggleMusicPaused(): Promise<boolean> {
+    return this.setMusicPaused(!this.musicPaused);
+  }
+
   private ensureContext(): AudioContext | null {
     if (this.context) {
       return this.context;
@@ -193,6 +306,70 @@ class UiSoundManager {
     this.masterGain.gain.value = this.muted ? 0 : 1;
     this.masterGain.connect(this.context.destination);
     return this.context;
+  }
+
+  private ensureMusicElement(track: MusicTrack): HTMLAudioElement | null {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    if (!this.musicElement) {
+      this.musicElement = new Audio();
+      this.musicElement.loop = true;
+      this.musicElement.preload = "auto";
+    }
+
+    this.musicElement.volume = MUSIC_VOLUME;
+    this.musicElement.loop = true;
+    if (this.currentMusicTrackId !== track.id) {
+      this.musicElement.pause();
+      this.musicElement.src = track.url;
+      this.musicElement.currentTime = 0;
+      this.musicElement.load();
+      this.currentMusicTrackId = track.id;
+    }
+
+    return this.musicElement;
+  }
+
+  private persistMusicTrack(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (this.selectedMusicTrackId) {
+      window.localStorage.setItem(MUSIC_TRACK_STORAGE_KEY, this.selectedMusicTrackId);
+      return;
+    }
+
+    window.localStorage.removeItem(MUSIC_TRACK_STORAGE_KEY);
+  }
+
+  private persistMusicPlaybackState(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(MUSIC_PLAYBACK_STORAGE_KEY, this.musicPaused ? "paused" : "playing");
+  }
+
+  private async playSelectedMusic(): Promise<void> {
+    const track = resolveMusicTrack(this.selectedMusicTrackId);
+    if (!track || this.musicPaused) {
+      return;
+    }
+
+    const element = this.ensureMusicElement(track);
+    if (!element) {
+      return;
+    }
+
+    try {
+      await element.play();
+      this.musicResumePending = false;
+    } catch {
+      this.musicResumePending = true;
+    }
   }
 
   private async load(soundId: UiSoundId): Promise<AudioBuffer | null> {
