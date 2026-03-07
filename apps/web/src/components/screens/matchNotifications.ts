@@ -160,8 +160,8 @@ function createStartingPlayerNotification(match: MatchSnapshot, event: MatchEven
   const summary = getPayloadString(event.payload, "summary");
   return createBaseNotification(match, event, {
     label: "Start",
-    title: `${getDisplayPlayerName(match, match.you, event.byPlayerId)} beginnt die Partie`,
-    detail: summary ?? "Der Startspieler wurde ausgewaehlt.",
+    title: getPlayerPredicate(match, match.you, event.byPlayerId, "beginnt die Partie", "beginnst die Partie"),
+    detail: summary ?? "Der Startspieler wurde ausgewählt.",
     emphasis: "success"
   });
 }
@@ -174,11 +174,11 @@ function createMatchStartedNotification(match: MatchSnapshot, event: MatchEvent,
     label: "Partie",
     title: "Partie gestartet",
     detail: startingPlayerId
-      ? `${getDisplayPlayerName(match, viewerId, startingPlayerId)} eroeffnet die Runde.${setupMode === "beginner" ? " Anfaengeraufbau aktiv." : ""}`
-      : "Die Runde laeuft jetzt.",
+      ? `${getPlayerPredicate(match, viewerId, startingPlayerId, "eröffnet die Runde", "eröffnest die Runde")}.${setupMode === "beginner" ? " Anfängeraufbau aktiv." : ""}`
+      : "Die Runde läuft jetzt.",
     badges: [
       { label: `${playerCount} Spieler` },
-      ...(setupMode ? [{ label: setupMode === "beginner" ? "Anfaengeraufbau" : "Offizielles Setup" }] : [])
+      ...(setupMode ? [{ label: setupMode === "beginner" ? "Anfängeraufbau" : "Offizielles Setup" }] : [])
     ],
     emphasis: "success"
   });
@@ -193,8 +193,8 @@ function createSettlementNotification(match: MatchSnapshot, event: MatchEvent, i
   return createBaseNotification(match, event, {
     label: initial ? "Startaufbau" : "Bau",
     title: initial
-      ? `${getDisplayPlayerName(match, match.you, event.byPlayerId)} setzt eine Start-Siedlung`
-      : `${getDisplayPlayerName(match, match.you, event.byPlayerId)} baut eine Siedlung`,
+      ? getPlayerPredicate(match, match.you, event.byPlayerId, "setzt eine Start-Siedlung")
+      : getPlayerPredicate(match, match.you, event.byPlayerId, "baut eine Siedlung", "baust eine Siedlung"),
     detail: initial ? "Der neue Startplatz ist auf dem Brett markiert." : "Der neue Siedlungsplatz ist auf dem Brett markiert.",
     cue: {
       key: `event-${event.id}-${vertexId}`,
@@ -217,14 +217,14 @@ function createRoadNotification(match: MatchSnapshot, event: MatchEvent, initial
 
   const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
   const title = initial
-    ? `${getDisplayPlayerName(match, match.you, event.byPlayerId)} setzt eine Start-Strasse`
+    ? getPlayerPredicate(match, match.you, event.byPlayerId, "setzt eine Start-Straße")
     : freeBuild
-      ? `${getDisplayPlayerName(match, match.you, event.byPlayerId)} legt eine kostenlose Strasse`
-      : `${getDisplayPlayerName(match, match.you, event.byPlayerId)} baut eine Strasse`;
+      ? getPlayerPredicate(match, match.you, event.byPlayerId, "legt eine kostenlose Straße", "legst eine kostenlose Straße")
+      : getPlayerPredicate(match, match.you, event.byPlayerId, "baut eine Straße", "baust eine Straße");
   const detail = initial
     ? "Die neue Verbindung ist auf dem Brett markiert."
     : freeBuild
-      ? "Die Strasse stammt aus Strassenbau."
+      ? "Die Straße stammt aus Straßenbau."
       : "Die neue Verbindung ist auf dem Brett markiert.";
 
   return createBaseNotification(match, event, {
@@ -234,7 +234,7 @@ function createRoadNotification(match: MatchSnapshot, event: MatchEvent, initial
     cue: {
       key: `event-${event.id}-${edgeId}`,
       mode: "event",
-      title: "Neue Strasse",
+      title: "Neue Straße",
       detail: "Die Kante ist hervorgehoben.",
       vertexIds: [],
       edgeIds: [edgeId],
@@ -252,13 +252,13 @@ function createCityNotification(match: MatchSnapshot, event: MatchEvent): MatchN
 
   return createBaseNotification(match, event, {
     label: "Bau",
-    title: `${getDisplayPlayerName(match, match.you, event.byPlayerId)} baut eine Stadt`,
-    detail: "Der ausgebauten Stadtplatz ist auf dem Brett markiert.",
+    title: getPlayerPredicate(match, match.you, event.byPlayerId, "baut eine Stadt", "baust eine Stadt"),
+    detail: "Der ausgebaute Stadtplatz ist auf dem Brett markiert.",
     cue: {
       key: `event-${event.id}-${vertexId}`,
       mode: "event",
       title: "Neue Stadt",
-      detail: "Der ausgebauten Stadtplatz ist hervorgehoben.",
+      detail: "Der ausgebaute Stadtplatz ist hervorgehoben.",
       vertexIds: [vertexId],
       edgeIds: [],
       tileIds: [],
@@ -275,7 +275,7 @@ function createInitialResourcesNotification(
   const resources = getPayloadResourceMap(event.payload, "resources");
   return createBaseNotification(match, event, {
     label: "Startaufbau",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} erhaelt Start-Rohstoffe`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "erhält Start-Rohstoffe", "erhältst Start-Rohstoffe"),
     detail: renderResourceMap(resources) || "Es wurden keine Rohstoffe verteilt.",
     badges: buildResourceBadges(resources)
   });
@@ -288,10 +288,10 @@ function createDiscardNotification(match: MatchSnapshot, event: MatchEvent, view
     .map((entry) => getDisplayPlayerName(match, viewerId, entry.playerId));
   const detail = remainingPlayers.length
     ? `Noch offen: ${joinNames(remainingPlayers)}.`
-    : "Alle noetigen Abwuerfe sind erledigt. Der Raeuber wird als Naechstes bewegt.";
+    : "Alle nötigen Abwürfe sind erledigt. Der Räuber wird als Nächstes bewegt.";
   return createBaseNotification(match, event, {
-    label: "Raeuberphase",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} wirft ${count ?? "?"} Karten ab`,
+    label: "Räuberphase",
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, `wirft ${count ?? "?"} Karten ab`, `wirfst ${count ?? "?"} Karten ab`),
     detail,
     badges: count === null ? [] : [{ label: `${count} Karten` }],
     emphasis: "warning",
@@ -308,15 +308,15 @@ function createDiceNotification(match: MatchSnapshot, event: MatchEvent): MatchN
 
   const pendingPlayers = match.robberDiscardStatus.filter((entry) => !entry.done).length;
   return createBaseNotification(match, event, {
-    label: "Raeuberphase",
-    title: `${getDisplayPlayerName(match, match.you, event.byPlayerId)} wuerfelt 7`,
+    label: "Räuberphase",
+    title: getPlayerPredicate(match, match.you, event.byPlayerId, "würfelt 7", "würfelst 7"),
     detail:
       pendingPlayers > 0
-        ? `${pendingPlayers} Spieler muessen jetzt Karten abwerfen, danach wird der Raeuber bewegt.`
-        : "Niemand muss abwerfen. Der Raeuber wird jetzt bewegt.",
+        ? `${pendingPlayers} Spieler müssen jetzt Karten abwerfen, danach wird der Räuber bewegt.`
+        : "Niemand muss abwerfen. Der Räuber wird jetzt bewegt.",
     badges: [
       ...(dice ? [{ label: `Wurf ${dice[0]} + ${dice[1]} = 7` }] : []),
-      { label: "Raeuber aktiv", tone: "warning" }
+      { label: "Räuber aktiv", tone: "warning" }
     ],
     emphasis: "warning",
     autoFocus: true
@@ -333,14 +333,14 @@ function createDistributionNotification(match: MatchSnapshot, event: MatchEvent)
   const tileLine = summarizeTileLine(match, tileIds, roll);
   const detail =
     grantBadges.length > 0
-      ? "Die markierten Felder schuetten jetzt Rohstoffe aus."
+      ? "Die markierten Felder schütten jetzt Rohstoffe aus."
       : tileIds.length > 0
-        ? "Die markierten Felder waeren aktiv, verteilen in dieser Lage aber keine Rohstoffe."
-        : "Kein Feld mit dieser Zahl schuettet Rohstoffe aus.";
+        ? "Die markierten Felder wären aktiv, verteilen in dieser Lage aber keine Rohstoffe."
+        : "Kein Feld mit dieser Zahl schüttet Rohstoffe aus.";
 
   return createBaseNotification(match, event, {
     label: "Wurf",
-    title: `${getDisplayPlayerName(match, match.you, event.byPlayerId)} wuerfelt ${roll ?? "?"}`,
+    title: getPlayerPredicate(match, match.you, event.byPlayerId, `würfelt ${roll ?? "?"}`, `würfelst ${roll ?? "?"}`),
     detail,
     badges: [
       ...(dice && roll !== null ? [{ label: `Wurf ${dice[0]} + ${dice[1]} = ${roll}` }] : []),
@@ -367,17 +367,18 @@ function createDistributionNotification(match: MatchSnapshot, event: MatchEvent)
 
 function createDevelopmentBoughtNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
   const viewerId = context.viewerId;
-  const actorName = getDisplayPlayerName(context.currentMatch, viewerId, event.byPlayerId);
   const remaining = getPayloadNumber(event.payload, "remaining");
   const cardType = getDevelopmentCardTypeForViewer(context, event);
   const isViewerActor = event.byPlayerId === viewerId;
-  const title = cardType && isViewerActor ? `Du ziehst ${renderDevelopmentTypeLabel(cardType)}` : `${actorName} kauft eine Entwicklungskarte`;
+  const title = cardType && isViewerActor
+    ? `Du ziehst ${renderDevelopmentTypeLabel(cardType)}`
+    : getPlayerPredicate(context.currentMatch, viewerId, event.byPlayerId, "kauft eine Entwicklungskarte", "kaufst eine Entwicklungskarte");
   const detail =
     cardType && isViewerActor
       ? `${renderDevelopmentTypeLabel(cardType)} liegt jetzt in deiner Hand.`
       : isViewerActor
         ? "Die gezogene Karte liegt jetzt in deiner Hand."
-        : "Der genaue Kartentyp bleibt fuer dich verdeckt.";
+        : "Der genaue Kartentyp bleibt für dich verdeckt.";
   return createBaseNotification(context.currentMatch, event, {
     label: "Entwicklung",
     title,
@@ -395,14 +396,13 @@ function createDevelopmentPlayedNotification(
   event: MatchEvent,
   viewerId: string
 ): MatchNotification {
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
   const cardType = getPayloadString(event.payload, "cardType");
   switch (cardType) {
     case "knight":
       return createBaseNotification(match, event, {
-        label: "Raeuberphase",
-        title: `${actorName} spielt Ritter`,
-        detail: "Die Raeuberphase startet sofort.",
+        label: "Räuberphase",
+        title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Ritter", "spielst Ritter"),
+        detail: "Die Räuberphase startet sofort.",
         badges: [{ label: "Ritter", tone: "warning" }],
         emphasis: "warning",
         autoFocus: true
@@ -410,16 +410,18 @@ function createDevelopmentPlayedNotification(
     case "road_building":
       return createBaseNotification(match, event, {
         label: "Entwicklung",
-        title: `${actorName} spielt Strassenbau`,
-        detail: "Es folgen bis zu zwei kostenlose Strassen.",
-        badges: [{ label: "Kostenlose Strassen", tone: "warning" }]
+        title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Straßenbau", "spielst Straßenbau"),
+        detail: "Es folgen bis zu zwei kostenlose Straßen.",
+        badges: [{ label: "Kostenlose Straßen", tone: "warning" }]
       });
     case "year_of_plenty": {
       const resources = getPayloadStringArray(event.payload, "resources").map((resource) => renderResourceLabel(resource));
       return createBaseNotification(match, event, {
         label: "Entwicklung",
-        title: `${actorName} spielt Erfindung`,
-        detail: resources.length ? `${actorName} nimmt ${resources.join(" und ")} aus der Bank.` : "Es werden zwei Rohstoffe aus der Bank genommen.",
+        title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Erfindung", "spielst Erfindung"),
+        detail: resources.length
+          ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `nimmt ${resources.join(" und ")} aus der Bank`, `nimmst ${resources.join(" und ")} aus der Bank`)}.`
+          : "Es werden zwei Rohstoffe aus der Bank genommen.",
         badges: resources.map((resource) => ({ label: resource, tone: "warning" as const })),
         emphasis: "success"
       });
@@ -429,9 +431,9 @@ function createDevelopmentPlayedNotification(
       const total = getPayloadNumber(event.payload, "total");
       return createBaseNotification(match, event, {
         label: "Entwicklung",
-        title: `${actorName} spielt Monopol`,
+        title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Monopol", "spielst Monopol"),
         detail: resource
-          ? `${actorName} zieht ${renderResourceLabel(resource)} von allen Mitspielern ein.`
+          ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `zieht ${renderResourceLabel(resource)} von allen Mitspielern ein`, `ziehst ${renderResourceLabel(resource)} von allen Mitspielern ein`)}.`
           : "Eine Rohstoffart wird von allen Mitspielern eingezogen.",
         badges: [
           ...(resource ? [{ label: renderResourceLabel(resource), tone: "warning" as const }] : []),
@@ -443,7 +445,7 @@ function createDevelopmentPlayedNotification(
     default:
       return createBaseNotification(match, event, {
         label: "Entwicklung",
-        title: `${actorName} spielt ${renderDevelopmentTypeLabel(cardType)}`,
+        title: getPlayerPredicate(match, viewerId, event.byPlayerId, `spielt ${renderDevelopmentTypeLabel(cardType)}`, `spielst ${renderDevelopmentTypeLabel(cardType)}`),
         detail: "Der Entwicklungskarteneffekt ist jetzt aktiv."
       });
   }
@@ -452,36 +454,46 @@ function createDevelopmentPlayedNotification(
 function createRobberNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
   const match = context.currentMatch;
   const viewerId = context.viewerId;
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
   const tileId = getPayloadString(event.payload, "tileId");
   const tileLabel = tileId ? getTileLabel(match, tileId) : "ein neues Feld";
   const victimId = getRobberVictimId(context, event);
   const exactResource = getRobberResourceForViewer(context, event, victimId);
-  const victimName = victimId ? getDisplayPlayerName(match, viewerId, victimId) : null;
-  const title = victimName
+  const title = victimId
     ? exactResource
-      ? `${actorName} stiehlt ${renderResourceLabel(exactResource)} von ${victimName}`
-      : `${actorName} bestiehlt ${victimName}`
-    : `${actorName} bewegt den Raeuber`;
-  const detail = victimName
+      ? getPlayerPredicate(
+          match,
+          viewerId,
+          event.byPlayerId,
+          `stiehlt ${renderResourceLabel(exactResource)} von ${getDisplayPlayerObject(match, viewerId, victimId, "dative")}`,
+          `stiehlst ${renderResourceLabel(exactResource)} von ${getDisplayPlayerObject(match, viewerId, victimId, "dative")}`
+        )
+      : getPlayerPredicate(
+          match,
+          viewerId,
+          event.byPlayerId,
+          `bestiehlt ${getDisplayPlayerObject(match, viewerId, victimId, "accusative")}`,
+          `bestiehlst ${getDisplayPlayerObject(match, viewerId, victimId, "accusative")}`
+        )
+    : getPlayerPredicate(match, viewerId, event.byPlayerId, "bewegt den Räuber", "bewegst den Räuber");
+  const detail = victimId
     ? exactResource
-      ? `Der Raeuber blockiert jetzt ${tileLabel}.`
-      : `Der Raeuber blockiert jetzt ${tileLabel}. Welche Karte gestohlen wurde, bleibt verdeckt.`
-    : `Der Raeuber blockiert jetzt ${tileLabel}.`;
+      ? `Der Räuber blockiert jetzt ${tileLabel}.`
+      : `Der Räuber blockiert jetzt ${tileLabel}.`
+    : `Der Räuber blockiert jetzt ${tileLabel}.`;
 
   return createBaseNotification(match, event, {
-    label: "Raeuberphase",
+    label: "Räuberphase",
     title,
     detail,
     badges: [
-      ...(victimId ? [{ label: victimName ?? "Ziel", playerId: victimId, tone: "player" as const }] : []),
+      ...(victimId ? [{ label: getDisplayPlayerName(match, viewerId, victimId), playerId: victimId, tone: "player" as const }] : []),
       ...(exactResource ? [{ label: renderResourceLabel(exactResource), tone: "warning" as const }] : []),
       ...(tileLabel ? [{ label: tileLabel }] : [])
     ],
     cue: {
       key: `event-${event.id}-${tileId ?? "robber"}`,
       mode: "event",
-      title: "Raeuber versetzt",
+      title: "Räuber versetzt",
       detail,
       vertexIds: [],
       edgeIds: [],
@@ -499,13 +511,14 @@ function createTradeOfferedNotification(context: NotificationBuildContext, event
   const tradeId = getPayloadString(event.payload, "tradeId");
   const trade = tradeId ? findTrade(match.tradeOffers, tradeId) : null;
   const toPlayerId = getPayloadString(event.payload, "toPlayerId");
-  const targetLabel = toPlayerId ? getDisplayPlayerName(match, viewerId, toPlayerId) : "alle Mitspieler";
+  const targetForExchange = toPlayerId ? getDisplayPlayerObject(match, viewerId, toPlayerId, "dative") : "allen Mitspielern";
+  const targetForOffer = toPlayerId ? getDisplayPlayerObject(match, viewerId, toPlayerId, "accusative") : "alle Mitspieler";
   return createBaseNotification(match, event, {
     label: "Handel",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} bietet einen Handel an`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "bietet einen Handel an", "bietest einen Handel an"),
     detail: trade
-      ? `Gibt ${renderResourceMap(trade.give)} und moechte ${renderResourceMap(trade.want)} von ${targetLabel}.`
-      : `Das Angebot richtet sich an ${targetLabel}.`,
+      ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `gibt ${renderResourceMap(trade.give)} und möchte ${renderResourceMap(trade.want)} von ${targetForExchange}`, `gibst ${renderResourceMap(trade.give)} und möchtest ${renderResourceMap(trade.want)} von ${targetForExchange}`)}.`
+      : `Das Angebot richtet sich an ${targetForOffer}.`,
     badges: trade ? tradeSummaryBadges(match, viewerId, trade) : []
   });
 }
@@ -518,9 +531,9 @@ function createTradeCompletedNotification(context: NotificationBuildContext, eve
   const previousTrade = tradeId && context.previousMatch ? findTrade(context.previousMatch.tradeOffers, tradeId) : null;
   return createBaseNotification(match, event, {
     label: "Handel",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} nimmt einen Handel an`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "nimmt einen Handel an", "nimmst einen Handel an"),
     detail: proposerId
-      ? `Das Angebot von ${getDisplayPlayerName(match, viewerId, proposerId)} wurde abgeschlossen.`
+      ? `Das Angebot von ${getDisplayPlayerObject(match, viewerId, proposerId, "dative")} wurde abgeschlossen.`
       : "Ein Handelsangebot wurde abgeschlossen.",
     badges: previousTrade ? tradeSummaryBadges(match, viewerId, previousTrade) : [],
     emphasis: "success"
@@ -532,10 +545,10 @@ function createTradeDeclinedNotification(context: NotificationBuildContext, even
   const viewerId = context.viewerId;
   const tradeId = getPayloadString(event.payload, "tradeId");
   const previousTrade = tradeId && context.previousMatch ? findTrade(context.previousMatch.tradeOffers, tradeId) : null;
-  const proposerName = previousTrade ? getDisplayPlayerName(match, viewerId, previousTrade.fromPlayerId) : null;
+  const proposerName = previousTrade ? getDisplayPlayerObject(match, viewerId, previousTrade.fromPlayerId, "dative") : null;
   return createBaseNotification(match, event, {
     label: "Handel",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} lehnt einen Handel ab`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "lehnt einen Handel ab", "lehnst einen Handel ab"),
     detail: proposerName ? `Das Angebot kam von ${proposerName}.` : "Das Angebot wurde nicht angenommen."
   });
 }
@@ -546,11 +559,11 @@ function createTradeCancelledNotification(context: NotificationBuildContext, eve
   const tradeId = getPayloadString(event.payload, "tradeId");
   const previousTrade = tradeId && context.previousMatch ? findTrade(context.previousMatch.tradeOffers, tradeId) : null;
   const targetPlayerName =
-    previousTrade?.toPlayerId ? getDisplayPlayerName(match, viewerId, previousTrade.toPlayerId) : "alle Mitspieler";
+    previousTrade?.toPlayerId ? getDisplayPlayerObject(match, viewerId, previousTrade.toPlayerId, "accusative") : "alle Mitspieler";
   return createBaseNotification(match, event, {
     label: "Handel",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} zieht einen Handel zurueck`,
-    detail: `Das Angebot war fuer ${targetPlayerName}.`
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "zieht einen Handel zurück", "ziehst einen Handel zurück"),
+    detail: `Das Angebot war für ${targetPlayerName}.`
   });
 }
 
@@ -560,11 +573,11 @@ function createMaritimeTradeNotification(match: MatchSnapshot, event: MatchEvent
   const giveCount = getPayloadNumber(event.payload, "giveCount");
   return createBaseNotification(match, event, {
     label: "Handel",
-    title: `${getDisplayPlayerName(match, viewerId, event.byPlayerId)} handelt mit dem Hafen`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "handelt mit dem Hafen", "handelst mit dem Hafen"),
     detail:
       give && receive && giveCount !== null
         ? `${giveCount} ${renderResourceLabel(give)} gegen ${renderResourceLabel(receive)}.`
-        : "Der Hafenhandel wurde ausgefuehrt.",
+        : "Der Hafenhandel wurde ausgeführt.",
     badges: [
       ...(give && giveCount !== null ? [{ label: `${giveCount} ${renderResourceLabel(give)}` }] : []),
       ...(receive ? [{ label: `1 ${renderResourceLabel(receive)}`, tone: "warning" as const }] : [])
@@ -574,15 +587,13 @@ function createMaritimeTradeNotification(match: MatchSnapshot, event: MatchEvent
 
 function createTurnEndedNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
   const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-  const nextPlayerName = nextPlayerId ? getDisplayPlayerName(match, viewerId, nextPlayerId) : "Der naechste Spieler";
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
   return createBaseNotification(match, event, {
     label: "Spielerwechsel",
-    title: `${nextPlayerName} ist jetzt am Zug`,
-    detail: `${actorName} beendet den Zug. ${nextPlayerName} startet jetzt mit dem Wurf.`,
+    title: getPlayerPredicate(match, viewerId, nextPlayerId, "ist jetzt am Zug", "bist jetzt am Zug"),
+    detail: `${getPlayerPredicate(match, viewerId, event.byPlayerId, "beendet den Zug", "beendest den Zug")}. ${getPlayerPredicate(match, viewerId, nextPlayerId, "startet jetzt mit dem Wurf", "startest jetzt mit dem Wurf")}.`,
     badges: [
-      ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
-      ...(nextPlayerId ? [{ label: nextPlayerName, playerId: nextPlayerId, tone: "player" as const }] : [])
+      ...(event.byPlayerId ? [{ label: getDisplayPlayerName(match, viewerId, event.byPlayerId), playerId: event.byPlayerId, tone: "player" as const }] : []),
+      ...(nextPlayerId ? [{ label: getDisplayPlayerName(match, viewerId, nextPlayerId), playerId: nextPlayerId, tone: "player" as const }] : [])
     ],
     ...(nextPlayerId ? { accentPlayerId: nextPlayerId } : {}),
     autoFocus: true,
@@ -595,24 +606,22 @@ function createLongestRoadAwardedNotification(match: MatchSnapshot, event: Match
   const length = getPayloadNumber(event.payload, "length");
   const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
   const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
-  const previousName = previousPlayerId ? getDisplayPlayerName(match, viewerId, previousPlayerId) : null;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
-    title: `${actorName} uebernimmt die Laengste Strasse`,
-    detail: previousName
-      ? `${previousName} verliert die Auszeichnung und ${actorName} erhaelt 2 oeffentliche VP.`
-      : `${actorName} erhaelt 2 oeffentliche VP fuer die Laengste Strasse.`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "übernimmt die Längste Straße", "übernimmst die Längste Straße"),
+    detail: previousPlayerId
+      ? `${getPlayerPredicate(match, viewerId, previousPlayerId, "verliert die Auszeichnung", "verlierst die Auszeichnung")} und ${getPlayerPredicate(match, viewerId, event.byPlayerId, "erhält 2 öffentliche VP", "erhältst 2 öffentliche VP")}.`
+      : `${getPlayerPredicate(match, viewerId, event.byPlayerId, "erhält 2 öffentliche VP für die Längste Straße", "erhältst 2 öffentliche VP für die Längste Straße")}.`,
     badges: [
-      ...(length !== null ? [{ label: `Laenge ${length}` }] : []),
-      ...(publicVictoryPoints !== null ? [{ label: `Oeffentliche VP ${publicVictoryPoints}` }] : []),
+      ...(length !== null ? [{ label: `Länge ${length}` }] : []),
+      ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP ${publicVictoryPoints}` }] : []),
       { label: "+2 VP", tone: "warning" }
     ],
     cue: {
       key: `event-${event.id}-longest-road-${event.byPlayerId ?? "player"}`,
       mode: "event",
-      title: "Laengste Strasse",
-      detail: `${actorName} fuehrt jetzt die Laengste Strasse.`,
+      title: "Längste Straße",
+      detail: `${getPlayerPredicate(match, viewerId, event.byPlayerId, "führt jetzt die Längste Straße", "führst jetzt die Längste Straße")}.`,
       vertexIds: [],
       edgeIds,
       tileIds: [],
@@ -627,15 +636,15 @@ function createLongestRoadLostNotification(match: MatchSnapshot, event: MatchEve
   const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
   const length = getPayloadNumber(event.payload, "length");
   const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
-  const nextName = nextPlayerId ? getDisplayPlayerName(match, viewerId, nextPlayerId) : null;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
-    title: `${actorName} verliert die Laengste Strasse`,
-    detail: nextName ? `${nextName} uebernimmt die Auszeichnung.` : "Die Auszeichnung ist im Moment bei niemandem.",
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "verliert die Längste Straße", "verlierst die Längste Straße"),
+    detail: nextPlayerId
+      ? `${getPlayerPredicate(match, viewerId, nextPlayerId, "übernimmt die Auszeichnung", "übernimmst die Auszeichnung")}.`
+      : "Die Auszeichnung ist im Moment bei niemandem.",
     badges: [
-      ...(length !== null ? [{ label: `Laenge ${length}` }] : []),
-      ...(publicVictoryPoints !== null ? [{ label: `Oeffentliche VP ${publicVictoryPoints}` }] : []),
+      ...(length !== null ? [{ label: `Länge ${length}` }] : []),
+      ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP ${publicVictoryPoints}` }] : []),
       { label: "-2 VP", tone: "warning" }
     ],
     autoFocus: true,
@@ -648,24 +657,22 @@ function createLargestArmyAwardedNotification(match: MatchSnapshot, event: Match
   const knightCount = getPayloadNumber(event.payload, "knightCount");
   const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
   const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
-  const previousName = previousPlayerId ? getDisplayPlayerName(match, viewerId, previousPlayerId) : null;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
-    title: `${actorName} uebernimmt die Groesste Rittermacht`,
-    detail: previousName
-      ? `${previousName} verliert die Auszeichnung und ${actorName} erhaelt 2 oeffentliche VP.`
-      : `${actorName} erhaelt 2 oeffentliche VP fuer die Groesste Rittermacht.`,
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "übernimmt die Größte Rittermacht", "übernimmst die Größte Rittermacht"),
+    detail: previousPlayerId
+      ? `${getPlayerPredicate(match, viewerId, previousPlayerId, "verliert die Auszeichnung", "verlierst die Auszeichnung")} und ${getPlayerPredicate(match, viewerId, event.byPlayerId, "erhält 2 öffentliche VP", "erhältst 2 öffentliche VP")}.`
+      : `${getPlayerPredicate(match, viewerId, event.byPlayerId, "erhält 2 öffentliche VP für die Größte Rittermacht", "erhältst 2 öffentliche VP für die Größte Rittermacht")}.`,
     badges: [
       ...(knightCount !== null ? [{ label: `Ritter ${knightCount}` }] : []),
-      ...(publicVictoryPoints !== null ? [{ label: `Oeffentliche VP ${publicVictoryPoints}` }] : []),
+      ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP ${publicVictoryPoints}` }] : []),
       { label: "+2 VP", tone: "warning" }
     ],
     cue: {
       key: `event-${event.id}-largest-army-${event.byPlayerId ?? "player"}`,
       mode: "event",
-      title: "Groesste Rittermacht",
-      detail: `${actorName} fuehrt jetzt die Groesste Rittermacht.`,
+      title: "Größte Rittermacht",
+      detail: `${getPlayerPredicate(match, viewerId, event.byPlayerId, "führt jetzt die Größte Rittermacht", "führst jetzt die Größte Rittermacht")}.`,
       vertexIds,
       edgeIds: [],
       tileIds: [],
@@ -680,15 +687,15 @@ function createLargestArmyLostNotification(match: MatchSnapshot, event: MatchEve
   const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
   const knightCount = getPayloadNumber(event.payload, "knightCount");
   const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-  const actorName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
-  const nextName = nextPlayerId ? getDisplayPlayerName(match, viewerId, nextPlayerId) : null;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
-    title: `${actorName} verliert die Groesste Rittermacht`,
-    detail: nextName ? `${nextName} uebernimmt die Auszeichnung.` : "Die Auszeichnung ist im Moment bei niemandem.",
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "verliert die Größte Rittermacht", "verlierst die Größte Rittermacht"),
+    detail: nextPlayerId
+      ? `${getPlayerPredicate(match, viewerId, nextPlayerId, "übernimmt die Auszeichnung", "übernimmst die Auszeichnung")}.`
+      : "Die Auszeichnung ist im Moment bei niemandem.",
     badges: [
       ...(knightCount !== null ? [{ label: `Ritter ${knightCount}` }] : []),
-      ...(publicVictoryPoints !== null ? [{ label: `Oeffentliche VP ${publicVictoryPoints}` }] : []),
+      ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP ${publicVictoryPoints}` }] : []),
       { label: "-2 VP", tone: "warning" }
     ],
     autoFocus: true,
@@ -698,11 +705,12 @@ function createLargestArmyLostNotification(match: MatchSnapshot, event: MatchEve
 
 function createGameWonNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
   const victoryPoints = getPayloadNumber(event.payload, "victoryPoints");
-  const winnerName = getDisplayPlayerName(match, viewerId, event.byPlayerId);
   return createBaseNotification(match, event, {
     label: "Sieg",
-    title: `${winnerName} gewinnt die Partie`,
-    detail: victoryPoints !== null ? `${winnerName} beendet das Match mit ${victoryPoints} Siegpunkten.` : "Die Partie ist beendet.",
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "gewinnt die Partie", "gewinnst die Partie"),
+    detail: victoryPoints !== null
+      ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `beendet die Partie mit ${victoryPoints} Siegpunkten`, `beendest die Partie mit ${victoryPoints} Siegpunkten`)}.`
+      : "Die Partie ist beendet.",
     badges: victoryPoints !== null ? [{ label: `${victoryPoints} VP`, tone: "warning" }] : [],
     autoFocus: true,
     emphasis: "success"
@@ -904,12 +912,18 @@ function getSingleResourceShift(
 function tradeSummaryBadges(match: MatchSnapshot, viewerId: string, trade: TradeOfferView): BoardFocusBadge[] {
   return [
     {
-      label: `${getDisplayPlayerName(match, viewerId, trade.fromPlayerId)} gibt ${renderResourceMap(trade.give) || "nichts"}`,
+      label: getPlayerPredicate(
+        match,
+        viewerId,
+        trade.fromPlayerId,
+        `gibt ${renderResourceMap(trade.give) || "nichts"}`,
+        `gibst ${renderResourceMap(trade.give) || "nichts"}`
+      ),
       playerId: trade.fromPlayerId,
       tone: "player"
     },
     {
-      label: `fuer ${renderResourceMap(trade.want) || "nichts"}`,
+      label: `für ${renderResourceMap(trade.want) || "nichts"}`,
       tone: "warning"
     }
   ];
@@ -941,7 +955,7 @@ function summarizeGrantBadges(match: MatchSnapshot, grantsByPlayerId: Record<str
 
 function summarizeTileLine(match: MatchSnapshot, tileIds: string[], roll: number | null): string {
   if (!tileIds.length) {
-    return roll === null ? "Keine aktiven Felder" : `Keine aktiven Felder fuer ${roll}`;
+    return roll === null ? "Keine aktiven Felder" : `Keine aktiven Felder für ${roll}`;
   }
 
   const labels = tileIds
@@ -968,7 +982,7 @@ function getNotificationLabel(event: MatchEvent): string {
     case "dice_rolled":
     case "resources_discarded":
     case "robber_moved":
-      return "Raeuberphase";
+      return "Räuberphase";
     case "development_card_bought":
     case "development_card_played":
       return "Entwicklung";
@@ -1001,7 +1015,7 @@ function renderDevelopmentTypeLabel(type: string | null): string {
     case "victory_point":
       return "Siegpunkt";
     case "road_building":
-      return "Strassenbau";
+      return "Straßenbau";
     case "year_of_plenty":
       return "Erfindung";
     case "monopoly":
@@ -1023,6 +1037,41 @@ function getDisplayPlayerName(match: MatchSnapshot, viewerId: string, playerId?:
   }
 
   return getPlayerById(match, playerId)?.username ?? "Ein Spieler";
+}
+
+function getPlayerPredicate(
+  match: MatchSnapshot,
+  viewerId: string,
+  playerId: string | null | undefined,
+  thirdPersonPredicate: string,
+  secondPersonPredicate = thirdPersonPredicate
+): string {
+  if (!playerId) {
+    return `Ein Spieler ${thirdPersonPredicate}`;
+  }
+
+  if (playerId === viewerId) {
+    return `Du ${secondPersonPredicate}`;
+  }
+
+  return `${getPlayerById(match, playerId)?.username ?? "Ein Spieler"} ${thirdPersonPredicate}`;
+}
+
+function getDisplayPlayerObject(
+  match: MatchSnapshot,
+  viewerId: string,
+  playerId: string | null | undefined,
+  grammaticalCase: "accusative" | "dative" = "accusative"
+): string {
+  if (!playerId) {
+    return grammaticalCase === "dative" ? "einem Spieler" : "einen Spieler";
+  }
+
+  if (playerId === viewerId) {
+    return grammaticalCase === "dative" ? "dir" : "dich";
+  }
+
+  return getPlayerById(match, playerId)?.username ?? (grammaticalCase === "dative" ? "einem Spieler" : "einen Spieler");
 }
 
 function getPlayerById(match: MatchSnapshot, playerId?: string): MatchPlayer | null {
