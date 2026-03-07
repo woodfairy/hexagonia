@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "npm run build -w @hexagonia/shared && tsc -p tsconfig.json && vite build",
+    "sync:browser-theme": "node scripts/syncBrowserTheme.mjs",
+    "generate:favicons": "python scripts/generateFavicons.py",
+    "dev": "npm run sync:browser-theme && vite",
+    "build": "npm run build -w @hexagonia/shared && npm run sync:browser-theme && tsc -p tsconfig.json && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "echo \"Web tests pending\"",
     "lint": "tsc -p tsconfig.json --noEmit",
