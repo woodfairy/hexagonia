@@ -435,24 +435,51 @@ function paintWoolTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 280; index += 1) {
+  for (let index = 0; index < 140; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    const radiusX = 14 + random() * 30;
-    const radiusY = 12 + random() * 24;
-    drawEllipse(colorContext, x, y, radiusX, radiusY, pick(random, ["rgba(106,150,79,0.26)", "rgba(142,182,103,0.22)", "rgba(214,231,183,0.08)"]));
-    drawEllipse(bumpContext, x, y, radiusX * 0.82, radiusY * 0.82, "rgba(210,210,210,0.12)");
+    drawSoftBlob(colorContext, x, y, 12 + random() * 18, pick(random, ["rgba(88,132,66,0.08)", "rgba(112,154,82,0.07)", "rgba(156,188,112,0.05)"]));
   }
 
-  for (let index = 0; index < 120; index += 1) {
+  for (let index = 0; index < 240; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    drawSoftBlob(colorContext, x, y, 10 + random() * 16, "rgba(238,245,229,0.06)");
-    drawSoftBlob(overlayContext, x, y, 18 + random() * 18, "rgba(250,255,244,0.09)");
-    drawSoftBlob(roughnessContext, x, y, 12 + random() * 18, "rgba(228,228,228,0.05)");
+    const scale = 0.8 + random() * 1.5;
+    const rotation = (random() - 0.5) * 1.1;
+    drawGrassTuft(colorContext, x, y, scale, rotation, random, [
+      "rgba(77,124,57,0.3)",
+      "rgba(106,154,76,0.26)",
+      "rgba(146,184,106,0.22)"
+    ]);
+    drawGrassTuft(bumpContext, x, y, scale * 0.92, rotation, random, [
+      "rgba(210,210,210,0.14)",
+      "rgba(176,176,176,0.12)",
+      "rgba(236,236,236,0.1)"
+    ]);
+    if (index % 2 === 0) {
+      drawGrassTuft(overlayContext, x, y, scale * 1.08, rotation, random, [
+        "rgba(249,255,244,0.1)",
+        "rgba(230,244,211,0.08)"
+      ]);
+    }
+    if (index % 3 === 0) {
+      drawGrassTuft(roughnessContext, x, y, scale, rotation, random, [
+        "rgba(228,228,228,0.06)",
+        "rgba(196,196,196,0.05)"
+      ]);
+    }
   }
 
-  drawSpeckles(colorContext, random, 2000, "rgba(32,64,20,0.05)", 0.8, 1.8);
+  for (let index = 0; index < 180; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 4 + random() * 8, 0.8 + random() * 1.2, "rgba(175,205,126,0.08)", rotation);
+    drawEllipse(bumpContext, x, y, 3.2 + random() * 5.2, 0.5 + random() * 0.8, "rgba(220,220,220,0.08)", rotation);
+  }
+
+  drawSpeckles(colorContext, random, 2400, "rgba(28,58,18,0.04)", 0.7, 1.5);
+  drawSpeckles(colorContext, random, 700, "rgba(210,226,180,0.05)", 0.5, 1.1);
 }
 
 function paintDesertTerrain(
@@ -618,6 +645,37 @@ function drawEllipse(
   context.beginPath();
   context.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
   context.fill();
+  context.restore();
+}
+
+function drawGrassTuft(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  rotation: number,
+  random: () => number,
+  colors: readonly [string, string, ...string[]] | readonly [string, string]
+): void {
+  const bladeCount = 5 + Math.floor(random() * 5);
+  context.save();
+  context.translate(x, y);
+  context.rotate(rotation);
+  context.lineCap = "round";
+
+  for (let blade = 0; blade < bladeCount; blade += 1) {
+    const offsetX = (random() - 0.5) * 6 * scale;
+    const baseY = (random() - 0.5) * 3 * scale;
+    const height = (7 + random() * 12) * scale;
+    const bend = (random() - 0.5) * 6 * scale;
+    context.strokeStyle = pick(random, colors);
+    context.lineWidth = 0.8 + random() * 1.2 * scale;
+    context.beginPath();
+    context.moveTo(offsetX, baseY);
+    context.quadraticCurveTo(offsetX + bend * 0.35, baseY - height * 0.48, offsetX + bend, baseY - height);
+    context.stroke();
+  }
+
   context.restore();
 }
 
