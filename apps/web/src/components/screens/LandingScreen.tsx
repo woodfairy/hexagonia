@@ -102,9 +102,9 @@ const MECHANICS = [
   },
   {
     icon: "build",
-    title: "Schon heute gut spielbar",
-    body: "Hexagonia konzentriert sich auf das, was eine Runde wirklich trägt: Einladungen, Spielfeld, Handel, Aufbauphase und starke Partiemomente.",
-    accent: "Substanz statt leere Versprechen"
+    title: "Auch mobil gut spielbar",
+    body: "Hexagonia funktioniert nicht nur am Desktop, sondern auch im Handy-Browser. So kannst du deiner Runde auch unterwegs beitreten und weiterspielen.",
+    accent: "Desktop und Mobile Browser"
   }
 ] as const;
 
@@ -207,7 +207,7 @@ export function LandingScreen(props: {
           </span>
           <span className="landing-brand-copy">
             <strong>Hexagonia</strong>
-            <span>Der private Tisch für Strategie und Handel</span>
+            <span>Modernes Tabletop-Strategy im Browser</span>
           </span>
         </button>
 
@@ -245,8 +245,8 @@ export function LandingScreen(props: {
       <main className="landing-main">
         <section className="landing-hero" aria-labelledby="landing-hero-title">
           <div className="landing-hero-copy" data-reveal style={revealStyle(40)}>
-            <span className="landing-kicker">Moderne Tabletop-Strategie im Browser</span>
-            <h1 id="landing-hero-title">Hexagonia bringt Strategie, Handel und Live-Board in eine private Online-Runde.</h1>
+            <span className="landing-kicker">Modernes Tabletop-Strategy im Browser</span>
+            <h1 id="landing-hero-title">Hexagonia bringt Strategie und Handel in den Browser.</h1>
             <p className="landing-lead">
               Eröffne private Räume, hol Freunde per Code oder Link an den Tisch und spiel direkt los. Auf dich warten
               Handel, Bauentscheidungen, Räuberphase, Entwicklungskarten und laufende Partien, in die du später wieder
@@ -299,7 +299,7 @@ export function LandingScreen(props: {
         <section id="ablauf" className="landing-section" aria-labelledby="landing-flow-title">
           <div className="landing-section-head" data-reveal style={revealStyle(0)}>
             <span className="landing-kicker">So läuft eine Runde</span>
-            <h2 id="landing-flow-title">Von der Einladung bis zur laufenden Partie kommst du ohne unnötige Umwege.</h2>
+            <h2 id="landing-flow-title">Schnell in die Partie.</h2>
             <p>
               Hexagonia setzt auf einen klaren privaten Ablauf: Runde anlegen, Mitspieler reinholen, Setup festziehen,
               Partie starten und bei Bedarf später sauber wieder aufnehmen.
@@ -326,7 +326,7 @@ export function LandingScreen(props: {
         <section id="build" className="landing-section" aria-labelledby="landing-build-title">
           <div className="landing-section-head" data-reveal style={revealStyle(0)}>
             <span className="landing-kicker">Im Spiel</span>
-            <h2 id="landing-build-title">Was dich in Hexagonia schon jetzt am Tisch erwartet.</h2>
+            <h2 id="landing-build-title">Was dich in Hexagonia erwartet.</h2>
             <p>
               Der Fokus liegt auf einer runden Spielerfahrung: Freunde einladen, Partie starten, handeln, bauen,
               den Räuber versetzen und später wieder in laufende Runden einsteigen.

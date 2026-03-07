@@ -387,7 +387,8 @@ select {
   font-size: 0.78rem;
 }
 
-.profile-music-panel {
+.profile-music-panel,
+.profile-board-panel {
   display: grid;
   gap: var(--gap-stack-tight);
   padding: 0.78rem;
@@ -414,6 +415,11 @@ select {
 
 .profile-music-toggle {
   inline-size: 100%;
+}
+
+.profile-board-segmented {
+  inline-size: 100%;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .profile-status {
