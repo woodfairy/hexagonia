@@ -7,7 +7,7 @@ import hexaLogo from "../../../../../assets/img/hexa.png";
 
 const NAV_ITEMS = [
   { id: "ablauf", label: "Ablauf" },
-  { id: "build", label: "Build" },
+  { id: "build", label: "Highlights" },
   { id: "features", label: "Mechaniken" },
   { id: "zugang", label: "Zugang" }
 ] as const;
@@ -16,7 +16,7 @@ const HERO_STATS = [
   { value: "4", label: "Plätze pro Tisch" },
   { value: `${SETUP_MODES.length}`, label: "Setup-Varianten" },
   { value: `${DEVELOPMENT_CARD_TYPES.length}`, label: "Entwicklungskarten" },
-  { value: "Live", label: "Realtime + Resume" }
+  { value: "Live", label: "Spielen + fortsetzen" }
 ] as const;
 
 const FLOW_STEPS = [
@@ -38,34 +38,34 @@ const FLOW_STEPS = [
   {
     title: "Live spielen und wieder einsteigen",
     body: "Board, Handel, Würfel, Räuber und Event-Log laufen synchron. Offene Räume und laufende Partien bleiben für dich erreichbar.",
-    meta: "Realtime, Reconnect, Resume"
+    meta: "Live spielen, wieder einsteigen"
   }
 ] as const;
 
 const BUILD_FEATURES = [
   {
     icon: "board",
-    title: "Server-autoritatives Live-Board",
-    body: "Das Spielfeld ist kein statischer Mockup-Screen, sondern die laufende Partie mit Echtzeit-Status, Ereignissen und Interaktionen.",
-    detail: "React + Three.js Frontend"
+    title: "Das Brett lebt mit jeder Runde",
+    body: "Du siehst sofort, was auf dem Spielfeld passiert: Würfel, Bauaktionen, Handelsmomente und wichtige Wendepunkte der Partie.",
+    detail: "Animiertes 3D-Spielbrett"
   },
   {
     icon: "rooms",
-    title: "Private Räume mit Invite-Flow",
-    body: "Erstellen, Code teilen, Plätze besetzen, Start konfigurieren und direkt weiterspielen, ohne öffentliche Lobby dazwischen.",
-    detail: "Raumcode, Seats, Ready-Status"
+    title: "Private Räume für deine Runde",
+    body: "Raum erstellen, Code oder Link teilen, Plätze füllen und gemeinsam starten, ohne öffentliche Lobby dazwischen.",
+    detail: "Schnell eingeladen, schnell am Tisch"
   },
   {
     icon: "trade",
-    title: "Handel und Häfen im Flow",
-    body: "Spielerhandel, Zielangebote und maritime Tauschraten sind bereits Teil des laufenden Builds und nicht nur Platzhalter-UI.",
-    detail: "Spielerhandel + Hafenhandel"
+    title: "Handel, Häfen und gute Deals",
+    body: "Handle direkt mit anderen Spielern oder nutze Häfen, um aus knappen Karten doch noch den nächsten starken Zug zu machen.",
+    detail: "Spielerhandel und Hafentausch"
   },
   {
     icon: "robber",
-    title: "Räuber, Entwicklung, Wertung",
-    body: "Räuberphase, Entwicklungskarten, längste Straße und größte Rittermacht sind im Regelkern integriert.",
-    detail: "Basis-Spielkern aktiv"
+    title: "Räuber, Entwicklung und Wertungen",
+    body: "Räuberphase, Entwicklungskarten, längste Straße und größte Rittermacht sorgen schon jetzt für echte Wendepunkte in der Partie.",
+    detail: "Klassische Spannung, direkt spielbar"
   }
 ] as const;
 
@@ -84,27 +84,27 @@ const MECHANICS = [
   },
   {
     icon: "robber",
-    title: "Räuberphase ohne UI-Brüche",
-    body: "Abwurfpflicht, Zielauswahl und das Versetzen des Räubers sind als eigener Flow modelliert und bleiben für alle Beteiligten synchron.",
-    accent: "Interrupt-Phase mit Statussicht"
+    title: "Räuberphase mit klaren Entscheidungen",
+    body: "Wenn der Räuber ins Spiel kommt, bleiben Abwurf, Zielwahl und das neue Feld jederzeit klar verständlich und spürbar spannend.",
+    accent: "Räuber, Abwurf und Zielwahl"
   },
   {
     icon: "cards",
     title: "Entwicklungskarten und Wertungen",
-    body: "Ritter, Straßenbau, Erfindung, Monopol und Siegpunktkarten greifen in eine serverseitig autorisierte Partie ein, inklusive Straßen- und Armee-Wertungen.",
+    body: "Ritter, Straßenbau, Erfindung, Monopol und Siegpunktkarten können eine Partie komplett drehen, zusammen mit den Wertungen für Straße und Rittermacht.",
     accent: "Karten, Awards, Punkte"
   },
   {
     icon: "rooms",
-    title: "Räume, Reconnect und Fortsetzen",
+    title: "Räume, Wiedereinstieg und Fortsetzen",
     body: "Konten speichern deinen Zugang. Räume und laufende Matches bleiben zugänglich, damit eine Runde nicht am Browser-Refresh scheitert.",
     accent: "Persistente Zugänge"
   },
   {
     icon: "build",
-    title: "Aktueller Fokus: starker Basiskern",
-    body: "Der Build priorisiert den spielbaren Kern: Lobby, Match, Regeln, WebSocket-Sync und ein modernes Board statt leere Marketing-Hülle.",
-    accent: "V1 mit Substanz"
+    title: "Schon heute gut spielbar",
+    body: "Hexagonia konzentriert sich auf das, was eine Runde wirklich trägt: Einladungen, Spielfeld, Handel, Aufbauphase und starke Partiemomente.",
+    accent: "Substanz statt leere Versprechen"
   }
 ] as const;
 
@@ -207,7 +207,7 @@ export function LandingScreen(props: {
           </span>
           <span className="landing-brand-copy">
             <strong>Hexagonia</strong>
-            <span>Private Live-Partien im Browser</span>
+            <span>Der private Tisch für Strategie und Handel</span>
           </span>
         </button>
 
@@ -245,12 +245,12 @@ export function LandingScreen(props: {
       <main className="landing-main">
         <section className="landing-hero" aria-labelledby="landing-hero-title">
           <div className="landing-hero-copy" data-reveal style={revealStyle(40)}>
-            <span className="landing-kicker">Moderner Tabletop-Flow für den Browser</span>
+            <span className="landing-kicker">Moderne Tabletop-Strategie im Browser</span>
             <h1 id="landing-hero-title">Hexagonia bringt Strategie, Handel und Live-Board in eine private Online-Runde.</h1>
             <p className="landing-lead">
-              Statt leerer Marketing-Schablonen zeigt Hexagonia, was schon spielbar ist: private Räume, Invite-Codes,
-              ein aktives Echtzeit-Brett, handelbare Ressourcen, Räuberphase, Entwicklungskarten und ein sauberer
-              Wiedereinstieg in laufende Partien.
+              Eröffne private Räume, hol Freunde per Code oder Link an den Tisch und spiel direkt los. Auf dich warten
+              Handel, Bauentscheidungen, Räuberphase, Entwicklungskarten und laufende Partien, in die du später wieder
+              sauber einsteigen kannst.
             </p>
 
             <div className="landing-hero-actions">
@@ -258,7 +258,7 @@ export function LandingScreen(props: {
                 {props.inviteCode ? "Zur Einladung anmelden" : "Konto anlegen"}
               </button>
               <button type="button" className="landing-button is-secondary" onClick={() => scrollToSection("build")}>
-                Build ansehen
+                Highlights ansehen
               </button>
             </div>
 
@@ -281,7 +281,7 @@ export function LandingScreen(props: {
             <div className="landing-scene-shell">
               <LandingBoardScene reducedMotion={prefersReducedMotion} />
               <div className="landing-scene-badge is-top">
-                <span className="landing-badge-label">Aktiver Kern</span>
+                <span className="landing-badge-label">Schon spielbar</span>
                 <strong>Trade, Robber, Development</strong>
               </div>
               <div className="landing-scene-badge is-bottom">
@@ -299,7 +299,7 @@ export function LandingScreen(props: {
         <section id="ablauf" className="landing-section" aria-labelledby="landing-flow-title">
           <div className="landing-section-head" data-reveal style={revealStyle(0)}>
             <span className="landing-kicker">So läuft eine Runde</span>
-            <h2 id="landing-flow-title">Vom Tisch bis zur laufenden Partie ist der Flow bewusst kurz gehalten.</h2>
+            <h2 id="landing-flow-title">Von der Einladung bis zur laufenden Partie kommst du ohne unnötige Umwege.</h2>
             <p>
               Hexagonia setzt auf einen klaren privaten Ablauf: Runde anlegen, Mitspieler reinholen, Setup festziehen,
               Partie starten und bei Bedarf später sauber wieder aufnehmen.
@@ -325,11 +325,11 @@ export function LandingScreen(props: {
 
         <section id="build" className="landing-section" aria-labelledby="landing-build-title">
           <div className="landing-section-head" data-reveal style={revealStyle(0)}>
-            <span className="landing-kicker">Im aktuellen Build</span>
-            <h2 id="landing-build-title">Die Landing Page beschreibt kein Versprechen auf später, sondern den Status des Spiels jetzt.</h2>
+            <span className="landing-kicker">Im Spiel</span>
+            <h2 id="landing-build-title">Was dich in Hexagonia schon jetzt am Tisch erwartet.</h2>
             <p>
-              Der aktuelle Stand konzentriert sich auf einen belastbaren Basiskern: Regel-Engine, Raumfluss, Echtzeit,
-              Match-Oberfläche und ein inszeniertes Spielbrett.
+              Der Fokus liegt auf einer runden Spielerfahrung: Freunde einladen, Partie starten, handeln, bauen,
+              den Räuber versetzen und später wieder in laufende Runden einsteigen.
             </p>
           </div>
 
@@ -364,8 +364,8 @@ export function LandingScreen(props: {
                 <li>Private Räume mit Sitzplätzen und Ready-State</li>
                 <li>Setup-Modi mit kontrolliertem Spielstart</li>
                 <li>Handel zwischen Spielern und über Häfen</li>
-                <li>Synchronisierte Räuber- und Discard-Phasen</li>
-                <li>Persistente Konten, Reconnect und Resume</li>
+                <li>Räuber- und Abwurfphasen mit klarem Ablauf</li>
+                <li>Konten mit einfachem Wiedereinstieg</li>
               </ul>
             </aside>
 
@@ -390,10 +390,10 @@ export function LandingScreen(props: {
         <section id="zugang" className="landing-section landing-access-section" aria-labelledby="landing-access-title">
           <div className="landing-access-copy" data-reveal style={revealStyle(0)}>
             <span className="landing-kicker">Zugang</span>
-            <h2 id="landing-access-title">Login und Registrierung bleiben direkt im Einstieg, ohne Umweg über separate Screens.</h2>
+            <h2 id="landing-access-title">Melde dich an und geh direkt an deinen Tisch.</h2>
             <p>
-              Lege ein Konto an oder melde dich wieder an. Wenn du über einen Invite-Link gekommen bist, wird die Einladung
-              nach erfolgreichem Login direkt weiterverarbeitet.
+              Erstelle ein Konto oder logg dich wieder ein. Wenn du mit einer Einladung gekommen bist, landest du danach
+              direkt in der passenden Runde.
             </p>
 
             <div className="landing-access-points">
@@ -443,7 +443,7 @@ export function LandingScreen(props: {
             {props.inviteCode ? (
               <div className="landing-auth-note">
                 <strong>Einladung aktiv</strong>
-                <span>Nach dem Auth-Flow springt die App direkt in Raum {props.inviteCode}.</span>
+                <span>Nach dem Login springst du direkt in Raum {props.inviteCode}.</span>
               </div>
             ) : null}
 
@@ -477,11 +477,11 @@ export function LandingScreen(props: {
       </main>
 
       <footer className="landing-footer">
-        <div>
+        <div className="landing-footer-copy">
           <strong>Hexagonia</strong>
-          <span>Browser-Strategie mit privatem Raumfluss, Live-Board und einem bereits spielbaren Basiskern.</span>
+          <span>Browser-Strategie für private Runden mit starkem Brettgefühl, spannenden Entscheidungen und klarer Einladungskette.</span>
         </div>
-        <span>Frontend mit React und Three.js, Realtime-Flow mit Server-Sync und persistenter Sitzung.</span>
+        <span>Einladen, aufbauen, handeln, bauen und laufende Partien später wieder aufnehmen.</span>
       </footer>
     </div>
   );
