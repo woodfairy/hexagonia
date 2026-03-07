@@ -355,6 +355,38 @@ select {
   overflow: auto;
 }
 
+.menu-toggle-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-inline);
+  text-align: left;
+}
+
+.menu-toggle-action.is-active {
+  border-color: rgba(var(--accent-rgb), 0.34);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.menu-toggle-action.is-muted {
+  border-color: var(--line-soft);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.menu-toggle-copy {
+  display: grid;
+  gap: var(--gap-copy-tight);
+}
+
+.menu-toggle-copy strong {
+  font-size: 0.92rem;
+}
+
+.menu-toggle-copy span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .profile-status {
   display: inline-flex;
   inline-size: fit-content;

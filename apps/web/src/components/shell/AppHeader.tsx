@@ -11,11 +11,13 @@ export function AppHeader(props: {
   eyebrow: string;
   title: string;
   meta?: string;
+  soundMuted: boolean;
   roomCode?: string;
   onCopyInviteLink?: () => void | Promise<void>;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onCopyRoomCode?: () => void | Promise<void>;
+  onToggleSoundMuted: () => void;
   onLogout: () => void | Promise<void>;
 }) {
   const profileRoomProps = props.roomCode
@@ -50,8 +52,10 @@ export function AppHeader(props: {
           <ProfileMenu
             connectionState={props.connectionState}
             session={props.session}
+            soundMuted={props.soundMuted}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}
+            onToggleSoundMuted={props.onToggleSoundMuted}
             {...(props.onNavigateAdmin ? { onNavigateAdmin: props.onNavigateAdmin } : {})}
             {...profileRoomProps}
           />
