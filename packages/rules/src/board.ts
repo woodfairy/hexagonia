@@ -63,7 +63,17 @@ const BEGINNER_LAYOUT: Array<{ resource: Resource | "desert"; token: number | nu
   { resource: "grain", token: 3 },
   { resource: "grain", token: 8 }
 ];
-const BEGINNER_PORT_DISTRIBUTION: PortType[] = [...PORT_DISTRIBUTION];
+const BEGINNER_PORT_DISTRIBUTION: PortType[] = [
+  "generic",
+  "generic",
+  "generic",
+  "generic",
+  "brick",
+  "lumber",
+  "ore",
+  "grain",
+  "wool"
+];
 
 interface MutableVertex extends Omit<VertexView, "building" | "portType"> {
   portType: PortType | null;

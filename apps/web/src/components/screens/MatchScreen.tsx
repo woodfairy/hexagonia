@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import type { ClientMessage, MatchSnapshot, PlayerColor, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
+import type { ClientMessage, MatchSnapshot, PlayerColor, PortType, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
 import { BoardScene, TILE_COLORS, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { ResourceIcon } from "../../resourceIcons";
@@ -57,6 +57,14 @@ const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = 
   { resource: "grain", note: "Getreide für Siedlungen, Städte und Entwicklungen." },
   { resource: "wool", note: "Wolle für Siedlungen und Entwicklungen." },
   { resource: "desert", note: "Wüste: keine Erträge, hier startet der Räuber." }
+];
+const HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
+  { type: "generic", note: "3:1 für beliebige Rohstoffe. Es zählt immer deine beste angrenzende Hafenrate." },
+  { type: "brick", note: "2:1 für Lehm, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
+  { type: "lumber", note: "2:1 für Holz, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
+  { type: "ore", note: "2:1 für Erz, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
+  { type: "grain", note: "2:1 für Getreide, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
+  { type: "wool", note: "2:1 für Wolle, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." }
 ];
 let dicePreviewCursor = 0;
 
@@ -210,6 +218,8 @@ export function MatchScreen(props: {
     (!isCurrentPlayer ? activePlayer : null);
   const maritimeRatio =
     props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
+  const maritimeRateLabel = getMaritimeRateLabel(props.match, props.match.you, props.maritimeForm.give, maritimeRatio);
+  const maritimeRatePillLabel = `${maritimeRatio}:1`;
   const ownedGiveResources = RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) > 0);
   const tradeGiveMax = props.selfPlayer?.resources?.[props.tradeForm.give] ?? 0;
   const affordableMaritimeGiveResources = RESOURCES.filter((resource) => {
@@ -603,6 +613,28 @@ export function MatchScreen(props: {
       ))}
     </div>
   );
+  const harborLegendList = (
+    <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : ""}`}>
+      {HARBOR_LEGEND.map((entry) => (
+        <div key={entry.type} className="board-legend-resource board-legend-harbor">
+          <span className="board-legend-resource-swatch board-legend-harbor-swatch" aria-hidden="true">
+            {entry.type === "generic" ? (
+              <span className="board-legend-harbor-badge">3:1</span>
+            ) : (
+              <>
+                <ResourceIcon resource={entry.type} tone="light" size={18} />
+                <span className="board-legend-harbor-rate">2:1</span>
+              </>
+            )}
+          </span>
+          <div className="board-legend-resource-copy">
+            <strong>{entry.type === "generic" ? "3:1-Hafen" : `${renderResourceLabel(entry.type)}-Hafen`}</strong>
+            <span>{entry.note}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
   const boardHintLegend = (
     <div className="board-legend-notes">
       <div className="board-legend-note">
@@ -612,6 +644,10 @@ export function MatchScreen(props: {
       <div className="board-legend-note">
         <span className="legend-signal is-pulse" aria-hidden="true" />
         <span>Blaue pulsierende Marker zeigen dir, was du gerade anklicken oder bauen kannst.</span>
+      </div>
+      <div className="board-legend-note">
+        <span className="legend-signal is-port" aria-hidden="true">⚓</span>
+        <span>Häfen liegen an der Küste. Es zählt immer die beste Rate deiner angrenzenden eigenen Siedlung oder Stadt.</span>
       </div>
     </div>
   );
@@ -727,10 +763,10 @@ export function MatchScreen(props: {
                       isSelf={player.id === props.match.you}
                     />
                     <div className="mobile-player-row-meta">
-                      <span>{player.publicVictoryPoints} VP</span>
-                      <span>{player.resourceCount} Karten</span>
-                      {player.hasLongestRoad ? <span>Längste Straße</span> : null}
-                      {player.hasLargestArmy ? <span>Größte Rittermacht</span> : null}
+                      <span className="player-meta-pill">{player.publicVictoryPoints} VP</span>
+                      <span className="player-meta-pill">{player.resourceCount} Karten</span>
+                      {player.hasLongestRoad ? <span className="player-meta-pill is-award">Längste Straße +2 VP</span> : null}
+                      {player.hasLargestArmy ? <span className="player-meta-pill is-award">Größte Rittermacht +2 VP</span> : null}
                     </div>
                   </article>
                 ))}
@@ -739,10 +775,11 @@ export function MatchScreen(props: {
             <section className="dock-section">
               <div className="dock-section-head">
                 <h3>Legende</h3>
-                <span>Rohstoffe und Hinweise</span>
+                <span>Rohstoffe, Häfen und Hinweise</span>
               </div>
               <div className="mobile-legend-stack">
                 {resourceLegendList}
+                {harborLegendList}
                 {boardHintLegend}
               </div>
             </section>
@@ -755,16 +792,21 @@ export function MatchScreen(props: {
           </div>
           <div className="scroll-list event-list">
             {recentEvents.map((event) => (
-              <article key={event.id} className="event-card">
-                <div className="event-card-head">
-                  <strong>{renderEventLabel(event.type)}</strong>
-                  {event.byPlayerId ? (
-                    <PlayerBadge match={props.match} playerId={event.byPlayerId} compact />
-                  ) : null}
-                </div>
-                {getEventSummary(event) ? <span>{getEventSummary(event)}</span> : null}
-                <span>Zug {event.atTurn}</span>
-              </article>
+              (() => {
+                const summary = getEventSummary(props.match, event);
+                return (
+                  <article key={event.id} className="event-card">
+                    <div className="event-card-head">
+                      <strong>{renderEventLabel(event.type)}</strong>
+                      {event.byPlayerId ? (
+                        <PlayerBadge match={props.match} playerId={event.byPlayerId} compact />
+                      ) : null}
+                    </div>
+                    {summary ? <span>{summary}</span> : null}
+                    <span>Zug {event.atTurn}</span>
+                  </article>
+                );
+              })()
             ))}
           </div>
         </section>
@@ -1098,7 +1140,11 @@ export function MatchScreen(props: {
                 <div className="trade-side-head">
                   <span className="eyebrow">Du gibst</span>
                   <strong>{maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)}</strong>
-                  <span>Nur handelbare Rohstoffe mit passender Hafenrate sind wählbar.</span>
+                  <div className="trade-rate-row">
+                    <span className="trade-rate-pill">Aktive Rate: {maritimeRatePillLabel}</span>
+                    <span className="trade-rate-copy">{maritimeRateLabel}</span>
+                  </div>
+                  <span>{maritimeRateLabel}. Nur handelbare Rohstoffe mit passender Rate sind wählbar.</span>
                 </div>
                 <div className="trade-resource-grid-shell">
                   <TradeResourceCardGrid
@@ -1110,7 +1156,7 @@ export function MatchScreen(props: {
                         resource,
                         count,
                         disabled: count < ratio,
-                        meta: `${ratio}:1`
+                        meta: ratio === 4 ? "4:1 Bank" : `${ratio}:1 Hafen`
                       };
                     })}
                     onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
@@ -1123,7 +1169,7 @@ export function MatchScreen(props: {
                   min={maritimeRatio}
                   max={maritimeRatio}
                   fixed
-                  helper={`${maritimeRatio}:1 mit deiner aktuellen Hafenrate.`}
+                  helper={`${maritimeRatio}:1 mit deiner aktuell besten Hafenrate.`}
                   onChange={() => undefined}
                 />
               </article>
@@ -1219,26 +1265,26 @@ export function MatchScreen(props: {
                       <span className="player-connection-detail">{presence.detail}</span>
                     </div>
                   </div>
-                  <div className="player-card-head-side">
-                    <PlayerColorBadge color={player.color} label={renderPlayerColorLabel(player.color)} compact />
+                    <div className="player-card-head-side">
+                      <PlayerColorBadge color={player.color} label={renderPlayerColorLabel(player.color)} compact />
+                    </div>
                   </div>
-                </div>
                 <div className="player-stat-grid player-stat-grid-compact">
                   <PlayerStatCard label="VP" value={String(player.publicVictoryPoints)} />
                   <PlayerStatCard label="Karten" value={String(player.resourceCount)} />
                   <PlayerStatCard label="Straßen" value={String(player.roadsBuilt)} />
                   <PlayerStatCard label="Ritter" value={String(player.playedKnightCount)} />
                 </div>
-                <div className="status-strip player-award-strip">
-                  {player.id === props.match.currentPlayerId ? (
-                    <span className={`status-pill player-badge player-accent-${player.color}`}>Am Zug</span>
-                  ) : null}
-                  {player.hasLongestRoad ? <span className="status-pill">Längste Straße</span> : null}
-                  {player.hasLargestArmy ? <span className="status-pill">Größte Rittermacht</span> : null}
-                  {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
-                    <span className="status-pill muted">Keine Auszeichnung</span>
-                  ) : null}
-                </div>
+                  <div className="status-strip player-award-strip">
+                    {player.id === props.match.currentPlayerId ? (
+                      <span className={`status-pill player-badge player-accent-${player.color}`}>Am Zug</span>
+                    ) : null}
+                    {player.hasLongestRoad ? <span className="status-pill award-pill is-longest-road">Längste Straße +2 VP</span> : null}
+                    {player.hasLargestArmy ? <span className="status-pill award-pill is-largest-army">Größte Rittermacht +2 VP</span> : null}
+                    {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
+                      <span className="status-pill muted">Keine Auszeichnung</span>
+                    ) : null}
+                  </div>
               </article>
             );
           })}
@@ -1364,7 +1410,7 @@ export function MatchScreen(props: {
                 >
                   <span className="board-legend-toggle-copy">
                     <strong>Legende</strong>
-                    <span>Rohstoffe und Brett-Hinweise</span>
+                    <span>Rohstoffe, Häfen und Brett-Hinweise</span>
                   </span>
                   <span className="board-legend-toggle-icon" aria-hidden="true">
                     {boardLegendOpen ? "-" : "+"}
@@ -1375,6 +1421,10 @@ export function MatchScreen(props: {
                     <div className="board-legend-section">
                       <span className="eyebrow">Spielfeldfarben</span>
                       {resourceLegendList}
+                    </div>
+                    <div className="board-legend-section">
+                      <span className="eyebrow">Häfen</span>
+                      {harborLegendList}
                     </div>
                     <div className="board-legend-section">
                       <span className="eyebrow">Brett-Hinweise</span>
@@ -2123,6 +2173,112 @@ function createEventCue(
         scale: "medium"
       };
     }
+    case "longest_road_awarded": {
+      const edgeIds = getPayloadStringArray(event.payload, "edgeIds");
+      const length = getPayloadNumber(event.payload, "length");
+      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+      const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
+      const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
+
+      return {
+        key: `event-${event.id}-longest-road-${event.byPlayerId ?? "unknown"}`,
+        mode: "event",
+        title: `${actorName} übernimmt die Längste Straße`,
+        detail: previousHolderName
+          ? `Die hervorgehobenen Straßen geben ${actorName} jetzt 2 öffentliche Siegpunkte. Zuvor hatte ${previousHolderName} die Auszeichnung.`
+          : `Die hervorgehobenen Straßen geben ${actorName} jetzt 2 öffentliche Siegpunkte.`,
+        badges: [
+          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
+          ...(previousPlayerId ? [{ label: previousHolderName ?? "Voriger Inhaber", playerId: previousPlayerId, tone: "player" as const }] : []),
+          ...(length !== null ? [{ label: `Länge: ${length}` }] : []),
+          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
+          { label: "+2 VP", tone: "warning" as const }
+        ],
+        vertexIds: [],
+        edgeIds,
+        tileIds: [],
+        scale: edgeIds.length > 4 ? "wide" : "medium"
+      };
+    }
+    case "longest_road_lost": {
+      const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
+      const length = getPayloadNumber(event.payload, "length");
+      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+      const nextHolderName = nextPlayerId ? getPlayerName(match, nextPlayerId) : null;
+
+      return {
+        key: `event-${event.id}-longest-road-lost-${event.byPlayerId ?? "unknown"}`,
+        mode: "event",
+        title: `${actorName} verliert die Längste Straße`,
+        detail: nextHolderName
+          ? `${nextHolderName} bekommt die Auszeichnung und die 2 öffentlichen Siegpunkte.`
+          : "Die Auszeichnung ist aktuell bei niemandem und die 2 öffentlichen Siegpunkte fallen weg.",
+        badges: [
+          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
+          ...(nextPlayerId ? [{ label: nextHolderName ?? "Neuer Inhaber", playerId: nextPlayerId, tone: "player" as const }] : []),
+          ...(length !== null ? [{ label: `Eigene Länge: ${length}` }] : []),
+          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
+          { label: "-2 VP", tone: "warning" as const }
+        ],
+        vertexIds: [],
+        edgeIds: [],
+        tileIds: [],
+        scale: "wide"
+      };
+    }
+    case "largest_army_awarded": {
+      const vertexIds = getPayloadStringArray(event.payload, "vertexIds");
+      const knightCount = getPayloadNumber(event.payload, "knightCount");
+      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+      const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
+      const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
+
+      return {
+        key: `event-${event.id}-largest-army-${event.byPlayerId ?? "unknown"}`,
+        mode: "event",
+        title: `${actorName} übernimmt die Größte Rittermacht`,
+        detail: previousHolderName
+          ? `${actorName} erhält dadurch 2 öffentliche Siegpunkte. Zuvor hielt ${previousHolderName} die Auszeichnung.`
+          : `${actorName} erhält dadurch 2 öffentliche Siegpunkte.`,
+        badges: [
+          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
+          ...(previousPlayerId ? [{ label: previousHolderName ?? "Voriger Inhaber", playerId: previousPlayerId, tone: "player" as const }] : []),
+          ...(knightCount !== null ? [{ label: `Ritter: ${knightCount}` }] : []),
+          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
+          { label: "+2 VP", tone: "warning" as const }
+        ],
+        vertexIds,
+        edgeIds: [],
+        tileIds: [],
+        scale: vertexIds.length > 2 ? "wide" : "medium"
+      };
+    }
+    case "largest_army_lost": {
+      const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
+      const knightCount = getPayloadNumber(event.payload, "knightCount");
+      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+      const nextHolderName = nextPlayerId ? getPlayerName(match, nextPlayerId) : null;
+
+      return {
+        key: `event-${event.id}-largest-army-lost-${event.byPlayerId ?? "unknown"}`,
+        mode: "event",
+        title: `${actorName} verliert die Größte Rittermacht`,
+        detail: nextHolderName
+          ? `${nextHolderName} bekommt die Auszeichnung und die 2 öffentlichen Siegpunkte.`
+          : "Die Auszeichnung ist aktuell bei niemandem und die 2 öffentlichen Siegpunkte fallen weg.",
+        badges: [
+          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
+          ...(nextPlayerId ? [{ label: nextHolderName ?? "Neuer Inhaber", playerId: nextPlayerId, tone: "player" as const }] : []),
+          ...(knightCount !== null ? [{ label: `Ritter: ${knightCount}` }] : []),
+          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
+          { label: "-2 VP", tone: "warning" as const }
+        ],
+        vertexIds: [],
+        edgeIds: [],
+        tileIds: [],
+        scale: "wide"
+      };
+    }
     case "robber_moved": {
       const tileId = getPayloadString(event.payload, "tileId");
       if (!tileId) {
@@ -2283,6 +2439,30 @@ function getPlayerPresenceState(player: MatchSnapshot["players"][number], now: n
   };
 }
 
+function getMaritimeRateLabel(
+  match: MatchSnapshot,
+  playerId: string,
+  resource: Resource,
+  ratio: number
+): string {
+  const ownedPortTypes = new Set<PortType>();
+  for (const vertex of match.board.vertices) {
+    if (vertex.building?.ownerId === playerId && vertex.portType) {
+      ownedPortTypes.add(vertex.portType);
+    }
+  }
+
+  if (ratio === 2 && ownedPortTypes.has(resource)) {
+    return `${renderResourceLabel(resource)}-Hafen aktiv`;
+  }
+
+  if (ratio === 3 && ownedPortTypes.has("generic")) {
+    return "3:1-Hafen aktiv";
+  }
+
+  return "4:1-Banktausch";
+}
+
 function formatCountdown(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -2295,9 +2475,47 @@ function getPayloadString(payload: Record<string, unknown>, key: string): string
   return typeof value === "string" ? value : null;
 }
 
-function getEventSummary(event: MatchSnapshot["eventLog"][number]): string | null {
+function getEventSummary(match: MatchSnapshot, event: MatchSnapshot["eventLog"][number]): string | null {
   if (event.type === "starting_player_rolled") {
     return getPayloadString(event.payload, "summary");
+  }
+
+  if (event.type === "longest_road_awarded") {
+    const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
+    const length = getPayloadNumber(event.payload, "length");
+    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+    const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
+    return previousHolderName
+      ? `${getPlayerName(match, event.byPlayerId)} übernimmt mit Länge ${length ?? "?"} die Längste Straße von ${previousHolderName} und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`
+      : `${getPlayerName(match, event.byPlayerId)} erhält mit Länge ${length ?? "?"} die Längste Straße und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`;
+  }
+
+  if (event.type === "longest_road_lost") {
+    const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
+    const length = getPayloadNumber(event.payload, "length");
+    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+    return nextPlayerId
+      ? `${getPlayerName(match, event.byPlayerId)} verliert die Längste Straße bei Länge ${length ?? "?"}; ${getPlayerName(match, nextPlayerId)} übernimmt. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`
+      : `${getPlayerName(match, event.byPlayerId)} verliert die Längste Straße; die Auszeichnung ist aktuell bei niemandem. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`;
+  }
+
+  if (event.type === "largest_army_awarded") {
+    const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
+    const knightCount = getPayloadNumber(event.payload, "knightCount");
+    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+    const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
+    return previousHolderName
+      ? `${getPlayerName(match, event.byPlayerId)} übernimmt mit ${knightCount ?? "?"} Rittern die Größte Rittermacht von ${previousHolderName} und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`
+      : `${getPlayerName(match, event.byPlayerId)} erhält mit ${knightCount ?? "?"} Rittern die Größte Rittermacht und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`;
+  }
+
+  if (event.type === "largest_army_lost") {
+    const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
+    const knightCount = getPayloadNumber(event.payload, "knightCount");
+    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+    return nextPlayerId
+      ? `${getPlayerName(match, event.byPlayerId)} verliert die Größte Rittermacht bei ${knightCount ?? "?"} Rittern; ${getPlayerName(match, nextPlayerId)} übernimmt. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`
+      : `${getPlayerName(match, event.byPlayerId)} verliert die Größte Rittermacht; die Auszeichnung ist aktuell bei niemandem. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`;
   }
 
   return null;
