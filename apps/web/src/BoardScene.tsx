@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
 import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
-import { TILE_COLORS, type BoardVisualProfile } from "./boardVisuals";
+import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
 import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
 
@@ -29,7 +29,7 @@ export interface BoardFocusCue {
 
 interface BoardSceneProps {
   snapshot: MatchSnapshot;
-  visualProfile: BoardVisualProfile;
+  visualSettings: BoardVisualSettings;
   interactionMode: InteractionMode;
   selectedRoadEdges: string[];
   focusCue: BoardFocusCue | null;
@@ -149,6 +149,17 @@ interface ReliefAnchorOptions {
   candidatesPerAnchor?: number;
 }
 
+interface TileDecorationOptions {
+  includeProps: boolean;
+  includeTerrainRelief: boolean;
+}
+
+interface TexturedTileOptions extends TileDecorationOptions {
+  animatedMaterials: UltraTileOverlayMaterial[];
+  reducedMotion: boolean;
+  animateOverlay: boolean;
+}
+
 const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
 
 function createBoardStructureKey(board: MatchSnapshot["board"]): string {
@@ -182,7 +193,7 @@ type UltraTileOverlayMaterial = THREE.ShaderMaterial & {
   };
 };
 
-type UltraTileReliefMode = "none" | "props" | "full";
+type UltraTileReliefMode = "none" | "props" | "terrain" | "full";
 type ReliefPropLayer = "hero" | "accent" | "detail";
 
 function getReliefPropScaleBoost(
@@ -741,32 +752,28 @@ export function BoardScene(props: BoardSceneProps) {
     const tilesById = new Map(props.snapshot.board.tiles.map((tile) => [tile.id, tile]));
     const edgesById = new Map(props.snapshot.board.edges.map((edge) => [edge.id, edge]));
     const texturedTerrainBundles = new Map<Resource | "desert", UltraTerrainTextureBundle>();
+    const useTexturedTiles = props.visualSettings.textures;
+    const includeProps = props.visualSettings.props;
+    const includeTerrainRelief = props.visualSettings.terrainRelief;
+    const animateOverlay = useTexturedTiles && props.visualSettings.terrainMotion;
 
     for (const tile of props.snapshot.board.tiles) {
-      if (props.visualProfile !== "modern" && !texturedTerrainBundles.has(tile.resource)) {
+      if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
         texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
       }
       const base =
-        props.visualProfile === "modern"
-          ? createModernTileMesh(tile, verticesById, false)
-          : props.visualProfile === "ultra"
-            ? createUltraTileMesh(
-                tile,
-                verticesById,
-                false,
-                texturedTerrainBundles.get(tile.resource)!,
-                ultraAnimatedMaterialsRef.current,
-                reducedMotionRef.current,
-                true,
-                "full"
-              )
-            : createTexturedTileMesh(
-                tile,
-                verticesById,
-                false,
-                texturedTerrainBundles.get(tile.resource)!,
-                props.visualProfile === "fancy"
-              );
+        useTexturedTiles
+          ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, {
+              includeProps,
+              includeTerrainRelief,
+              animatedMaterials: ultraAnimatedMaterialsRef.current,
+              reducedMotion: reducedMotionRef.current,
+              animateOverlay
+            })
+          : createModernTileMesh(tile, verticesById, false, {
+              includeProps,
+              includeTerrainRelief
+            });
       base.position.set(tile.x, 0, tile.y);
       applyTileMeshShadowState(base);
       group.add(base);
@@ -801,7 +808,13 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
-  }, [boardStructureKey, props.visualProfile]);
+  }, [
+    boardStructureKey,
+    props.visualSettings.props,
+    props.visualSettings.terrainMotion,
+    props.visualSettings.terrainRelief,
+    props.visualSettings.textures
+  ]);
 
   useEffect(() => {
     const boardRoot = boardGroupRef.current;
@@ -968,7 +981,7 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
-  }, [boardStructureKey, props.focusCue, props.interactionMode, props.selectedRoadEdges, props.snapshot, props.visualProfile]);
+  }, [boardStructureKey, props.focusCue, props.interactionMode, props.selectedRoadEdges, props.snapshot]);
 
   useEffect(() => {
     const camera = cameraRef.current;
@@ -1144,7 +1157,11 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
 function createModernTileMesh(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
-  active: boolean
+  active: boolean,
+  options: TileDecorationOptions = {
+    includeProps: false,
+    includeTerrainRelief: false
+  }
 ): THREE.Group {
   const tileTopColor = TILE_COLORS[tile.resource];
   const tileSideColor = getTileOuterSideColor(tile.resource);
@@ -1213,6 +1230,7 @@ function createModernTileMesh(
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh);
   tileGroup.add(insetMesh);
+  appendTileDecorations(tileGroup, tile, active, options);
   return tileGroup;
 }
 
@@ -1221,7 +1239,7 @@ function createTexturedTileMesh(
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
   active: boolean,
   terrainBundle: UltraTerrainTextureBundle,
-  includeProps: boolean
+  options: TexturedTileOptions
 ): THREE.Group {
   const outerShape = createTileShape(tile, verticesById);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
@@ -1296,30 +1314,49 @@ function createTexturedTileMesh(
   const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
   overlayGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(overlayGeometry);
-  const overlay = new THREE.Mesh(
-    overlayGeometry,
-    new THREE.MeshBasicMaterial({
-      color: terrainBundle.appearance.overlayBase,
-      alphaMap: terrainBundle.overlayMask,
-      transparent: true,
-      opacity: tile.resource === "grain" ? 0.2 : 0.12,
-      depthWrite: false
-    })
+  const overlayMaterial = createUltraTileOverlayMaterial(
+    terrainBundle,
+    active,
+    options.reducedMotion,
+    options.animateOverlay
   );
+  if (options.animateOverlay) {
+    options.animatedMaterials.push(overlayMaterial);
+  }
+  const overlay = new THREE.Mesh(overlayGeometry, overlayMaterial);
   overlay.position.y = TILE_HEIGHT + 0.03;
+  overlay.renderOrder = 4;
 
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh, insetMesh, overlay);
-  if (includeProps) {
-    const propGroup = createLandingFancyTileProps(tile.resource);
-    nudgeFancyPropsAwayFromTileCenter(propGroup);
-    propGroup.position.y = TILE_HEIGHT + 0.03;
-    propGroup.traverse((entry) => {
-      entry.userData.castTileShadow = true;
-    });
-    tileGroup.add(propGroup);
-  }
+  appendTileDecorations(tileGroup, tile, active, options);
   return tileGroup;
+}
+
+function appendTileDecorations(
+  tileGroup: THREE.Group,
+  tile: MatchSnapshot["board"]["tiles"][number],
+  active: boolean,
+  options: TileDecorationOptions
+): void {
+  if (options.includeTerrainRelief) {
+    const reliefMode: Exclude<UltraTileReliefMode, "none"> = options.includeProps ? "full" : "terrain";
+    const reliefGroup = createUltraTerrainRelief(tile, active, reliefMode);
+    reliefGroup.position.y = TILE_HEIGHT + 0.006;
+    tileGroup.add(reliefGroup);
+  }
+
+  if (!options.includeProps) {
+    return;
+  }
+
+  const propGroup = createLandingFancyTileProps(tile.resource);
+  nudgeFancyPropsAwayFromTileCenter(propGroup);
+  propGroup.position.y = TILE_HEIGHT + 0.03;
+  propGroup.traverse((entry) => {
+    entry.userData.castTileShadow = true;
+  });
+  tileGroup.add(propGroup);
 }
 
 function nudgeFancyPropsAwayFromTileCenter(group: THREE.Group): void {
@@ -1481,7 +1518,7 @@ function buildLumberRelief(
   const occupied = createReliefOccupancy(1.62);
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full") {
+  if (reliefMode === "full" || reliefMode === "terrain") {
     const anchors = createReliefAnchors(tile, 7, 1.88, 3.26, 0.82, 1.2, "forest-main", {
       occupied,
       minGap: 0.42,
@@ -1520,6 +1557,10 @@ function buildLumberRelief(
       accent.rotation.y = anchor.angle;
       group.add(accent);
     }
+  }
+
+  if (reliefMode === "terrain") {
+    return;
   }
 
   const fillAnchors = createReliefAnchors(
@@ -1561,7 +1602,7 @@ function buildOreRelief(
   const occupied = createReliefOccupancy(1.7);
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full") {
+  if (reliefMode === "full" || reliefMode === "terrain") {
     const anchors = createReliefAnchors(tile, 6, 1.96, 3.18, 0.94, 1.36, "ore-main", {
       occupied,
       minGap: 0.5,
@@ -1610,6 +1651,10 @@ function buildOreRelief(
     }
   }
 
+  if (reliefMode === "terrain") {
+    return;
+  }
+
   const fillAnchors = createReliefAnchors(
     tile,
     reliefMode === "full" ? 12 : 8,
@@ -1650,7 +1695,7 @@ function buildGrainRelief(
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full") {
+  if (reliefMode === "full" || reliefMode === "terrain") {
     const anchors = createReliefAnchors(tile, 7, 1.72, 3.02, 0.82, 1.12, "grain-main", {
       occupied,
       minGap: 0.34,
@@ -1665,6 +1710,10 @@ function buildGrainRelief(
       patch.rotation.y = anchor.angle + Math.PI / 2 + (index % 2 === 0 ? 0.12 : -0.08);
       group.add(patch);
     }
+  }
+
+  if (reliefMode === "terrain") {
+    return;
   }
 
   const heroAnchors = createReliefAnchors(tile, 2, 2.02, 2.78, 0.68 * heroScaleBoost, 0.88 * heroScaleBoost, "grain-hero", {
@@ -1751,7 +1800,7 @@ function buildBrickRelief(
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full") {
+  if (reliefMode === "full" || reliefMode === "terrain") {
     const anchors = createReliefAnchors(tile, 7, 1.8, 3.08, 0.84, 1.12, "brick-main", {
       occupied,
       minGap: 0.36,
@@ -1766,6 +1815,10 @@ function buildBrickRelief(
       mesa.rotation.y = anchor.angle;
       group.add(mesa);
     }
+  }
+
+  if (reliefMode === "terrain") {
+    return;
   }
 
   const heroAnchors = createReliefAnchors(tile, 2, 2.0, 2.74, 0.62 * heroScaleBoost, 0.84 * heroScaleBoost, "brick-hero", {
@@ -1852,7 +1905,7 @@ function buildWoolRelief(
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full") {
+  if (reliefMode === "full" || reliefMode === "terrain") {
     const anchors = createReliefAnchors(tile, 8, 1.82, 3.12, 0.86, 1.16, "wool-main", {
       occupied,
       minGap: 0.36,
@@ -1867,6 +1920,10 @@ function buildWoolRelief(
       tuft.rotation.y = anchor.angle + (index % 2 === 0 ? 0.12 : -0.08);
       group.add(tuft);
     }
+  }
+
+  if (reliefMode === "terrain") {
+    return;
   }
 
   const heroAnchors = createReliefAnchors(tile, 2, 1.92, 2.62, 0.72 * heroScaleBoost, 0.94 * heroScaleBoost, "wool-hero", {
@@ -1953,7 +2010,7 @@ function buildDesertRelief(
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full") {
+  if (reliefMode === "full" || reliefMode === "terrain") {
     const anchors = createReliefAnchors(tile, 7, 1.84, 3.08, 0.9, 1.18, "desert-main", {
       occupied,
       minGap: 0.38,
@@ -1968,6 +2025,10 @@ function buildDesertRelief(
       dune.rotation.y = anchor.angle;
       group.add(dune);
     }
+  }
+
+  if (reliefMode === "terrain") {
+    return;
   }
 
   const heroAnchors = createReliefAnchors(tile, 2, 1.98, 2.74, 0.64 * heroScaleBoost, 0.88 * heroScaleBoost, "desert-hero", {

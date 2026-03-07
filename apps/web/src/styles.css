@@ -417,9 +417,9 @@ select {
   inline-size: 100%;
 }
 
-.profile-board-segmented {
-  inline-size: 100%;
-  grid-auto-columns: minmax(0, 1fr);
+.profile-board-toggle-grid {
+  display: grid;
+  gap: var(--gap-stack-tight);
 }
 
 .profile-status {

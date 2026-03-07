@@ -1,13 +1,13 @@
 import type { AuthUser } from "@hexagonia/shared";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
-import type { BoardVisualProfile } from "../../boardVisuals";
+import type { BoardVisualSettings } from "../../boardVisuals";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel } from "../../ui";
 import { ProfileMenu } from "./ProfileMenu";
 import hexaLogo from "../../../../../assets/img/hexa.png";
 
 export function AppHeader(props: {
-  boardVisualProfile: BoardVisualProfile;
+  boardVisualSettings: BoardVisualSettings;
   session: AuthUser | null | undefined;
   connectionState: ConnectionState;
   connectionStatusText: string;
@@ -24,7 +24,7 @@ export function AppHeader(props: {
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onCopyRoomCode?: () => void | Promise<void>;
-  onBoardVisualProfileChange: (profile: BoardVisualProfile) => void;
+  onBoardVisualSettingsChange: (settings: BoardVisualSettings) => void;
   onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
@@ -61,7 +61,7 @@ export function AppHeader(props: {
         </div>
         {props.session ? (
           <ProfileMenu
-            boardVisualProfile={props.boardVisualProfile}
+            boardVisualSettings={props.boardVisualSettings}
             connectionState={props.connectionState}
             musicPaused={props.musicPaused}
             musicPlaybackMode={props.musicPlaybackMode}
@@ -69,7 +69,7 @@ export function AppHeader(props: {
             selectedMusicTrackId={props.selectedMusicTrackId}
             session={props.session}
             soundMuted={props.soundMuted}
-            onBoardVisualProfileChange={props.onBoardVisualProfileChange}
+            onBoardVisualSettingsChange={props.onBoardVisualSettingsChange}
             onMusicPlaybackModeChange={props.onMusicPlaybackModeChange}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}

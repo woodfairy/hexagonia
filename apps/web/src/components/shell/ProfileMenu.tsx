@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@hexagonia/shared";
 import { uiSoundManager, type MusicPlaybackMode, type MusicTrack } from "../../audio/uiSoundManager";
-import type { BoardVisualProfile } from "../../boardVisuals";
+import type { BoardVisualSettings } from "../../boardVisuals";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
 
 export function ProfileMenu(props: {
-  boardVisualProfile: BoardVisualProfile;
+  boardVisualSettings: BoardVisualSettings;
   session: AuthUser;
   connectionState: ConnectionState;
   soundMuted: boolean;
@@ -19,7 +19,7 @@ export function ProfileMenu(props: {
   onNavigateAdmin?: () => void;
   onCopyInviteLink?: () => void | Promise<void>;
   onCopyRoomCode?: () => void | Promise<void>;
-  onBoardVisualProfileChange: (profile: BoardVisualProfile) => void;
+  onBoardVisualSettingsChange: (settings: BoardVisualSettings) => void;
   onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
@@ -37,6 +37,12 @@ export function ProfileMenu(props: {
       : props.musicPlaybackMode === "cycle"
         ? `Alle ${props.musicTracks.length} Songs laufen nacheinander`
         : `${selectedMusicTrack?.name ?? "Kein Song"} in Dauerschleife`;
+  const toggleBoardVisualSetting = (setting: keyof BoardVisualSettings) => {
+    props.onBoardVisualSettingsChange({
+      ...props.boardVisualSettings,
+      [setting]: !props.boardVisualSettings[setting]
+    });
+  };
 
   useEffect(() => {
     if (!hasOpenStateChangedRef.current) {
@@ -117,40 +123,64 @@ export function ProfileMenu(props: {
             <div className="profile-board-panel">
               <div className="profile-music-copy">
                 <strong>Feldstil</strong>
-                <span>Modern ist der schnelle Flat-Look, Classic bringt Texturen, Fancy schaltet Props wie Schafe, Kakteen und Vogelscheuchen zu, Ultra aktiviert das volle 3D-Terrain.</span>
+                <span>Additiv statt Presets: Props bleiben aktiv, wenn du Texturen, 3D-Terrain oder Bewegung dazuschaltest.</span>
               </div>
-              <div className="segmented-control profile-board-segmented" role="group" aria-label="Feldstil">
+              <div className="profile-board-toggle-grid" role="group" aria-label="Feldstil">
                 <button
                   type="button"
-                  className={props.boardVisualProfile === "modern" ? "is-active" : ""}
-                  aria-pressed={props.boardVisualProfile === "modern"}
-                  onClick={() => props.onBoardVisualProfileChange("modern")}
+                  className={`menu-action menu-toggle-action ${props.boardVisualSettings.props ? "is-active" : "is-muted"}`}
+                  aria-pressed={props.boardVisualSettings.props}
+                  onClick={() => toggleBoardVisualSetting("props")}
                 >
-                  Modern
+                  <span className="menu-toggle-copy">
+                    <strong>Props</strong>
+                    <span>Schafe, Kakteen, Scheunen, Ziegelstapel und andere Feldobjekte.</span>
+                  </span>
+                  <span className={`status-pill ${props.boardVisualSettings.props ? "" : "muted"}`}>
+                    {props.boardVisualSettings.props ? "An" : "Aus"}
+                  </span>
                 </button>
                 <button
                   type="button"
-                  className={props.boardVisualProfile === "classic" ? "is-active" : ""}
-                  aria-pressed={props.boardVisualProfile === "classic"}
-                  onClick={() => props.onBoardVisualProfileChange("classic")}
+                  className={`menu-action menu-toggle-action ${props.boardVisualSettings.textures ? "is-active" : "is-muted"}`}
+                  aria-pressed={props.boardVisualSettings.textures}
+                  onClick={() => toggleBoardVisualSetting("textures")}
                 >
-                  Classic
+                  <span className="menu-toggle-copy">
+                    <strong>Texturen</strong>
+                    <span>Detaillierte Boden- und Oberflaechenstrukturen auf den Feldern.</span>
+                  </span>
+                  <span className={`status-pill ${props.boardVisualSettings.textures ? "" : "muted"}`}>
+                    {props.boardVisualSettings.textures ? "An" : "Aus"}
+                  </span>
                 </button>
                 <button
                   type="button"
-                  className={props.boardVisualProfile === "fancy" ? "is-active" : ""}
-                  aria-pressed={props.boardVisualProfile === "fancy"}
-                  onClick={() => props.onBoardVisualProfileChange("fancy")}
+                  className={`menu-action menu-toggle-action ${props.boardVisualSettings.terrainRelief ? "is-active" : "is-muted"}`}
+                  aria-pressed={props.boardVisualSettings.terrainRelief}
+                  onClick={() => toggleBoardVisualSetting("terrainRelief")}
                 >
-                  Fancy
+                  <span className="menu-toggle-copy">
+                    <strong>3D-Terrain</strong>
+                    <span>Berge, Baume, Duenen und andere Hoehenformen kommen oben drauf.</span>
+                  </span>
+                  <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>
+                    {props.boardVisualSettings.terrainRelief ? "An" : "Aus"}
+                  </span>
                 </button>
                 <button
                   type="button"
-                  className={props.boardVisualProfile === "ultra" ? "is-active" : ""}
-                  aria-pressed={props.boardVisualProfile === "ultra"}
-                  onClick={() => props.onBoardVisualProfileChange("ultra")}
+                  className={`menu-action menu-toggle-action ${props.boardVisualSettings.terrainMotion ? "is-active" : "is-muted"}`}
+                  aria-pressed={props.boardVisualSettings.terrainMotion}
+                  onClick={() => toggleBoardVisualSetting("terrainMotion")}
                 >
-                  Ultra
+                  <span className="menu-toggle-copy">
+                    <strong>Bewegung</strong>
+                    <span>Subtile Shader-Bewegung. Sichtbar nur zusammen mit aktivierten Texturen.</span>
+                  </span>
+                  <span className={`status-pill ${props.boardVisualSettings.terrainMotion ? "" : "muted"}`}>
+                    {props.boardVisualSettings.terrainMotion ? "An" : "Aus"}
+                  </span>
                 </button>
               </div>
             </div>

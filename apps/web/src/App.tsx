@@ -42,10 +42,10 @@ import {
 import { bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
 import type { InteractionMode } from "./BoardScene";
 import {
-  type BoardVisualProfile,
-  resolveInitialBoardVisualProfile,
-  BOARD_VISUAL_PROFILE_STORAGE_KEY,
-  serializeBoardVisualProfile
+  type BoardVisualSettings,
+  resolveInitialBoardVisualSettings,
+  BOARD_VISUAL_SETTINGS_STORAGE_KEY,
+  serializeBoardVisualSettings
 } from "./boardVisuals";
 import { AppHeader } from "./components/shell/AppHeader";
 import { ToastStack, type ToastMessage } from "./components/shell/ToastStack";
@@ -114,7 +114,7 @@ export function App() {
   const [selectedMusicTrackId, setSelectedMusicTrackId] = useState(() => uiSoundManager.getSelectedMusicTrackId());
   const [musicPaused, setMusicPaused] = useState(() => uiSoundManager.isMusicPaused());
   const [musicPlaybackMode, setMusicPlaybackMode] = useState(() => uiSoundManager.getMusicPlaybackMode());
-  const [boardVisualProfile, setBoardVisualProfile] = useState<BoardVisualProfile>(() => resolveInitialBoardVisualProfile());
+  const [boardVisualSettings, setBoardVisualSettings] = useState<BoardVisualSettings>(() => resolveInitialBoardVisualSettings());
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState({
     username: "",
@@ -1189,10 +1189,10 @@ export function App() {
     void uiSoundManager.setMusicPlaybackMode(nextMode);
   }, []);
 
-  const handleBoardVisualProfileChange = useCallback((nextProfile: BoardVisualProfile) => {
-    setBoardVisualProfile(nextProfile);
+  const handleBoardVisualSettingsChange = useCallback((nextSettings: BoardVisualSettings) => {
+    setBoardVisualSettings(nextSettings);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(BOARD_VISUAL_PROFILE_STORAGE_KEY, serializeBoardVisualProfile(nextProfile));
+      window.localStorage.setItem(BOARD_VISUAL_SETTINGS_STORAGE_KEY, serializeBoardVisualSettings(nextSettings));
     }
   }, []);
 
@@ -1815,7 +1815,7 @@ export function App() {
   return (
     <main className={`app-shell ${activeScreen === "match" ? "is-match-screen" : ""}`.trim()}>
       <AppHeader
-        boardVisualProfile={boardVisualProfile}
+        boardVisualSettings={boardVisualSettings}
         connectionState={connectionState}
         connectionStatusText={status}
         eyebrow={displayEyebrow}
@@ -1831,7 +1831,7 @@ export function App() {
         onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
         onNavigateHome={() => navigateTo({ kind: "home" })}
         onSelectMusicTrack={handleSelectMusicTrack}
-        onBoardVisualProfileChange={handleBoardVisualProfileChange}
+        onBoardVisualSettingsChange={handleBoardVisualSettingsChange}
         onToggleSoundMuted={handleToggleSoundMuted}
         onToggleMusicPaused={handleToggleMusicPaused}
         {...headerAdminProps}
@@ -1896,7 +1896,7 @@ export function App() {
         {activeScreen === "match" && session ? (
           match ? (
             <MatchScreen
-              boardVisualProfile={boardVisualProfile}
+              boardVisualSettings={boardVisualSettings}
               interactionMode={interactionMode}
               maritimeForm={maritimeForm}
               match={match}
