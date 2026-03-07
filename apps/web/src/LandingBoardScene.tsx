@@ -54,6 +54,12 @@ const TILE_COLORS: Record<Resource | "desert", string> = {
   wool: "#a8cc79",
   desert: "#ccb07b"
 };
+const SHOWCASE_PLAYER_COLORS = {
+  red: "#d75a4a",
+  blue: "#4f78d7",
+  orange: "#eb8e47",
+  green: "#53b978"
+} as const;
 
 const TILE_HEIGHT = 1.18;
 const BUILT_ROAD_RADIUS = 0.24;
@@ -454,8 +460,11 @@ function createShowcaseBoard(): ShowcaseBoard {
   const eastTile = tilesByCoord.get("1:0");
   const southWestTile = tilesByCoord.get("-1:1");
   const southTile = tilesByCoord.get("0:1");
+  const northTile = tilesByCoord.get("0:-1");
+  const westTile = tilesByCoord.get("-1:0");
+  const farEastTile = tilesByCoord.get("2:0");
 
-  if (!centerTile || !eastTile || !southWestTile || !southTile) {
+  if (!centerTile || !eastTile || !southWestTile || !southTile || !northTile || !westTile || !farEastTile) {
     throw new Error("Landing showcase board is incomplete.");
   }
 
@@ -464,18 +473,32 @@ function createShowcaseBoard(): ShowcaseBoard {
     vertices: [...verticesById.values()],
     edges,
     roads: uniqueRoads([
-      { edgeId: centerTile.edgeIds[0]!, color: "#d75a4a" },
-      { edgeId: southTile.edgeIds[4]!, color: "#d75a4a" },
-      { edgeId: eastTile.edgeIds[2]!, color: "#d75a4a" },
-      { edgeId: centerTile.edgeIds[2]!, color: "#4f78d7" },
-      { edgeId: southWestTile.edgeIds[4]!, color: "#4f78d7" },
-      { edgeId: eastTile.edgeIds[4]!, color: "#eb8e47" },
-      { edgeId: eastTile.edgeIds[5]!, color: "#eb8e47" }
+      { edgeId: centerTile.edgeIds[0]!, color: SHOWCASE_PLAYER_COLORS.red },
+      { edgeId: centerTile.edgeIds[1]!, color: SHOWCASE_PLAYER_COLORS.red },
+      { edgeId: southTile.edgeIds[5]!, color: SHOWCASE_PLAYER_COLORS.red },
+      { edgeId: southTile.edgeIds[0]!, color: SHOWCASE_PLAYER_COLORS.red },
+      { edgeId: centerTile.edgeIds[2]!, color: SHOWCASE_PLAYER_COLORS.blue },
+      { edgeId: southWestTile.edgeIds[0]!, color: SHOWCASE_PLAYER_COLORS.blue },
+      { edgeId: southWestTile.edgeIds[1]!, color: SHOWCASE_PLAYER_COLORS.blue },
+      { edgeId: southWestTile.edgeIds[4]!, color: SHOWCASE_PLAYER_COLORS.blue },
+      { edgeId: eastTile.edgeIds[4]!, color: SHOWCASE_PLAYER_COLORS.orange },
+      { edgeId: eastTile.edgeIds[5]!, color: SHOWCASE_PLAYER_COLORS.orange },
+      { edgeId: farEastTile.edgeIds[0]!, color: SHOWCASE_PLAYER_COLORS.orange },
+      { edgeId: farEastTile.edgeIds[1]!, color: SHOWCASE_PLAYER_COLORS.orange },
+      { edgeId: northTile.edgeIds[0]!, color: SHOWCASE_PLAYER_COLORS.green },
+      { edgeId: northTile.edgeIds[1]!, color: SHOWCASE_PLAYER_COLORS.green },
+      { edgeId: westTile.edgeIds[2]!, color: SHOWCASE_PLAYER_COLORS.green },
+      { edgeId: westTile.edgeIds[3]!, color: SHOWCASE_PLAYER_COLORS.green }
     ]),
     buildings: [
-      { vertexId: centerTile.vertexIds[1]!, type: "city", color: "#d75a4a" },
-      { vertexId: centerTile.vertexIds[3]!, type: "settlement", color: "#4f78d7" },
-      { vertexId: eastTile.vertexIds[5]!, type: "settlement", color: "#eb8e47" }
+      { vertexId: centerTile.vertexIds[1]!, type: "city", color: SHOWCASE_PLAYER_COLORS.red },
+      { vertexId: southTile.vertexIds[1]!, type: "settlement", color: SHOWCASE_PLAYER_COLORS.red },
+      { vertexId: centerTile.vertexIds[3]!, type: "settlement", color: SHOWCASE_PLAYER_COLORS.blue },
+      { vertexId: southWestTile.vertexIds[2]!, type: "city", color: SHOWCASE_PLAYER_COLORS.blue },
+      { vertexId: eastTile.vertexIds[5]!, type: "settlement", color: SHOWCASE_PLAYER_COLORS.orange },
+      { vertexId: farEastTile.vertexIds[1]!, type: "city", color: SHOWCASE_PLAYER_COLORS.orange },
+      { vertexId: northTile.vertexIds[1]!, type: "settlement", color: SHOWCASE_PLAYER_COLORS.green },
+      { vertexId: westTile.vertexIds[3]!, type: "city", color: SHOWCASE_PLAYER_COLORS.green }
     ]
   };
 }

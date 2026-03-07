@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ClientMessage, MatchSnapshot, PlayerColor, PortType, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
 import { createEmptyResourceMap, equalResourceMaps, hasResources, isEmptyResourceMap, RESOURCES, totalResources } from "@hexagonia/shared";
-import { BoardScene, TILE_COLORS, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { BoardScene, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { type BoardVisualProfile, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { formatPhase, getPlayerAccentClass, renderEventLabel, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
@@ -112,6 +113,7 @@ const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
 
 export function MatchScreen(props: {
+  boardVisualProfile: BoardVisualProfile;
   match: MatchSnapshot;
   room: RoomDetails | null;
   selfPlayer: MatchSnapshot["players"][number] | null;
@@ -1503,6 +1505,7 @@ export function MatchScreen(props: {
               onVertexSelect={props.onVertexSelect}
               selectedRoadEdges={props.selectedRoadEdges}
               snapshot={props.match}
+              visualProfile={props.boardVisualProfile}
             />
             {showIncomingTradeAlert && incomingTradeOffer ? (
               <TradeBanner

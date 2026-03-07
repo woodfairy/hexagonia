@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@hexagonia/shared";
 import { uiSoundManager, type MusicPlaybackMode, type MusicTrack } from "../../audio/uiSoundManager";
+import type { BoardVisualProfile } from "../../boardVisuals";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
 
 export function ProfileMenu(props: {
+  boardVisualProfile: BoardVisualProfile;
   session: AuthUser;
   connectionState: ConnectionState;
   soundMuted: boolean;
@@ -17,6 +19,7 @@ export function ProfileMenu(props: {
   onNavigateAdmin?: () => void;
   onCopyInviteLink?: () => void | Promise<void>;
   onCopyRoomCode?: () => void | Promise<void>;
+  onBoardVisualProfileChange: (profile: BoardVisualProfile) => void;
   onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
@@ -111,6 +114,30 @@ export function ProfileMenu(props: {
               </span>
               <span className={`status-pill ${props.soundMuted ? "muted" : ""}`}>{props.soundMuted ? "Aus" : "An"}</span>
             </button>
+            <div className="profile-board-panel">
+              <div className="profile-music-copy">
+                <strong>Feldstil</strong>
+                <span>Match-Board zwischen dem aktuellen Look und dem neuen Ultra-Terrain umschalten.</span>
+              </div>
+              <div className="segmented-control profile-board-segmented" role="group" aria-label="Feldstil">
+                <button
+                  type="button"
+                  className={props.boardVisualProfile === "modern" ? "is-active" : ""}
+                  aria-pressed={props.boardVisualProfile === "modern"}
+                  onClick={() => props.onBoardVisualProfileChange("modern")}
+                >
+                  Modern
+                </button>
+                <button
+                  type="button"
+                  className={props.boardVisualProfile === "ultra" ? "is-active" : ""}
+                  aria-pressed={props.boardVisualProfile === "ultra"}
+                  onClick={() => props.onBoardVisualProfileChange("ultra")}
+                >
+                  Ultra
+                </button>
+              </div>
+            </div>
             <div className="profile-music-panel">
               <div className="profile-music-copy">
                 <strong>Musikplayer</strong>

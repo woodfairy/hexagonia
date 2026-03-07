@@ -443,6 +443,13 @@ body.guest-landing-mode {
   max-inline-size: 76rem;
 }
 
+.landing-section-head + .landing-flow-grid,
+.landing-section-head + .landing-build-grid,
+.landing-section-head + .landing-mechanics-grid,
+.landing-access-copy + .landing-auth-panel {
+  margin-block-start: clamp(0.85rem, 2vw, 1.5rem);
+}
+
 .landing-flow-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -452,6 +459,8 @@ body.guest-landing-mode {
 .landing-mechanic-card,
 .landing-access-point {
   padding: 1.55rem;
+  gap: 0.9rem;
+  align-content: start;
 }
 
 .landing-flow-card strong,
@@ -473,6 +482,7 @@ body.guest-landing-mode {
 
 .landing-card-meta {
   color: var(--landing-cool);
+  margin-block-start: 0.15rem;
 }
 
 .landing-build-grid {
