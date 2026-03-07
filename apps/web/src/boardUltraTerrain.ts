@@ -49,7 +49,7 @@ export function createUltraTerrainTextureBundle(resource: TerrainResource): Ultr
     colorMap: createCanvasTexture(cached.colorCanvas, true),
     roughnessMap: createCanvasTexture(cached.roughnessCanvas, false),
     bumpMap: createCanvasTexture(cached.bumpCanvas, false),
-    overlayMask: createCanvasTexture(cached.overlayCanvas, false, cached.appearance.overlayScale)
+    overlayMask: createCanvasTexture(cached.overlayCanvas, false, cached.appearance.overlayScale, THREE.RepeatWrapping)
   };
 }
 
@@ -524,10 +524,15 @@ function drawBaseGradients(
   bumpContext.fillRect(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
 }
 
-function createCanvasTexture(canvas: HTMLCanvasElement, srgb: boolean, repeat = 1): THREE.CanvasTexture {
+function createCanvasTexture(
+  canvas: HTMLCanvasElement,
+  srgb: boolean,
+  repeat = 1,
+  wrapMode: THREE.Wrapping = THREE.ClampToEdgeWrapping
+): THREE.CanvasTexture {
   const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
+  texture.wrapS = wrapMode;
+  texture.wrapT = wrapMode;
   texture.repeat.set(repeat, repeat);
   texture.generateMipmaps = true;
   if (srgb) {
