@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@hexagonia/shared";
-import { uiSoundManager, type MusicTrack } from "../../audio/uiSoundManager";
+import { uiSoundManager, type MusicPlaybackMode, type MusicTrack } from "../../audio/uiSoundManager";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
 
@@ -11,11 +11,13 @@ export function ProfileMenu(props: {
   musicTracks: ReadonlyArray<MusicTrack>;
   selectedMusicTrackId: string | null;
   musicPaused: boolean;
+  musicPlaybackMode: MusicPlaybackMode;
   roomCode?: string;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onCopyInviteLink?: () => void | Promise<void>;
   onCopyRoomCode?: () => void | Promise<void>;
+  onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
   onToggleMusicPaused: () => void;
@@ -26,6 +28,12 @@ export function ProfileMenu(props: {
   const hasOpenStateChangedRef = useRef(false);
   const selectedMusicTrack =
     props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
+  const musicSummary =
+    props.musicTracks.length === 0
+      ? "Keine Songs in assets/songs gefunden"
+      : props.musicPlaybackMode === "cycle"
+        ? `Alle ${props.musicTracks.length} Songs laufen nacheinander`
+        : `${selectedMusicTrack?.name ?? "Kein Song"} in Dauerschleife`;
 
   useEffect(() => {
     if (!hasOpenStateChangedRef.current) {
@@ -106,10 +114,21 @@ export function ProfileMenu(props: {
             <div className="profile-music-panel">
               <div className="profile-music-copy">
                 <strong>Musikplayer</strong>
-                <span>{selectedMusicTrack ? `${selectedMusicTrack.name} in Dauerschleife` : "Keine Songs in assets/songs gefunden"}</span>
+                <span>{musicSummary}</span>
               </div>
               <label className="profile-music-select-shell">
-                <span>Song</span>
+                <span>Modus</span>
+                <select
+                  value={props.musicPlaybackMode}
+                  onChange={(event) => props.onMusicPlaybackModeChange(event.target.value as MusicPlaybackMode)}
+                  disabled={props.musicTracks.length === 0}
+                >
+                  <option value="single">Ein Song loopen</option>
+                  <option value="cycle">Alle Songs abwechselnd</option>
+                </select>
+              </label>
+              <label className="profile-music-select-shell">
+                <span>{props.musicPlaybackMode === "cycle" ? "Aktueller Song" : "Song"}</span>
                 <select
                   value={props.selectedMusicTrackId ?? ""}
                   onChange={(event) => props.onSelectMusicTrack(event.target.value)}
@@ -135,9 +154,17 @@ export function ProfileMenu(props: {
               >
                 <span className="menu-toggle-copy">
                   <strong>{props.musicPaused ? "Musik starten" : "Musik pausieren"}</strong>
-                  <span>{selectedMusicTrack ? selectedMusicTrack.name : "Keine Songs verfuegbar"}</span>
+                  <span>
+                    {props.musicPlaybackMode === "cycle"
+                      ? selectedMusicTrack
+                        ? `Gerade: ${selectedMusicTrack.name}`
+                        : "Keine Songs verfuegbar"
+                      : selectedMusicTrack?.name ?? "Keine Songs verfuegbar"}
+                  </span>
                 </span>
-                <span className={`status-pill ${props.musicPaused ? "muted" : ""}`}>{props.musicPaused ? "Pausiert" : "Loop"}</span>
+                <span className={`status-pill ${props.musicPaused ? "muted" : ""}`}>
+                  {props.musicPaused ? "Pausiert" : props.musicPlaybackMode === "cycle" ? "Playlist" : "Loop"}
+                </span>
               </button>
             </div>
             <button

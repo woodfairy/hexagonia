@@ -1,5 +1,5 @@
 import type { AuthUser } from "@hexagonia/shared";
-import type { MusicTrack } from "../../audio/uiSoundManager";
+import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel } from "../../ui";
 import { ProfileMenu } from "./ProfileMenu";
@@ -16,11 +16,13 @@ export function AppHeader(props: {
   musicTracks: ReadonlyArray<MusicTrack>;
   selectedMusicTrackId: string | null;
   musicPaused: boolean;
+  musicPlaybackMode: MusicPlaybackMode;
   roomCode?: string;
   onCopyInviteLink?: () => void | Promise<void>;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onCopyRoomCode?: () => void | Promise<void>;
+  onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
   onToggleMusicPaused: () => void;
@@ -58,10 +60,12 @@ export function AppHeader(props: {
           <ProfileMenu
             connectionState={props.connectionState}
             musicPaused={props.musicPaused}
+            musicPlaybackMode={props.musicPlaybackMode}
             musicTracks={props.musicTracks}
             selectedMusicTrackId={props.selectedMusicTrackId}
             session={props.session}
             soundMuted={props.soundMuted}
+            onMusicPlaybackModeChange={props.onMusicPlaybackModeChange}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}
             onSelectMusicTrack={props.onSelectMusicTrack}

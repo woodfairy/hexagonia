@@ -107,6 +107,7 @@ export function App() {
   const [soundMuted, setSoundMuted] = useState(() => uiSoundManager.isMuted());
   const [selectedMusicTrackId, setSelectedMusicTrackId] = useState(() => uiSoundManager.getSelectedMusicTrackId());
   const [musicPaused, setMusicPaused] = useState(() => uiSoundManager.isMusicPaused());
+  const [musicPlaybackMode, setMusicPlaybackMode] = useState(() => uiSoundManager.getMusicPlaybackMode());
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState({
     username: "",
@@ -272,6 +273,14 @@ export function App() {
     const cleanup = bindGlobalUiSounds();
     return cleanup;
   }, []);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    void uiSoundManager.enableMusicByDefault();
+  }, [session]);
 
   useEffect(() => {
     const onHashChange = () => setRoute(readRoute());
@@ -1134,20 +1143,28 @@ export function App() {
   const syncMusicPlayerState = useCallback(() => {
     setSelectedMusicTrackId(uiSoundManager.getSelectedMusicTrackId());
     setMusicPaused(uiSoundManager.isMusicPaused());
+    setMusicPlaybackMode(uiSoundManager.getMusicPlaybackMode());
   }, []);
+
+  useEffect(() => {
+    syncMusicPlayerState();
+    return uiSoundManager.subscribeToMusicState(syncMusicPlayerState);
+  }, [syncMusicPlayerState]);
 
   const handleSelectMusicTrack = useCallback(
     (trackId: string) => {
       void uiSoundManager.setMusicTrack(trackId);
-      syncMusicPlayerState();
     },
-    [syncMusicPlayerState]
+    []
   );
 
   const handleToggleMusicPaused = useCallback(() => {
     void uiSoundManager.toggleMusicPaused();
-    syncMusicPlayerState();
-  }, [syncMusicPlayerState]);
+  }, []);
+
+  const handleMusicPlaybackModeChange = useCallback((nextMode: "single" | "cycle") => {
+    void uiSoundManager.setMusicPlaybackMode(nextMode);
+  }, []);
 
   const handleAuthSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -1744,12 +1761,14 @@ export function App() {
         eyebrow={displayEyebrow}
         meta={displayMeta}
         musicPaused={musicPaused}
+        musicPlaybackMode={musicPlaybackMode}
         musicTracks={musicTracks}
         selectedMusicTrackId={selectedMusicTrackId}
         session={session}
         soundMuted={soundMuted}
         title={headerContext.title}
         onLogout={handleLogout}
+        onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
         onNavigateHome={() => navigateTo({ kind: "home" })}
         onSelectMusicTrack={handleSelectMusicTrack}
         onToggleSoundMuted={handleToggleSoundMuted}
