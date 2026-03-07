@@ -2321,6 +2321,7 @@ select:hover {
 .trade-side-card {
   display: grid;
   gap: var(--gap-stack);
+  overflow: hidden;
 }
 
 .trade-side-give {
@@ -3195,7 +3196,11 @@ select:hover {
   }
 
   .trade-resource-grid-shell {
-    padding-inline: 0;
+    padding-inline: 0.42rem;
+  }
+
+  .trade-resource-card-grid {
+    grid-template-columns: 1fr;
   }
 }
 
