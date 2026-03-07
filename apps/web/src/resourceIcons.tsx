@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { Resource } from "@hexagonia/shared";
+import type { PortType, Resource } from "@hexagonia/shared";
 
 export type TerrainResource = Resource | "desert";
 
@@ -10,6 +10,13 @@ const RESOURCE_ICON_PALETTE: Record<TerrainResource, { color: string; surface: s
   grain: { color: "#f0cb69", surface: "rgba(196, 160, 56, 0.24)" },
   wool: { color: "#eef9db", surface: "rgba(169, 203, 132, 0.28)" },
   desert: { color: "#f0d79c", surface: "rgba(200, 177, 120, 0.24)" }
+};
+const PORT_TERRAIN_COLORS: Record<Resource, string> = {
+  brick: "#b86146",
+  lumber: "#2f6f37",
+  ore: "#79869a",
+  grain: "#c7a13a",
+  wool: "#a8cc79"
 };
 
 export function getResourceIconColor(resource: TerrainResource): string {
@@ -75,6 +82,37 @@ export function HarborIcon(props: {
           strokeLinejoin="round"
         />
       </svg>
+    </span>
+  );
+}
+
+export function PortMarkerIcon(props: {
+  type: PortType;
+  size?: number;
+  className?: string;
+}) {
+  const { type, size = 40, className } = props;
+  const palette = getPortMarkerPalette(type);
+  const style = {
+    "--port-marker-size": `${size}px`,
+    "--port-badge-outer": palette.badgeOuter,
+    "--port-badge-core": palette.badgeCore,
+    "--port-badge-ring": palette.badgeRing,
+    "--port-badge-inner-ring": palette.badgeInnerRing,
+    "--port-badge-inset": palette.badgeInset
+  } as CSSProperties;
+
+  return (
+    <span className={["port-marker-icon", className ?? ""].filter(Boolean).join(" ")} style={style} aria-hidden="true">
+      <span className="port-marker-icon-inner-ring" />
+      <span className="port-marker-icon-core">
+        <HarborIcon size={size * 0.46} color="#f5edd6" />
+      </span>
+      {type !== "generic" ? (
+        <span className="port-marker-icon-resource">
+          <ResourceIcon resource={type} tone="light" size={size * 0.21} />
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -206,11 +244,13 @@ function renderResourceIconSvg(resource: TerrainResource) {
     case "grain":
       return (
         <>
-          <path d="M12 20.5V4.1" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M8 6.3c1 .2 2.1 1.1 2.1 2.7S8.9 11.7 8 11.9" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M16 8c-1 .2-2.1 1.1-2.1 2.7s1.2 2.7 2.1 2.9" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M8 12.1c1 .2 2.1 1.1 2.1 2.7S8.9 17.5 8 17.7" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M16 13.8c-1 .2-2.1 1.1-2.1 2.7" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M12 21V4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+          {renderGrainKernelSvg(8.2, 6.6, -45.84)}
+          {renderGrainKernelSvg(15.8, 7.8, 45.84)}
+          {renderGrainKernelSvg(8.2, 10.6, -45.84)}
+          {renderGrainKernelSvg(15.8, 11.8, 45.84)}
+          {renderGrainKernelSvg(8.2, 14.6, -45.84)}
+          {renderGrainKernelSvg(15.8, 15.8, 45.84)}
         </>
       );
     case "wool":
@@ -265,6 +305,112 @@ function drawRoundedRect(
   if (stroke) {
     context.stroke();
   }
+}
+
+function renderGrainKernelSvg(x: number, y: number, rotation: number) {
+  return (
+    <ellipse
+      cx={x}
+      cy={y}
+      rx="1.8"
+      ry="3.3"
+      transform={`rotate(${rotation} ${x} ${y})`}
+      stroke="currentColor"
+      strokeWidth="1.8"
+    />
+  );
+}
+
+function getPortMarkerPalette(type: PortType): {
+  badgeOuter: string;
+  badgeCore: string;
+  badgeRing: string;
+  badgeInnerRing: string;
+  badgeInset: string;
+} {
+  if (type === "generic") {
+    return {
+      badgeOuter: "rgba(9, 18, 27, 0.98)",
+      badgeCore: "rgba(19, 36, 49, 0.98)",
+      badgeRing: "rgba(232, 210, 158, 0.82)",
+      badgeInnerRing: "rgba(255, 255, 255, 0.08)",
+      badgeInset: "rgba(240, 222, 174, 0.14)"
+    };
+  }
+
+  const accent = getResourceIconColor(type);
+  const terrain = PORT_TERRAIN_COLORS[type];
+  return {
+    badgeOuter: shadeColor(terrain, -0.18),
+    badgeCore: shadeColor(terrain, 0.04),
+    badgeRing: accent,
+    badgeInnerRing: "rgba(255, 255, 255, 0.14)",
+    badgeInset: "rgba(255, 255, 255, 0.12)"
+  };
+}
+
+function shadeColor(color: string, lightnessOffset: number): string {
+  const normalized = color.replace("#", "");
+  const full = normalized.length === 3
+    ? normalized.split("").map((part) => `${part}${part}`).join("")
+    : normalized;
+  const red = Number.parseInt(full.slice(0, 2), 16) / 255;
+  const green = Number.parseInt(full.slice(2, 4), 16) / 255;
+  const blue = Number.parseInt(full.slice(4, 6), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  let hue = 0;
+  let saturation = 0;
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+
+  if (delta !== 0) {
+    saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    switch (max) {
+      case red:
+        hue = ((green - blue) / delta) % 6;
+        break;
+      case green:
+        hue = (blue - red) / delta + 2;
+        break;
+      default:
+        hue = (red - green) / delta + 4;
+        break;
+    }
+  }
+
+  const nextLightness = Math.max(0, Math.min(1, lightness + lightnessOffset));
+  const chroma = (1 - Math.abs(2 * nextLightness - 1)) * saturation;
+  const hueSegment = ((hue * 60) % 360 + 360) % 360 / 60;
+  const secondary = chroma * (1 - Math.abs((hueSegment % 2) - 1));
+  let nextRed = 0;
+  let nextGreen = 0;
+  let nextBlue = 0;
+
+  if (hueSegment < 1) {
+    nextRed = chroma;
+    nextGreen = secondary;
+  } else if (hueSegment < 2) {
+    nextRed = secondary;
+    nextGreen = chroma;
+  } else if (hueSegment < 3) {
+    nextGreen = chroma;
+    nextBlue = secondary;
+  } else if (hueSegment < 4) {
+    nextGreen = secondary;
+    nextBlue = chroma;
+  } else if (hueSegment < 5) {
+    nextRed = secondary;
+    nextBlue = chroma;
+  } else {
+    nextRed = chroma;
+    nextBlue = secondary;
+  }
+
+  const match = nextLightness - chroma / 2;
+  return `#${[nextRed, nextGreen, nextBlue]
+    .map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
 function drawGrainKernel(context: CanvasRenderingContext2D, x: number, y: number, rotation: number) {

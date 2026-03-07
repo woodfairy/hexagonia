@@ -543,7 +543,7 @@ export function BoardScene(props: BoardSceneProps) {
       base.position.set(tile.x, 0, tile.y);
       base.traverse((object) => {
         if (object instanceof THREE.Mesh) {
-          object.castShadow = true;
+          object.castShadow = false;
           object.receiveShadow = true;
         }
       });
@@ -848,6 +848,10 @@ function createTileMesh(
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
   active: boolean
 ): THREE.Group {
+  const tileTopColor = shadeColor(TILE_COLORS[tile.resource], -0.03);
+  const tileSideColor = getTileOuterSideColor(tile.resource);
+  const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.026);
+  const tileInsetSideColor = shadeColor(TILE_COLORS[tile.resource], -0.03);
   const outerShape = createTileShape(tile, verticesById);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
     depth: TILE_HEIGHT,
@@ -877,12 +881,12 @@ function createTileMesh(
     outerGeometry,
       [
         new THREE.MeshStandardMaterial({
-          color: shadeColor(TILE_COLORS[tile.resource], -0.03),
+          color: tileTopColor,
           roughness: 0.92,
           metalness: 0.01
         }),
         new THREE.MeshStandardMaterial({
-          color: shadeColor(TILE_COLORS[tile.resource], -0.11),
+          color: tileSideColor,
           roughness: 0.98,
           metalness: 0.01
         })
@@ -893,14 +897,14 @@ function createTileMesh(
     insetGeometry,
       [
         new THREE.MeshStandardMaterial({
-          color: shadeColor(TILE_COLORS[tile.resource], 0.026),
+          color: tileInsetTopColor,
           roughness: 0.86,
           metalness: 0.02,
           emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
           emissiveIntensity: active ? 0.16 : 0
         }),
         new THREE.MeshStandardMaterial({
-          color: shadeColor(TILE_COLORS[tile.resource], -0.03),
+          color: tileInsetSideColor,
           roughness: 0.94,
           metalness: 0.01
         })
@@ -1463,6 +1467,10 @@ function shadeColor(color: string, lightnessOffset: number): string {
   const shaded = new THREE.Color(color);
   shaded.offsetHSL(0, 0, lightnessOffset);
   return `#${shaded.getHexString()}`;
+}
+
+function getTileOuterSideColor(resource: Resource | "desert"): string {
+  return shadeColor(TILE_COLORS[resource], resource === "lumber" ? -0.045 : -0.085);
 }
 
 function roundRect(
