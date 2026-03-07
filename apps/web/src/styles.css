@@ -69,6 +69,18 @@ body {
   font-family: var(--font-ui);
 }
 
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 button,
 input,
 select {
@@ -1451,8 +1463,8 @@ select:hover {
   min-inline-size: 0;
   flex: 1 1 auto;
   display: grid;
-  gap: var(--gap-copy-tight);
-  padding: 0.66rem 0.78rem;
+  gap: 0.45rem;
+  padding: 0.5rem 0.58rem;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-control);
   background: rgba(255, 255, 255, 0.045);
@@ -1469,6 +1481,13 @@ select:hover {
   display: block;
   line-height: 1.08;
   font-size: 0.98rem;
+}
+
+.board-mobile-summary .match-notification-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .board-mobile-meta {
@@ -2107,69 +2126,111 @@ select:hover {
   inset-inline-end: 0.95rem;
   z-index: 2;
   display: grid;
-  gap: var(--gap-copy);
+  gap: 0.55rem;
   inline-size: min(22rem, calc(100% - 2rem));
-  padding: 0.82rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-control);
-  background: rgba(6, 15, 23, 0.86);
-  backdrop-filter: blur(12px);
   pointer-events: none;
 }
 
 .board-spotlight.is-event {
-  border-color: rgba(var(--accent-rgb), 0.3);
+  inline-size: min(22rem, calc(100% - 2rem));
 }
 
 .board-spotlight.is-compact {
   inline-size: min(14.5rem, calc(100% - 1.5rem));
-  gap: 0.18rem;
-  padding: 0.68rem 0.74rem;
+  gap: 0.4rem;
 }
 
-.board-spotlight.is-compact .board-spotlight-badges {
-  margin-block-start: 0.18rem;
+.match-notification-card {
+  display: grid;
+  gap: 0.36rem;
+  padding: 0.78rem 0.86rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018)),
+    rgba(6, 15, 23, 0.88);
+  box-shadow:
+    0 0.9rem 1.8rem rgba(3, 8, 13, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+  backdrop-filter: blur(12px);
 }
 
-.board-spotlight.is-compact .board-spotlight-badge {
-  min-block-size: 1.6rem;
-  padding: 0.2rem 0.45rem;
-  font-size: 0.72rem;
+.match-notification-card.is-success {
+  border-color: rgba(var(--accent-rgb), 0.28);
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.12), rgba(255, 255, 255, 0.02)),
+    rgba(6, 15, 23, 0.9);
 }
 
-.board-spotlight strong {
+.match-notification-card.is-warning {
+  border-color: rgba(236, 177, 82, 0.32);
+  background:
+    linear-gradient(180deg, rgba(236, 177, 82, 0.12), rgba(255, 255, 255, 0.02)),
+    rgba(6, 15, 23, 0.9);
+}
+
+.match-notification-card[class*="player-accent-"] {
+  border-color: var(--player-accent-border, rgba(255, 255, 255, 0.14));
+  background:
+    linear-gradient(180deg, var(--player-accent-soft, rgba(255, 255, 255, 0.06)), rgba(255, 255, 255, 0.02)),
+    rgba(6, 15, 23, 0.88);
+}
+
+.match-notification-card.is-hero {
+  gap: 0.42rem;
+}
+
+.match-notification-card.is-mini {
+  gap: 0.28rem;
+  padding: 0.62rem 0.68rem;
+}
+
+.match-notification-card.is-mini strong {
+  font-size: 0.92rem;
+}
+
+.match-notification-card.is-mini .match-notification-detail {
+  font-size: 0.76rem;
+}
+
+.match-notification-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.match-notification-card strong {
   display: block;
   line-height: 1.12;
 }
 
-.board-spotlight-detail {
+.match-notification-detail {
   color: var(--muted);
-  line-height: 1.32;
+  line-height: 1.34;
 }
 
-.board-spotlight-badges {
+.match-notification-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--gap-inline);
-  margin-block-start: 0.25rem;
+  gap: 0.35rem 0.45rem;
 }
 
-.board-spotlight-badge {
+.match-notification-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
-  min-block-size: 1.9rem;
-  padding: 0.34rem 0.62rem;
+  gap: 0.38rem;
+  min-block-size: 1.72rem;
+  padding: 0.22rem 0.5rem;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.055);
   color: var(--text);
-  font-size: 0.8rem;
-  line-height: 1.25;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+  font-size: 0.76rem;
+  line-height: 1.22;
 }
 
-.board-spotlight-badge.is-player {
+.match-notification-badge.is-player {
   border-color: var(--player-accent-border, rgba(255, 255, 255, 0.12));
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
@@ -2177,24 +2238,25 @@ select:hover {
   color: var(--player-text, var(--text));
 }
 
-.board-spotlight-badge.is-warning {
+.match-notification-badge.is-warning {
   border-color: rgba(var(--accent-rgb), 0.26);
   background: rgba(var(--accent-rgb), 0.11);
   color: var(--accent-strong);
 }
 
-.board-spotlight-badge-swatch {
-  inline-size: 0.62rem;
-  block-size: 0.62rem;
+.match-notification-badge-swatch {
+  inline-size: 0.56rem;
+  block-size: 0.56rem;
   border-radius: 999px;
   background: var(--player-accent, var(--accent));
   border: 1px solid rgba(7, 16, 24, 0.36);
-  box-shadow: 0 0 0 0.14rem var(--player-accent-soft, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 0 0 0.12rem var(--player-accent-soft, rgba(255, 255, 255, 0.08));
   flex: none;
 }
 
-.board-spotlight-badge > span:last-child {
-  color: inherit;
+.match-notification-stack {
+  display: grid;
+  gap: 0.45rem;
 }
 
 .board-hud-panel {

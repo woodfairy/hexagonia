@@ -10,11 +10,16 @@ import type {
   RoomDetails
 } from "@hexagonia/shared";
 import { createEmptyResourceMap, equalResourceMaps, hasResources, isEmptyResourceMap, RESOURCES, totalResources } from "@hexagonia/shared";
-import { BoardScene, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
-import { formatPhase, getPlayerAccentClass, renderEventLabel, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
+import { formatPhase, getPlayerAccentClass, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
+import {
+  createEmptyMatchNotificationPrivateCache,
+  createMatchNotificationState,
+  type MatchNotification
+} from "./matchNotifications";
 
 export interface TradeFormState {
   give: ResourceMap;
@@ -95,11 +100,6 @@ const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
 
 function isDenseLegendViewport(width: number, height: number): boolean {
   return width < 1320 || height < 840;
-}
-
-interface FocusableEventResult {
-  cue: BoardFocusCue;
-  event: MatchSnapshot["eventLog"][number];
 }
 
 interface TurnStatus {
@@ -232,15 +232,28 @@ export function MatchScreen(props: {
   const seenDiceEventIdRef = useRef<string | null>(latestDiceEvent?.id ?? null);
   const diceAnimationTimerRef = useRef<number | null>(null);
   const diceAnimationCompleteRef = useRef<number | null>(null);
+  const previousMatchRef = useRef<MatchSnapshot | null>(null);
+  const notificationCacheRef = useRef(createEmptyMatchNotificationPrivateCache());
 
   const activePlayer = props.match.players.find((player) => player.id === props.match.currentPlayerId) ?? null;
   const isCurrentPlayer = props.match.currentPlayerId === props.match.you;
-  const recentEvents = useMemo(() => props.match.eventLog.slice(-5).reverse(), [props.match.eventLog]);
-  const recentFocusableEvent = useMemo(() => getLatestFocusableEventSinceLatestDice(props.match), [props.match]);
+  const notificationState = useMemo(
+    () =>
+      createMatchNotificationState({
+        currentMatch: props.match,
+        previousMatch: previousMatchRef.current,
+        viewerId: props.match.you,
+        privateCache: notificationCacheRef.current
+      }),
+    [props.match]
+  );
+  const heroNotification = notificationState.heroNotification;
+  const desktopRecentNotifications = useMemo(
+    () => notificationState.recentNotifications.filter((notification) => notification.eventId !== heroNotification?.eventId).slice(0, 2),
+    [heroNotification?.eventId, notificationState.recentNotifications]
+  );
   const isDiceAnimationActive =
     (latestDiceEvent?.id ?? null) !== seenDiceEventIdRef.current || diceDisplay.phase !== "idle";
-  const visibleRecentFocusableEvent =
-    isDiceAnimationActive ? null : recentFocusableEvent;
   const incomingTradeOffers = useMemo(
     () =>
       props.match.tradeOffers.filter(
@@ -256,17 +269,19 @@ export function MatchScreen(props: {
     () => createOwnActionCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
     [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
   );
-  const highlightCue = actionCue ?? visibleRecentFocusableEvent?.cue ?? null;
+  const visibleNotificationCue = isDiceAnimationActive ? null : notificationState.boardCue;
+  const highlightCue = actionCue ?? visibleNotificationCue;
   const shouldAutoFocusRecentEvent =
-    !!visibleRecentFocusableEvent &&
-    (visibleRecentFocusableEvent.event.type === "dice_rolled" ||
-      visibleRecentFocusableEvent.event.type === "resources_distributed" ||
-      visibleRecentFocusableEvent.event.byPlayerId !== props.match.you);
+    !!heroNotification &&
+    !!visibleNotificationCue &&
+    heroNotification.autoFocus &&
+    (heroNotification.eventType === "dice_rolled" ||
+      heroNotification.eventType === "resources_distributed" ||
+      heroNotification.playerId !== props.match.you);
   const cameraCue =
     autoFocusEnabled && !isDiceAnimationActive
-      ? (actionCue ?? (shouldAutoFocusRecentEvent ? (visibleRecentFocusableEvent?.cue ?? null) : null))
+      ? (actionCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
       : null;
-  const spotlightCue = isDiceAnimationActive ? null : cameraCue ?? actionCue ?? visibleRecentFocusableEvent?.cue ?? null;
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)
     : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
@@ -359,14 +374,37 @@ export function MatchScreen(props: {
     ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
   const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
-  const mobileBoardSummary = activePlayer
-    ? activePlayer.id === props.match.you
-      ? "Du bist am Zug"
-      : `${activePlayer.username} ist am Zug`
-    : "Warte auf Spieler";
+  const displayHeroNotification = useMemo<MatchNotification>(
+    () =>
+      heroNotification ?? {
+        key: `turn-status-${props.match.version}`,
+        eventId: `turn-status-${props.match.version}`,
+        eventType: "turn_status",
+        label: "Partie",
+        title: turnStatus.title,
+        detail: turnStatus.detail,
+        badges: [
+          { label: `Zug ${props.match.turn}` },
+          { label: formatPhase(props.match.phase) },
+          ...(activePlayer
+            ? [{
+                label: activePlayer.id === props.match.you ? "Du" : activePlayer.username,
+                playerId: activePlayer.id,
+                tone: "player" as const
+              }]
+            : [])
+        ],
+        ...(turnStatus.playerId ? { playerId: turnStatus.playerId } : {}),
+        ...(activePlayer ? { accentPlayerId: activePlayer.id } : {}),
+        atTurn: props.match.turn,
+        cue: null,
+        autoFocus: false,
+        emphasis: isCurrentPlayer ? "success" : "neutral"
+      },
+    [activePlayer, heroNotification, isCurrentPlayer, props.match.phase, props.match.turn, props.match.version, props.match.you, turnStatus.detail, turnStatus.playerId, turnStatus.title]
+  );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
-  const spotlightBadges = isCompactViewport ? spotlightCue?.badges?.slice(0, 1) : spotlightCue?.badges;
   const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
   const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
   const openTradePanel = () => {
@@ -607,6 +645,11 @@ export function MatchScreen(props: {
         <span>{turnStatus.detail}</span>
       </div>
     ) : null;
+
+  useEffect(() => {
+    notificationCacheRef.current = notificationState.privateCache;
+    previousMatchRef.current = props.match;
+  }, [notificationState.privateCache, props.match]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1069,26 +1112,18 @@ export function MatchScreen(props: {
         ) : null}
         <section className="dock-section dock-section-fill">
           <div className="dock-section-head">
-            <h3>Letzte Aktionen</h3>
-            <span>{formatPhase(props.match.phase)}</span>
+            <h3>Live-Geschehen</h3>
+            <span>{notificationState.historyNotifications.length} Eintraege</span>
           </div>
           <div className="scroll-list event-list">
-            {recentEvents.map((event) => (
-              (() => {
-                const summary = getEventSummary(props.match, event);
-                return (
-                  <article key={event.id} className="event-card">
-                    <div className="event-card-head">
-                      <strong>{renderEventLabel(event.type)}</strong>
-                      {event.byPlayerId ? (
-                        <PlayerBadge match={props.match} playerId={event.byPlayerId} compact />
-                      ) : null}
-                    </div>
-                    {summary ? <span>{summary}</span> : null}
-                    <span>Zug {event.atTurn}</span>
-                  </article>
-                );
-              })()
+            {notificationState.historyNotifications.map((notification) => (
+              <MatchNotificationCard
+                key={notification.key}
+                match={props.match}
+                notification={notification}
+                variant="feed"
+                badgeLimit={4}
+              />
             ))}
           </div>
         </section>
@@ -1556,14 +1591,25 @@ export function MatchScreen(props: {
 
   return (
     <section className="screen-shell match-shell">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {notificationState.announcementText ?? ""}
+      </div>
       <div className="match-screen">
         <div className="match-stage">
           <div className={`board-topbar ${isMobileViewport ? "is-mobile" : ""}`}>
             {isMobileViewport ? (
               <>
-                <div className={`board-mobile-summary ${activePlayer ? getPlayerAccentClass(activePlayer.color) : ""}`}>
-                  <span className="eyebrow">Partie</span>
-                  <strong>{mobileBoardSummary}</strong>
+                <div
+                  className={`board-mobile-summary ${
+                    getPlayerAccentClass(getPlayerColor(props.match, displayHeroNotification.accentPlayerId ?? displayHeroNotification.playerId))
+                  }`}
+                >
+                  <MatchNotificationCard
+                    match={props.match}
+                    notification={displayHeroNotification}
+                    variant="hero"
+                    badgeLimit={3}
+                  />
                   <span className="board-mobile-meta">
                     <span>Zug {props.match.turn}</span>
                     <span>{formatPhase(props.match.phase)}</span>
@@ -1710,32 +1756,25 @@ export function MatchScreen(props: {
                 ) : null}
               </div>
             ) : null}
-            {!isMobileViewport && spotlightCue ? (
-              <div
-                className={`board-spotlight ${spotlightCue.mode === "event" ? "is-event" : "is-action"} ${isCompactViewport ? "is-compact" : ""}`}
-              >
-                <span className="eyebrow">{spotlightCue.mode === "event" ? "Live-Geschehen" : "Deine Aktion"}</span>
-                <strong>{spotlightCue.title}</strong>
-                {!isCompactViewport ? <span className="board-spotlight-detail">{spotlightCue.detail}</span> : null}
-                {spotlightBadges?.length ? (
-                  <div className="board-spotlight-badges">
-                    {spotlightBadges.map((badge, index) => {
-                      const badgeColor = badge.playerId ? getPlayerColor(props.match, badge.playerId) : null;
-                      const badgeAccentClass = badgeColor ? getPlayerAccentClass(badgeColor) : "";
-                      return (
-                        <span
-                          key={`${badge.playerId ?? badge.tone ?? "neutral"}-${badge.label}-${index}`}
-                          className={`board-spotlight-badge ${
-                            badge.tone === "player" && badgeAccentClass ? `is-player ${badgeAccentClass}` : ""
-                          } ${badge.tone === "warning" ? "is-warning" : ""}`}
-                        >
-                          {badge.tone === "player" && badgeAccentClass ? (
-                            <span className={`board-spotlight-badge-swatch ${badgeAccentClass}`} aria-hidden="true" />
-                          ) : null}
-                          <span>{badge.label}</span>
-                        </span>
-                      );
-                    })}
+            {!isMobileViewport ? (
+              <div className={`board-spotlight ${isCompactViewport ? "is-compact" : ""}`.trim()}>
+                <MatchNotificationCard
+                  match={props.match}
+                  notification={displayHeroNotification}
+                  variant="hero"
+                  badgeLimit={isCompactViewport ? 2 : 4}
+                />
+                {desktopRecentNotifications.length ? (
+                  <div className="match-notification-stack">
+                    {desktopRecentNotifications.map((notification) => (
+                      <MatchNotificationCard
+                        key={notification.key}
+                        match={props.match}
+                        notification={notification}
+                        variant="mini"
+                        badgeLimit={2}
+                      />
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -2146,6 +2185,53 @@ function PlayerBadge(props: { match: MatchSnapshot; playerId: string; compact?: 
   );
 }
 
+function MatchNotificationCard(props: {
+  match: MatchSnapshot;
+  notification: MatchNotification;
+  variant?: "hero" | "feed" | "mini";
+  badgeLimit?: number;
+}) {
+  const variant = props.variant ?? "feed";
+  const accentPlayerId = props.notification.accentPlayerId ?? props.notification.playerId;
+  const accentColor = accentPlayerId ? getPlayerColor(props.match, accentPlayerId) : null;
+  const accentClass = getPlayerAccentClass(accentColor);
+  const badges = props.badgeLimit ? props.notification.badges.slice(0, props.badgeLimit) : props.notification.badges;
+
+  return (
+    <article
+      className={`match-notification-card is-${variant} is-${props.notification.emphasis} ${accentClass}`.trim()}
+    >
+      <div className="match-notification-head">
+        <span className="eyebrow">{props.notification.label}</span>
+        {props.notification.playerId ? <PlayerBadge match={props.match} playerId={props.notification.playerId} compact /> : null}
+      </div>
+      <strong>{props.notification.title}</strong>
+      <span className="match-notification-detail">{props.notification.detail}</span>
+      {badges.length ? (
+        <div className="match-notification-badges">
+          {badges.map((badge, index) => {
+            const badgeColor = badge.playerId ? getPlayerColor(props.match, badge.playerId) : null;
+            const badgeAccentClass = badgeColor ? getPlayerAccentClass(badgeColor) : "";
+            return (
+              <span
+                key={`${badge.playerId ?? badge.tone ?? "neutral"}-${badge.label}-${index}`}
+                className={`match-notification-badge ${
+                  badge.tone === "player" && badgeAccentClass ? `is-player ${badgeAccentClass}` : ""
+                } ${badge.tone === "warning" ? "is-warning" : ""}`.trim()}
+              >
+                {badge.tone === "player" && badgeAccentClass ? (
+                  <span className={`match-notification-badge-swatch ${badgeAccentClass}`} aria-hidden="true" />
+                ) : null}
+                <span>{badge.label}</span>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function getRobberDiscardGroups(match: MatchSnapshot) {
   const entries = match.robberDiscardStatus
     .map((entry) => {
@@ -2443,52 +2529,6 @@ function createOwnActionCue(
   return null;
 }
 
-function getLatestFocusableEvent(match: MatchSnapshot): FocusableEventResult | null {
-  for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
-    const event = match.eventLog[index];
-    if (!event) {
-      continue;
-    }
-
-    const cue = createEventCue(match, event);
-    if (cue) {
-      return { cue, event };
-    }
-  }
-
-  return null;
-}
-
-function getLatestFocusableEventSinceLatestDice(match: MatchSnapshot): FocusableEventResult | null {
-  let lowerBoundIndex = 0;
-
-  for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
-    const event = match.eventLog[index];
-    if (event?.type === "dice_rolled") {
-      lowerBoundIndex = index + 1;
-      break;
-    }
-  }
-
-  for (let index = match.eventLog.length - 1; index >= lowerBoundIndex; index -= 1) {
-    const event = match.eventLog[index];
-    if (!event) {
-      continue;
-    }
-
-    const cue = createEventCue(match, event);
-    if (cue) {
-      return { cue, event };
-    }
-  }
-
-  if (lowerBoundIndex > 0) {
-    return null;
-  }
-
-  return getLatestFocusableEvent(match);
-}
-
 function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"][number] | null {
   for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
     const event = match.eventLog[index];
@@ -2498,293 +2538,6 @@ function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"]
   }
 
   return null;
-}
-
-function createEventCue(
-  match: MatchSnapshot,
-  event: MatchSnapshot["eventLog"][number]
-): BoardFocusCue | null {
-  const actorName = getPlayerName(match, event.byPlayerId);
-
-  switch (event.type) {
-    case "initial_settlement_placed":
-    case "settlement_built": {
-      const vertexId = getPayloadString(event.payload, "vertexId");
-      if (!vertexId) {
-        return null;
-      }
-
-      return {
-        key: `event-${event.id}-${vertexId}`,
-        mode: "event",
-        title: `${actorName} setzt eine Siedlung`,
-        detail: "Die Kamera zeigt den gerade belegten Bauplatz.",
-        vertexIds: [vertexId],
-        edgeIds: [],
-        tileIds: [],
-        scale: "tight"
-      };
-    }
-    case "city_built": {
-      const vertexId = getPayloadString(event.payload, "vertexId");
-      if (!vertexId) {
-        return null;
-      }
-
-      return {
-        key: `event-${event.id}-${vertexId}`,
-        mode: "event",
-        title: `${actorName} baut eine Stadt`,
-        detail: "Der ausgebauten Stadtplatz wird hervorgehoben.",
-        vertexIds: [vertexId],
-        edgeIds: [],
-        tileIds: [],
-        scale: "tight"
-      };
-    }
-    case "initial_road_placed":
-    case "road_built": {
-      const edgeId = getPayloadString(event.payload, "edgeId");
-      const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
-      if (!edgeId) {
-        return null;
-      }
-
-      return {
-        key: `event-${event.id}-${edgeId}`,
-        mode: "event",
-        title: freeBuild ? `${actorName} setzt eine kostenlose Straße` : `${actorName} baut eine Straße`,
-        detail: freeBuild
-          ? "Die kostenlose Straße aus Straßenbau ist direkt im Brett markiert."
-          : "Die neue Verbindung ist direkt im Brett markiert.",
-        vertexIds: [],
-        edgeIds: [edgeId],
-        tileIds: [],
-        scale: "medium"
-      };
-    }
-    case "longest_road_awarded": {
-      const edgeIds = getPayloadStringArray(event.payload, "edgeIds");
-      const length = getPayloadNumber(event.payload, "length");
-      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-      const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
-      const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
-
-      return {
-        key: `event-${event.id}-longest-road-${event.byPlayerId ?? "unknown"}`,
-        mode: "event",
-        title: `${actorName} übernimmt die Längste Straße`,
-        detail: previousHolderName
-          ? `Die hervorgehobenen Straßen geben ${actorName} jetzt 2 öffentliche Siegpunkte. Zuvor hatte ${previousHolderName} die Auszeichnung.`
-          : `Die hervorgehobenen Straßen geben ${actorName} jetzt 2 öffentliche Siegpunkte.`,
-        badges: [
-          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
-          ...(previousPlayerId ? [{ label: previousHolderName ?? "Voriger Inhaber", playerId: previousPlayerId, tone: "player" as const }] : []),
-          ...(length !== null ? [{ label: `Länge: ${length}` }] : []),
-          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
-          { label: "+2 VP", tone: "warning" as const }
-        ],
-        vertexIds: [],
-        edgeIds,
-        tileIds: [],
-        scale: edgeIds.length > 4 ? "wide" : "medium"
-      };
-    }
-    case "longest_road_lost": {
-      const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-      const length = getPayloadNumber(event.payload, "length");
-      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-      const nextHolderName = nextPlayerId ? getPlayerName(match, nextPlayerId) : null;
-
-      return {
-        key: `event-${event.id}-longest-road-lost-${event.byPlayerId ?? "unknown"}`,
-        mode: "event",
-        title: `${actorName} verliert die Längste Straße`,
-        detail: nextHolderName
-          ? `${nextHolderName} bekommt die Auszeichnung und die 2 öffentlichen Siegpunkte.`
-          : "Die Auszeichnung ist aktuell bei niemandem und die 2 öffentlichen Siegpunkte fallen weg.",
-        badges: [
-          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
-          ...(nextPlayerId ? [{ label: nextHolderName ?? "Neuer Inhaber", playerId: nextPlayerId, tone: "player" as const }] : []),
-          ...(length !== null ? [{ label: `Eigene Länge: ${length}` }] : []),
-          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
-          { label: "-2 VP", tone: "warning" as const }
-        ],
-        vertexIds: [],
-        edgeIds: [],
-        tileIds: [],
-        scale: "wide"
-      };
-    }
-    case "largest_army_awarded": {
-      const vertexIds = getPayloadStringArray(event.payload, "vertexIds");
-      const knightCount = getPayloadNumber(event.payload, "knightCount");
-      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-      const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
-      const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
-
-      return {
-        key: `event-${event.id}-largest-army-${event.byPlayerId ?? "unknown"}`,
-        mode: "event",
-        title: `${actorName} übernimmt die Größte Rittermacht`,
-        detail: previousHolderName
-          ? `${actorName} erhält dadurch 2 öffentliche Siegpunkte. Zuvor hielt ${previousHolderName} die Auszeichnung.`
-          : `${actorName} erhält dadurch 2 öffentliche Siegpunkte.`,
-        badges: [
-          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
-          ...(previousPlayerId ? [{ label: previousHolderName ?? "Voriger Inhaber", playerId: previousPlayerId, tone: "player" as const }] : []),
-          ...(knightCount !== null ? [{ label: `Ritter: ${knightCount}` }] : []),
-          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
-          { label: "+2 VP", tone: "warning" as const }
-        ],
-        vertexIds,
-        edgeIds: [],
-        tileIds: [],
-        scale: vertexIds.length > 2 ? "wide" : "medium"
-      };
-    }
-    case "largest_army_lost": {
-      const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-      const knightCount = getPayloadNumber(event.payload, "knightCount");
-      const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-      const nextHolderName = nextPlayerId ? getPlayerName(match, nextPlayerId) : null;
-
-      return {
-        key: `event-${event.id}-largest-army-lost-${event.byPlayerId ?? "unknown"}`,
-        mode: "event",
-        title: `${actorName} verliert die Größte Rittermacht`,
-        detail: nextHolderName
-          ? `${nextHolderName} bekommt die Auszeichnung und die 2 öffentlichen Siegpunkte.`
-          : "Die Auszeichnung ist aktuell bei niemandem und die 2 öffentlichen Siegpunkte fallen weg.",
-        badges: [
-          ...(event.byPlayerId ? [{ label: actorName, playerId: event.byPlayerId, tone: "player" as const }] : []),
-          ...(nextPlayerId ? [{ label: nextHolderName ?? "Neuer Inhaber", playerId: nextPlayerId, tone: "player" as const }] : []),
-          ...(knightCount !== null ? [{ label: `Ritter: ${knightCount}` }] : []),
-          ...(publicVictoryPoints !== null ? [{ label: `Öffentliche VP: ${publicVictoryPoints}` }] : []),
-          { label: "-2 VP", tone: "warning" as const }
-        ],
-        vertexIds: [],
-        edgeIds: [],
-        tileIds: [],
-        scale: "wide"
-      };
-    }
-    case "robber_moved": {
-      const tileId = getPayloadString(event.payload, "tileId");
-      if (!tileId) {
-        return null;
-      }
-
-      return {
-        key: `event-${event.id}-${tileId}`,
-        mode: "event",
-        title: `${actorName} bewegt den Räuber`,
-        detail: "Das neue Räuberfeld ist hervorgehoben.",
-        vertexIds: [],
-        edgeIds: [],
-        tileIds: [tileId],
-        scale: "wide"
-      };
-    }
-    case "dice_rolled": {
-      const total = getPayloadNumber(event.payload, "total");
-      const dice = getPayloadDice(event.payload, "dice");
-      if (total === null) {
-        return null;
-      }
-
-      if (total !== 7) {
-        return null;
-      }
-
-      return {
-        key: `event-${event.id}-dice-${total}`,
-        mode: "event",
-        title: `${actorName} würfelt ${total}`,
-        detail: "Die Räuberphase startet. Betroffene Spieler müssen jetzt abwerfen und der Räuber wird anschließend bewegt.",
-        badges: [
-          { label: dice ? `Wurf: ${dice[0]} + ${dice[1]} = ${total}` : `Wurf: ${total}` },
-          { label: "Räuber aktiv", tone: "warning" }
-        ],
-        vertexIds: [],
-        edgeIds: [],
-        tileIds: [],
-        scale: "wide"
-      };
-    }
-    case "resources_distributed": {
-      const roll = getPayloadNumber(event.payload, "roll");
-      const dice = getPayloadDice(event.payload, "dice");
-      const tileIds = getPayloadStringArray(event.payload, "tileIds");
-      const blockedResources = getPayloadStringArray(event.payload, "blockedResources");
-      const grantsByPlayerId = getPayloadResourceMapRecord(event.payload, "grantsByPlayerId");
-      const grantLines = summarizeGrantLines(match, grantsByPlayerId);
-      const tileLine = summarizeTileLines(match, tileIds, roll);
-
-      if (roll === null) {
-        return null;
-      }
-
-      const badges = [
-        { label: dice ? `Wurf: ${dice[0]} + ${dice[1]} = ${roll}` : `Wurf: ${roll}` },
-        { label: tileLine },
-        ...grantLines,
-        ...(blockedResources.length
-          ? [
-              {
-                label: `Bank blockiert: ${blockedResources.map((resource) => renderResourceLabel(resource)).join(", ")}`,
-                tone: "warning" as const
-              }
-            ]
-          : [])
-      ].filter((badge) => badge.label);
-
-      return {
-        key: `event-${event.id}-distribution-${roll}-${tileIds.join(",")}`,
-        mode: "event",
-        title: `${actorName} würfelt ${roll}`,
-        detail:
-          grantLines.length > 0
-            ? "Die markierten Felder schütten jetzt Rohstoffe aus."
-            : tileIds.length > 0
-              ? "Die markierten Felder wären aktiv, aber in dieser Verteilung gibt es keine Rohstoffe."
-              : "Kein Feld mit dieser Zahl schüttet Rohstoffe aus.",
-        badges,
-        vertexIds: [],
-        edgeIds: [],
-        tileIds,
-        scale: tileIds.length > 2 ? "wide" : "medium"
-      };
-    }
-    case "development_card_played": {
-      const cardType = getPayloadString(event.payload, "cardType");
-      if (!cardType) {
-        return null;
-      }
-
-      return {
-        key: `event-${event.id}-${cardType}`,
-        mode: "event",
-        title: `${actorName} spielt ${renderDevelopmentLabel(cardType)}`,
-        detail:
-          cardType === "knight"
-            ? "Die Räuberphase startet sofort."
-            : cardType === "road_building"
-              ? "Der Straßenbau-Effekt ist aktiv. Die kostenlosen Straßen folgen direkt über das Brett."
-              : cardType === "year_of_plenty"
-                ? "Die gewählten Rohstoffe werden aus der Bank genommen."
-                : cardType === "monopoly"
-                  ? "Alle Mitspieler geben die gewählte Rohstoffart ab."
-                  : "Die Entwicklungskarte wird ausgeführt.",
-        vertexIds: [],
-        edgeIds: [],
-        tileIds: [],
-        scale: "medium"
-      };
-    }
-    default:
-      return null;
-  }
 }
 
 function getPlayerName(match: MatchSnapshot, playerId?: string): string {
@@ -2870,89 +2623,9 @@ function getPayloadString(payload: Record<string, unknown>, key: string): string
   return typeof value === "string" ? value : null;
 }
 
-function getEventSummary(match: MatchSnapshot, event: MatchSnapshot["eventLog"][number]): string | null {
-  if (event.type === "starting_player_rolled") {
-    return getPayloadString(event.payload, "summary");
-  }
-
-  if (event.type === "development_card_played") {
-    const cardType = getPayloadString(event.payload, "cardType");
-    if (!cardType) {
-      return null;
-    }
-
-    if (cardType === "knight") {
-      return `${getPlayerName(match, event.byPlayerId)} spielt einen Ritter und startet die Räuberphase.`;
-    }
-    if (cardType === "road_building") {
-      return `${getPlayerName(match, event.byPlayerId)} aktiviert Straßenbau und setzt jetzt bis zu zwei kostenlose Straßen.`;
-    }
-    if (cardType === "year_of_plenty") {
-      const resources = getPayloadStringArray(event.payload, "resources");
-      return `${getPlayerName(match, event.byPlayerId)} nimmt ${resources.map((resource) => renderResourceLabel(resource)).join(" und ")} aus der Bank.`;
-    }
-    if (cardType === "monopoly") {
-      const resource = getPayloadString(event.payload, "resource");
-      const total = getPayloadNumber(event.payload, "total");
-      return `${getPlayerName(match, event.byPlayerId)} spielt Monopol auf ${renderResourceLabel(resource ?? "unbekannt")} und erhält ${total ?? "?"} Karten.`;
-    }
-  }
-
-  if (event.type === "road_built") {
-    const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
-    return freeBuild
-      ? `${getPlayerName(match, event.byPlayerId)} setzt eine kostenlose Straße aus Straßenbau.`
-      : `${getPlayerName(match, event.byPlayerId)} baut eine Straße.`;
-  }
-
-  if (event.type === "longest_road_awarded") {
-    const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
-    const length = getPayloadNumber(event.payload, "length");
-    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-    const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
-    return previousHolderName
-      ? `${getPlayerName(match, event.byPlayerId)} übernimmt mit Länge ${length ?? "?"} die Längste Straße von ${previousHolderName} und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`
-      : `${getPlayerName(match, event.byPlayerId)} erhält mit Länge ${length ?? "?"} die Längste Straße und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`;
-  }
-
-  if (event.type === "longest_road_lost") {
-    const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-    const length = getPayloadNumber(event.payload, "length");
-    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-    return nextPlayerId
-      ? `${getPlayerName(match, event.byPlayerId)} verliert die Längste Straße bei Länge ${length ?? "?"}; ${getPlayerName(match, nextPlayerId)} übernimmt. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`
-      : `${getPlayerName(match, event.byPlayerId)} verliert die Längste Straße; die Auszeichnung ist aktuell bei niemandem. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`;
-  }
-
-  if (event.type === "largest_army_awarded") {
-    const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
-    const knightCount = getPayloadNumber(event.payload, "knightCount");
-    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-    const previousHolderName = previousPlayerId ? getPlayerName(match, previousPlayerId) : null;
-    return previousHolderName
-      ? `${getPlayerName(match, event.byPlayerId)} übernimmt mit ${knightCount ?? "?"} Rittern die Größte Rittermacht von ${previousHolderName} und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`
-      : `${getPlayerName(match, event.byPlayerId)} erhält mit ${knightCount ?? "?"} Rittern die Größte Rittermacht und steht nun bei ${publicVictoryPoints ?? "?"} öffentlichen VP.`;
-  }
-
-  if (event.type === "largest_army_lost") {
-    const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-    const knightCount = getPayloadNumber(event.payload, "knightCount");
-    const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
-    return nextPlayerId
-      ? `${getPlayerName(match, event.byPlayerId)} verliert die Größte Rittermacht bei ${knightCount ?? "?"} Rittern; ${getPlayerName(match, nextPlayerId)} übernimmt. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`
-      : `${getPlayerName(match, event.byPlayerId)} verliert die Größte Rittermacht; die Auszeichnung ist aktuell bei niemandem. Öffentliche VP jetzt: ${publicVictoryPoints ?? "?"}.`;
-  }
-
-  return null;
-}
-
 function getPayloadNumber(payload: Record<string, unknown>, key: string): number | null {
   const value = payload[key];
   return typeof value === "number" ? value : null;
-}
-
-function getPayloadBoolean(payload: Record<string, unknown>, key: string): boolean {
-  return payload[key] === true;
 }
 
 function getPayloadDice(payload: Record<string, unknown>, key: string): [number, number] | null {
@@ -3000,65 +2673,6 @@ function getPayloadStringArray(payload: Record<string, unknown>, key: string): s
   }
 
   return value.filter((entry): entry is string => typeof entry === "string");
-}
-
-function getPayloadResourceMapRecord(
-  payload: Record<string, unknown>,
-  key: string
-): Record<string, ResourceMap> {
-  const value = payload[key];
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  const next: Record<string, ResourceMap> = {};
-  for (const [playerId, entry] of Object.entries(value)) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      continue;
-    }
-
-    next[playerId] = RESOURCES.reduce(
-      (resourceMap, resource) => {
-        const count = (entry as Partial<Record<Resource, unknown>>)[resource];
-        resourceMap[resource] = typeof count === "number" ? count : 0;
-        return resourceMap;
-      },
-      {} as ResourceMap
-    );
-  }
-
-  return next;
-}
-
-function summarizeTileLines(match: MatchSnapshot, tileIds: string[], roll: number | null): string {
-  if (!tileIds.length) {
-    return roll === null ? "Keine aktiven Felder" : `Keine aktiven Felder für ${roll}`;
-  }
-
-  const labels = tileIds
-    .map((tileId) => match.board.tiles.find((tile) => tile.id === tileId))
-    .filter((tile): tile is MatchSnapshot["board"]["tiles"][number] => !!tile)
-    .map((tile) => `${renderResourceLabel(tile.resource)} ${tile.token ?? ""}`.trim());
-
-  return `Felder: ${labels.join(" · ")}`;
-}
-
-function summarizeGrantLines(
-  match: MatchSnapshot,
-  grantsByPlayerId: Record<string, ResourceMap>
-): BoardFocusBadge[] {
-  return Object.entries(grantsByPlayerId)
-    .flatMap(([playerId, resourceMap]) => {
-      const playerName = playerId === match.you ? "Du" : getPlayerName(match, playerId);
-      const resources = renderResourceMap(resourceMap);
-      return resources
-        ? [{
-            label: `${playerName}: +${resources}`,
-            playerId,
-            tone: "player" as const
-          }]
-        : [];
-    });
 }
 
 function getTurnStatus(
