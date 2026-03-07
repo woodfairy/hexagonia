@@ -1109,8 +1109,9 @@ select:hover {
   color: var(--player-text, var(--text));
 }
 
-.player-badge > span,
-.player-identity > span {
+.player-badge > .player-swatch,
+.player-badge > span:last-child,
+.player-identity > .player-swatch {
   display: inline-flex;
   align-items: center;
 }
