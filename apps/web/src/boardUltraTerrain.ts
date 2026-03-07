@@ -199,15 +199,15 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#bfe87a",
-        overlayAccent: "#f2ffd5",
-        emissive: "#2f5121",
+        overlayBase: "#a8c875",
+        overlayAccent: "#e6f1cd",
+        emissive: "#2c4a1f",
         roughness: 0.82,
         metalness: 0.02,
         bumpScale: 0.12,
         clearcoat: 0.08,
         clearcoatRoughness: 0.52,
-        overlayOpacity: 0.24,
+        overlayOpacity: 0.2,
         overlayMotion: 0.86,
         overlayScale: 1.1,
         styleIndex: 4
@@ -437,15 +437,15 @@ function paintWoolTerrain(
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const radiusX = 14 + random() * 30;
     const radiusY = 12 + random() * 24;
-    drawEllipse(colorContext, x, y, radiusX, radiusY, pick(random, ["rgba(124,173,90,0.28)", "rgba(174,222,116,0.26)", "rgba(234,249,198,0.1)"]));
+    drawEllipse(colorContext, x, y, radiusX, radiusY, pick(random, ["rgba(106,150,79,0.26)", "rgba(142,182,103,0.22)", "rgba(214,231,183,0.08)"]));
     drawEllipse(bumpContext, x, y, radiusX * 0.82, radiusY * 0.82, "rgba(210,210,210,0.12)");
   }
 
   for (let index = 0; index < 120; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    drawSoftBlob(colorContext, x, y, 10 + random() * 16, "rgba(248,255,241,0.08)");
-    drawSoftBlob(overlayContext, x, y, 18 + random() * 18, "rgba(255,255,255,0.13)");
+    drawSoftBlob(colorContext, x, y, 10 + random() * 16, "rgba(238,245,229,0.06)");
+    drawSoftBlob(overlayContext, x, y, 18 + random() * 18, "rgba(250,255,244,0.09)");
     drawSoftBlob(roughnessContext, x, y, 12 + random() * 18, "rgba(228,228,228,0.05)");
   }
 

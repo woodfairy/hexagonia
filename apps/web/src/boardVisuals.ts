@@ -10,7 +10,7 @@ export const TILE_COLORS: Record<Resource | "desert", string> = {
   lumber: "#2f6f37",
   ore: "#79869a",
   grain: "#c7a13a",
-  wool: "#a8cc79",
+  wool: "#8eb667",
   desert: "#ccb07b"
 };
 

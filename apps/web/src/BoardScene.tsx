@@ -181,22 +181,56 @@ function getReliefPropScaleBoost(
   if (reliefMode === "props") {
     switch (layer) {
       case "hero":
-        return 1.44;
+        return 2.35;
       case "accent":
-        return 1.34;
+        return 2.05;
       case "detail":
-        return 1.24;
+        return 1.7;
     }
   }
 
   switch (layer) {
     case "hero":
-      return 1.3;
+      return 1.65;
     case "accent":
-      return 1.2;
+      return 1.45;
     case "detail":
-      return 1.14;
+      return 1.25;
   }
+}
+
+function getReliefPropRenderBoost(
+  reliefMode: Exclude<UltraTileReliefMode, "none">,
+  layer: ReliefPropLayer
+): number {
+  if (reliefMode === "props") {
+    switch (layer) {
+      case "hero":
+        return 1.22;
+      case "accent":
+        return 1.34;
+      case "detail":
+        return 1.28;
+    }
+  }
+
+  switch (layer) {
+    case "hero":
+      return 1.14;
+    case "accent":
+      return 1.22;
+    case "detail":
+      return 1.18;
+  }
+}
+
+function applyReliefPropPresentation<T extends THREE.Object3D>(
+  object: T,
+  reliefMode: Exclude<UltraTileReliefMode, "none">,
+  layer: ReliefPropLayer
+): T {
+  object.scale.multiplyScalar(getReliefPropRenderBoost(reliefMode, layer));
+  return object;
 }
 
 export function BoardScene(props: BoardSceneProps) {
@@ -1257,7 +1291,7 @@ function buildLumberRelief(
       }
     );
     for (const [index, anchor] of accentAnchors.entries()) {
-      const accent = createForestAccent(anchor.scale, active, index % 3 === 0);
+      const accent = applyReliefPropPresentation(createForestAccent(anchor.scale, active, index % 3 === 0), reliefMode, "accent");
       accent.position.set(anchor.x, 0, anchor.z);
       accent.rotation.y = anchor.angle;
       group.add(accent);
@@ -1283,7 +1317,11 @@ function buildLumberRelief(
   );
   const fillVariants = reliefMode === "full" ? (["fern", "log", "stones"] as const) : (["log", "stones", "fern"] as const);
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createForestGroundDetail(anchor.scale, active, getCyclicVariant(fillVariants, index));
+    const detail = applyReliefPropPresentation(
+      createForestGroundDetail(anchor.scale, active, getCyclicVariant(fillVariants, index)),
+      reliefMode,
+      "detail"
+    );
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1325,7 +1363,7 @@ function buildOreRelief(
       candidatesPerAnchor: 14
     });
     for (const [index, anchor] of accentAnchors.entries()) {
-      const accent = createOreOutcrop(anchor.scale, active, index % 2 === 0);
+      const accent = applyReliefPropPresentation(createOreOutcrop(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
       accent.position.set(anchor.x, 0, anchor.z);
       accent.rotation.y = anchor.angle;
       group.add(accent);
@@ -1367,7 +1405,11 @@ function buildOreRelief(
   );
   const fillVariants = reliefMode === "full" ? (["rubble", "crystal", "ledge"] as const) : (["crystal", "rubble", "crystal"] as const);
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createOreScatter(anchor.scale, active, getCyclicVariant(fillVariants, index));
+    const detail = applyReliefPropPresentation(
+      createOreScatter(anchor.scale, active, getCyclicVariant(fillVariants, index)),
+      reliefMode,
+      "detail"
+    );
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1411,7 +1453,11 @@ function buildGrainRelief(
   });
   const heroVariants = ["barn", "scarecrow"] as const;
   for (const [index, anchor] of heroAnchors.entries()) {
-    const feature = createFarmsteadFeature(anchor.scale, active, getCyclicVariant(heroVariants, index));
+    const feature = applyReliefPropPresentation(
+      createFarmsteadFeature(anchor.scale, active, getCyclicVariant(heroVariants, index)),
+      reliefMode,
+      "hero"
+    );
     feature.position.set(anchor.x, 0, anchor.z);
     feature.rotation.y = anchor.angle + Math.PI * 0.75;
     group.add(feature);
@@ -1435,7 +1481,7 @@ function buildGrainRelief(
     }
   );
   for (const [index, anchor] of accentAnchors.entries()) {
-    const accent = createHayFeature(anchor.scale, active, index % 2 === 0);
+    const accent = applyReliefPropPresentation(createHayFeature(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
     accent.position.set(anchor.x, 0, anchor.z);
     accent.rotation.y = anchor.angle;
     group.add(accent);
@@ -1460,7 +1506,11 @@ function buildGrainRelief(
   );
   const fillVariants = reliefMode === "full" ? (["furrow", "tuft", "stook"] as const) : (["stook", "tuft", "stook"] as const);
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createFieldDetail(anchor.scale, active, getCyclicVariant(fillVariants, index));
+    const detail = applyReliefPropPresentation(
+      createFieldDetail(anchor.scale, active, getCyclicVariant(fillVariants, index)),
+      reliefMode,
+      "detail"
+    );
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle + Math.PI / 2;
     group.add(detail);
@@ -1504,7 +1554,11 @@ function buildBrickRelief(
   });
   const heroVariants = ["kiln", "stack"] as const;
   for (const [index, anchor] of heroAnchors.entries()) {
-    const feature = createClayIndustryFeature(anchor.scale, active, getCyclicVariant(heroVariants, index));
+    const feature = applyReliefPropPresentation(
+      createClayIndustryFeature(anchor.scale, active, getCyclicVariant(heroVariants, index)),
+      reliefMode,
+      "hero"
+    );
     feature.position.set(anchor.x, 0, anchor.z);
     feature.rotation.y = anchor.angle;
     group.add(feature);
@@ -1528,7 +1582,7 @@ function buildBrickRelief(
     }
   );
   for (const [index, anchor] of accentAnchors.entries()) {
-    const accent = createClayAccent(anchor.scale, active, index % 2 === 0);
+    const accent = applyReliefPropPresentation(createClayAccent(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
     accent.position.set(anchor.x, 0, anchor.z);
     accent.rotation.y = anchor.angle;
     group.add(accent);
@@ -1553,7 +1607,11 @@ function buildBrickRelief(
   );
   const fillVariants = reliefMode === "full" ? (["rubble", "cut", "pit"] as const) : (["cut", "rubble", "cut"] as const);
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createClayScatter(anchor.scale, active, getCyclicVariant(fillVariants, index));
+    const detail = applyReliefPropPresentation(
+      createClayScatter(anchor.scale, active, getCyclicVariant(fillVariants, index)),
+      reliefMode,
+      "detail"
+    );
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1596,7 +1654,7 @@ function buildWoolRelief(
     candidatesPerAnchor: 18
   });
   for (const anchor of heroAnchors) {
-    const feature = createSheepfoldFeature(anchor.scale, active);
+    const feature = applyReliefPropPresentation(createSheepfoldFeature(anchor.scale, active), reliefMode, "hero");
     feature.position.set(anchor.x, 0, anchor.z);
     feature.rotation.y = anchor.angle;
     group.add(feature);
@@ -1621,7 +1679,11 @@ function buildWoolRelief(
   );
   const accentVariants = ["fence", "lamb", "shrub", "trough", "flowers"] as const;
   for (const [index, anchor] of accentAnchors.entries()) {
-    const accent = createPastureAccent(anchor.scale, active, getCyclicVariant(accentVariants, index));
+    const accent = applyReliefPropPresentation(
+      createPastureAccent(anchor.scale, active, getCyclicVariant(accentVariants, index)),
+      reliefMode,
+      "accent"
+    );
     accent.position.set(anchor.x, 0, anchor.z);
     accent.rotation.y = anchor.angle;
     group.add(accent);
@@ -1646,7 +1708,11 @@ function buildWoolRelief(
   );
   const fillVariants = ["flowers", "trough", "shrub"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createPastureGroundDetail(anchor.scale, active, getCyclicVariant(fillVariants, index));
+    const detail = applyReliefPropPresentation(
+      createPastureGroundDetail(anchor.scale, active, getCyclicVariant(fillVariants, index)),
+      reliefMode,
+      "detail"
+    );
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1689,7 +1755,7 @@ function buildDesertRelief(
     candidatesPerAnchor: 18
   });
   for (const [index, anchor] of heroAnchors.entries()) {
-    const cactus = createCactusCluster(anchor.scale, active, index % 2 === 0);
+    const cactus = applyReliefPropPresentation(createCactusCluster(anchor.scale, active, index % 2 === 0), reliefMode, "hero");
     cactus.position.set(anchor.x, 0, anchor.z);
     cactus.rotation.y = anchor.angle;
     group.add(cactus);
@@ -1713,7 +1779,7 @@ function buildDesertRelief(
     }
   );
   for (const [index, anchor] of accentAnchors.entries()) {
-    const accent = createDesertAccent(anchor.scale, active, index % 2 === 0);
+    const accent = applyReliefPropPresentation(createDesertAccent(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
     accent.position.set(anchor.x, 0, anchor.z);
     accent.rotation.y = anchor.angle;
     group.add(accent);
@@ -1738,7 +1804,11 @@ function buildDesertRelief(
   );
   const fillVariants = reliefMode === "full" ? (["ripple", "scrub", "bones"] as const) : (["scrub", "bones", "scrub"] as const);
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createDesertScatter(anchor.scale, active, getCyclicVariant(fillVariants, index));
+    const detail = applyReliefPropPresentation(
+      createDesertScatter(anchor.scale, active, getCyclicVariant(fillVariants, index)),
+      reliefMode,
+      "detail"
+    );
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -2991,18 +3061,18 @@ function createPastureAccent(
   variant: "fence" | "lamb" | "shrub" | "trough" | "flowers"
 ): THREE.Group {
   if (variant === "fence") {
-    return createFenceSegment(scale, active);
+    return createFenceSegment(scale * 1.28, active);
   }
   if (variant === "lamb") {
-    return createSheepFigure(scale * 0.72, createWoolMaterial(active, false), createSheepFaceMaterial(), createHoofMaterial(), active);
+    return createSheepFigure(scale * 1.18, createWoolMaterial(active, false), createSheepFaceMaterial(), createHoofMaterial(), active);
   }
   if (variant === "trough") {
-    return createPastureGroundDetail(scale, active, "trough");
+    return createPastureGroundDetail(scale * 1.24, active, "trough");
   }
   if (variant === "flowers") {
-    return createPastureGroundDetail(scale, active, "flowers");
+    return createPastureGroundDetail(scale * 1.2, active, "flowers");
   }
-  return createPastureShrub(scale, active);
+  return createPastureShrub(scale * 1.16, active);
 }
 
 function createFenceSegment(scale: number, active: boolean): THREE.Group {
@@ -3138,22 +3208,22 @@ function createSheepfoldFeature(scale: number, active: boolean): THREE.Group {
   const faceMaterial = createSheepFaceMaterial();
   const hoofMaterial = createHoofMaterial();
 
-  const fenceFront = createFenceSegment(scale * 1.12, active);
+  const fenceFront = createFenceSegment(scale * 1.34, active);
   fenceFront.position.set(0, 0.01 * scale, 0.18 * scale);
-  const fenceLeft = createFenceSegment(scale * 0.92, active);
+  const fenceLeft = createFenceSegment(scale * 1.12, active);
   fenceLeft.position.set(-0.16 * scale, 0.01 * scale, 0.04 * scale);
   fenceLeft.rotation.y = Math.PI / 2;
-  const fenceRight = createFenceSegment(scale * 0.92, active);
+  const fenceRight = createFenceSegment(scale * 1.12, active);
   fenceRight.position.set(0.16 * scale, 0.01 * scale, 0.04 * scale);
   fenceRight.rotation.y = Math.PI / 2;
 
-  const sheepA = createSheepFigure(scale * 0.56, woolMaterial, faceMaterial, hoofMaterial, active);
+  const sheepA = createSheepFigure(scale * 0.84, woolMaterial, faceMaterial, hoofMaterial, active);
   sheepA.position.set(-0.04 * scale, 0.02 * scale, -0.02 * scale);
   sheepA.rotation.y = 0.3;
-  const sheepB = createSheepFigure(scale * 0.46, createWoolMaterial(active, false), faceMaterial, hoofMaterial, active);
+  const sheepB = createSheepFigure(scale * 0.7, createWoolMaterial(active, false), faceMaterial, hoofMaterial, active);
   sheepB.position.set(0.08 * scale, 0.02 * scale, -0.08 * scale);
   sheepB.rotation.y = -0.34;
-  const trough = createPastureGroundDetail(scale * 0.72, active, "trough");
+  const trough = createPastureGroundDetail(scale * 1.02, active, "trough");
   trough.position.set(0, 0.01 * scale, -0.18 * scale);
 
   group.add(fenceFront, fenceLeft, fenceRight, sheepA, sheepB, trough);
@@ -3701,6 +3771,36 @@ function getPortMarkerPalette(type: PortType): {
 
   const accent = getResourceIconColor(type);
   const terrain = TILE_COLORS[type];
+  if (type === "wool") {
+    return {
+      base: shadeColor(terrain, -0.28),
+      top: shadeColor(terrain, 0.1),
+      bridge: shadeColor(accent, -0.02),
+      bollard: shadeColor(terrain, -0.14),
+      emissive: shadeColor(accent, -0.08),
+      badgeOuter: shadeColor(terrain, -0.3),
+      badgeCore: shadeColor(terrain, -0.08),
+      badgeRing: shadeColor(accent, -0.04),
+      badgeInnerRing: "rgba(255, 255, 255, 0.18)",
+      badgeInset: "rgba(255, 255, 255, 0.08)",
+      accent: shadeColor(accent, -0.04)
+    };
+  }
+  if (type === "lumber") {
+    return {
+      base: shadeColor(terrain, -0.34),
+      top: shadeColor(terrain, 0.08),
+      bridge: shadeColor(accent, -0.02),
+      bollard: shadeColor(terrain, -0.18),
+      emissive: shadeColor(accent, -0.1),
+      badgeOuter: shadeColor(terrain, -0.36),
+      badgeCore: shadeColor(terrain, -0.16),
+      badgeRing: shadeColor(accent, -0.02),
+      badgeInnerRing: "rgba(255, 255, 255, 0.14)",
+      badgeInset: "rgba(255, 255, 255, 0.1)",
+      accent: shadeColor(accent, -0.02)
+    };
+  }
   return {
     base: shadeColor(terrain, -0.24),
     top: shadeColor(terrain, 0.2),
