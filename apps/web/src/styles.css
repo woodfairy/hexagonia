@@ -2308,6 +2308,8 @@ select:hover {
 .trade-builder {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
+  column-gap: 0.92rem;
+  row-gap: var(--gap-stack-tight);
 }
 
 .trade-side-card,
@@ -2316,11 +2318,13 @@ select:hover {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-card);
   background: rgba(255, 255, 255, 0.035);
+  min-inline-size: 0;
 }
 
 .trade-side-card {
   display: grid;
   gap: var(--gap-stack);
+  padding-inline: 1.08rem 1.18rem;
 }
 
 .trade-side-give {
@@ -2348,19 +2352,20 @@ select:hover {
   grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
   gap: 0.58rem;
   min-inline-size: 0;
-  padding-inline: 0.06rem 0.22rem;
   align-content: start;
 }
 
 .trade-resource-card {
   display: grid;
-  inline-size: 100%;
+  inline-size: auto;
+  justify-self: stretch;
   justify-items: start;
   align-content: start;
   gap: 0.44rem;
   min-inline-size: 0;
   min-block-size: 7.6rem;
-  padding: 0.8rem 0.88rem;
+  padding-block: 0.8rem;
+  padding-inline: 0.88rem 1.18rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-card);
   background: rgba(6, 15, 23, 0.84);
@@ -2405,6 +2410,8 @@ select:hover {
   display: flex;
   align-items: center;
   gap: 0.62rem;
+  inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .trade-resource-card .trade-resource-card-head .resource-icon-shell {
@@ -2415,6 +2422,7 @@ select:hover {
   color: var(--text);
   font-size: 0.94rem;
   line-height: 1.15;
+  padding-inline-end: 0.18rem;
 }
 
 .trade-resource-card .trade-resource-card-count {
