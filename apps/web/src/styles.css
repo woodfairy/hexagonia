@@ -3114,6 +3114,13 @@ select:hover {
   gap: 0.52rem;
 }
 
+.discard-owned-total {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
 .confirm-copy p {
   color: var(--muted);
   line-height: 1.42;
@@ -3335,6 +3342,10 @@ select:hover {
 .robber-discard-surface {
   display: grid;
   gap: 0.85rem;
+}
+
+.robber-wait-dialog {
+  inline-size: min(42rem, 100%);
 }
 
 @media (max-width: 1180px) {
