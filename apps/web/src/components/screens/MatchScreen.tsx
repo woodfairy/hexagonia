@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type {
   ClientMessage,
   DevelopmentCardView,
@@ -14,6 +14,7 @@ import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../Boar
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
+import { ProfileMenu } from "../shell/ProfileMenu";
 import { formatPhase, getPlayerAccentClass, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 import {
   createEmptyMatchNotificationPrivateCache,
@@ -32,6 +33,7 @@ export interface MaritimeFormState {
   receive: Resource;
 }
 
+type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
 type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players";
 type SheetState = "peek" | "half" | "full";
 type TradeSection = "player" | "maritime";
@@ -81,12 +83,12 @@ const HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
 let dicePreviewCursor = 0;
 
 const COMPACT_RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
-  { resource: "brick", note: "Strassen, Siedlungen" },
-  { resource: "lumber", note: "Strassen, Siedlungen" },
-  { resource: "ore", note: "Staedte, Entwicklung" },
-  { resource: "grain", note: "Siedlungen, Staedte, Entwicklung" },
+  { resource: "brick", note: "Straßen, Siedlungen" },
+  { resource: "lumber", note: "Straßen, Siedlungen" },
+  { resource: "ore", note: "Städte, Entwicklung" },
+  { resource: "grain", note: "Siedlungen, Städte, Entwicklung" },
   { resource: "wool", note: "Siedlungen, Entwicklung" },
-  { resource: "desert", note: "Kein Ertrag, Startfeld des Raeubers" }
+  { resource: "desert", note: "Kein Ertrag, Startfeld des Räubers" }
 ];
 
 const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
@@ -125,6 +127,7 @@ export function MatchScreen(props: {
   match: MatchSnapshot;
   room: RoomDetails | null;
   selfPlayer: MatchSnapshot["players"][number] | null;
+  profileMenuProps: MatchProfileMenuProps;
   interactionMode: InteractionMode;
   selectedRoadEdges: string[];
   tradeForm: TradeFormState;
@@ -248,12 +251,14 @@ export function MatchScreen(props: {
     [props.match]
   );
   const heroNotification = notificationState.heroNotification;
-  const desktopRecentNotifications = useMemo(
-    () => notificationState.recentNotifications.filter((notification) => notification.eventId !== heroNotification?.eventId).slice(0, 2),
-    [heroNotification?.eventId, notificationState.recentNotifications]
-  );
   const isDiceAnimationActive =
     (latestDiceEvent?.id ?? null) !== seenDiceEventIdRef.current || diceDisplay.phase !== "idle";
+  const deferDiceNotification =
+    isDiceAnimationActive &&
+    !!heroNotification &&
+    (heroNotification.eventType === "dice_rolled" || heroNotification.eventType === "resources_distributed");
+  const visibleHeroNotification = deferDiceNotification ? null : heroNotification;
+  const liveAnnouncementText = deferDiceNotification ? null : notificationState.announcementText;
   const incomingTradeOffers = useMemo(
     () =>
       props.match.tradeOffers.filter(
@@ -376,7 +381,7 @@ export function MatchScreen(props: {
   const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
   const displayHeroNotification = useMemo<MatchNotification>(
     () =>
-      heroNotification ?? {
+      visibleHeroNotification ?? {
         key: `turn-status-${props.match.version}`,
         eventId: `turn-status-${props.match.version}`,
         eventType: "turn_status",
@@ -401,7 +406,18 @@ export function MatchScreen(props: {
         autoFocus: false,
         emphasis: isCurrentPlayer ? "success" : "neutral"
       },
-    [activePlayer, heroNotification, isCurrentPlayer, props.match.phase, props.match.turn, props.match.version, props.match.you, turnStatus.detail, turnStatus.playerId, turnStatus.title]
+    [
+      activePlayer,
+      isCurrentPlayer,
+      props.match.phase,
+      props.match.turn,
+      props.match.version,
+      props.match.you,
+      turnStatus.detail,
+      turnStatus.playerId,
+      turnStatus.title,
+      visibleHeroNotification
+    ]
   );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
@@ -1097,17 +1113,6 @@ export function MatchScreen(props: {
                 ))}
               </div>
             </section>
-            <section className="dock-section">
-              <div className="dock-section-head">
-                <h3>Legende</h3>
-                <span>Rohstoffe, Häfen und Hinweise</span>
-              </div>
-              <div className="mobile-legend-stack">
-                {resourceLegendList}
-                {harborLegendList}
-                {compactBoardHintLegend}
-              </div>
-            </section>
           </>
         ) : null}
         <section className="dock-section dock-section-fill">
@@ -1127,6 +1132,19 @@ export function MatchScreen(props: {
             ))}
           </div>
         </section>
+        {isMobileViewport ? (
+          <section className="dock-section">
+            <div className="dock-section-head">
+              <h3>Legende</h3>
+              <span>Rohstoffe, Häfen und Hinweise</span>
+            </div>
+            <div className="mobile-legend-stack">
+              {resourceLegendList}
+              {harborLegendList}
+              {compactBoardHintLegend}
+            </div>
+          </section>
+        ) : null}
       </div>
     ),
     actions: (
@@ -1592,7 +1610,7 @@ export function MatchScreen(props: {
   return (
     <section className="screen-shell match-shell">
       <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {notificationState.announcementText ?? ""}
+        {liveAnnouncementText ?? ""}
       </div>
       <div className="match-screen">
         <div className="match-stage">
@@ -1605,10 +1623,10 @@ export function MatchScreen(props: {
                   }`}
                 >
                   <MatchNotificationCard
+                    key={`mobile-${displayHeroNotification.key}`}
                     match={props.match}
                     notification={displayHeroNotification}
-                    variant="hero"
-                    badgeLimit={3}
+                    variant="hero-mobile"
                   />
                   <span className="board-mobile-meta">
                     <span>Zug {props.match.turn}</span>
@@ -1616,13 +1634,9 @@ export function MatchScreen(props: {
                     <span>{boardDiceLabel}</span>
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className={`board-toggle board-toggle-focus ${autoFocusEnabled ? "is-active" : ""}`}
-                  onClick={() => setAutoFocusEnabled((current) => !current)}
-                >
-                  {autoFocusEnabled ? "Fokus an" : "Fokus aus"}
-                </button>
+                <div className="board-topbar-profile">
+                  <ProfileMenu {...props.profileMenuProps} />
+                </div>
               </>
             ) : (
               <>
@@ -1759,24 +1773,12 @@ export function MatchScreen(props: {
             {!isMobileViewport ? (
               <div className={`board-spotlight ${isCompactViewport ? "is-compact" : ""}`.trim()}>
                 <MatchNotificationCard
+                  key={`desktop-${displayHeroNotification.key}`}
                   match={props.match}
                   notification={displayHeroNotification}
                   variant="hero"
                   badgeLimit={isCompactViewport ? 2 : 4}
                 />
-                {desktopRecentNotifications.length ? (
-                  <div className="match-notification-stack">
-                    {desktopRecentNotifications.map((notification) => (
-                      <MatchNotificationCard
-                        key={notification.key}
-                        match={props.match}
-                        notification={notification}
-                        variant="mini"
-                        badgeLimit={2}
-                      />
-                    ))}
-                  </div>
-                ) : null}
               </div>
             ) : null}
             <div
@@ -1820,6 +1822,8 @@ export function MatchScreen(props: {
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                 onClick={() => setActiveTab(tab.id)}
               >
@@ -1831,11 +1835,19 @@ export function MatchScreen(props: {
         </aside>
 
         <section className={`surface match-sheet is-${effectiveSheetState}`}>
-          <div className={`match-sheet-summary ${isMobileViewport ? "is-mobile" : ""}`}>
-            {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
-            <strong>{turnStatus.title}</strong>
-            <span>{`${formatPhase(props.match.phase)} · Zug ${props.match.turn}`}</span>
-            {effectiveSheetState !== "peek" ? <span>{turnStatus.detail}</span> : null}
+          <div
+            className={`match-sheet-summary ${isMobileViewport ? "is-mobile" : ""} ${
+              getPlayerAccentClass(getPlayerColor(props.match, turnStatus.playerId))
+            }`.trim()}
+          >
+            <div className="match-sheet-summary-head">
+              {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
+              <span className="match-sheet-summary-meta">{`${formatPhase(props.match.phase)} · Zug ${props.match.turn}`}</span>
+            </div>
+            <div className="match-sheet-summary-copy">
+              <strong>{turnStatus.title}</strong>
+              {effectiveSheetState !== "peek" ? <span className="match-sheet-summary-detail">{turnStatus.detail}</span> : null}
+            </div>
           </div>
           {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
           {effectiveSheetState !== "peek" ? (
@@ -1844,6 +1856,8 @@ export function MatchScreen(props: {
                 <button
                   key={tab.id}
                   type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
                   className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                   onClick={() => {
                     setActiveTab(tab.id);
@@ -2188,7 +2202,7 @@ function PlayerBadge(props: { match: MatchSnapshot; playerId: string; compact?: 
 function MatchNotificationCard(props: {
   match: MatchSnapshot;
   notification: MatchNotification;
-  variant?: "hero" | "feed" | "mini";
+  variant?: "hero" | "hero-mobile" | "feed" | "mini";
   badgeLimit?: number;
 }) {
   const variant = props.variant ?? "feed";
@@ -2196,6 +2210,8 @@ function MatchNotificationCard(props: {
   const accentColor = accentPlayerId ? getPlayerColor(props.match, accentPlayerId) : null;
   const accentClass = getPlayerAccentClass(accentColor);
   const badges = props.badgeLimit ? props.notification.badges.slice(0, props.badgeLimit) : props.notification.badges;
+  const showDetail = variant !== "hero-mobile";
+  const showBadges = variant !== "hero-mobile";
 
   return (
     <article
@@ -2206,8 +2222,8 @@ function MatchNotificationCard(props: {
         {props.notification.playerId ? <PlayerBadge match={props.match} playerId={props.notification.playerId} compact /> : null}
       </div>
       <strong>{props.notification.title}</strong>
-      <span className="match-notification-detail">{props.notification.detail}</span>
-      {badges.length ? (
+      {showDetail ? <span className="match-notification-detail">{props.notification.detail}</span> : null}
+      {showBadges && badges.length ? (
         <div className="match-notification-badges">
           {badges.map((badge, index) => {
             const badgeColor = badge.playerId ? getPlayerColor(props.match, badge.playerId) : null;

@@ -1905,6 +1905,25 @@ export function App() {
               maritimeForm={maritimeForm}
               match={match}
               monopolyResource={monopolyResource}
+              profileMenuProps={{
+                boardVisualSettings,
+                connectionState,
+                musicPaused,
+                musicPlaybackMode,
+                musicTracks,
+                selectedMusicTrackId,
+                session,
+                soundMuted,
+                onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
+                onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
+                onLogout: handleLogout,
+                onNavigateHome: () => navigateTo({ kind: "home" }),
+                onSelectMusicTrack: handleSelectMusicTrack,
+                onToggleSoundMuted: handleToggleSoundMuted,
+                onToggleMusicPaused: handleToggleMusicPaused,
+                ...headerAdminProps,
+                ...headerRoomProps
+              }}
               room={room}
               selfPlayer={selfPlayer}
               selectedRoadEdges={selectedRoadEdges}
