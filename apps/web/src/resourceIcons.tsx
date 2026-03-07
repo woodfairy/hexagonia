@@ -92,7 +92,7 @@ export function PortMarkerIcon(props: {
   className?: string;
 }) {
   const { type, size = 40, className } = props;
-  const palette = getPortMarkerPalette(type);
+  const palette = getPortMarkerBadgePalette(type);
   const style = {
     "--port-marker-size": `${size}px`,
     "--port-badge-outer": palette.badgeOuter,
@@ -321,7 +321,7 @@ function renderGrainKernelSvg(x: number, y: number, rotation: number) {
   );
 }
 
-function getPortMarkerPalette(type: PortType): {
+export function getPortMarkerBadgePalette(type: PortType): {
   badgeOuter: string;
   badgeCore: string;
   badgeRing: string;

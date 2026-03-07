@@ -5,7 +5,7 @@ import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
 import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
-import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
+import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
 
 export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
@@ -4117,52 +4117,59 @@ function createPortMarker(
 function createPortSprite(type: PortType): THREE.Sprite {
   const palette = getPortMarkerPalette(type);
   const canvas = document.createElement("canvas");
-  canvas.width = 152;
-  canvas.height = 152;
+  canvas.width = 256;
+  canvas.height = 256;
   const context = canvas.getContext("2d")!;
+  const center = canvas.width / 2;
 
-  const gradient = context.createRadialGradient(76, 50, 18, 76, 76, 74);
+  const gradient = context.createRadialGradient(center, center * 0.66, 28, center, center, center - 12);
   gradient.addColorStop(0, palette.badgeCore);
   gradient.addColorStop(1, palette.badgeOuter);
   context.fillStyle = gradient;
   context.beginPath();
-  context.arc(76, 76, 66, 0, Math.PI * 2);
+  context.arc(center, center, center - 18, 0, Math.PI * 2);
   context.fill();
 
   context.strokeStyle = palette.badgeRing;
-  context.lineWidth = 4;
+  context.lineWidth = 6;
   context.beginPath();
-  context.arc(76, 76, 64, 0, Math.PI * 2);
+  context.arc(center, center, center - 22, 0, Math.PI * 2);
   context.stroke();
 
   context.strokeStyle = palette.badgeInnerRing;
-  context.lineWidth = 1.5;
+  context.lineWidth = 2.5;
   context.beginPath();
-  context.arc(76, 76, 54, 0, Math.PI * 2);
+  context.arc(center, center, center - 40, 0, Math.PI * 2);
   context.stroke();
 
   context.beginPath();
   context.fillStyle = palette.badgeInset;
-  context.arc(76, 76, 38, 0, Math.PI * 2);
+  context.arc(center, center, center - 66, 0, Math.PI * 2);
   context.fill();
 
   if (type !== "generic") {
     context.beginPath();
     context.fillStyle = "rgba(255, 255, 255, 0.14)";
-    context.arc(110, 42, 18, 0, Math.PI * 2);
+    context.arc(center + 58, center - 58, 28, 0, Math.PI * 2);
     context.fill();
-    drawResourceIcon(context, type, 110, 42, 22, getResourceIconColor(type));
+    drawResourceIcon(context, type, center + 58, center - 58, 34, getResourceIconColor(type));
   }
 
-  drawHarborIcon(context, 76, 82, 54, "#f5edd6");
+  drawHarborIcon(context, center, center + 10, 84, "#f5edd6");
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: false,
-      depthWrite: false
+      depthWrite: false,
+      toneMapped: false,
+      fog: false
     })
   );
   sprite.scale.set(2.92, 2.92, 1);
@@ -4183,6 +4190,7 @@ function getPortMarkerPalette(type: PortType): {
   badgeInset: string;
   accent: string;
 } {
+  const badgePalette = getPortMarkerBadgePalette(type);
   if (type === "generic") {
     return {
       base: "#173246",
@@ -4190,16 +4198,11 @@ function getPortMarkerPalette(type: PortType): {
       bridge: "#ecdcae",
       bollard: "#38556a",
       emissive: "#b98f42",
-      badgeOuter: "rgba(9, 18, 27, 0.98)",
-      badgeCore: "rgba(19, 36, 49, 0.98)",
-      badgeRing: "rgba(232, 210, 158, 0.82)",
-      badgeInnerRing: "rgba(255, 255, 255, 0.08)",
-      badgeInset: "rgba(240, 222, 174, 0.14)",
+      ...badgePalette,
       accent: "#f0deae"
     };
   }
 
-  const accent = getResourceIconColor(type);
   const terrain = TILE_COLORS[type];
   return {
     base: shadeColor(terrain, -0.12),
@@ -4207,11 +4210,7 @@ function getPortMarkerPalette(type: PortType): {
     bridge: shadeColor(terrain, 0.04),
     bollard: shadeColor(terrain, -0.06),
     emissive: shadeColor(terrain, -0.14),
-    badgeOuter: shadeColor(terrain, -0.12),
-    badgeCore: terrain,
-    badgeRing: shadeColor(accent, 0.02),
-    badgeInnerRing: "rgba(255, 255, 255, 0.14)",
-    badgeInset: "rgba(255, 255, 255, 0.12)",
+    ...badgePalette,
     accent: terrain
   };
 }
