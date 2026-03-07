@@ -671,14 +671,14 @@ export function MatchScreen(props: {
                 {robberDiscardGroups.pending.length ? (
                   <div className="robber-discard-list">
                     {robberDiscardGroups.pending.map(({ player, requiredCount }) => (
-                      <article key={player.id} className={`robber-discard-row player-accent-${player.color}`}>
-                        <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
-                        <div className="robber-discard-row-meta">
-                          <span className={`status-pill player-tone-pill player-accent-${player.color} is-warning`}>offen</span>
-                          <span>{requiredCount} Karten</span>
-                        </div>
-                      </article>
-                    ))}
+                        <article key={player.id} className={`robber-discard-row player-accent-${player.color}`}>
+                          <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
+                          <div className="robber-discard-row-meta">
+                            <span className={`status-pill player-tone-pill player-accent-${player.color} is-warning`}>offen</span>
+                            <span>noch {requiredCount} abwerfen</span>
+                          </div>
+                        </article>
+                      ))}
                   </div>
                 ) : (
                   <div className="robber-discard-empty">Niemand muss mehr abwerfen.</div>
