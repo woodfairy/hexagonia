@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch
 import type { ClientMessage, MatchSnapshot, PlayerColor, PortType, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
 import { createEmptyResourceMap, equalResourceMaps, hasResources, isEmptyResourceMap, RESOURCES, totalResources } from "@hexagonia/shared";
 import { BoardScene, TILE_COLORS, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
-import { HarborIcon, ResourceIcon } from "../../resourceIcons";
+import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { formatPhase, getPlayerAccentClass, renderEventLabel, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 
@@ -707,15 +707,7 @@ export function MatchScreen(props: {
       {COMPACT_HARBOR_LEGEND.map((entry) => (
         <div key={entry.type} className="board-legend-resource board-legend-harbor" title={entry.note}>
           <span className="board-legend-resource-swatch board-legend-harbor-swatch" aria-hidden="true">
-            <HarborIcon size={18} color="#f5edd6" className="board-legend-harbor-icon" />
-            {entry.type === "generic" ? (
-              <span className="board-legend-harbor-badge">3:1</span>
-            ) : (
-              <span className="board-legend-harbor-chip">
-                <ResourceIcon resource={entry.type} tone="light" size={13} />
-                <span className="board-legend-harbor-rate">2:1</span>
-              </span>
-            )}
+            <PortMarkerIcon type={entry.type} size={40} className="board-legend-harbor-icon" />
           </span>
           <div className="board-legend-resource-copy">
             <strong>{entry.type === "generic" ? "3:1-Hafen" : `${renderResourceLabel(entry.type)}-Hafen`}</strong>
