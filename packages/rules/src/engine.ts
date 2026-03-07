@@ -146,7 +146,7 @@ const BUILD_COSTS = {
 
 const RESOURCE_BANK_START = 19;
 const BEGINNER_PLAYER_COLORS: Record<3 | 4, PlayerColor[]> = {
-  3: ["blue", "white", "orange"],
+  3: ["red", "blue", "orange"],
   4: ["red", "blue", "white", "orange"]
 };
 const BEGINNER_PLACEMENTS: BeginnerPlacement[] = [
@@ -839,8 +839,11 @@ function handleMoveRobber(
 
   const victims = getRobberStealTargets(state, playerId, tileId);
   if (victims.length > 0) {
-    const fallbackVictimId = victims[0]!;
-    const victimId = targetPlayerId ?? fallbackVictimId;
+    if (victims.length > 1 && !targetPlayerId) {
+      throw new GameRuleError("Wähle den Spieler aus, von dem gestohlen werden soll.");
+    }
+
+    const victimId = targetPlayerId ?? victims[0]!;
     if (!victims.includes(victimId)) {
       throw new GameRuleError("Von diesem Spieler kann hier nicht gestohlen werden.");
     }
