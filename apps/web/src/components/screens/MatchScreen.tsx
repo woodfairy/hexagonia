@@ -68,6 +68,28 @@ const HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
 ];
 let dicePreviewCursor = 0;
 
+const COMPACT_RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
+  { resource: "brick", note: "Strassen, Siedlungen" },
+  { resource: "lumber", note: "Strassen, Siedlungen" },
+  { resource: "ore", note: "Staedte, Entwicklung" },
+  { resource: "grain", note: "Siedlungen, Staedte, Entwicklung" },
+  { resource: "wool", note: "Siedlungen, Entwicklung" },
+  { resource: "desert", note: "Kein Ertrag, Startfeld des Raeubers" }
+];
+
+const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
+  { type: "generic", note: "3 gleiche Karten gegen 1 Wahlkarte" },
+  { type: "brick", note: "2 Lehm gegen 1 Wahlkarte" },
+  { type: "lumber", note: "2 Holz gegen 1 Wahlkarte" },
+  { type: "ore", note: "2 Erz gegen 1 Wahlkarte" },
+  { type: "grain", note: "2 Getreide gegen 1 Wahlkarte" },
+  { type: "wool", note: "2 Wolle gegen 1 Wahlkarte" }
+];
+
+function isDenseLegendViewport(width: number, height: number): boolean {
+  return width < 1320 || height < 840;
+}
+
 interface FocusableEventResult {
   cue: BoardFocusCue;
   event: MatchSnapshot["eventLog"][number];
@@ -143,6 +165,13 @@ export function MatchScreen(props: {
 
     return window.innerWidth <= 1023;
   });
+  const [isDenseLegendViewportState, setIsDenseLegendViewportState] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return isDenseLegendViewport(window.innerWidth, window.innerHeight);
+  });
   const [autoFocusEnabled, setAutoFocusEnabled] = useState(() => {
     if (typeof window === "undefined") {
       return true;
@@ -159,12 +188,16 @@ export function MatchScreen(props: {
       return false;
     }
 
+    if (isDenseLegendViewport(window.innerWidth, window.innerHeight)) {
+      return false;
+    }
+
     const stored = window.localStorage.getItem(BOARD_LEGEND_STORAGE_KEY);
     if (stored) {
       return stored !== "closed";
     }
 
-    return window.innerWidth >= 720;
+    return true;
   });
   const [boardHudOpen, setBoardHudOpen] = useState(() => {
     if (typeof window === "undefined") {
@@ -195,21 +228,36 @@ export function MatchScreen(props: {
   const isCurrentPlayer = props.match.currentPlayerId === props.match.you;
   const recentEvents = useMemo(() => props.match.eventLog.slice(-5).reverse(), [props.match.eventLog]);
   const recentFocusableEvent = useMemo(() => getLatestFocusableEvent(props.match), [props.match]);
+  const visibleRecentFocusableEvent =
+    diceDisplay.phase !== "idle" && recentFocusableEvent && isDiceRevealEvent(recentFocusableEvent.event)
+      ? null
+      : recentFocusableEvent;
+  const incomingTradeOffers = useMemo(
+    () =>
+      props.match.tradeOffers.filter(
+        (offer) =>
+          props.match.allowedMoves.acceptableTradeOfferIds.includes(offer.id) ||
+          props.match.allowedMoves.declineableTradeOfferIds.includes(offer.id)
+      ),
+    [props.match.allowedMoves.acceptableTradeOfferIds, props.match.allowedMoves.declineableTradeOfferIds, props.match.tradeOffers]
+  );
+  const incomingTradeOffer = incomingTradeOffers[0] ?? null;
+  const incomingTradeCount = incomingTradeOffers.length;
   const actionCue = useMemo(
     () => createOwnActionCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
     [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
   );
-  const highlightCue = actionCue ?? recentFocusableEvent?.cue ?? null;
+  const highlightCue = actionCue ?? visibleRecentFocusableEvent?.cue ?? null;
   const shouldAutoFocusRecentEvent =
-    !!recentFocusableEvent &&
-    (recentFocusableEvent.event.type === "dice_rolled" ||
-      recentFocusableEvent.event.type === "resources_distributed" ||
-      recentFocusableEvent.event.byPlayerId !== props.match.you);
+    !!visibleRecentFocusableEvent &&
+    (visibleRecentFocusableEvent.event.type === "dice_rolled" ||
+      visibleRecentFocusableEvent.event.type === "resources_distributed" ||
+      visibleRecentFocusableEvent.event.byPlayerId !== props.match.you);
   const cameraCue =
     autoFocusEnabled
-      ? (actionCue ?? (shouldAutoFocusRecentEvent ? (recentFocusableEvent?.cue ?? null) : null))
+      ? (actionCue ?? (shouldAutoFocusRecentEvent ? (visibleRecentFocusableEvent?.cue ?? null) : null))
       : null;
-  const spotlightCue = cameraCue ?? actionCue ?? recentFocusableEvent?.cue ?? null;
+  const spotlightCue = cameraCue ?? actionCue ?? visibleRecentFocusableEvent?.cue ?? null;
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)
     : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
@@ -218,7 +266,7 @@ export function MatchScreen(props: {
     (!isCurrentPlayer ? activePlayer : null);
   const maritimeRatio =
     props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
-  const maritimeRateLabel = getMaritimeRateLabel(props.match, props.match.you, props.maritimeForm.give, maritimeRatio);
+  const maritimeRateOriginLabel = getMaritimeRateOriginLabel(props.match, props.match.you, props.maritimeForm.give, maritimeRatio);
   const maritimeRatePillLabel = `${maritimeRatio}:1`;
   const ownedGiveResources = RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) > 0);
   const tradeGiveMax = props.selfPlayer?.resources?.[props.tradeForm.give] ?? 0;
@@ -298,6 +346,23 @@ export function MatchScreen(props: {
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
   const spotlightBadges = isCompactViewport ? spotlightCue?.badges?.slice(0, 1) : spotlightCue?.badges;
+  const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || sheetState === "peek");
+  const openTradePanel = () => {
+    setTradeSection("player");
+    setActiveTab("trade");
+    if (sheetState === "peek") {
+      setSheetState("half");
+    }
+  };
+  const renderTabLabel = (tab: { id: MatchPanelTab; label: string }) => {
+    const alertCount = tab.id === "trade" ? incomingTradeCount : 0;
+    return (
+      <span className="tab-button-label">
+        <span>{tab.label}</span>
+        {alertCount > 0 ? <span className="tab-alert-badge">{alertCount > 9 ? "9+" : alertCount}</span> : null}
+      </span>
+    );
+  };
   const primaryActions = [
     {
       id: "roll",
@@ -371,6 +436,7 @@ export function MatchScreen(props: {
     const updateViewport = () => {
       setIsMobileViewport(window.innerWidth <= 1023);
       setIsCompactViewport(window.innerWidth <= 719 || window.innerHeight <= 560);
+      setIsDenseLegendViewportState(isDenseLegendViewport(window.innerWidth, window.innerHeight));
     };
 
     updateViewport();
@@ -385,13 +451,14 @@ export function MatchScreen(props: {
   }, [isCompactViewport, sheetState]);
 
   useEffect(() => {
-    if (!isMobileViewport) {
-      return;
+    if (isMobileViewport || isDenseLegendViewportState) {
+      setBoardLegendOpen(false);
     }
 
-    setBoardLegendOpen(false);
-    setBoardHudOpen(false);
-  }, [isMobileViewport]);
+    if (isMobileViewport) {
+      setBoardHudOpen(false);
+    }
+  }, [isDenseLegendViewportState, isMobileViewport]);
 
   useEffect(() => {
     if (isMobileViewport && activeTab === "players") {
@@ -595,9 +662,9 @@ export function MatchScreen(props: {
   }, [affordableMaritimeGiveResources, props.maritimeForm.give, props.setMaritimeForm]);
 
   const resourceLegendList = (
-    <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : ""}`}>
-      {RESOURCE_LEGEND.map((entry) => (
-        <div key={entry.resource} className="board-legend-resource">
+    <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : "is-desktop-grid"}`}>
+      {COMPACT_RESOURCE_LEGEND.map((entry) => (
+        <div key={entry.resource} className="board-legend-resource" title={entry.note}>
           <span
             className="board-legend-resource-swatch"
             style={{ "--legend-resource-color": TILE_COLORS[entry.resource] } as CSSProperties}
@@ -614,9 +681,9 @@ export function MatchScreen(props: {
     </div>
   );
   const harborLegendList = (
-    <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : ""}`}>
-      {HARBOR_LEGEND.map((entry) => (
-        <div key={entry.type} className="board-legend-resource board-legend-harbor">
+    <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : "is-desktop-grid"}`}>
+      {COMPACT_HARBOR_LEGEND.map((entry) => (
+        <div key={entry.type} className="board-legend-resource board-legend-harbor" title={entry.note}>
           <span className="board-legend-resource-swatch board-legend-harbor-swatch" aria-hidden="true">
             {entry.type === "generic" ? (
               <span className="board-legend-harbor-badge">3:1</span>
@@ -648,6 +715,22 @@ export function MatchScreen(props: {
       <div className="board-legend-note">
         <span className="legend-signal is-port" aria-hidden="true">⚓</span>
         <span>Häfen liegen an der Küste. Es zählt immer die beste Rate deiner angrenzenden eigenen Siedlung oder Stadt.</span>
+      </div>
+    </div>
+  );
+  const compactBoardHintLegend = (
+    <div className="board-legend-notes">
+      <div className="board-legend-note">
+        <span className="legend-signal is-gold" aria-hidden="true" />
+        <span>Gold markiert Live-Ereignisse und wichtige Board-Momente.</span>
+      </div>
+      <div className="board-legend-note">
+        <span className="legend-signal is-pulse" aria-hidden="true" />
+        <span>Blau zeigt gueltige Klicks und aktuelle Bauziele.</span>
+      </div>
+      <div className="board-legend-note">
+        <span className="legend-signal is-port" aria-hidden="true">&#9875;</span>
+        <span>Am Hafen gilt immer die beste Rate deiner angrenzenden Siedlung oder Stadt.</span>
       </div>
     </div>
   );
@@ -780,7 +863,7 @@ export function MatchScreen(props: {
               <div className="mobile-legend-stack">
                 {resourceLegendList}
                 {harborLegendList}
-                {boardHintLegend}
+                {compactBoardHintLegend}
               </div>
             </section>
           </>
@@ -1002,6 +1085,14 @@ export function MatchScreen(props: {
             <h3>Handel</h3>
             <span>{tradeSection === "player" ? "Spieler" : "Hafen"}</span>
           </div>
+          {incomingTradeOffer ?? props.match.tradeOffers[0] ? (
+            <TradeBanner
+              trade={(incomingTradeOffer ?? props.match.tradeOffers[0])!}
+              currentUserId={props.match.you}
+              match={props.match}
+              onAction={props.onAction}
+            />
+          ) : null}
           <div className="mini-segmented">
             <button type="button" className={tradeSection === "player" ? "is-active" : ""} onClick={() => setTradeSection("player")}>
               Spieler
@@ -1012,9 +1103,6 @@ export function MatchScreen(props: {
           </div>
           {tradeSection === "player" ? (
             <>
-              {props.match.tradeOffers.length > 0 ? (
-                <TradeBanner currentUserId={props.match.you} match={props.match} onAction={props.onAction} />
-              ) : null}
               <div className="trade-builder">
                 <article className="trade-side-card trade-side-give">
                   <div className="trade-side-head">
@@ -1141,10 +1229,10 @@ export function MatchScreen(props: {
                   <span className="eyebrow">Du gibst</span>
                   <strong>{maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)}</strong>
                   <div className="trade-rate-row">
-                    <span className="trade-rate-pill">Aktive Rate: {maritimeRatePillLabel}</span>
-                    <span className="trade-rate-copy">{maritimeRateLabel}</span>
+                    <span className="trade-rate-pill">{maritimeRatePillLabel}</span>
+                    <span className="trade-rate-copy">{maritimeRateOriginLabel}</span>
                   </div>
-                  <span>{maritimeRateLabel}. Nur handelbare Rohstoffe mit passender Rate sind wählbar.</span>
+                  <span>Nur Rohstoffe mit ausreichender Anzahl sind auswählbar.</span>
                 </div>
                 <div className="trade-resource-grid-shell">
                   <TradeResourceCardGrid
@@ -1348,6 +1436,16 @@ export function MatchScreen(props: {
               selectedRoadEdges={props.selectedRoadEdges}
               snapshot={props.match}
             />
+            {showIncomingTradeAlert && incomingTradeOffer ? (
+              <TradeBanner
+                className={`is-board-alert ${isMobileViewport ? "is-mobile" : ""}`}
+                trade={incomingTradeOffer}
+                currentUserId={props.match.you}
+                match={props.match}
+                onAction={props.onAction}
+                onOpenTrade={openTradePanel}
+              />
+            ) : null}
             <div className={`board-hud ${boardHudOpen ? "is-open" : "is-collapsed"}`}>
               {isMobileViewport ? (
                 <button
@@ -1428,7 +1526,7 @@ export function MatchScreen(props: {
                     </div>
                     <div className="board-legend-section">
                       <span className="eyebrow">Brett-Hinweise</span>
-                      {boardHintLegend}
+                      {compactBoardHintLegend}
                     </div>
                   </div>
                 ) : null}
@@ -1518,10 +1616,10 @@ export function MatchScreen(props: {
               <button
                 key={tab.id}
                 type="button"
-                className={activeTab === tab.id ? "is-active" : ""}
+                className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                 onClick={() => setActiveTab(tab.id)}
               >
-                {tab.label}
+                {renderTabLabel(tab)}
               </button>
             ))}
           </div>
@@ -1553,12 +1651,12 @@ export function MatchScreen(props: {
                 <button
                   key={tab.id}
                   type="button"
-                  className={activeTab === tab.id ? "is-active" : ""}
+                  className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                   onClick={() => {
                     setActiveTab(tab.id);
                   }}
                 >
-                  {tab.label}
+                  {renderTabLabel(tab)}
                 </button>
               ))}
             </div>
@@ -1698,13 +1796,13 @@ function sanitizeRequestedTradeCount(value: number | string): number {
 
 function TradeBanner(props: {
   match: MatchSnapshot;
+  trade: MatchSnapshot["tradeOffers"][number];
   currentUserId: string;
   onAction: (message: ClientMessage) => void;
+  onOpenTrade?: () => void;
+  className?: string;
 }) {
-  const trade = props.match.tradeOffers[0];
-  if (!trade) {
-    return null;
-  }
+  const trade = props.trade;
 
   const responderVisible =
     props.currentUserId !== trade.fromPlayerId &&
@@ -1714,7 +1812,7 @@ function TradeBanner(props: {
   const targetLabel = trade.toPlayerId ? `An ${getPlayerName(props.match, trade.toPlayerId)}` : "Offen für alle";
 
   return (
-    <div className="trade-banner">
+    <div className={`trade-banner ${props.className ?? ""}`.trim()}>
       <div className="trade-banner-copy">
         <strong>{trade.fromPlayerId === props.currentUserId ? "Dein Angebot" : `Angebot von ${proposerName}`}</strong>
         <span>{targetLabel}</span>
@@ -1763,6 +1861,11 @@ function TradeBanner(props: {
             >
               Ablehnen
             </button>
+            {props.onOpenTrade ? (
+              <button type="button" className="secondary-button is-accent" onClick={props.onOpenTrade}>
+                Zum Handel
+              </button>
+            ) : null}
           </>
         ) : trade.fromPlayerId === props.currentUserId ? (
           <button
@@ -1780,6 +1883,10 @@ function TradeBanner(props: {
             }
           >
             Angebot beenden
+          </button>
+        ) : props.onOpenTrade ? (
+          <button type="button" className="secondary-button is-accent" onClick={props.onOpenTrade}>
+            Zum Handel
           </button>
         ) : null}
       </div>
@@ -2113,6 +2220,10 @@ function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"]
   return null;
 }
 
+function isDiceRevealEvent(event: MatchSnapshot["eventLog"][number]): boolean {
+  return event.type === "dice_rolled" || event.type === "resources_distributed";
+}
+
 function createEventCue(
   match: MatchSnapshot,
   event: MatchSnapshot["eventLog"][number]
@@ -2439,7 +2550,7 @@ function getPlayerPresenceState(player: MatchSnapshot["players"][number], now: n
   };
 }
 
-function getMaritimeRateLabel(
+function getMaritimeRateOriginLabel(
   match: MatchSnapshot,
   playerId: string,
   resource: Resource,
@@ -2453,14 +2564,14 @@ function getMaritimeRateLabel(
   }
 
   if (ratio === 2 && ownedPortTypes.has(resource)) {
-    return `${renderResourceLabel(resource)}-Hafen aktiv`;
+    return `${renderResourceLabel(resource)}-Hafen`;
   }
 
   if (ratio === 3 && ownedPortTypes.has("generic")) {
-    return "3:1-Hafen aktiv";
+    return "3:1-Hafen";
   }
 
-  return "4:1-Banktausch";
+  return "Bank";
 }
 
 function formatCountdown(ms: number): string {
