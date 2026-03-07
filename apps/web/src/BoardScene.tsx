@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
+import { renderResourceLabel } from "./ui";
 
 export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
 export interface BoardFocusBadge {
@@ -58,7 +59,7 @@ interface MaterialState {
 }
 
 interface InteractiveMeta {
-  kind: "tile" | "edge" | "vertex";
+  kind: "tile" | "edge" | "vertex" | "port";
   id: string;
   baseScale: THREE.Vector3;
   hoverScale: number;
@@ -70,6 +71,14 @@ interface FocusGeometry {
   x: number;
   z: number;
   span: number;
+}
+
+interface BoardTooltipState {
+  title: string;
+  detail: string;
+  x: number;
+  y: number;
+  accentColor: string;
 }
 
 export function BoardScene(props: BoardSceneProps) {
@@ -87,6 +96,7 @@ export function BoardScene(props: BoardSceneProps) {
   const autoFlightRef = useRef(false);
   const userInteractingRef = useRef(false);
   const hoveredInteractiveRef = useRef<THREE.Object3D | null>(null);
+  const [boardTooltip, setBoardTooltip] = useState<BoardTooltipState | null>(null);
   const handlersRef = useRef({
     onVertexSelect: props.onVertexSelect,
     onEdgeSelect: props.onEdgeSelect,
@@ -230,6 +240,19 @@ export function BoardScene(props: BoardSceneProps) {
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    const CLICK_MOVE_THRESHOLD_PX = 8;
+    const CLICK_HOLD_THRESHOLD_MS = 320;
+    let pendingClick:
+      | {
+          pointerId: number;
+          clientX: number;
+          clientY: number;
+          startedAt: number;
+          kind: Exclude<InteractiveMeta["kind"], "port">;
+          id: string;
+          cancelled: boolean;
+        }
+      | null = null;
 
     const updateHoveredObject = (nextObject: THREE.Object3D | null) => {
       if (hoveredInteractiveRef.current === nextObject) {
@@ -242,6 +265,36 @@ export function BoardScene(props: BoardSceneProps) {
       if (!userInteractingRef.current) {
         renderer.domElement.style.cursor = nextObject ? "pointer" : "";
       }
+    };
+
+    const updateBoardTooltip = (target: THREE.Object3D | null, event?: PointerEvent) => {
+      const tooltip = target?.userData?.tooltip as
+        | { title: string; detail: string; accentColor: string }
+        | undefined;
+      if (!tooltip || !event || !mountRef.current) {
+        setBoardTooltip(null);
+        return;
+      }
+
+      const rect = mountRef.current.getBoundingClientRect();
+      const tooltipWidth = Math.min(248, Math.max(rect.width - 24, 160));
+      const tooltipHeight = 112;
+      const x = Math.min(
+        Math.max(event.clientX - rect.left + 16, 12),
+        Math.max(12, rect.width - tooltipWidth - 12)
+      );
+      const y = Math.min(
+        Math.max(event.clientY - rect.top + 16, 12),
+        Math.max(12, rect.height - tooltipHeight - 12)
+      );
+
+      setBoardTooltip({
+        title: tooltip.title,
+        detail: tooltip.detail,
+        x,
+        y,
+        accentColor: tooltip.accentColor
+      });
     };
 
     const getInteractiveObjectAtPointer = (event: PointerEvent) => {
@@ -259,25 +312,7 @@ export function BoardScene(props: BoardSceneProps) {
       return resolveInteractiveObject(intersections[0]?.object ?? null);
     };
 
-    const onPointerMove = (event: PointerEvent) => {
-      updateHoveredObject(getInteractiveObjectAtPointer(event));
-    };
-
-    const onPointerLeave = () => {
-      updateHoveredObject(null);
-      if (!userInteractingRef.current) {
-        renderer.domElement.style.cursor = "";
-      }
-    };
-
-    const onPointerDown = (event: PointerEvent) => {
-      syncModifierScheme(event.ctrlKey);
-      const target = getInteractiveObjectAtPointer(event);
-      const hit = target?.userData as { kind?: "tile" | "edge" | "vertex"; id?: string } | undefined;
-      if (!hit?.kind || !hit.id) {
-        return;
-      }
-
+    const triggerInteractiveSelection = (hit: { kind: Exclude<InteractiveMeta["kind"], "port">; id: string }) => {
       if (hit.kind === "tile") {
         handlersRef.current.onTileSelect(hit.id);
       }
@@ -289,9 +324,91 @@ export function BoardScene(props: BoardSceneProps) {
       }
     };
 
+    const onPointerMove = (event: PointerEvent) => {
+      if (pendingClick && event.pointerId === pendingClick.pointerId) {
+        const distance = Math.hypot(event.clientX - pendingClick.clientX, event.clientY - pendingClick.clientY);
+        if (distance > CLICK_MOVE_THRESHOLD_PX) {
+          pendingClick.cancelled = true;
+        }
+      }
+
+      const target = getInteractiveObjectAtPointer(event);
+      updateHoveredObject(target);
+      updateBoardTooltip(target, event);
+    };
+
+    const onPointerLeave = () => {
+      pendingClick = null;
+      updateHoveredObject(null);
+      setBoardTooltip(null);
+      if (!userInteractingRef.current) {
+        renderer.domElement.style.cursor = "";
+      }
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      syncModifierScheme(event.ctrlKey);
+      if (event.button !== 0) {
+        pendingClick = null;
+        return;
+      }
+
+      const target = getInteractiveObjectAtPointer(event);
+      const hit = target?.userData as { kind?: InteractiveMeta["kind"]; id?: string } | undefined;
+      if (!hit?.kind || !hit.id || hit.kind === "port") {
+        pendingClick = null;
+        return;
+      }
+
+      pendingClick = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        startedAt: performance.now(),
+        kind: hit.kind,
+        id: hit.id,
+        cancelled: false
+      };
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (!pendingClick || event.pointerId !== pendingClick.pointerId) {
+        return;
+      }
+
+      const click = pendingClick;
+      pendingClick = null;
+
+      if (event.button !== 0) {
+        return;
+      }
+
+      if (click.cancelled || performance.now() - click.startedAt > CLICK_HOLD_THRESHOLD_MS) {
+        return;
+      }
+
+      const target = getInteractiveObjectAtPointer(event);
+      const hit = target?.userData as { kind?: InteractiveMeta["kind"]; id?: string } | undefined;
+      if (!hit?.kind || !hit.id || hit.kind === "port") {
+        return;
+      }
+
+      if (hit.kind !== click.kind || hit.id !== click.id) {
+        return;
+      }
+
+      triggerInteractiveSelection(click);
+    };
+
+    const onPointerCancel = () => {
+      pendingClick = null;
+    };
+
     renderer.domElement.addEventListener("pointermove", onPointerMove);
     renderer.domElement.addEventListener("pointerleave", onPointerLeave);
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointercancel", onPointerCancel);
     renderer.setAnimationLoop(() => {
       const pulse = performance.now() * 0.005;
       if (autoFlightRef.current && !userInteractingRef.current) {
@@ -356,6 +473,8 @@ export function BoardScene(props: BoardSceneProps) {
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel", onPointerCancel);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
@@ -374,6 +493,7 @@ export function BoardScene(props: BoardSceneProps) {
       return;
     }
 
+    setBoardTooltip(null);
     if (boardGroupRef.current) {
       setInteractiveHoverState(hoveredInteractiveRef.current, false);
       hoveredInteractiveRef.current = null;
@@ -464,6 +584,9 @@ export function BoardScene(props: BoardSceneProps) {
       }
 
       const marker = createPortMarker(port, edge, tile, verticesById);
+      attachInteractiveMeta(marker, "port", port.id, 1.04);
+      marker.userData.tooltip = getPortTooltip(port.type);
+      interactiveRef.current.push(marker);
       group.add(marker);
     }
 
@@ -584,7 +707,28 @@ export function BoardScene(props: BoardSceneProps) {
     autoFlightRef.current = true;
   }, [props.cameraCue, props.snapshot]);
 
-  return <div className="board-canvas" ref={mountRef} />;
+  return (
+    <div className="board-canvas" ref={mountRef}>
+      {boardTooltip ? (
+        <div
+          className="board-canvas-tooltip"
+          style={
+            {
+              insetInlineStart: `${boardTooltip.x}px`,
+              insetBlockStart: `${boardTooltip.y}px`,
+              "--board-tooltip-accent": boardTooltip.accentColor
+            } as CSSProperties
+          }
+        >
+          <div className="board-canvas-tooltip-head">
+            <span className="board-canvas-tooltip-dot" aria-hidden="true" />
+            <strong>{boardTooltip.title}</strong>
+          </div>
+          <span>{boardTooltip.detail}</span>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
@@ -635,42 +779,43 @@ function createVertexMarker(): THREE.Mesh {
 }
 
 function createTokenSprite(resource: Resource | "desert", token: number | null, robber: boolean): THREE.Sprite {
+  const spriteResolution = 288;
+  const center = spriteResolution / 2;
   const canvas = document.createElement("canvas");
-  canvas.width = 192;
-  canvas.height = 192;
+  canvas.width = spriteResolution;
+  canvas.height = spriteResolution;
   const context = canvas.getContext("2d")!;
 
   context.fillStyle = robber ? "#17212b" : "#f4edd8";
   context.beginPath();
-  context.arc(96, 96, 58, 0, Math.PI * 2);
+  context.arc(center, center, 87, 0, Math.PI * 2);
   context.fill();
 
-  context.lineWidth = 7;
+  context.lineWidth = 10.5;
   context.strokeStyle = robber ? "#f3cf83" : "#6b4a1b";
   context.stroke();
 
   context.beginPath();
   context.fillStyle = robber ? "rgba(243, 207, 131, 0.22)" : "rgba(255, 255, 255, 0.92)";
-  context.arc(96, 46, 24, 0, Math.PI * 2);
+  context.arc(center, 69, 36, 0, Math.PI * 2);
   context.fill();
-  context.lineWidth = 3.5;
+  context.lineWidth = 5;
   context.strokeStyle = robber ? "#f3cf83" : "rgba(32, 50, 64, 0.3)";
   context.stroke();
-  drawResourceIcon(context, resource, 98, 48, 32, robber ? "rgba(14, 26, 36, 0.82)" : "rgba(16, 30, 42, 0.78)");
-  drawResourceIcon(context, resource, 96, 46, 30, robber ? "#f3cf83" : getResourceIconColor(resource));
+  drawResourceIcon(context, resource, center, 69, 42, robber ? "#f3cf83" : getResourceIconColor(resource));
 
   if (token !== null) {
     context.fillStyle = token === 6 || token === 8 ? "#b83e2f" : "#203240";
-    context.font = "700 62px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.font = "700 92px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(String(token), 96, 104);
+    context.fillText(String(token), center, 156);
   } else {
     context.fillStyle = "#f3cf83";
-    context.font = "700 24px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.font = "700 36px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("RÄUBER", 96, 104);
+    context.fillText("RÄUBER", center, 156);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -765,6 +910,7 @@ function createPortMarker(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
 ): THREE.Group {
+  const palette = getPortMarkerPalette(port.type);
   const [leftId, rightId] = edge.vertexIds;
   const left = verticesById.get(leftId)!;
   const right = verticesById.get(rightId)!;
@@ -780,13 +926,13 @@ function createPortMarker(
   const bridge = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.11, Math.max(bridgeLength, 0.34), 4, 8),
     new THREE.MeshStandardMaterial({
-        color: "#ecdcae",
+      color: palette.bridge,
       roughness: 0.52,
       metalness: 0.06,
       transparent: true,
-        opacity: 0.98,
-      emissive: new THREE.Color("#b98f42"),
-      emissiveIntensity: 0.08
+      opacity: 0.98,
+      emissive: new THREE.Color(palette.emissive),
+      emissiveIntensity: 0.12
     })
   );
   bridge.position.copy(bridgePosition);
@@ -797,11 +943,11 @@ function createPortMarker(
   const dockBase = new THREE.Mesh(
     new THREE.CylinderGeometry(1.02, 1.12, 0.18, 6),
     new THREE.MeshStandardMaterial({
-        color: "#173246",
+      color: palette.base,
       roughness: 0.78,
       metalness: 0.04,
-        emissive: new THREE.Color("#21455c"),
-        emissiveIntensity: 0.12
+      emissive: new THREE.Color(palette.emissive),
+      emissiveIntensity: port.type === "generic" ? 0.12 : 0.18
     })
   );
   dockBase.position.set(markerPosition.x, TILE_HEIGHT + 0.12, markerPosition.z);
@@ -810,9 +956,11 @@ function createPortMarker(
   const dockTop = new THREE.Mesh(
     new THREE.CylinderGeometry(0.84, 0.92, 0.1, 6),
     new THREE.MeshStandardMaterial({
-        color: "#f2e4bc",
+      color: palette.top,
       roughness: 0.42,
-      metalness: 0.04
+      metalness: 0.04,
+      emissive: new THREE.Color(palette.emissive),
+      emissiveIntensity: port.type === "generic" ? 0.04 : 0.1
     })
   );
   dockTop.position.set(markerPosition.x, TILE_HEIGHT + 0.24, markerPosition.z);
@@ -822,7 +970,7 @@ function createPortMarker(
     const bollard = new THREE.Mesh(
       new THREE.CylinderGeometry(0.065, 0.075, 0.28, 10),
       new THREE.MeshStandardMaterial({
-        color: "#38556a",
+        color: palette.bollard,
         roughness: 0.72,
         metalness: 0.08
       })
@@ -835,58 +983,76 @@ function createPortMarker(
     return bollard;
   };
 
-  const badge = createPortSprite(port.type);
-  badge.position.set(markerPosition.x, TILE_HEIGHT + 0.96, markerPosition.z);
+  const signPost = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.1, 0.76, 8),
+    new THREE.MeshStandardMaterial({
+      color: palette.bollard,
+      roughness: 0.62,
+      metalness: 0.08,
+      emissive: new THREE.Color(palette.emissive),
+      emissiveIntensity: 0.08
+    })
+  );
+  signPost.position.set(markerPosition.x, TILE_HEIGHT + 0.6, markerPosition.z);
 
-  marker.add(bridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), badge);
+  const badge = createPortSprite(port.type);
+  badge.position.set(markerPosition.x, TILE_HEIGHT + 1.12, markerPosition.z);
+
+  const hitArea = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.48, 1.48, 2.1, 12),
+    new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0
+    })
+  );
+  hitArea.position.set(markerPosition.x, TILE_HEIGHT + 1.02, markerPosition.z);
+  hitArea.userData.skipInteractiveVisualState = true;
+
+  marker.add(bridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), signPost, badge, hitArea);
   return marker;
 }
 
 function createPortSprite(type: PortType): THREE.Sprite {
+  const palette = getPortMarkerPalette(type);
   const canvas = document.createElement("canvas");
   canvas.width = 152;
   canvas.height = 152;
   const context = canvas.getContext("2d")!;
 
   const gradient = context.createRadialGradient(76, 50, 18, 76, 76, 74);
-  gradient.addColorStop(0, "rgba(19, 36, 49, 0.98)");
-  gradient.addColorStop(1, "rgba(9, 18, 27, 0.98)");
+  gradient.addColorStop(0, palette.badgeCore);
+  gradient.addColorStop(1, palette.badgeOuter);
   context.fillStyle = gradient;
   context.beginPath();
   context.arc(76, 76, 66, 0, Math.PI * 2);
   context.fill();
 
-  context.strokeStyle = "rgba(232, 210, 158, 0.82)";
+  context.strokeStyle = palette.badgeRing;
   context.lineWidth = 4;
   context.beginPath();
   context.arc(76, 76, 64, 0, Math.PI * 2);
   context.stroke();
 
-  context.strokeStyle = "rgba(255, 255, 255, 0.08)";
+  context.strokeStyle = palette.badgeInnerRing;
   context.lineWidth = 1.5;
   context.beginPath();
   context.arc(76, 76, 54, 0, Math.PI * 2);
   context.stroke();
 
-  if (type === "generic") {
-    context.fillStyle = "#f0deae";
-    context.font = "700 34px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText("3:1", 76, 78);
-  } else {
-    context.beginPath();
-    context.fillStyle = "rgba(255, 255, 255, 0.06)";
-    context.arc(76, 54, 24, 0, Math.PI * 2);
-    context.fill();
-    drawResourceIcon(context, type, 76, 54, 30, getResourceIconColor(type));
+  context.beginPath();
+  context.fillStyle = palette.badgeInset;
+  context.arc(76, 76, 38, 0, Math.PI * 2);
+  context.fill();
 
-    context.fillStyle = "#f0deae";
-    context.font = "700 28px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText("2:1", 76, 102);
+  if (type !== "generic") {
+    context.beginPath();
+    context.fillStyle = "rgba(255, 255, 255, 0.14)";
+    context.arc(110, 42, 18, 0, Math.PI * 2);
+    context.fill();
+    drawResourceIcon(context, type, 110, 42, 22, getResourceIconColor(type));
   }
+
+  drawHarborIcon(context, 76, 82, 54, "#f5edd6");
 
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(
@@ -900,6 +1066,106 @@ function createPortSprite(type: PortType): THREE.Sprite {
   sprite.scale.set(2.92, 2.92, 1);
   sprite.renderOrder = 9;
   return sprite;
+}
+
+function getPortMarkerPalette(type: PortType): {
+  base: string;
+  top: string;
+  bridge: string;
+  bollard: string;
+  emissive: string;
+  badgeOuter: string;
+  badgeCore: string;
+  badgeRing: string;
+  badgeInnerRing: string;
+  badgeInset: string;
+  accent: string;
+} {
+  if (type === "generic") {
+    return {
+      base: "#173246",
+      top: "#f2e4bc",
+      bridge: "#ecdcae",
+      bollard: "#38556a",
+      emissive: "#b98f42",
+      badgeOuter: "rgba(9, 18, 27, 0.98)",
+      badgeCore: "rgba(19, 36, 49, 0.98)",
+      badgeRing: "rgba(232, 210, 158, 0.82)",
+      badgeInnerRing: "rgba(255, 255, 255, 0.08)",
+      badgeInset: "rgba(240, 222, 174, 0.14)",
+      accent: "#f0deae"
+    };
+  }
+
+  const accent = getResourceIconColor(type);
+  const terrain = TILE_COLORS[type];
+  return {
+    base: shadeColor(terrain, -0.24),
+    top: shadeColor(terrain, 0.2),
+    bridge: shadeColor(accent, 0.06),
+    bollard: shadeColor(terrain, -0.08),
+    emissive: accent,
+    badgeOuter: shadeColor(terrain, -0.18),
+    badgeCore: shadeColor(terrain, 0.04),
+    badgeRing: accent,
+    badgeInnerRing: "rgba(255, 255, 255, 0.14)",
+    badgeInset: "rgba(255, 255, 255, 0.12)",
+    accent
+  };
+}
+
+function getPortTooltip(type: PortType): { title: string; detail: string; accentColor: string } {
+  const palette = getPortMarkerPalette(type);
+  if (type === "generic") {
+    return {
+      title: "3:1-Hafen",
+      detail: "Tausche 3 gleiche Rohstoffe gegen 1 beliebigen Rohstoff, wenn deine Siedlung oder Stadt an diesem Hafen liegt.",
+      accentColor: palette.accent
+    };
+  }
+
+  const resourceLabel = renderResourceLabel(type);
+  return {
+    title: `${resourceLabel}-Hafen`,
+    detail: `Tausche 2 ${resourceLabel} gegen 1 beliebigen Rohstoff, wenn deine Siedlung oder Stadt an diesem Hafen liegt.`,
+    accentColor: palette.accent
+  };
+}
+
+function drawHarborIcon(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  color: string
+): void {
+  const scale = size / 24;
+  context.save();
+  context.translate(x, y);
+  context.scale(scale, scale);
+  context.strokeStyle = color;
+  context.lineWidth = 1.9;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  context.beginPath();
+  context.arc(0, -7.6, 2.8, 0, Math.PI * 2);
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(0, -4.7);
+  context.lineTo(0, 8.1);
+  context.moveTo(-5.8, -1.1);
+  context.lineTo(5.8, -1.1);
+  context.moveTo(0, 8.1);
+  context.quadraticCurveTo(-7.1, 7.4, -7.7, 1.7);
+  context.lineTo(-4.9, 1.7);
+  context.moveTo(0, 8.1);
+  context.quadraticCurveTo(7.1, 7.4, 7.7, 1.7);
+  context.lineTo(4.9, 1.7);
+  context.stroke();
+
+  context.restore();
 }
 
 function createTileOutline(
