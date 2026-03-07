@@ -207,6 +207,18 @@ export function App() {
     }
     return "lobby" as const;
   }, [route.kind, session]);
+  const isGuestLanding = activeScreen === "auth";
+
+  const playUiSound = useCallback(
+    (...args: Parameters<typeof uiSoundManager.play>) => {
+      if (isGuestLanding) {
+        return;
+      }
+
+      void uiSoundManager.play(...args);
+    },
+    [isGuestLanding]
+  );
 
   const headerContext = useMemo(() => {
     if (!session) {
@@ -259,20 +271,24 @@ export function App() {
       toastCounterRef.current += 1;
       const id = `toast-${Date.now()}-${toastCounterRef.current}`;
       const nextToast: ToastMessage = body ? { id, tone, title, body } : { id, tone, title };
-      void uiSoundManager.play(getToastSoundId(tone));
+      playUiSound(getToastSoundId(tone));
       setToasts((current) => [...current, nextToast].slice(-4));
       window.setTimeout(() => {
         removeToast(id);
       }, tone === "error" ? 5400 : 3600);
     },
-    [removeToast]
+    [playUiSound, removeToast]
   );
 
   useEffect(() => {
     uiSoundManager.prime();
+    if (isGuestLanding) {
+      return;
+    }
+
     const cleanup = bindGlobalUiSounds();
     return cleanup;
-  }, []);
+  }, [isGuestLanding]);
 
   useEffect(() => {
     if (!session) {
@@ -320,15 +336,15 @@ export function App() {
 
     if (previous.matchId === match.matchId) {
       if (previous.currentPlayerId !== match.currentPlayerId && match.currentPlayerId === match.you) {
-        void uiSoundManager.play("notify", { volume: 0.96, playbackRate: 1.04 });
+        playUiSound("notify", { volume: 0.96, playbackRate: 1.04 });
       }
 
       if (previous.actionableTradeCount === 0 && actionableTradeCount > 0) {
-        void uiSoundManager.play("notify", { volume: 0.9 });
+        playUiSound("notify", { volume: 0.9 });
       }
 
       if (!previous.winnerId && match.winnerId) {
-        void uiSoundManager.play(match.winnerId === match.you ? "success" : "notify", {
+        playUiSound(match.winnerId === match.you ? "success" : "notify", {
           volume: match.winnerId === match.you ? 1.08 : 0.94
         });
       }
@@ -448,8 +464,8 @@ export function App() {
       return;
     }
 
-    void uiSoundManager.play(dialogOpen ? "open" : "close", { volume: dialogOpen ? 0.82 : 0.76 });
-  }, [pendingMatchConfirmation, pendingRobberTargetSelection]);
+    playUiSound(dialogOpen ? "open" : "close", { volume: dialogOpen ? 0.82 : 0.76 });
+  }, [pendingMatchConfirmation, pendingRobberTargetSelection, playUiSound]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -1134,11 +1150,11 @@ export function App() {
       const next = !current;
       uiSoundManager.setMuted(next);
       if (!next) {
-        void uiSoundManager.play("notify", { volume: 0.82 });
+        playUiSound("notify", { volume: 0.82 });
       }
       return next;
     });
-  }, []);
+  }, [playUiSound]);
 
   const syncMusicPlayerState = useCallback(() => {
     setSelectedMusicTrackId(uiSoundManager.getSelectedMusicTrackId());
@@ -1558,7 +1574,7 @@ export function App() {
     const selfResources = selfPlayer?.resources;
 
     if (match.allowedMoves.initialSettlementVertexIds.includes(vertexId)) {
-      void uiSoundManager.play("click", { volume: 0.82 });
+      playUiSound("click", { volume: 0.82 });
       queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
@@ -1576,7 +1592,7 @@ export function App() {
       hasResources(selfResources, BUILD_COSTS.settlement) &&
       match.allowedMoves.settlementVertexIds.includes(vertexId)
     ) {
-      void uiSoundManager.play("click", { volume: 0.82 });
+      playUiSound("click", { volume: 0.82 });
       queueMatchConfirmation(
         {
           type: "match.action",
@@ -1596,7 +1612,7 @@ export function App() {
       hasResources(selfResources, BUILD_COSTS.city) &&
       match.allowedMoves.cityVertexIds.includes(vertexId)
     ) {
-      void uiSoundManager.play("click", { volume: 0.82 });
+      playUiSound("click", { volume: 0.82 });
       queueMatchConfirmation(
         {
           type: "match.action",
@@ -1620,7 +1636,7 @@ export function App() {
     const selfResources = selfPlayer?.resources;
 
     if (match.allowedMoves.initialRoadEdgeIds.includes(edgeId)) {
-      void uiSoundManager.play("click", { volume: 0.82 });
+      playUiSound("click", { volume: 0.82 });
       queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
@@ -1638,7 +1654,7 @@ export function App() {
       hasResources(selfResources, BUILD_COSTS.road) &&
       match.allowedMoves.roadEdgeIds.includes(edgeId)
     ) {
-      void uiSoundManager.play("click", { volume: 0.82 });
+      playUiSound("click", { volume: 0.82 });
       queueMatchConfirmation(
         {
           type: "match.action",
@@ -1653,7 +1669,7 @@ export function App() {
     }
 
     if (interactionMode === "road_building" && match.allowedMoves.roadEdgeIds.includes(edgeId)) {
-      void uiSoundManager.play("click", { volume: 0.78 });
+      playUiSound("click", { volume: 0.78 });
       setSelectedRoadEdges((current) => {
         if (current.includes(edgeId)) {
           return current.filter((entry) => entry !== edgeId);
@@ -1731,7 +1747,6 @@ export function App() {
       );
   };
 
-  const isGuestLanding = activeScreen === "auth";
   const guestInviteCode = !session && route.kind === "invite" ? route.code : null;
 
   useEffect(() => {
