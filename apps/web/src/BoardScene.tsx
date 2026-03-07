@@ -45,6 +45,28 @@ const GUIDE_ROAD_RADIUS = 0.14;
 const PORT_MARKER_DISTANCE = 1.9;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
+const INTERACTIVE_LAYER = 1;
+const SHARED_RESOURCE_FLAG = "__sharedResource";
+const modernTileShellCache = new Map<string, SharedModernTileShell>();
+const texturedTileShellCache = new Map<string, SharedTexturedTileShell>();
+const tileOutlineCache = new Map<string, SharedTileOutline>();
+const buildingTemplateCache = new Map<string, THREE.Group>();
+const tokenSpriteMaterialCache = new Map<string, THREE.SpriteMaterial>();
+const portSpriteMaterialCache = new Map<PortType, THREE.SpriteMaterial>();
+const roadGeometryCache = new Map<string, THREE.CapsuleGeometry>();
+const roadHitProxyGeometryCache = new Map<string, THREE.CapsuleGeometry>();
+const tileProxyGeometryCache = new Map<string, THREE.CylinderGeometry>();
+const interactiveProxyMaterial = (() => {
+  const material = markSharedResource(new THREE.MeshBasicMaterial());
+  material.colorWrite = false;
+  material.depthWrite = false;
+  material.toneMapped = false;
+  material.fog = false;
+  return material;
+})();
+const vertexInteractiveProxyGeometry = markSharedResource(new THREE.CylinderGeometry(0.66, 0.72, 1.4, 12));
+const portInteractiveProxyGeometry = markSharedResource(new THREE.CylinderGeometry(1.48, 1.48, 2.1, 12));
+const vertexMarkerGeometry = markSharedResource(new THREE.CylinderGeometry(0.54, 0.6, 0.16, 12));
 
 interface MaterialState {
   material: THREE.Material | THREE.SpriteMaterial;
@@ -56,10 +78,35 @@ interface MaterialState {
 interface InteractiveMeta {
   kind: "tile" | "edge" | "vertex" | "port";
   id: string;
+  hoverTarget: THREE.Object3D;
   baseScale: THREE.Vector3;
   hoverScale: number;
-  materialStates: MaterialState[];
   marker?: THREE.Object3D;
+}
+
+interface SharedModernTileShell {
+  outerGeometry: THREE.ExtrudeGeometry;
+  insetGeometry: THREE.ExtrudeGeometry;
+  outerTopMaterial: THREE.MeshStandardMaterial;
+  outerSideMaterial: THREE.MeshStandardMaterial;
+  insetTopMaterial: THREE.MeshStandardMaterial;
+  insetSideMaterial: THREE.MeshStandardMaterial;
+}
+
+interface SharedTexturedTileShell {
+  outerGeometry: THREE.ExtrudeGeometry;
+  insetGeometry: THREE.ExtrudeGeometry;
+  overlayGeometry: THREE.ShapeGeometry;
+  outerTopMaterial: THREE.MeshPhysicalMaterial;
+  outerSideMaterial: THREE.MeshStandardMaterial;
+  insetTopMaterial: THREE.MeshPhysicalMaterial;
+  insetSideMaterial: THREE.MeshStandardMaterial;
+  overlayMaterial: THREE.MeshBasicMaterial;
+}
+
+interface SharedTileOutline {
+  geometry: THREE.BufferGeometry;
+  material: THREE.LineBasicMaterial;
 }
 
 interface FocusGeometry {
@@ -107,14 +154,50 @@ interface TexturedTileOptions extends TileDecorationOptions {}
 
 const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
 
-function createBoardStructureKey(board: MatchSnapshot["board"]): string {
+function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: BoardVisualSettings): string {
   const tileKey = board.tiles
-    .map((tile) => `${tile.id}:${tile.resource}:${tile.x.toFixed(3)}:${tile.y.toFixed(3)}:${tile.vertexIds.join(",")}`)
+    .map(
+      (tile) =>
+        `${tile.id}:${tile.resource}:${tile.token ?? "x"}:${tile.x.toFixed(3)}:${tile.y.toFixed(3)}:${tile.vertexIds.join(",")}`
+    )
     .join("|");
   const vertexKey = board.vertices.map((vertex) => `${vertex.id}:${vertex.x.toFixed(3)}:${vertex.y.toFixed(3)}`).join("|");
   const edgeKey = board.edges.map((edge) => `${edge.id}:${edge.vertexIds.join(",")}:${edge.tileIds.join(",")}`).join("|");
   const portKey = board.ports.map((port) => `${port.id}:${port.type}:${port.edgeId}`).join("|");
-  return [tileKey, vertexKey, edgeKey, portKey].join("~");
+  return [tileKey, vertexKey, edgeKey, portKey, visualSettings.textures, visualSettings.props, visualSettings.terrainRelief].join("~");
+}
+
+function createDynamicBoardKey(
+  snapshot: MatchSnapshot,
+  interactionMode: InteractionMode,
+  selectedRoadEdges: string[],
+  focusCue: BoardFocusCue | null
+): string {
+  const robberKey = snapshot.board.tiles.map((tile) => `${tile.id}:${tile.robber ? 1 : 0}`).join("|");
+  const edgeKey = snapshot.board.edges.map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}`).join("|");
+  const vertexKey = snapshot.board.vertices
+    .map((vertex) =>
+      `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}`
+    )
+    .join("|");
+  const allowedMoves = snapshot.allowedMoves;
+  const moveKey = [
+    allowedMoves.initialSettlementVertexIds.join(","),
+    allowedMoves.settlementVertexIds.join(","),
+    allowedMoves.cityVertexIds.join(","),
+    allowedMoves.initialRoadEdgeIds.join(","),
+    allowedMoves.roadEdgeIds.join(","),
+    allowedMoves.robberMoveOptions.map((option) => option.tileId).join(",")
+  ].join("~");
+  return [
+    robberKey,
+    edgeKey,
+    vertexKey,
+    moveKey,
+    interactionMode ?? "none",
+    selectedRoadEdges.join(","),
+    focusCue?.key ?? ""
+  ].join("#");
 }
 
 function getCyclicVariant<T>(variants: readonly [T, ...T[]], index: number): T {
@@ -189,14 +272,14 @@ export function BoardScene(props: BoardSceneProps) {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const boardGroupRef = useRef<THREE.Group | null>(null);
   const staticBoardLayerRef = useRef<THREE.Group | null>(null);
   const dynamicBoardLayerRef = useRef<THREE.Group | null>(null);
   const interactiveRef = useRef<THREE.Object3D[]>([]);
   const staticInteractiveRef = useRef<THREE.Object3D[]>([]);
   const dynamicInteractiveRef = useRef<THREE.Object3D[]>([]);
-  const staticTileObjectsRef = useRef<Map<string, THREE.Object3D>>(new Map());
-  const dynamicStaticInteractiveRef = useRef<THREE.Object3D[]>([]);
+  const staticTokenSpritesRef = useRef<Map<string, THREE.Sprite>>(new Map());
   const pulseObjectsRef = useRef<THREE.Object3D[]>([]);
   const focusTargetRef = useRef(DEFAULT_CAMERA_TARGET.clone());
   const focusCameraPositionRef = useRef(DEFAULT_CAMERA_POSITION.clone());
@@ -204,13 +287,29 @@ export function BoardScene(props: BoardSceneProps) {
   const autoFlightRef = useRef(false);
   const userInteractingRef = useRef(false);
   const hoveredInteractiveRef = useRef<THREE.Object3D | null>(null);
+  const renderFrameRef = useRef<number | null>(null);
+  const renderDirtyRef = useRef(false);
+  const pointerDirtyRef = useRef(false);
+  const shadowDirtyRef = useRef(false);
+  const contextLostRef = useRef(false);
+  const requestRenderRef = useRef<(markDirty?: boolean) => void>(() => {});
+  const markShadowDirtyRef = useRef<() => void>(() => {});
+  const pointerPositionRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const canvasRectRef = useRef<DOMRect | null>(null);
   const [boardTooltip, setBoardTooltip] = useState<BoardTooltipState | null>(null);
   const handlersRef = useRef({
     onVertexSelect: props.onVertexSelect,
     onEdgeSelect: props.onEdgeSelect,
     onTileSelect: props.onTileSelect
   });
-  const boardStructureKey = useMemo(() => createBoardStructureKey(props.snapshot.board), [props.snapshot.board]);
+  const staticBoardKey = useMemo(
+    () => createStaticBoardKey(props.snapshot.board, props.visualSettings),
+    [props.snapshot.board, props.visualSettings]
+  );
+  const dynamicBoardKey = useMemo(
+    () => createDynamicBoardKey(props.snapshot, props.interactionMode, props.selectedRoadEdges, props.focusCue),
+    [props.snapshot, props.interactionMode, props.selectedRoadEdges, props.focusCue]
+  );
 
   useEffect(() => {
     handlersRef.current = {
@@ -242,6 +341,7 @@ export function BoardScene(props: BoardSceneProps) {
     renderer.toneMappingExposure = 1.12;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;
     mountRef.current.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -274,7 +374,13 @@ export function BoardScene(props: BoardSceneProps) {
     const keyLight = new THREE.DirectionalLight("#f5e8cb", 1.8);
     keyLight.position.set(24, 36, 16);
     keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.bias = -0.00024;
+    keyLight.shadow.normalBias = 0.02;
+    keyLight.shadow.camera.near = 8;
+    keyLight.shadow.camera.far = 96;
     scene.add(keyLight);
+    scene.add(keyLight.target);
 
     const fillLight = new THREE.DirectionalLight("#6ab6ea", 0.62);
     fillLight.position.set(-20, 18, -20);
@@ -343,9 +449,32 @@ export function BoardScene(props: BoardSceneProps) {
     cameraRef.current = camera;
     rendererRef.current = renderer;
     controlsRef.current = controls;
+    keyLightRef.current = keyLight;
     boardGroupRef.current = boardRoot;
     staticBoardLayerRef.current = staticLayer;
     dynamicBoardLayerRef.current = dynamicLayer;
+
+    function requestRender(markDirty = true): void {
+      if (markDirty) {
+        renderDirtyRef.current = true;
+      }
+      if (contextLostRef.current || renderFrameRef.current !== null) {
+        return;
+      }
+      renderFrameRef.current = window.requestAnimationFrame(renderScene);
+    }
+
+    function updateCanvasRect(): void {
+      canvasRectRef.current = renderer.domElement.getBoundingClientRect();
+    }
+
+    function markShadowDirty(): void {
+      shadowDirtyRef.current = true;
+      requestRender();
+    }
+
+    requestRenderRef.current = requestRender;
+    markShadowDirtyRef.current = markShadowDirty;
 
     const handleResize = () => {
       const container = mountRef.current;
@@ -358,12 +487,15 @@ export function BoardScene(props: BoardSceneProps) {
       rendererRef.current.setSize(width, height, false);
       cameraRef.current.aspect = width / Math.max(height, 1);
       cameraRef.current.updateProjectionMatrix();
+      updateCanvasRect();
+      requestRender();
     };
 
     handleResize();
     window.addEventListener("resize", handleResize);
 
     const raycaster = new THREE.Raycaster();
+    raycaster.layers.set(INTERACTIVE_LAYER);
     const pointer = new THREE.Vector2();
     const CLICK_MOVE_THRESHOLD_PX = 8;
     const CLICK_HOLD_THRESHOLD_MS = 320;
@@ -379,6 +511,28 @@ export function BoardScene(props: BoardSceneProps) {
         }
       | null = null;
 
+    const getInteractiveObjectAtClientPosition = (clientX: number, clientY: number) => {
+      const rect = canvasRectRef.current;
+      const cameraNode = cameraRef.current;
+      if (!rect || !cameraNode) {
+        return null;
+      }
+
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, cameraNode);
+      const intersections = raycaster.intersectObjects(interactiveRef.current, false);
+      return resolveInteractiveObject(intersections[0]?.object ?? null);
+    };
+
+    const getInteractiveObjectAtPointer = () => {
+      const pointerPosition = pointerPositionRef.current;
+      if (!pointerPosition) {
+        return null;
+      }
+      return getInteractiveObjectAtClientPosition(pointerPosition.clientX, pointerPosition.clientY);
+    };
+
     const updateHoveredObject = (nextObject: THREE.Object3D | null) => {
       if (hoveredInteractiveRef.current === nextObject) {
         return;
@@ -387,29 +541,31 @@ export function BoardScene(props: BoardSceneProps) {
       setInteractiveHoverState(hoveredInteractiveRef.current, false);
       hoveredInteractiveRef.current = nextObject;
       setInteractiveHoverState(nextObject, true);
+      renderDirtyRef.current = true;
       if (!userInteractingRef.current) {
         renderer.domElement.style.cursor = nextObject ? "pointer" : "";
       }
     };
 
-    const updateBoardTooltip = (target: THREE.Object3D | null, event?: PointerEvent) => {
+    const updateBoardTooltip = (target: THREE.Object3D | null) => {
       const tooltip = target?.userData?.tooltip as
         | { title: string; detail: string; accentColor: string }
         | undefined;
-      if (!tooltip || !event || !mountRef.current) {
+      const pointerPosition = pointerPositionRef.current;
+      const rect = canvasRectRef.current;
+      if (!tooltip || !pointerPosition || !rect) {
         setBoardTooltip(null);
         return;
       }
 
-      const rect = mountRef.current.getBoundingClientRect();
       const tooltipWidth = Math.min(248, Math.max(rect.width - 24, 160));
       const tooltipHeight = 112;
       const x = Math.min(
-        Math.max(event.clientX - rect.left + 16, 12),
+        Math.max(pointerPosition.clientX - rect.left + 16, 12),
         Math.max(12, rect.width - tooltipWidth - 12)
       );
       const y = Math.min(
-        Math.max(event.clientY - rect.top + 16, 12),
+        Math.max(pointerPosition.clientY - rect.top + 16, 12),
         Math.max(12, rect.height - tooltipHeight - 12)
       );
 
@@ -422,21 +578,6 @@ export function BoardScene(props: BoardSceneProps) {
       });
     };
 
-    const getInteractiveObjectAtPointer = (event: PointerEvent) => {
-      const rendererNode = rendererRef.current?.domElement;
-      const cameraNode = cameraRef.current;
-      if (!rendererNode || !cameraNode) {
-        return null;
-      }
-
-      const rect = rendererNode.getBoundingClientRect();
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, cameraNode);
-      const intersections = raycaster.intersectObjects(interactiveRef.current, true);
-      return resolveInteractiveObject(intersections[0]?.object ?? null);
-    };
-
     const triggerInteractiveSelection = (hit: { kind: Exclude<InteractiveMeta["kind"], "port">; id: string }) => {
       if (hit.kind === "tile") {
         handlersRef.current.onTileSelect(hit.id);
@@ -447,6 +588,7 @@ export function BoardScene(props: BoardSceneProps) {
       if (hit.kind === "vertex") {
         handlersRef.current.onVertexSelect(hit.id);
       }
+      requestRender();
     };
 
     const onPointerMove = (event: PointerEvent) => {
@@ -457,31 +599,44 @@ export function BoardScene(props: BoardSceneProps) {
         }
       }
 
-      const target = getInteractiveObjectAtPointer(event);
-      updateHoveredObject(target);
-      updateBoardTooltip(target, event);
+      pointerPositionRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY
+      };
+      pointerDirtyRef.current = true;
+      requestRender(false);
     };
 
     const onPointerLeave = () => {
       pendingClick = null;
+      pointerPositionRef.current = null;
+      pointerDirtyRef.current = false;
       updateHoveredObject(null);
       setBoardTooltip(null);
       if (!userInteractingRef.current) {
         renderer.domElement.style.cursor = "";
       }
+      requestRender();
     };
 
     const onPointerDown = (event: PointerEvent) => {
       syncModifierScheme(event.ctrlKey);
+      pointerPositionRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY
+      };
+      pointerDirtyRef.current = true;
       if (event.button !== 0) {
         pendingClick = null;
+        requestRender(false);
         return;
       }
 
-      const target = getInteractiveObjectAtPointer(event);
+      const target = getInteractiveObjectAtClientPosition(event.clientX, event.clientY);
       const hit = target?.userData as { kind?: InteractiveMeta["kind"]; id?: string } | undefined;
       if (!hit?.kind || !hit.id || hit.kind === "port") {
         pendingClick = null;
+        requestRender(false);
         return;
       }
 
@@ -494,10 +649,17 @@ export function BoardScene(props: BoardSceneProps) {
         id: hit.id,
         cancelled: false
       };
+      requestRender(false);
     };
 
     const onPointerUp = (event: PointerEvent) => {
+      pointerPositionRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY
+      };
+      pointerDirtyRef.current = true;
       if (!pendingClick || event.pointerId !== pendingClick.pointerId) {
+        requestRender(false);
         return;
       }
 
@@ -509,16 +671,19 @@ export function BoardScene(props: BoardSceneProps) {
       }
 
       if (click.cancelled || performance.now() - click.startedAt > CLICK_HOLD_THRESHOLD_MS) {
+        requestRender(false);
         return;
       }
 
-      const target = getInteractiveObjectAtPointer(event);
+      const target = getInteractiveObjectAtClientPosition(event.clientX, event.clientY);
       const hit = target?.userData as { kind?: InteractiveMeta["kind"]; id?: string } | undefined;
       if (!hit?.kind || !hit.id || hit.kind === "port") {
+        requestRender(false);
         return;
       }
 
       if (hit.kind !== click.kind || hit.id !== click.id) {
+        requestRender(false);
         return;
       }
 
@@ -527,18 +692,28 @@ export function BoardScene(props: BoardSceneProps) {
 
     const onPointerCancel = () => {
       pendingClick = null;
+      requestRender(false);
     };
 
-    renderer.domElement.addEventListener("pointermove", onPointerMove);
-    renderer.domElement.addEventListener("pointerleave", onPointerLeave);
-    renderer.domElement.addEventListener("pointerdown", onPointerDown);
-    renderer.domElement.addEventListener("pointerup", onPointerUp);
-    renderer.domElement.addEventListener("pointercancel", onPointerCancel);
-    renderer.setAnimationLoop(() => {
-      const pulse = performance.now() * 0.005;
+    const onControlChange = () => {
+      if (!userInteractingRef.current && cameraRef.current && controlsRef.current) {
+        focusTargetRef.current.copy(controlsRef.current.target);
+        focusCameraPositionRef.current.copy(cameraRef.current.position);
+      }
+      requestRender();
+    };
+
+    const renderScene = (time: number) => {
+      renderFrameRef.current = null;
+      if (contextLostRef.current || !rendererRef.current || !cameraRef.current || !controlsRef.current) {
+        return;
+      }
+
+      const pulse = time * 0.005;
       if (autoFlightRef.current && !userInteractingRef.current) {
         controls.target.lerp(focusTargetRef.current, 0.12);
         camera.position.lerp(focusCameraPositionRef.current, 0.12);
+        controls.update();
 
         if (
           controls.target.distanceToSquared(focusTargetRef.current) < 0.04 &&
@@ -546,9 +721,11 @@ export function BoardScene(props: BoardSceneProps) {
         ) {
           controls.target.copy(focusTargetRef.current);
           camera.position.copy(focusCameraPositionRef.current);
+          renderDirtyRef.current = true;
           autoFlightRef.current = false;
         }
       }
+
       for (const object of pulseObjectsRef.current) {
         const baseScale = object.userData.baseScale as THREE.Vector3 | undefined;
         if (!baseScale) {
@@ -584,9 +761,56 @@ export function BoardScene(props: BoardSceneProps) {
           }
         }
       }
-      controls.update();
-      renderer.render(scene, camera);
-    });
+
+      if (pointerDirtyRef.current) {
+        pointerDirtyRef.current = false;
+        const target = getInteractiveObjectAtPointer();
+        updateHoveredObject(target);
+        updateBoardTooltip(target);
+      }
+
+      if (shadowDirtyRef.current) {
+        renderer.shadowMap.needsUpdate = true;
+        shadowDirtyRef.current = false;
+      }
+
+      if (renderDirtyRef.current || autoFlightRef.current || pulseObjectsRef.current.length > 0) {
+        renderer.render(scene, camera);
+        renderDirtyRef.current = false;
+      }
+
+      if (autoFlightRef.current || pulseObjectsRef.current.length > 0 || pointerDirtyRef.current || renderDirtyRef.current) {
+        requestRender(false);
+      }
+    };
+
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      contextLostRef.current = true;
+      if (renderFrameRef.current !== null) {
+        window.cancelAnimationFrame(renderFrameRef.current);
+        renderFrameRef.current = null;
+      }
+    };
+
+    const onContextRestored = () => {
+      contextLostRef.current = false;
+      markObjectTreeForUpdate(scene);
+      markShadowDirty();
+    };
+
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerenter", updateCanvasRect);
+    renderer.domElement.addEventListener("pointerleave", onPointerLeave);
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointercancel", onPointerCancel);
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost);
+    renderer.domElement.addEventListener("webglcontextrestored", onContextRestored);
+    controls.addEventListener("change", onControlChange);
+    window.addEventListener("scroll", updateCanvasRect, true);
+    updateCanvasRect();
+    markShadowDirty();
 
     return () => {
       if (boardGroupRef.current) {
@@ -598,20 +822,35 @@ export function BoardScene(props: BoardSceneProps) {
       dynamicBoardLayerRef.current = null;
       staticInteractiveRef.current = [];
       dynamicInteractiveRef.current = [];
-      staticTileObjectsRef.current = new Map();
-      dynamicStaticInteractiveRef.current = [];
+      staticTokenSpritesRef.current = new Map();
       interactiveRef.current = [];
       pulseObjectsRef.current = [];
-      renderer.setAnimationLoop(null);
+      if (renderFrameRef.current !== null) {
+        window.cancelAnimationFrame(renderFrameRef.current);
+        renderFrameRef.current = null;
+      }
+      renderDirtyRef.current = false;
+      pointerDirtyRef.current = false;
+      shadowDirtyRef.current = false;
+      pointerPositionRef.current = null;
+      canvasRectRef.current = null;
+      keyLightRef.current = null;
+      requestRenderRef.current = () => {};
+      markShadowDirtyRef.current = () => {};
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerenter", updateCanvasRect);
       renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("pointercancel", onPointerCancel);
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
+      renderer.domElement.removeEventListener("webglcontextrestored", onContextRestored);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", updateCanvasRect, true);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onWindowBlur);
+      controls.removeEventListener("change", onControlChange);
       controls.removeEventListener("start", onControlStart);
       controls.removeEventListener("end", onControlEnd);
       controls.dispose();
@@ -633,14 +872,8 @@ export function BoardScene(props: BoardSceneProps) {
       rendererRef.current.domElement.style.cursor = "";
     }
 
-    const staleStaticInteractive = new Set(dynamicStaticInteractiveRef.current);
-    for (const object of dynamicStaticInteractiveRef.current) {
-      clearInteractiveMeta(object);
-    }
-    dynamicStaticInteractiveRef.current = [];
-    dynamicInteractiveRef.current = dynamicInteractiveRef.current.filter((object) => !staleStaticInteractive.has(object));
     staticInteractiveRef.current = [];
-    staticTileObjectsRef.current = new Map();
+    staticTokenSpritesRef.current = new Map();
 
     if (staticBoardLayerRef.current) {
       boardRoot.remove(staticBoardLayerRef.current);
@@ -659,6 +892,8 @@ export function BoardScene(props: BoardSceneProps) {
     const includeProps = props.visualSettings.props;
     const includeTerrainRelief = props.visualSettings.terrainRelief;
 
+    configureKeyLightShadow(keyLightRef.current, props.snapshot.board);
+
     for (const tile of props.snapshot.board.tiles) {
       if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
         texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
@@ -676,11 +911,18 @@ export function BoardScene(props: BoardSceneProps) {
       base.position.set(tile.x, 0, tile.y);
       applyTileMeshShadowState(base);
       group.add(base);
-      staticTileObjectsRef.current.set(tile.id, base);
 
       const outline = createTileOutline(tile, verticesById);
       outline.position.set(tile.x, TILE_HEIGHT + 0.04, tile.y);
       group.add(outline);
+
+      if (tile.token !== null) {
+        const tokenSprite = createTokenSprite(tile.resource, tile.token, false);
+        tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
+        tokenSprite.visible = !tile.robber;
+        staticTokenSpritesRef.current.set(tile.id, tokenSprite);
+        group.add(tokenSprite);
+      }
     }
 
     for (const port of props.snapshot.board.ports) {
@@ -700,19 +942,21 @@ export function BoardScene(props: BoardSceneProps) {
       }
 
       const marker = createPortMarker(port, edge, tile, verticesById);
-      attachInteractiveMeta(marker, "port", port.id, 1.04);
-      marker.userData.tooltip = getPortTooltip(port.type);
-      staticInteractiveRef.current.push(marker);
-      group.add(marker);
+      const proxy = createPortInteractiveProxy();
+      const proxyPosition = marker.userData.proxyPosition as THREE.Vector3 | undefined;
+      if (proxyPosition) {
+        proxy.position.copy(proxyPosition);
+      }
+      proxy.userData.tooltip = getPortTooltip(port.type);
+      attachInteractiveMeta(proxy, "port", port.id, 1.04, marker);
+      staticInteractiveRef.current.push(proxy);
+      group.add(marker, proxy);
     }
 
+    freezeStaticTransforms(group);
     interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
-  }, [
-    boardStructureKey,
-    props.visualSettings.props,
-    props.visualSettings.terrainRelief,
-    props.visualSettings.textures
-  ]);
+    markShadowDirtyRef.current();
+  }, [staticBoardKey]);
 
   useEffect(() => {
     const boardRoot = boardGroupRef.current;
@@ -727,12 +971,11 @@ export function BoardScene(props: BoardSceneProps) {
       rendererRef.current.domElement.style.cursor = "";
     }
 
-    for (const object of dynamicStaticInteractiveRef.current) {
-      clearInteractiveMeta(object);
-    }
-    dynamicStaticInteractiveRef.current = [];
     dynamicInteractiveRef.current = [];
     pulseObjectsRef.current = [];
+    for (const tokenSprite of staticTokenSpritesRef.current.values()) {
+      tokenSprite.visible = true;
+    }
 
     if (dynamicBoardLayerRef.current) {
       boardRoot.remove(dynamicBoardLayerRef.current);
@@ -768,9 +1011,16 @@ export function BoardScene(props: BoardSceneProps) {
     );
 
     for (const tile of props.snapshot.board.tiles) {
-      const tokenSprite = createTokenSprite(tile.resource, tile.token, tile.robber);
-      tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
-      group.add(tokenSprite);
+      if (tile.robber) {
+        const baseTokenSprite = staticTokenSpritesRef.current.get(tile.id);
+        if (baseTokenSprite) {
+          baseTokenSprite.visible = false;
+        }
+
+        const robberSprite = createTokenSprite(tile.resource, tile.token, true);
+        robberSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
+        group.add(robberSprite);
+      }
 
       if (!robberTileIds.has(tile.id)) {
         continue;
@@ -780,15 +1030,11 @@ export function BoardScene(props: BoardSceneProps) {
       marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
       registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
       group.add(marker);
-
-      const base = staticTileObjectsRef.current.get(tile.id);
-      if (!base) {
-        continue;
-      }
-
-      attachInteractiveMeta(base, "tile", tile.id, 1.06, marker);
-      dynamicStaticInteractiveRef.current.push(base);
-      dynamicInteractiveRef.current.push(base);
+      const proxy = createTileInteractiveProxy(tile, verticesById);
+      proxy.position.set(tile.x, TILE_HEIGHT + 0.56, tile.y);
+      attachInteractiveMeta(proxy, "tile", tile.id, 1.06, marker, marker);
+      dynamicInteractiveRef.current.push(proxy);
+      group.add(proxy);
     }
 
     for (const edge of props.snapshot.board.edges) {
@@ -823,18 +1069,16 @@ export function BoardScene(props: BoardSceneProps) {
       roadObject.add(road);
 
       if (active) {
-        const hitArea = createRoadHitArea(length);
-        hitArea.position.y = 0;
-        roadObject.add(hitArea);
+        registerPulseVisual(roadObject, pulseObjectsRef.current, selected ? "strong" : "soft", selected ? 1.24 : 1.18, false);
+        const proxy = createRoadHitArea(length);
+        proxy.position.copy(roadObject.position);
+        proxy.quaternion.copy(roadObject.quaternion);
+        attachInteractiveMeta(proxy, "edge", edge.id, selected ? 1.18 : 1.14, roadObject);
+        dynamicInteractiveRef.current.push(proxy);
+        group.add(proxy);
       }
 
       group.add(roadObject);
-
-      if (active) {
-        registerPulseVisual(roadObject, pulseObjectsRef.current, selected ? "strong" : "soft", selected ? 1.24 : 1.18);
-        attachInteractiveMeta(roadObject, "edge", edge.id, selected ? 1.18 : 1.14);
-        dynamicInteractiveRef.current.push(roadObject);
-      }
     }
 
     for (const vertex of props.snapshot.board.vertices) {
@@ -869,8 +1113,11 @@ export function BoardScene(props: BoardSceneProps) {
           registerPulseVisual(mesh, pulseObjectsRef.current, "soft", 1.1);
         }
 
-        attachInteractiveMeta(mesh, "vertex", vertex.id, building ? 1.1 : 1.18, marker);
-        dynamicInteractiveRef.current.push(mesh);
+        const proxy = createVertexInteractiveProxy();
+        proxy.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
+        attachInteractiveMeta(proxy, "vertex", vertex.id, building ? 1.1 : 1.18, marker ?? mesh, marker);
+        dynamicInteractiveRef.current.push(proxy);
+        group.add(proxy);
       }
     }
 
@@ -879,7 +1126,8 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
-  }, [boardStructureKey, props.focusCue, props.interactionMode, props.selectedRoadEdges, props.snapshot]);
+    markShadowDirtyRef.current();
+  }, [dynamicBoardKey]);
 
   useEffect(() => {
     const camera = cameraRef.current;
@@ -889,7 +1137,9 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     if (!props.cameraCue) {
+      lastFocusKeyRef.current = null;
       autoFlightRef.current = false;
+      requestRenderRef.current(false);
       return;
     }
 
@@ -915,6 +1165,7 @@ export function BoardScene(props: BoardSceneProps) {
     focusTargetRef.current.copy(target);
     focusCameraPositionRef.current.copy(nextCameraPosition);
     autoFlightRef.current = true;
+    requestRenderRef.current(false);
   }, [props.cameraCue, props.snapshot]);
 
   return (
@@ -941,41 +1192,116 @@ export function BoardScene(props: BoardSceneProps) {
   );
 }
 
+function markSharedResource<T extends { userData: Record<string, unknown> }>(resource: T): T {
+  resource.userData[SHARED_RESOURCE_FLAG] = true;
+  return resource;
+}
+
+function isSharedResource(resource: { userData?: Record<string, unknown> } | null | undefined): boolean {
+  return resource?.userData?.[SHARED_RESOURCE_FLAG] === true;
+}
+
+function markMaterialTexturesShared(material: THREE.Material): void {
+  const materialRecord = material as unknown as Partial<Record<string, unknown>>;
+  for (const value of Object.values(materialRecord)) {
+    if (value instanceof THREE.Texture) {
+      markSharedResource(value);
+    }
+  }
+}
+
+function cloneSharedTemplate<T extends THREE.Object3D>(template: T): T {
+  const clone = template.clone(true);
+  clone.traverse((object) => {
+    object.userData = { ...object.userData };
+  });
+  return clone;
+}
+
+function freezeStaticTransforms(root: THREE.Object3D): void {
+  root.updateMatrixWorld(true);
+  root.traverse((object) => {
+    if (object.userData?.allowDynamicMatrix === true) {
+      return;
+    }
+    object.matrixAutoUpdate = false;
+    object.updateMatrix();
+  });
+}
+
+function configureKeyLightShadow(light: THREE.DirectionalLight | null, board: MatchSnapshot["board"]): void {
+  if (!light) {
+    return;
+  }
+
+  const bounds = board.vertices.reduce(
+    (current, vertex) => ({
+      minX: Math.min(current.minX, vertex.x),
+      maxX: Math.max(current.maxX, vertex.x),
+      minZ: Math.min(current.minZ, vertex.y),
+      maxZ: Math.max(current.maxZ, vertex.y)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minZ: Number.POSITIVE_INFINITY,
+      maxZ: Number.NEGATIVE_INFINITY
+    }
+  );
+  const span = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ);
+  const extent = Math.max(span * 0.9, 26) + 12;
+  light.target.position.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
+  light.shadow.camera.left = -extent;
+  light.shadow.camera.right = extent;
+  light.shadow.camera.top = extent;
+  light.shadow.camera.bottom = -extent;
+  light.shadow.camera.updateProjectionMatrix();
+}
+
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
-  const material = new THREE.MeshStandardMaterial({
+  const cacheKey = `${type}:${color}`;
+  const cached = buildingTemplateCache.get(cacheKey);
+  if (cached) {
+    return cloneSharedTemplate(cached);
+  }
+
+  const material = markSharedResource(new THREE.MeshStandardMaterial({
     color: colorToHex(color),
     roughness: 0.64,
     metalness: 0.08
-  });
+  }));
+  markMaterialTexturesShared(material);
 
+  let group: THREE.Group;
   if (type === "city") {
-    const group = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.9, 1.35), material);
+    group = new THREE.Group();
+    const base = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(1.35, 0.9, 1.35)), material);
     base.position.y = 0.45;
-    const hall = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.15, 0.9), material);
+    const hall = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(0.9, 1.15, 0.9)), material);
     hall.position.set(-0.28, 1.02, 0);
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.7, 0.62), material);
+    const tower = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(0.62, 1.7, 0.62)), material);
     tower.position.set(0.38, 1.12, 0);
-    const towerRoof = new THREE.Mesh(new THREE.ConeGeometry(0.54, 0.7, 4), material);
+    const towerRoof = new THREE.Mesh(markSharedResource(new THREE.ConeGeometry(0.54, 0.7, 4)), material);
     towerRoof.position.set(0.38, 2.25, 0);
     towerRoof.rotation.y = Math.PI / 4;
     group.add(base, hall, tower, towerRoof);
-    return group;
+  } else {
+    group = new THREE.Group();
+    const body = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(1.02, 0.82, 1.02)), material);
+    body.position.y = 0.41;
+    const roof = new THREE.Mesh(markSharedResource(new THREE.ConeGeometry(0.86, 0.7, 4)), material);
+    roof.position.y = 1.15;
+    roof.rotation.y = Math.PI / 4;
+    group.add(body, roof);
   }
 
-  const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.82, 1.02), material);
-  body.position.y = 0.41;
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.86, 0.7, 4), material);
-  roof.position.y = 1.15;
-  roof.rotation.y = Math.PI / 4;
-  group.add(body, roof);
-  return group;
+  buildingTemplateCache.set(cacheKey, group);
+  return cloneSharedTemplate(group);
 }
 
 function createVertexMarker(): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.CylinderGeometry(0.54, 0.6, 0.16, 12),
+    vertexMarkerGeometry,
     new THREE.MeshStandardMaterial({
       color: "#f3cf83",
       roughness: 0.5,
@@ -989,6 +1315,16 @@ function createVertexMarker(): THREE.Mesh {
 }
 
 function createTokenSprite(resource: Resource | "desert", token: number | null, robber: boolean): THREE.Sprite {
+  const materialKey = `${resource}:${token ?? "x"}:${robber ? 1 : 0}`;
+  const cachedMaterial = tokenSpriteMaterialCache.get(materialKey);
+  if (cachedMaterial) {
+    const sprite = new THREE.Sprite(cachedMaterial);
+    sprite.center.set(0.5, 0.38);
+    sprite.scale.set(5.35, 5.35, 1);
+    sprite.renderOrder = 12;
+    return sprite;
+  }
+
   const spriteResolution = 288;
   const center = spriteResolution / 2;
   const canvas = document.createElement("canvas");
@@ -1034,22 +1370,208 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
     context.font = "700 36px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("RÄUBER", center, 156);
+    context.fillText("R\u00c4UBER", center, 156);
   }
 
-  const texture = new THREE.CanvasTexture(canvas);
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false
-    })
-  );
+  const texture = markSharedResource(new THREE.CanvasTexture(canvas));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  const material = markSharedResource(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false
+  }));
+  markMaterialTexturesShared(material);
+  tokenSpriteMaterialCache.set(materialKey, material);
+
+  const sprite = new THREE.Sprite(material);
   sprite.center.set(0.5, 0.38);
   sprite.scale.set(5.35, 5.35, 1);
   sprite.renderOrder = 12;
   return sprite;
+}
+
+function createTileShapeKey(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): string {
+  return tile.vertexIds
+    .map((vertexId) => {
+      const vertex = verticesById.get(vertexId)!;
+      return `${(vertex.x - tile.x).toFixed(3)}:${(vertex.y - tile.y).toFixed(3)}`;
+    })
+    .join("|");
+}
+
+function getSharedModernTileShell(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): SharedModernTileShell {
+  const cacheKey = `${tile.resource}:${createTileShapeKey(tile, verticesById)}`;
+  const existing = modernTileShellCache.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  const outerGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById), {
+    depth: TILE_HEIGHT,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.24,
+    bevelThickness: 0.12,
+    curveSegments: 6
+  }));
+  outerGeometry.rotateX(-Math.PI / 2);
+
+  const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, 0.962), {
+    depth: 0.26,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.12,
+    bevelThickness: 0.05,
+    curveSegments: 6
+  }));
+  insetGeometry.rotateX(-Math.PI / 2);
+
+  const shell = {
+    outerGeometry,
+    insetGeometry,
+    outerTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
+      color: TILE_COLORS[tile.resource],
+      roughness: 0.92,
+      metalness: 0.01
+    })),
+    outerSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
+      color: getTileOuterSideColor(tile.resource),
+      roughness: 0.98,
+      metalness: 0.01
+    })),
+    insetTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
+      color: shadeColor(TILE_COLORS[tile.resource], 0.04),
+      roughness: 0.86,
+      metalness: 0.02,
+      emissive: new THREE.Color("#000000"),
+      emissiveIntensity: 0
+    })),
+    insetSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
+      color: shadeColor(TILE_COLORS[tile.resource], -0.04),
+      roughness: 0.94,
+      metalness: 0.01
+    }))
+  } satisfies SharedModernTileShell;
+
+  modernTileShellCache.set(cacheKey, shell);
+  return shell;
+}
+
+function getSharedTexturedTileShell(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  terrainBundle: UltraTerrainTextureBundle
+): SharedTexturedTileShell {
+  const cacheKey = `${tile.resource}:${createTileShapeKey(tile, verticesById)}`;
+  const existing = texturedTileShellCache.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  const outerGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById), {
+    depth: TILE_HEIGHT,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.24,
+    bevelThickness: 0.12,
+    curveSegments: 6
+  }));
+  outerGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(outerGeometry);
+
+  const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, 0.962), {
+    depth: 0.26,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.12,
+    bevelThickness: 0.05,
+    curveSegments: 6
+  }));
+  insetGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(insetGeometry);
+
+  const overlayGeometry = markSharedResource(new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932)));
+  overlayGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(overlayGeometry);
+
+  const shell = {
+    outerGeometry,
+    insetGeometry,
+    overlayGeometry,
+    outerTopMaterial: markSharedResource(new THREE.MeshPhysicalMaterial({
+      color: terrainBundle.appearance.topTint,
+      map: terrainBundle.colorMap,
+      roughnessMap: terrainBundle.roughnessMap,
+      bumpMap: terrainBundle.bumpMap,
+      roughness: terrainBundle.appearance.roughness,
+      metalness: terrainBundle.appearance.metalness,
+      bumpScale: terrainBundle.appearance.bumpScale * 0.82,
+      clearcoat: terrainBundle.appearance.clearcoat,
+      clearcoatRoughness: terrainBundle.appearance.clearcoatRoughness,
+      emissive: new THREE.Color(terrainBundle.appearance.emissive),
+      emissiveIntensity: 0.02
+    })),
+    outerSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
+      color: terrainBundle.appearance.sideTint,
+      roughness: 0.96,
+      metalness: 0.02
+    })),
+    insetTopMaterial: markSharedResource(new THREE.MeshPhysicalMaterial({
+      color: terrainBundle.appearance.insetTint,
+      map: terrainBundle.colorMap,
+      roughnessMap: terrainBundle.roughnessMap,
+      bumpMap: terrainBundle.bumpMap,
+      roughness: Math.max(terrainBundle.appearance.roughness - 0.05, 0.36),
+      metalness: terrainBundle.appearance.metalness,
+      bumpScale: terrainBundle.appearance.bumpScale,
+      clearcoat: terrainBundle.appearance.clearcoat,
+      clearcoatRoughness: Math.max(terrainBundle.appearance.clearcoatRoughness - 0.08, 0.2),
+      emissive: new THREE.Color(terrainBundle.appearance.emissive),
+      emissiveIntensity: 0.028
+    })),
+    insetSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
+      color: terrainBundle.appearance.insetSideTint,
+      roughness: 0.94,
+      metalness: 0.01
+    })),
+    overlayMaterial: markSharedResource(new THREE.MeshBasicMaterial({
+      color: terrainBundle.appearance.overlayBase,
+      alphaMap: terrainBundle.overlayMask,
+      transparent: true,
+      opacity: terrainBundle.appearance.overlayOpacity,
+      depthWrite: false,
+      toneMapped: false,
+      fog: false
+    }))
+  } satisfies SharedTexturedTileShell;
+
+  for (const material of [
+    shell.outerTopMaterial,
+    shell.outerSideMaterial,
+    shell.insetTopMaterial,
+    shell.insetSideMaterial,
+    shell.overlayMaterial
+  ]) {
+    markMaterialTexturesShared(material);
+  }
+
+  texturedTileShellCache.set(cacheKey, shell);
+  return shell;
 }
 
 function createModernTileMesh(
@@ -1061,73 +1583,28 @@ function createModernTileMesh(
     includeTerrainRelief: false
   }
 ): THREE.Group {
-  const tileTopColor = TILE_COLORS[tile.resource];
-  const tileSideColor = getTileOuterSideColor(tile.resource);
-  const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.04);
-  const tileInsetSideColor = shadeColor(TILE_COLORS[tile.resource], -0.04);
-  const outerShape = createTileShape(tile, verticesById);
-  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
-    depth: TILE_HEIGHT,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    steps: 1,
-    bevelSize: 0.24,
-    bevelThickness: 0.12,
-    curveSegments: 6
-  });
-  outerGeometry.rotateX(-Math.PI / 2);
-
-  const insetDepth = 0.26;
-  const insetShape = createTileShape(tile, verticesById, 0.962);
-  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
-    depth: insetDepth,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.05,
-    curveSegments: 6
-  });
-  insetGeometry.rotateX(-Math.PI / 2);
-
-  const outerMesh = markTileShadowReceiver(new THREE.Mesh(
-    outerGeometry,
-    [
-      new THREE.MeshStandardMaterial({
-        color: tileTopColor,
-          roughness: 0.92,
-          metalness: 0.01
-        }),
-        new THREE.MeshStandardMaterial({
-          color: tileSideColor,
-          roughness: 0.98,
-          metalness: 0.01
-        })
-    ]
-  ));
-
-  const insetMesh = markTileShadowReceiver(new THREE.Mesh(
-    insetGeometry,
-    [
-      new THREE.MeshStandardMaterial({
-        color: tileInsetTopColor,
-          roughness: 0.86,
-          metalness: 0.02,
-          emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
-          emissiveIntensity: active ? 0.16 : 0
-        }),
-        new THREE.MeshStandardMaterial({
-          color: tileInsetSideColor,
-          roughness: 0.94,
-          metalness: 0.01
-        })
-    ]
-  ));
-  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
+  const shell = getSharedModernTileShell(tile, verticesById);
+  const outerMesh = markTileShadowReceiver(new THREE.Mesh(shell.outerGeometry, [
+    shell.outerTopMaterial,
+    shell.outerSideMaterial
+  ]));
+  const insetTopMaterial = active
+    ? new THREE.MeshStandardMaterial({
+        color: shadeColor(TILE_COLORS[tile.resource], 0.04),
+        roughness: 0.86,
+        metalness: 0.02,
+        emissive: new THREE.Color("#f2c56b"),
+        emissiveIntensity: 0.16
+      })
+    : shell.insetTopMaterial;
+  const insetMesh = markTileShadowReceiver(new THREE.Mesh(shell.insetGeometry, [
+    insetTopMaterial,
+    shell.insetSideMaterial
+  ]));
+  insetMesh.position.y = TILE_HEIGHT - 0.26 + 0.015;
 
   const tileGroup = new THREE.Group();
-  tileGroup.add(outerMesh);
-  tileGroup.add(insetMesh);
+  tileGroup.add(outerMesh, insetMesh);
   appendTileDecorations(tileGroup, tile, active, options);
   return tileGroup;
 }
@@ -1139,91 +1616,30 @@ function createTexturedTileMesh(
   terrainBundle: UltraTerrainTextureBundle,
   options: TexturedTileOptions
 ): THREE.Group {
-  const outerShape = createTileShape(tile, verticesById);
-  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
-    depth: TILE_HEIGHT,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    steps: 1,
-    bevelSize: 0.24,
-    bevelThickness: 0.12,
-    curveSegments: 6
-  });
-  outerGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(outerGeometry);
+  const shell = getSharedTexturedTileShell(tile, verticesById, terrainBundle);
+  const outerTopMaterial = active ? shell.outerTopMaterial.clone() : shell.outerTopMaterial;
+  const insetTopMaterial = active ? shell.insetTopMaterial.clone() : shell.insetTopMaterial;
+  const overlayMaterial = active ? shell.overlayMaterial.clone() : shell.overlayMaterial;
+  if (active) {
+    outerTopMaterial.emissive = new THREE.Color("#f0cb7a");
+    outerTopMaterial.emissiveIntensity = 0.12;
+    insetTopMaterial.emissive = new THREE.Color("#f4d990");
+    insetTopMaterial.emissiveIntensity = 0.14;
+    overlayMaterial.color = new THREE.Color(shadeColor(terrainBundle.appearance.overlayBase, 0.06));
+    overlayMaterial.opacity = terrainBundle.appearance.overlayOpacity + 0.08;
+  }
 
-  const insetDepth = 0.26;
-  const insetShape = createTileShape(tile, verticesById, 0.962);
-  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
-    depth: insetDepth,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.05,
-    curveSegments: 6
-  });
-  insetGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(insetGeometry);
-
-  const outerMesh = markTileShadowReceiver(new THREE.Mesh(outerGeometry, [
-    new THREE.MeshPhysicalMaterial({
-      color: terrainBundle.appearance.topTint,
-      map: terrainBundle.colorMap,
-      roughnessMap: terrainBundle.roughnessMap,
-      bumpMap: terrainBundle.bumpMap,
-      roughness: terrainBundle.appearance.roughness,
-      metalness: terrainBundle.appearance.metalness,
-      bumpScale: terrainBundle.appearance.bumpScale * 0.82,
-      clearcoat: terrainBundle.appearance.clearcoat,
-      clearcoatRoughness: terrainBundle.appearance.clearcoatRoughness,
-      emissive: new THREE.Color(active ? "#f0cb7a" : terrainBundle.appearance.emissive),
-      emissiveIntensity: active ? 0.12 : 0.02
-    }),
-    new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.sideTint,
-      roughness: 0.96,
-      metalness: 0.02
-    })
+  const outerMesh = markTileShadowReceiver(new THREE.Mesh(shell.outerGeometry, [
+    outerTopMaterial,
+    shell.outerSideMaterial
   ]));
-
-  const insetMesh = markTileShadowReceiver(new THREE.Mesh(insetGeometry, [
-    new THREE.MeshPhysicalMaterial({
-      color: terrainBundle.appearance.insetTint,
-      map: terrainBundle.colorMap,
-      roughnessMap: terrainBundle.roughnessMap,
-      bumpMap: terrainBundle.bumpMap,
-      roughness: Math.max(terrainBundle.appearance.roughness - 0.05, 0.36),
-      metalness: terrainBundle.appearance.metalness,
-      bumpScale: terrainBundle.appearance.bumpScale,
-      clearcoat: terrainBundle.appearance.clearcoat,
-      clearcoatRoughness: Math.max(terrainBundle.appearance.clearcoatRoughness - 0.08, 0.2),
-      emissive: new THREE.Color(active ? "#f4d990" : terrainBundle.appearance.emissive),
-      emissiveIntensity: active ? 0.14 : 0.028
-    }),
-    new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.insetSideTint,
-      roughness: 0.94,
-      metalness: 0.01
-    })
+  const insetMesh = markTileShadowReceiver(new THREE.Mesh(shell.insetGeometry, [
+    insetTopMaterial,
+    shell.insetSideMaterial
   ]));
-  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
+  insetMesh.position.y = TILE_HEIGHT - 0.26 + 0.015;
 
-  const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
-  overlayGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(overlayGeometry);
-  const overlay = new THREE.Mesh(
-    overlayGeometry,
-    new THREE.MeshBasicMaterial({
-      color: active ? shadeColor(terrainBundle.appearance.overlayBase, 0.06) : terrainBundle.appearance.overlayBase,
-      alphaMap: terrainBundle.overlayMask,
-      transparent: true,
-      opacity: terrainBundle.appearance.overlayOpacity + (active ? 0.08 : 0),
-      depthWrite: false,
-      toneMapped: false,
-      fog: false
-    })
-  );
+  const overlay = new THREE.Mesh(shell.overlayGeometry, overlayMaterial);
   overlay.position.y = TILE_HEIGHT + 0.03;
   overlay.renderOrder = 4;
 
@@ -3868,21 +4284,20 @@ function createPortMarker(
   const badge = createPortSprite(port.type);
   badge.position.set(markerPosition.x, TILE_HEIGHT + 1.12, markerPosition.z);
 
-  const hitArea = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.48, 1.48, 2.1, 12),
-    new THREE.MeshBasicMaterial({
-      transparent: true,
-      opacity: 0
-    })
-  );
-  hitArea.position.set(markerPosition.x, TILE_HEIGHT + 1.02, markerPosition.z);
-  hitArea.userData.skipInteractiveVisualState = true;
-
-  marker.add(bridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), signPost, badge, hitArea);
+  marker.userData.proxyPosition = new THREE.Vector3(markerPosition.x, TILE_HEIGHT + 1.02, markerPosition.z);
+  marker.add(bridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), signPost, badge);
   return marker;
 }
 
 function createPortSprite(type: PortType): THREE.Sprite {
+  const cachedMaterial = portSpriteMaterialCache.get(type);
+  if (cachedMaterial) {
+    const sprite = new THREE.Sprite(cachedMaterial);
+    sprite.scale.set(2.92, 2.92, 1);
+    sprite.renderOrder = 9;
+    return sprite;
+  }
+
   const palette = getPortMarkerPalette(type);
   const canvas = document.createElement("canvas");
   canvas.width = 256;
@@ -3925,21 +4340,23 @@ function createPortSprite(type: PortType): THREE.Sprite {
 
   drawHarborIcon(context, center, center + 10, 84, "#f5edd6");
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = markSharedResource(new THREE.CanvasTexture(canvas));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-      fog: false
-    })
-  );
+  const material = markSharedResource(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+    fog: false
+  }));
+  markMaterialTexturesShared(material);
+  portSpriteMaterialCache.set(type, material);
+
+  const sprite = new THREE.Sprite(material);
   sprite.scale.set(2.92, 2.92, 1);
   sprite.renderOrder = 9;
   return sprite;
@@ -4041,19 +4458,25 @@ function createTileOutline(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
 ): THREE.LineLoop {
-  const points = tile.vertexIds.map((vertexId) => {
-    const vertex = verticesById.get(vertexId)!;
-    return new THREE.Vector3(vertex.x - tile.x, 0, vertex.y - tile.y);
-  });
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  return new THREE.LineLoop(
-    geometry,
-    new THREE.LineBasicMaterial({
-      color: "#172838",
-      transparent: true,
-      opacity: 0.1
-    })
-  );
+  const cacheKey = createTileShapeKey(tile, verticesById);
+  let outline = tileOutlineCache.get(cacheKey);
+  if (!outline) {
+    const points = tile.vertexIds.map((vertexId) => {
+      const vertex = verticesById.get(vertexId)!;
+      return new THREE.Vector3(vertex.x - tile.x, 0, vertex.y - tile.y);
+    });
+    outline = {
+      geometry: markSharedResource(new THREE.BufferGeometry().setFromPoints(points)),
+      material: markSharedResource(new THREE.LineBasicMaterial({
+        color: "#172838",
+        transparent: true,
+        opacity: 0.1
+      }))
+    };
+    tileOutlineCache.set(cacheKey, outline);
+  }
+
+  return new THREE.LineLoop(outline.geometry, outline.material);
 }
 
 function createTileShape(
@@ -4102,8 +4525,14 @@ function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
 
 function createRoadPiece(length: number, color: string, selected: boolean): THREE.Mesh {
   const roadLength = Math.max(length * 0.84 - BUILT_ROAD_RADIUS * 2, 0.1);
+  const geometryKey = `${BUILT_ROAD_RADIUS}:${roadLength.toFixed(4)}`;
+  let geometry = roadGeometryCache.get(geometryKey);
+  if (!geometry) {
+    geometry = markSharedResource(new THREE.CapsuleGeometry(BUILT_ROAD_RADIUS, roadLength, 4, 10));
+    roadGeometryCache.set(geometryKey, geometry);
+  }
   return new THREE.Mesh(
-    new THREE.CapsuleGeometry(BUILT_ROAD_RADIUS, roadLength, 4, 10),
+    geometry,
     new THREE.MeshStandardMaterial({
       color,
       roughness: 0.72,
@@ -4116,8 +4545,14 @@ function createRoadPiece(length: number, color: string, selected: boolean): THRE
 
 function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
   const guideLength = Math.max(length * 0.8 - GUIDE_ROAD_RADIUS * 2, 0.1);
+  const geometryKey = `${GUIDE_ROAD_RADIUS}:${guideLength.toFixed(4)}`;
+  let geometry = roadGeometryCache.get(geometryKey);
+  if (!geometry) {
+    geometry = markSharedResource(new THREE.CapsuleGeometry(GUIDE_ROAD_RADIUS, guideLength, 4, 10));
+    roadGeometryCache.set(geometryKey, geometry);
+  }
   return new THREE.Mesh(
-    new THREE.CapsuleGeometry(GUIDE_ROAD_RADIUS, guideLength, 4, 10),
+    geometry,
     new THREE.MeshStandardMaterial({
       color: selected ? "#ffd68a" : "#f5d06f",
       roughness: 0.48,
@@ -4132,16 +4567,52 @@ function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
 
 function createRoadHitArea(length: number): THREE.Mesh {
   const hitLength = Math.max(length * 0.96, 1.2);
-  const hitArea = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.62, hitLength, 4, 10),
-    new THREE.MeshBasicMaterial({
-      transparent: true,
-      opacity: 0,
-      depthWrite: false
-    })
-  );
+  const geometryKey = hitLength.toFixed(4);
+  let geometry = roadHitProxyGeometryCache.get(geometryKey);
+  if (!geometry) {
+    geometry = markSharedResource(new THREE.CapsuleGeometry(0.62, hitLength, 4, 10));
+    roadHitProxyGeometryCache.set(geometryKey, geometry);
+  }
+  const hitArea = new THREE.Mesh(geometry, interactiveProxyMaterial);
+  hitArea.layers.set(INTERACTIVE_LAYER);
   hitArea.userData.skipInteractiveVisualState = true;
   return hitArea;
+}
+
+function createTileInteractiveProxy(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Mesh {
+  const cacheKey = createTileShapeKey(tile, verticesById);
+  let geometry = tileProxyGeometryCache.get(cacheKey);
+  if (!geometry) {
+    const radius =
+      tile.vertexIds.reduce((sum, vertexId) => {
+        const vertex = verticesById.get(vertexId)!;
+        return sum + Math.hypot(vertex.x - tile.x, vertex.y - tile.y);
+      }, 0) / Math.max(tile.vertexIds.length, 1);
+    geometry = markSharedResource(new THREE.CylinderGeometry(Math.max(radius * 0.88, 2.4), Math.max(radius * 0.88, 2.4), 1.4, 6));
+    tileProxyGeometryCache.set(cacheKey, geometry);
+  }
+
+  const proxy = new THREE.Mesh(geometry, interactiveProxyMaterial);
+  proxy.layers.set(INTERACTIVE_LAYER);
+  proxy.userData.skipInteractiveVisualState = true;
+  return proxy;
+}
+
+function createVertexInteractiveProxy(): THREE.Mesh {
+  const proxy = new THREE.Mesh(vertexInteractiveProxyGeometry, interactiveProxyMaterial);
+  proxy.layers.set(INTERACTIVE_LAYER);
+  proxy.userData.skipInteractiveVisualState = true;
+  return proxy;
+}
+
+function createPortInteractiveProxy(): THREE.Mesh {
+  const proxy = new THREE.Mesh(portInteractiveProxyGeometry, interactiveProxyMaterial);
+  proxy.layers.set(INTERACTIVE_LAYER);
+  proxy.userData.skipInteractiveVisualState = true;
+  return proxy;
 }
 
 function appendFocusMarkers(
@@ -4374,7 +4845,9 @@ function disposeObjectTree(root: THREE.Object3D): void {
 
   root.traverse((object) => {
     if (object instanceof THREE.Mesh) {
-      object.geometry.dispose();
+      if (!isSharedResource(object.geometry)) {
+        object.geometry.dispose();
+      }
       disposeMaterial(object.material, textures);
     }
 
@@ -4383,7 +4856,9 @@ function disposeObjectTree(root: THREE.Object3D): void {
     }
 
     if (object instanceof THREE.Line) {
-      object.geometry.dispose();
+      if (!isSharedResource(object.geometry)) {
+        object.geometry.dispose();
+      }
       disposeMaterial(object.material, textures);
     }
   });
@@ -4417,6 +4892,7 @@ function attachInteractiveMeta(
   kind: InteractiveMeta["kind"],
   id: string,
   hoverScale: number,
+  hoverTarget: THREE.Object3D,
   marker?: THREE.Object3D | null
 ): void {
   object.userData.kind = kind;
@@ -4424,9 +4900,9 @@ function attachInteractiveMeta(
   object.userData.interactiveMeta = {
     kind,
     id,
-    baseScale: object.scale.clone(),
+    hoverTarget,
+    baseScale: hoverTarget.scale.clone(),
     hoverScale,
-    materialStates: collectMaterialStates(object),
     ...(marker ? { marker } : {})
   } satisfies InteractiveMeta;
 }
@@ -4437,21 +4913,28 @@ function clearInteractiveMeta(object: THREE.Object3D): void {
     return;
   }
 
-  object.scale.copy(meta.baseScale);
+  meta.hoverTarget.scale.copy(meta.baseScale);
+  meta.hoverTarget.updateMatrix();
+  meta.hoverTarget.updateMatrixWorld(true);
   delete object.userData.interactiveMeta;
   delete object.userData.kind;
   delete object.userData.id;
   delete object.userData.hovered;
+  delete meta.hoverTarget.userData.hovered;
+  if (meta.marker) {
+    delete meta.marker.userData.hovered;
+  }
 }
 
 function registerPulseVisual(
   object: THREE.Object3D,
   pulseObjects: THREE.Object3D[],
   intensity: "soft" | "strong",
-  hoverScaleMultiplier: number
+  hoverScaleMultiplier: number,
+  animateMaterials = true
 ): void {
   object.userData.baseScale = object.scale.clone();
-  object.userData.materialStates = collectMaterialStates(object);
+  object.userData.materialStates = animateMaterials ? collectMaterialStates(object) : [];
   object.userData.pulseIntensity = intensity;
   object.userData.hoverScaleMultiplier = hoverScaleMultiplier;
   pulseObjects.push(object);
@@ -4468,22 +4951,10 @@ function setInteractiveHoverState(object: THREE.Object3D | null, hovered: boolea
   }
 
   object.userData.hovered = hovered;
-  object.scale.copy(meta.baseScale).multiplyScalar(hovered ? meta.hoverScale : 1);
-
-  for (const state of meta.materialStates) {
-    if (typeof state.opacity === "number") {
-      state.material.opacity = hovered ? Math.min(state.opacity + 0.3, 1) : state.opacity;
-    }
-    if (typeof state.emissiveIntensity === "number" && "emissiveIntensity" in state.material) {
-      state.material.emissiveIntensity = hovered ? state.emissiveIntensity + 0.34 : state.emissiveIntensity;
-    }
-    if (state.color && "color" in state.material && state.material.color instanceof THREE.Color) {
-      state.material.color.copy(
-        hovered ? state.color.clone().lerp(new THREE.Color("#ffe6a6"), 0.28) : state.color
-      );
-    }
-  }
-
+  meta.hoverTarget.userData.hovered = hovered;
+  meta.hoverTarget.scale.copy(meta.baseScale).multiplyScalar(hovered ? meta.hoverScale : 1);
+  meta.hoverTarget.updateMatrix();
+  meta.hoverTarget.updateMatrixWorld(true);
   if (meta.marker) {
     meta.marker.userData.hovered = hovered;
   }
@@ -4503,6 +4974,10 @@ function collectMaterialStates(root: THREE.Object3D): MaterialState[] {
 
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
+      if (isSharedResource(material)) {
+        continue;
+      }
+
       const state: MaterialState = {
         material
       };
@@ -4532,6 +5007,9 @@ function disposeMaterial(
 ): void {
   const materials = Array.isArray(material) ? material : [material];
   for (const entry of materials) {
+    if (isSharedResource(entry)) {
+      continue;
+    }
     collectTexturesFromMaterial(entry, textures);
     entry.dispose();
   }
@@ -4558,7 +5036,7 @@ function collectTexturesFromMaterial(material: THREE.Material, textures: Set<THR
 
   for (const key of textureKeys) {
     const value = textureMaterial[key];
-    if (value) {
+    if (value && !isSharedResource(value)) {
       textures.add(value);
     }
   }
@@ -4566,9 +5044,59 @@ function collectTexturesFromMaterial(material: THREE.Material, textures: Set<THR
   if (material instanceof THREE.ShaderMaterial) {
     for (const uniform of Object.values(material.uniforms)) {
       const value = uniform?.value;
-      if (value instanceof THREE.Texture) {
+      if (value instanceof THREE.Texture && !isSharedResource(value)) {
         textures.add(value);
       }
     }
   }
+}
+
+function markObjectTreeForUpdate(root: THREE.Object3D): void {
+  const textures = new Set<THREE.Texture>();
+  const textureKeys = [
+    "map",
+    "alphaMap",
+    "aoMap",
+    "bumpMap",
+    "displacementMap",
+    "emissiveMap",
+    "envMap",
+    "gradientMap",
+    "lightMap",
+    "metalnessMap",
+    "normalMap",
+    "roughnessMap",
+    "specularMap"
+  ] as const;
+  type TextureMaterialKey = (typeof textureKeys)[number];
+
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh || object instanceof THREE.Sprite || object instanceof THREE.Line)) {
+      return;
+    }
+
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      material.needsUpdate = true;
+      const textureMaterial = material as unknown as Partial<Record<TextureMaterialKey, THREE.Texture | null | undefined>>;
+      for (const key of textureKeys) {
+        const value = textureMaterial[key];
+        if (value) {
+          textures.add(value);
+        }
+      }
+      if (material instanceof THREE.ShaderMaterial) {
+        for (const uniform of Object.values(material.uniforms)) {
+          const value = uniform?.value;
+          if (value instanceof THREE.Texture) {
+            textures.add(value);
+          }
+        }
+      }
+    }
+  });
+
+  textures.forEach((texture) => {
+    texture.needsUpdate = true;
+  });
 }

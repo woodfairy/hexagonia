@@ -49,6 +49,8 @@ interface ShowcaseBoard {
 }
 
 type LandingVisualProfile = "classic" | "fancy";
+const SHARED_RESOURCE_FLAG = "__sharedResource";
+const fancyTilePropTemplateCache = new Map<Resource | "desert", THREE.Group>();
 
 const SHOWCASE_PLAYER_COLORS = {
   red: "#d75a4a",
@@ -760,6 +762,11 @@ function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
 }
 
 export function createFancyTileProps(resource: Resource | "desert"): THREE.Group {
+  const cached = fancyTilePropTemplateCache.get(resource);
+  if (cached) {
+    return cloneSharedTemplate(cached);
+  }
+
   const group = new THREE.Group();
 
   switch (resource) {
@@ -790,7 +797,50 @@ export function createFancyTileProps(resource: Resource | "desert"): THREE.Group
       break;
   }
 
-  return group;
+  markObjectResourcesShared(group);
+  fancyTilePropTemplateCache.set(resource, group);
+  return cloneSharedTemplate(group);
+}
+
+function cloneSharedTemplate<T extends THREE.Object3D>(template: T): T {
+  const clone = template.clone(true);
+  clone.traverse((object) => {
+    object.userData = { ...object.userData };
+  });
+  return clone;
+}
+
+function markObjectResourcesShared(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points)) {
+      return;
+    }
+
+    markSharedResource(object.geometry);
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      markSharedResource(material);
+      markMaterialTexturesShared(material);
+    }
+  });
+}
+
+function markMaterialTexturesShared(material: THREE.Material): void {
+  const materialRecord = material as unknown as Partial<Record<string, unknown>>;
+  for (const value of Object.values(materialRecord)) {
+    if (value instanceof THREE.Texture) {
+      markSharedResource(value);
+    }
+  }
+}
+
+function markSharedResource<T extends { userData: Record<string, unknown> }>(resource: T): T {
+  resource.userData[SHARED_RESOURCE_FLAG] = true;
+  return resource;
+}
+
+function isSharedResource(resource: { userData?: Record<string, unknown> } | null | undefined): boolean {
+  return resource?.userData?.[SHARED_RESOURCE_FLAG] === true;
 }
 
 function positionObject<T extends THREE.Object3D>(object: T, x: number, y: number, z: number, rotationY = 0): T {
@@ -1391,7 +1441,9 @@ function round4(value: number): number {
 function disposeObjectTree(root: THREE.Object3D): void {
   root.traverse((object) => {
     if (object instanceof THREE.Mesh) {
-      object.geometry.dispose();
+      if (!isSharedResource(object.geometry)) {
+        object.geometry.dispose();
+      }
       if (Array.isArray(object.material)) {
         object.material.forEach(disposeMaterialWithTextures);
       } else {
@@ -1401,7 +1453,9 @@ function disposeObjectTree(root: THREE.Object3D): void {
     }
 
     if (object instanceof THREE.Points) {
-      object.geometry.dispose();
+      if (!isSharedResource(object.geometry)) {
+        object.geometry.dispose();
+      }
       if (Array.isArray(object.material)) {
         object.material.forEach(disposeMaterialWithTextures);
       } else {
@@ -1411,7 +1465,9 @@ function disposeObjectTree(root: THREE.Object3D): void {
     }
 
     if (object instanceof THREE.Line) {
-      object.geometry.dispose();
+      if (!isSharedResource(object.geometry)) {
+        object.geometry.dispose();
+      }
       if (Array.isArray(object.material)) {
         object.material.forEach(disposeMaterialWithTextures);
       } else {
@@ -1422,9 +1478,13 @@ function disposeObjectTree(root: THREE.Object3D): void {
 }
 
 function disposeMaterialWithTextures(material: THREE.Material): void {
+  if (isSharedResource(material)) {
+    return;
+  }
+
   const materialRecord = material as unknown as Partial<Record<string, unknown>>;
   for (const value of Object.values(materialRecord)) {
-    if (value instanceof THREE.Texture) {
+    if (value instanceof THREE.Texture && !isSharedResource(value)) {
       value.dispose();
     }
   }
