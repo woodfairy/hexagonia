@@ -2,6 +2,7 @@ FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS builder
 WORKDIR /app
 COPY package.json tsconfig.base.json ./
 COPY apps/web ./apps/web
+COPY assets ./assets
 COPY packages/shared ./packages/shared
 RUN npm install
 RUN npm run build -w @hexagonia/shared
