@@ -16,7 +16,7 @@ export const TILE_COLORS: Record<Resource | "desert", string> = {
 
 export function resolveInitialBoardVisualProfile(): BoardVisualProfile {
   if (typeof window === "undefined") {
-    return "modern";
+    return "classic";
   }
 
   const storedProfile = window.localStorage.getItem(BOARD_VISUAL_PROFILE_STORAGE_KEY);
@@ -30,8 +30,9 @@ export function resolveInitialBoardVisualProfile(): BoardVisualProfile {
       return "classic";
     case "modern":
     case "fast":
-    default:
       return "modern";
+    default:
+      return "classic";
   }
 }
 

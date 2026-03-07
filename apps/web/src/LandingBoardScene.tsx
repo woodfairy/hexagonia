@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Resource } from "@hexagonia/shared";
+import { createUltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { TILE_COLORS } from "./boardVisuals";
 
 interface ShowcaseTile {
   id: string;
@@ -46,14 +48,8 @@ interface ShowcaseBoard {
   buildings: ShowcaseBuilding[];
 }
 
-const TILE_COLORS: Record<Resource | "desert", string> = {
-  brick: "#b86146",
-  lumber: "#2f6f37",
-  ore: "#79869a",
-  grain: "#c7a13a",
-  wool: "#a8cc79",
-  desert: "#ccb07b"
-};
+type LandingVisualProfile = "classic" | "fancy";
+
 const SHOWCASE_PLAYER_COLORS = {
   red: "#d75a4a",
   blue: "#4f78d7",
@@ -99,10 +95,11 @@ const SHOWCASE_RESOURCE_BY_COORD: Record<string, Resource | "desert"> = {
   "0:2": "lumber"
 };
 
-export function LandingBoardScene(props: { reducedMotion: boolean }) {
+export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile?: LandingVisualProfile }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hasFallback, setHasFallback] = useState(false);
   const showcaseBoard = useMemo(() => createShowcaseBoard(), []);
+  const visualProfile = props.visualProfile ?? "classic";
 
   useEffect(() => {
     if (hasFallback) {
@@ -216,11 +213,11 @@ export function LandingBoardScene(props: { reducedMotion: boolean }) {
     const edgesById = new Map(showcaseBoard.edges.map((edge) => [edge.id, edge]));
 
     for (const tile of showcaseBoard.tiles) {
-      const tileGroup = createTileMesh(tile, verticesById);
+      const tileGroup = createTileMesh(tile, verticesById, visualProfile);
       tileGroup.position.set(tile.x, 0, tile.y);
       tileGroup.traverse((object) => {
         if (object instanceof THREE.Mesh) {
-          object.castShadow = false;
+          object.castShadow = object.userData.landingProp === true;
           object.receiveShadow = true;
         }
       });
@@ -358,7 +355,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean }) {
       renderer.dispose();
       mount.replaceChildren();
     };
-  }, [hasFallback, props.reducedMotion, showcaseBoard]);
+  }, [hasFallback, props.reducedMotion, showcaseBoard, visualProfile]);
 
   if (hasFallback) {
     return (
@@ -539,7 +536,18 @@ function axialToWorld(q: number, r: number): [number, number] {
   return [x, y];
 }
 
-function createTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
+function createTileMesh(
+  tile: ShowcaseTile,
+  verticesById: Map<string, ShowcaseVertex>,
+  visualProfile: LandingVisualProfile
+): THREE.Group {
+  if (visualProfile === "fancy") {
+    return createFancyTileMesh(tile, verticesById);
+  }
+  return createClassicTileMesh(tile, verticesById);
+}
+
+function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
   const tileTopColor = shadeColor(TILE_COLORS[tile.resource], -0.03);
   const tileSideColor = getTileOuterSideColor(tile.resource);
   const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.026);
@@ -601,6 +609,100 @@ function createTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVe
   return tileGroup;
 }
 
+function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
+  const bundle = createUltraTerrainTextureBundle(tile.resource);
+  const outerShape = createTileShape(tile, verticesById);
+  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
+    depth: TILE_HEIGHT,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.24,
+    bevelThickness: 0.12,
+    curveSegments: 6
+  });
+  outerGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(outerGeometry);
+
+  const insetDepth = 0.26;
+  const insetShape = createTileShape(tile, verticesById, 0.962);
+  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
+    depth: insetDepth,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.12,
+    bevelThickness: 0.05,
+    curveSegments: 6
+  });
+  insetGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(insetGeometry);
+
+  const outerMesh = new THREE.Mesh(outerGeometry, [
+    new THREE.MeshPhysicalMaterial({
+      color: bundle.appearance.topTint,
+      map: bundle.colorMap,
+      roughnessMap: bundle.roughnessMap,
+      bumpMap: bundle.bumpMap,
+      roughness: bundle.appearance.roughness,
+      metalness: bundle.appearance.metalness,
+      bumpScale: bundle.appearance.bumpScale * 0.82,
+      clearcoat: bundle.appearance.clearcoat,
+      clearcoatRoughness: bundle.appearance.clearcoatRoughness,
+      emissive: new THREE.Color(bundle.appearance.emissive),
+      emissiveIntensity: 0.02
+    }),
+    new THREE.MeshStandardMaterial({
+      color: bundle.appearance.sideTint,
+      roughness: 0.96,
+      metalness: 0.02
+    })
+  ]);
+
+  const insetMesh = new THREE.Mesh(insetGeometry, [
+    new THREE.MeshPhysicalMaterial({
+      color: bundle.appearance.insetTint,
+      map: bundle.colorMap,
+      roughnessMap: bundle.roughnessMap,
+      bumpMap: bundle.bumpMap,
+      roughness: Math.max(bundle.appearance.roughness - 0.05, 0.36),
+      metalness: bundle.appearance.metalness,
+      bumpScale: bundle.appearance.bumpScale,
+      clearcoat: bundle.appearance.clearcoat,
+      clearcoatRoughness: Math.max(bundle.appearance.clearcoatRoughness - 0.08, 0.2),
+      emissive: new THREE.Color(bundle.appearance.emissive),
+      emissiveIntensity: 0.028
+    }),
+    new THREE.MeshStandardMaterial({
+      color: bundle.appearance.insetSideTint,
+      roughness: 0.94,
+      metalness: 0.01
+    })
+  ]);
+  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
+
+  const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
+  overlayGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(overlayGeometry);
+  const overlay = new THREE.Mesh(
+    overlayGeometry,
+    new THREE.MeshBasicMaterial({
+      color: bundle.appearance.overlayBase,
+      alphaMap: bundle.overlayMask,
+      transparent: true,
+      opacity: tile.resource === "grain" ? 0.2 : 0.12,
+      depthWrite: false
+    })
+  );
+  overlay.position.y = TILE_HEIGHT + 0.03;
+
+  const tileGroup = new THREE.Group();
+  const propGroup = createFancyTileProps(tile.resource);
+  propGroup.position.y = TILE_HEIGHT + 0.03;
+  tileGroup.add(outerMesh, insetMesh, overlay, propGroup);
+  return tileGroup;
+}
+
 function createTileOutline(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.LineLoop {
   const points = tile.vertexIds.map((vertexId) => {
     const vertex = verticesById.get(vertexId)!;
@@ -631,6 +733,498 @@ function createTileShape(tile: ShowcaseTile, verticesById: Map<string, ShowcaseV
   });
   shape.closePath();
   return shape;
+}
+
+function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
+  const position = geometry.getAttribute("position");
+  if (!(position instanceof THREE.BufferAttribute) || position.itemSize < 3) {
+    return;
+  }
+
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  if (!bounds) {
+    return;
+  }
+
+  const width = Math.max(bounds.max.x - bounds.min.x, 0.001);
+  const depth = Math.max(bounds.max.z - bounds.min.z, 0.001);
+  const uvValues = new Float32Array(position.count * 2);
+
+  for (let index = 0; index < position.count; index += 1) {
+    uvValues[index * 2] = (position.getX(index) - bounds.min.x) / width;
+    uvValues[index * 2 + 1] = (position.getZ(index) - bounds.min.z) / depth;
+  }
+
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvValues, 2));
+}
+
+function createFancyTileProps(resource: Resource | "desert"): THREE.Group {
+  const group = new THREE.Group();
+
+  switch (resource) {
+    case "grain":
+      group.add(markLandingProp(createShowcaseBarn()));
+      group.add(markLandingProp(positionObject(createShowcaseScarecrow(), 1.42, 0, -0.48, 0.16)));
+      group.add(markLandingProp(positionObject(createShowcaseHayBales(), -1.08, 0, 0.9, -0.22)));
+      break;
+    case "wool":
+      group.add(markLandingProp(createShowcaseSheepfold()));
+      group.add(markLandingProp(positionObject(createShowcaseFlowers(), 1.2, 0, -0.9, 0.12)));
+      break;
+    case "desert":
+      group.add(markLandingProp(createShowcaseCactusPatch()));
+      group.add(markLandingProp(positionObject(createShowcaseBones(), 1.22, 0, -0.9, -0.18)));
+      break;
+    case "brick":
+      group.add(markLandingProp(createShowcaseKiln()));
+      group.add(markLandingProp(positionObject(createShowcaseBrickStacks(), 1.28, 0, 0.92, -0.14)));
+      break;
+    case "lumber":
+      group.add(markLandingProp(createShowcaseLogCamp()));
+      group.add(markLandingProp(positionObject(createShowcaseFernPatch(), 1.18, 0, -1.08, 0.18)));
+      break;
+    case "ore":
+      group.add(markLandingProp(createShowcaseCrystalCamp()));
+      group.add(markLandingProp(positionObject(createShowcaseRockScatter(), 1.1, 0, -0.92, 0.08)));
+      break;
+  }
+
+  return group;
+}
+
+function positionObject<T extends THREE.Object3D>(object: T, x: number, y: number, z: number, rotationY = 0): T {
+  object.position.set(x, y, z);
+  object.rotation.y = rotationY;
+  return object;
+}
+
+function markLandingProp<T extends THREE.Object3D>(object: T): T {
+  object.traverse((entry) => {
+    entry.userData.landingProp = true;
+  });
+  return object;
+}
+
+function createShowcaseBarn(): THREE.Group {
+  const group = new THREE.Group();
+  const wallMaterial = new THREE.MeshStandardMaterial({
+    color: "#a1543c",
+    roughness: 0.82,
+    metalness: 0.02
+  });
+  const roofMaterial = new THREE.MeshStandardMaterial({
+    color: "#5b2d23",
+    roughness: 0.76,
+    metalness: 0.03
+  });
+  const trimMaterial = new THREE.MeshStandardMaterial({
+    color: "#f2d29d",
+    roughness: 0.8,
+    metalness: 0.01
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.86, 1.1), wallMaterial);
+  body.position.y = 0.43;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.04, 0.82, 4), roofMaterial);
+  roof.position.y = 1.03;
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set(1.12, 1, 0.9);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.48, 0.08), trimMaterial);
+  door.position.set(0, 0.28, 0.56);
+  const loft = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.08), trimMaterial);
+  loft.position.set(0, 0.66, 0.56);
+  group.add(body, roof, door, loft);
+  group.position.set(-0.76, 0, -0.04);
+  group.rotation.y = -0.22;
+  return group;
+}
+
+function createShowcaseScarecrow(): THREE.Group {
+  const group = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({
+    color: "#8a663e",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  const clothMaterial = new THREE.MeshStandardMaterial({
+    color: "#c38d3c",
+    roughness: 0.84,
+    metalness: 0.01
+  });
+  const hatMaterial = new THREE.MeshStandardMaterial({
+    color: "#5d4630",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.86, 6), woodMaterial);
+  post.position.y = 0.43;
+  const arms = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.08), woodMaterial);
+  arms.position.y = 0.62;
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 6), clothMaterial);
+  body.position.y = 0.48;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), trimMaterialFromHex("#e0c89a"));
+  head.position.y = 0.84;
+  const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.17, 0.08, 10), hatMaterial);
+  hat.position.y = 0.97;
+  group.add(post, arms, body, head, hat);
+  return group;
+}
+
+function createShowcaseHayBales(): THREE.Group {
+  const group = new THREE.Group();
+  const hayMaterial = new THREE.MeshStandardMaterial({
+    color: "#d8b453",
+    roughness: 0.88,
+    metalness: 0.01
+  });
+  const baleOffsets = [
+    { x: -0.18, z: 0.04, s: 1 },
+    { x: 0.12, z: -0.08, s: 0.82 },
+    { x: 0.22, z: 0.12, s: 0.7 }
+  ] as const;
+
+  for (const entry of baleOffsets) {
+    const bale = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * entry.s, 0.16 * entry.s, 0.28 * entry.s, 12), hayMaterial);
+    bale.rotation.z = Math.PI / 2;
+    bale.position.set(entry.x, 0.16 * entry.s, entry.z);
+    group.add(bale);
+  }
+
+  return group;
+}
+
+function createShowcaseSheepfold(): THREE.Group {
+  const group = new THREE.Group();
+  group.add(positionObject(createShowcaseFence(), -0.18, 0, 0.44));
+  group.add(positionObject(createShowcaseFence(), -0.72, 0, 0, Math.PI / 2));
+  group.add(positionObject(createShowcaseFence(), 0.38, 0, -0.02, Math.PI / 2));
+  group.add(positionObject(createShowcaseSheep(true), -0.12, 0.02, -0.06, 0.32));
+  group.add(positionObject(createShowcaseSheep(false), 0.38, 0.02, -0.34, -0.28));
+  group.add(positionObject(createShowcaseTrough(), 0.06, 0.01, 0.7, 0.08));
+  group.position.set(-0.62, 0, -0.08);
+  group.rotation.y = -0.16;
+  return group;
+}
+
+function createShowcaseFence(): THREE.Group {
+  const group = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({
+    color: "#8a6a44",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+
+  for (const x of [-0.3, 0.3] as const) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.52, 5), woodMaterial);
+    post.position.set(x, 0.26, 0);
+    group.add(post);
+  }
+
+  const railTop = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.08), woodMaterial);
+  railTop.position.y = 0.38;
+  const railBottom = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.08), woodMaterial);
+  railBottom.position.y = 0.18;
+  group.add(railTop, railBottom);
+  return group;
+}
+
+function createShowcaseSheep(lead: boolean): THREE.Group {
+  const group = new THREE.Group();
+  const woolMaterial = new THREE.MeshStandardMaterial({
+    color: lead ? "#f4f2e8" : "#dfe4d4",
+    roughness: 0.82,
+    metalness: 0.01
+  });
+  const faceMaterial = new THREE.MeshStandardMaterial({
+    color: "#524338",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), woolMaterial);
+  body.position.y = 0.26;
+  body.scale.set(1.3, 0.94, 1);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), faceMaterial);
+  head.position.set(0.24, 0.28, 0.02);
+  const legs = [
+    [-0.12, -0.08],
+    [0.02, -0.08],
+    [-0.08, 0.1],
+    [0.08, 0.1]
+  ] as const;
+  for (const [x, z] of legs) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.028, 0.2, 5), faceMaterial);
+    leg.position.set(x, 0.1, z);
+    group.add(leg);
+  }
+  group.add(body, head);
+  return group;
+}
+
+function createShowcaseTrough(): THREE.Group {
+  const group = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({
+    color: "#896845",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+  const waterMaterial = new THREE.MeshStandardMaterial({
+    color: "#8fd1d9",
+    roughness: 0.34,
+    metalness: 0.03
+  });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.22), woodMaterial);
+  base.position.y = 0.06;
+  const water = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.028, 0.14), waterMaterial);
+  water.position.y = 0.13;
+  group.add(base, water);
+  return group;
+}
+
+function createShowcaseFlowers(): THREE.Group {
+  const group = new THREE.Group();
+  const stemMaterial = new THREE.MeshStandardMaterial({
+    color: "#7ead58",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  const petalMaterial = new THREE.MeshStandardMaterial({
+    color: "#f3e3a1",
+    roughness: 0.74,
+    metalness: 0.01
+  });
+  const flowers = [
+    { x: -0.12, z: 0.02, s: 1 },
+    { x: 0.02, z: -0.08, s: 0.9 },
+    { x: 0.16, z: 0.08, s: 0.76 }
+  ] as const;
+
+  for (const entry of flowers) {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.016 * entry.s, 0.018 * entry.s, 0.28 * entry.s, 4), stemMaterial);
+    stem.position.set(entry.x, 0.14 * entry.s, entry.z);
+    const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.06 * entry.s, 8, 6), petalMaterial);
+    bloom.position.set(entry.x, 0.3 * entry.s, entry.z);
+    bloom.scale.set(1.4, 0.72, 1.2);
+    group.add(stem, bloom);
+  }
+
+  return group;
+}
+
+function createShowcaseCactusPatch(): THREE.Group {
+  const group = new THREE.Group();
+  const cactusMaterial = new THREE.MeshStandardMaterial({
+    color: "#5d934b",
+    roughness: 0.88,
+    metalness: 0.01
+  });
+  const sandMaterial = new THREE.MeshStandardMaterial({
+    color: "#cfa96f",
+    roughness: 0.94,
+    metalness: 0
+  });
+
+  const patch = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.74, 0.08, 8), sandMaterial);
+  patch.position.y = 0.04;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.96, 8), cactusMaterial);
+  trunk.position.set(-0.06, 0.48, 0);
+  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.42, 8), cactusMaterial);
+  leftArm.position.set(-0.24, 0.46, 0);
+  leftArm.rotation.z = 0.56;
+  const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.34, 8), cactusMaterial);
+  rightArm.position.set(0.16, 0.38, 0.02);
+  rightArm.rotation.z = -0.48;
+  group.add(patch, trunk, leftArm, rightArm);
+  group.position.set(-0.48, 0, -0.06);
+  group.rotation.y = -0.12;
+  return group;
+}
+
+function createShowcaseBones(): THREE.Group {
+  const group = new THREE.Group();
+  const boneMaterial = trimMaterialFromHex("#d7c7a6");
+  const left = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.24, 4, 8), boneMaterial);
+  left.rotation.z = 0.82;
+  left.position.set(-0.08, 0.05, 0);
+  const right = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.2, 4, 8), boneMaterial);
+  right.rotation.z = -0.64;
+  right.position.set(0.12, 0.05, -0.02);
+  group.add(left, right);
+  return group;
+}
+
+function createShowcaseKiln(): THREE.Group {
+  const group = new THREE.Group();
+  const clayMaterial = new THREE.MeshStandardMaterial({
+    color: "#995842",
+    roughness: 0.94,
+    metalness: 0.01
+  });
+  const darkClayMaterial = new THREE.MeshStandardMaterial({
+    color: "#6d3a2d",
+    roughness: 0.95,
+    metalness: 0.01
+  });
+  const emberMaterial = new THREE.MeshStandardMaterial({
+    color: "#ffb16b",
+    roughness: 0.54,
+    metalness: 0.01,
+    emissive: new THREE.Color("#ffcf8a"),
+    emissiveIntensity: 0.14
+  });
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.46, 0.26, 10), clayMaterial);
+  base.position.y = 0.13;
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 10), darkClayMaterial);
+  dome.position.y = 0.4;
+  dome.scale.set(1.08, 0.8, 1);
+  const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.5, 8), darkClayMaterial);
+  chimney.position.set(0.28, 0.68, -0.06);
+  const opening = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.05), emberMaterial);
+  opening.position.set(0, 0.28, 0.36);
+  group.add(base, dome, chimney, opening);
+  group.position.set(-0.56, 0, -0.08);
+  group.rotation.y = 0.14;
+  return group;
+}
+
+function createShowcaseBrickStacks(): THREE.Group {
+  const group = new THREE.Group();
+  const brickMaterial = new THREE.MeshStandardMaterial({
+    color: "#a66048",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+  const stacks = [
+    { x: -0.12, z: 0.02, w: 0.34, h: 0.14, d: 0.22 },
+    { x: 0.22, z: -0.06, w: 0.42, h: 0.18, d: 0.24 },
+    { x: 0.12, z: 0.26, w: 0.26, h: 0.1, d: 0.18 }
+  ] as const;
+
+  for (const entry of stacks) {
+    const stack = new THREE.Mesh(new THREE.BoxGeometry(entry.w, entry.h, entry.d), brickMaterial);
+    stack.position.set(entry.x, entry.h * 0.5, entry.z);
+    group.add(stack);
+  }
+
+  return group;
+}
+
+function createShowcaseLogCamp(): THREE.Group {
+  const group = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({
+    color: "#7d5a38",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  const mossMaterial = new THREE.MeshStandardMaterial({
+    color: "#4d7f3b",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+  const logs = [
+    { x: -0.16, z: 0.02, l: 0.82, r: 0.08 },
+    { x: 0.04, z: -0.12, l: 0.72, r: 0.07 },
+    { x: 0.18, z: 0.14, l: 0.62, r: 0.064 }
+  ] as const;
+
+  for (const entry of logs) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(entry.r, entry.r, entry.l, 8), woodMaterial);
+    log.rotation.z = Math.PI / 2;
+    log.position.set(entry.x, entry.r, entry.z);
+    group.add(log);
+  }
+
+  const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.22, 10), woodMaterial);
+  stump.position.set(0.38, 0.11, -0.18);
+  const moss = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), mossMaterial);
+  moss.position.set(-0.36, 0.12, 0.22);
+  moss.scale.set(1.3, 0.74, 1.1);
+  group.add(stump, moss);
+  group.position.set(-0.56, 0, -0.02);
+  group.rotation.y = 0.18;
+  return group;
+}
+
+function createShowcaseFernPatch(): THREE.Group {
+  const group = new THREE.Group();
+  const fernMaterial = new THREE.MeshStandardMaterial({
+    color: "#5f9447",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  for (const rotation of [-0.4, 0, 0.4] as const) {
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.36, 4), fernMaterial);
+    leaf.position.y = 0.18;
+    leaf.rotation.z = Math.PI / 2 + rotation;
+    leaf.rotation.x = -0.26;
+    group.add(leaf);
+  }
+  return group;
+}
+
+function createShowcaseCrystalCamp(): THREE.Group {
+  const group = new THREE.Group();
+  const crystalMaterial = new THREE.MeshStandardMaterial({
+    color: "#afc3dd",
+    roughness: 0.34,
+    metalness: 0.18,
+    emissive: new THREE.Color("#e8f0ff"),
+    emissiveIntensity: 0.08
+  });
+  const baseMaterial = new THREE.MeshStandardMaterial({
+    color: "#677182",
+    roughness: 0.94,
+    metalness: 0.02
+  });
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.72, 0.08, 8), baseMaterial);
+  base.position.y = 0.04;
+  group.add(base);
+  for (const entry of [
+    { x: -0.18, z: 0.08, h: 0.72 },
+    { x: 0.12, z: -0.1, h: 0.94 },
+    { x: 0.28, z: 0.18, h: 0.58 }
+  ] as const) {
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), crystalMaterial);
+    crystal.position.set(entry.x, entry.h * 0.34, entry.z);
+    crystal.scale.set(0.7, entry.h, 0.7);
+    crystal.rotation.y = entry.x * 4.4;
+    group.add(crystal);
+  }
+  group.position.set(-0.46, 0, 0);
+  group.rotation.y = -0.2;
+  return group;
+}
+
+function createShowcaseRockScatter(): THREE.Group {
+  const group = new THREE.Group();
+  const rockMaterial = new THREE.MeshStandardMaterial({
+    color: "#7b8594",
+    roughness: 0.95,
+    metalness: 0.02
+  });
+  for (const entry of [
+    { x: -0.12, z: 0.04, s: 0.12 },
+    { x: 0.1, z: -0.08, s: 0.16 },
+    { x: 0.18, z: 0.14, s: 0.09 }
+  ] as const) {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(entry.s, 0), rockMaterial);
+    rock.position.set(entry.x, entry.s * 0.5, entry.z);
+    rock.rotation.set(0.12, entry.x * 3.2, -0.08);
+    group.add(rock);
+  }
+  return group;
+}
+
+function trimMaterialFromHex(color: string): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.82,
+    metalness: 0.01
+  });
 }
 
 function createRoadPiece(length: number, color: string): THREE.Mesh {
@@ -726,9 +1320,9 @@ function disposeObjectTree(root: THREE.Object3D): void {
     if (object instanceof THREE.Mesh) {
       object.geometry.dispose();
       if (Array.isArray(object.material)) {
-        object.material.forEach((material) => material.dispose());
+        object.material.forEach(disposeMaterialWithTextures);
       } else {
-        object.material.dispose();
+        disposeMaterialWithTextures(object.material);
       }
       return;
     }
@@ -736,9 +1330,9 @@ function disposeObjectTree(root: THREE.Object3D): void {
     if (object instanceof THREE.Points) {
       object.geometry.dispose();
       if (Array.isArray(object.material)) {
-        object.material.forEach((material) => material.dispose());
+        object.material.forEach(disposeMaterialWithTextures);
       } else {
-        object.material.dispose();
+        disposeMaterialWithTextures(object.material);
       }
       return;
     }
@@ -746,10 +1340,20 @@ function disposeObjectTree(root: THREE.Object3D): void {
     if (object instanceof THREE.Line) {
       object.geometry.dispose();
       if (Array.isArray(object.material)) {
-        object.material.forEach((material) => material.dispose());
+        object.material.forEach(disposeMaterialWithTextures);
       } else {
-        object.material.dispose();
+        disposeMaterialWithTextures(object.material);
       }
     }
   });
+}
+
+function disposeMaterialWithTextures(material: THREE.Material): void {
+  const materialRecord = material as unknown as Partial<Record<string, unknown>>;
+  for (const value of Object.values(materialRecord)) {
+    if (value instanceof THREE.Texture) {
+      value.dispose();
+    }
+  }
+  material.dispose();
 }

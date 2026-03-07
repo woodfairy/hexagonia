@@ -279,7 +279,7 @@ export function LandingScreen(props: {
 
           <div className="landing-hero-scene-column" data-reveal style={revealStyle(140)}>
             <div className="landing-scene-shell">
-              <LandingBoardScene reducedMotion={prefersReducedMotion} />
+              <LandingBoardScene reducedMotion={prefersReducedMotion} visualProfile="fancy" />
               <div className="landing-scene-badge is-top">
                 <span className="landing-badge-label">Schon spielbar</span>
                 <strong>Trade, Robber, Development</strong>
