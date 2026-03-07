@@ -6,9 +6,9 @@ export type TerrainResource = Resource | "desert";
 const RESOURCE_ICON_PALETTE: Record<TerrainResource, { color: string; surface: string }> = {
   brick: { color: "#d97b5b", surface: "rgba(217, 123, 91, 0.16)" },
   lumber: { color: "#72c587", surface: "rgba(114, 197, 135, 0.16)" },
-  ore: { color: "#c3cedf", surface: "rgba(195, 206, 223, 0.16)" },
+  ore: { color: "#92a0b6", surface: "rgba(146, 160, 182, 0.16)" },
   grain: { color: "#f0cb62", surface: "rgba(240, 203, 98, 0.16)" },
-  wool: { color: "#bfe39a", surface: "rgba(191, 227, 154, 0.16)" },
+  wool: { color: "#eef2e8", surface: "rgba(238, 242, 232, 0.16)" },
   desert: { color: "#edd28e", surface: "rgba(237, 210, 142, 0.16)" }
 };
 

@@ -37,9 +37,9 @@ interface BoardSceneProps {
 export const TILE_COLORS: Record<Resource | "desert", string> = {
   brick: "#b6543d",
   lumber: "#3f7f4b",
-  ore: "#6a7286",
+  ore: "#9aa5b5",
   grain: "#d4a73b",
-  wool: "#88b45c",
+  wool: "#dfe7d7",
   desert: "#c6ad72"
 };
 
@@ -418,8 +418,12 @@ export function BoardScene(props: BoardSceneProps) {
       const active = robberTileIds.has(tile.id);
       const base = createTileMesh(tile, verticesById, active);
       base.position.set(tile.x, 0, tile.y);
-      base.castShadow = true;
-      base.receiveShadow = true;
+      base.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true;
+          object.receiveShadow = true;
+        }
+      });
       group.add(base);
 
       const outline = createTileOutline(tile, verticesById);
@@ -427,7 +431,7 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(outline);
 
       const tokenSprite = createTokenSprite(tile.resource, tile.token, tile.robber);
-      tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.62, tile.y);
+      tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
       group.add(tokenSprite);
 
       if (active) {
@@ -650,10 +654,14 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: texture,
-      transparent: true
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
     })
   );
+  sprite.center.set(0.5, 0.38);
   sprite.scale.set(5.35, 5.35, 1);
+  sprite.renderOrder = 12;
   return sprite;
 }
 
@@ -661,9 +669,9 @@ function createTileMesh(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
   active: boolean
-): THREE.Mesh {
-  const shape = createTileShape(tile, verticesById);
-  const geometry = new THREE.ExtrudeGeometry(shape, {
+): THREE.Group {
+  const outerShape = createTileShape(tile, verticesById);
+  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
     depth: TILE_HEIGHT,
     bevelEnabled: true,
     bevelSegments: 1,
@@ -672,22 +680,60 @@ function createTileMesh(
     bevelThickness: 0.12,
     curveSegments: 6
   });
-  geometry.rotateX(-Math.PI / 2);
+  outerGeometry.rotateX(-Math.PI / 2);
 
-  const topMaterial = new THREE.MeshStandardMaterial({
-    color: TILE_COLORS[tile.resource],
-    roughness: 0.9,
-    metalness: 0.02,
-    emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
-    emissiveIntensity: active ? 0.18 : 0
+  const insetDepth = 0.34;
+  const insetShape = createTileShape(tile, verticesById, 0.945);
+  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
+    depth: insetDepth,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.12,
+    bevelThickness: 0.05,
+    curveSegments: 6
   });
-  const sideMaterial = new THREE.MeshStandardMaterial({
-    color: shadeColor(TILE_COLORS[tile.resource], -0.18),
-    roughness: 0.96,
-    metalness: 0.01
-  });
+  insetGeometry.rotateX(-Math.PI / 2);
 
-  return new THREE.Mesh(geometry, [topMaterial, sideMaterial]);
+  const outerMesh = new THREE.Mesh(
+    outerGeometry,
+    [
+      new THREE.MeshStandardMaterial({
+        color: shadeColor(TILE_COLORS[tile.resource], -0.24),
+        roughness: 0.96,
+        metalness: 0.01
+      }),
+      new THREE.MeshStandardMaterial({
+        color: shadeColor(TILE_COLORS[tile.resource], -0.34),
+        roughness: 0.98,
+        metalness: 0.01
+      })
+    ]
+  );
+
+  const insetMesh = new THREE.Mesh(
+    insetGeometry,
+    [
+      new THREE.MeshStandardMaterial({
+        color: TILE_COLORS[tile.resource],
+        roughness: 0.88,
+        metalness: 0.02,
+        emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
+        emissiveIntensity: active ? 0.16 : 0
+      }),
+      new THREE.MeshStandardMaterial({
+        color: shadeColor(TILE_COLORS[tile.resource], -0.12),
+        roughness: 0.94,
+        metalness: 0.01
+      })
+    ]
+  );
+  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.01;
+
+  const tileGroup = new THREE.Group();
+  tileGroup.add(outerMesh);
+  tileGroup.add(insetMesh);
+  return tileGroup;
 }
 
 function createTileOutline(
@@ -702,22 +748,23 @@ function createTileOutline(
   return new THREE.LineLoop(
     geometry,
     new THREE.LineBasicMaterial({
-      color: "#f4edd8",
+      color: "#172838",
       transparent: true,
-      opacity: 0.22
+      opacity: 0.14
     })
   );
 }
 
 function createTileShape(
   tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  scale = 1
 ): THREE.Shape {
   const shape = new THREE.Shape();
   tile.vertexIds.forEach((vertexId, index) => {
     const vertex = verticesById.get(vertexId)!;
-    const x = vertex.x - tile.x;
-    const y = vertex.y - tile.y;
+    const x = (vertex.x - tile.x) * scale;
+    const y = (vertex.y - tile.y) * scale;
     if (index === 0) {
       shape.moveTo(x, y);
       return;
