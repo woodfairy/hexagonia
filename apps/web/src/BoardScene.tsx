@@ -1049,6 +1049,7 @@ function createUltraTileMesh(
     curveSegments: 8
   });
   outerGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(outerGeometry);
 
   const insetDepth = 0.28;
   const insetShape = createTileShape(tile, verticesById, 0.956);
@@ -1062,6 +1063,7 @@ function createUltraTileMesh(
     curveSegments: 8
   });
   insetGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(insetGeometry);
 
   const outerMesh = new THREE.Mesh(outerGeometry, [
     new THREE.MeshPhysicalMaterial({
@@ -1109,6 +1111,7 @@ function createUltraTileMesh(
   const overlayShape = createTileShape(tile, verticesById, 0.928);
   const overlayGeometry = new THREE.ShapeGeometry(overlayShape, 12);
   overlayGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(overlayGeometry);
   const overlayMaterial = createUltraTileOverlayMaterial(terrainBundle, active, reducedMotion);
   animatedMaterials.push(overlayMaterial);
   const overlayMesh = new THREE.Mesh(overlayGeometry, overlayMaterial);
@@ -3060,6 +3063,30 @@ function createTileShape(
   });
   shape.closePath();
   return shape;
+}
+
+function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
+  const position = geometry.getAttribute("position");
+  if (!(position instanceof THREE.BufferAttribute) || position.itemSize < 3) {
+    return;
+  }
+
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  if (!bounds) {
+    return;
+  }
+
+  const width = Math.max(bounds.max.x - bounds.min.x, 0.001);
+  const depth = Math.max(bounds.max.z - bounds.min.z, 0.001);
+  const uvValues = new Float32Array(position.count * 2);
+
+  for (let index = 0; index < position.count; index += 1) {
+    uvValues[index * 2] = (position.getX(index) - bounds.min.x) / width;
+    uvValues[index * 2 + 1] = (position.getZ(index) - bounds.min.z) / depth;
+  }
+
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvValues, 2));
 }
 
 function createRoadPiece(length: number, color: string, selected: boolean): THREE.Mesh {
