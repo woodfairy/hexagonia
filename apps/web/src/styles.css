@@ -206,6 +206,7 @@ select {
   border-radius: 1rem;
   display: grid;
   place-items: center;
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
     rgba(8, 18, 27, 0.92);
@@ -217,6 +218,7 @@ select {
   block-size: 100%;
   object-fit: contain;
   display: block;
+  border-radius: 0.82rem;
   filter: drop-shadow(0 0.22rem 0.45rem rgba(0, 0, 0, 0.22));
 }
 
@@ -905,6 +907,12 @@ select:hover {
   background: rgba(var(--accent-rgb), 0.08);
 }
 
+.seat-card.is-open {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.028)),
+    rgba(255, 255, 255, 0.032);
+}
+
 .seat-card-head {
   display: grid;
   align-content: start;
@@ -920,6 +928,8 @@ select:hover {
   font-size: 0.76rem;
   font-weight: 800;
   text-transform: capitalize;
+  white-space: nowrap;
+  flex: none;
 }
 
 .seat-red {
@@ -1154,6 +1164,13 @@ select:hover {
   flex: none;
 }
 
+.seat-status-badge-placeholder {
+  visibility: hidden;
+  display: inline-flex;
+  min-inline-size: 4.9rem;
+  min-block-size: 1.78rem;
+}
+
 .online-indicator.is-hidden {
   visibility: hidden;
   background: transparent;
@@ -1189,9 +1206,15 @@ select:hover {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: var(--gap-inline);
+  min-inline-size: 0;
 }
 
-.seat-identity-copy {
+.seat-open-copy .player-swatch {
+  margin-block-start: 0.16rem;
+  opacity: 0.82;
+}
+
+.seat-open-copy .seat-identity-copy {
   min-inline-size: 0;
   display: grid;
   gap: var(--gap-copy-tight);
@@ -1201,11 +1224,6 @@ select:hover {
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.2;
-}
-
-.seat-open-swatch-placeholder,
-.seat-identity-meta-placeholder {
-  visibility: hidden;
 }
 
 .seat-card-state {
@@ -1264,6 +1282,14 @@ select:hover {
 .seat-open-label {
   font-size: 1.05rem;
   line-height: 1.1;
+}
+
+.seat-card.is-open .seat-card-state-label {
+  color: var(--player-text, var(--text));
+}
+
+.seat-card.is-open .seat-card-detail-copy {
+  color: color-mix(in srgb, var(--player-text, var(--text)) 38%, var(--muted));
 }
 
 .seat-card button {
@@ -2451,9 +2477,33 @@ select:hover {
   white-space: nowrap;
 }
 
+.trade-quantity-card.is-fixed {
+  align-content: start;
+}
+
 .trade-quantity-stepper {
   display: grid;
   gap: 0.52rem;
+}
+
+.trade-quantity-fixed {
+  display: grid;
+  justify-items: start;
+  gap: 0.18rem;
+  padding: 0.18rem 0;
+}
+
+.trade-quantity-fixed-value {
+  font-size: 1.36rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent-strong);
+}
+
+.trade-quantity-fixed-copy {
+  font-size: 0.86rem;
+  line-height: 1.28;
+  color: var(--text);
 }
 
 .trade-quantity-buttons {

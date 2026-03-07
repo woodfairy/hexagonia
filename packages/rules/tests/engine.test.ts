@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_COLORS, createEmptyResourceMap } from "@hexagonia/shared";
 import { generateBaseBoard } from "../src/board";
-import { applyAction, createMatchState, createSnapshot } from "../src/engine";
+import { applyAction, createMatchState, createSnapshot, rollStartingPlayer } from "../src/engine";
 import { SeededRandom } from "../src/random";
 
 const OFFICIAL_VARIABLE_NUMBER_TOKENS = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
@@ -60,6 +60,40 @@ describe("rules engine", () => {
     expect(state.currentPlayerIndex).toBe(0);
   });
 
+  it("rolls only the first player and records the result in the match events", () => {
+    const players = createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"]);
+    const rolledStart = rollStartingPlayer(players, "start-roll-seed");
+    const state = createMatchState({
+      matchId: "match-roll-start",
+      roomId: "room-1",
+      seed: "start-roll-seed",
+      setupMode: "official_variable",
+      startingPlayerMode: "rolled",
+      startingSeatIndex: rolledStart.winnerSeatIndex,
+      startingPlayerRoll: rolledStart,
+      players
+    });
+
+    expect(state.players[0]?.seatIndex).toBe(rolledStart.winnerSeatIndex);
+    expect(state.eventLog[0]?.type).toBe("starting_player_rolled");
+    expect(state.eventLog[0]?.byPlayerId).toBe(rolledStart.winnerPlayerId);
+    expect(state.eventLog[0]?.payload.summary).toBe(rolledStart.summary);
+  });
+
+  it("rerolls only the tied leaders when the starting-player roll is tied", () => {
+    const tieSeed = findSeedWithStartingRollTie();
+    const rolledStart = rollStartingPlayer(
+      createPlayers(["p1", "p2", "p3", "p4"], ["Alice", "Bob", "Cara", "Dino"]),
+      tieSeed
+    );
+
+    expect(rolledStart.rounds.length).toBeGreaterThan(1);
+    expect(rolledStart.rounds[0]!.leaderPlayerIds.length).toBeGreaterThan(1);
+    expect(rolledStart.rounds[1]!.contenderPlayerIds).toEqual(rolledStart.rounds[0]!.leaderPlayerIds);
+    expect(rolledStart.rounds.at(-1)?.leaderPlayerIds).toHaveLength(1);
+    expect(rolledStart.rounds.at(-1)?.leaderPlayerIds[0]).toBe(rolledStart.winnerPlayerId);
+  });
+
   it("generates the standard base-board topology", () => {
     const board = generateBaseBoard("test-seed");
 
@@ -88,6 +122,27 @@ describe("rules engine", () => {
           tokens.every((token, index) => token === OFFICIAL_VARIABLE_NUMBER_TOKENS[index])
       )
     ).toBe(true);
+  });
+
+  it("keeps the beginner setup fixed across seeds", () => {
+    const firstBoard = generateBaseBoard("beginner-a", "beginner");
+    const secondBoard = generateBaseBoard("beginner-b", "beginner");
+
+    expect(
+      firstBoard.tiles.map((tile) => ({
+        resource: tile.resource,
+        token: tile.token,
+        robber: tile.robber
+      }))
+    ).toEqual(
+      secondBoard.tiles.map((tile) => ({
+        resource: tile.resource,
+        token: tile.token,
+        robber: tile.robber
+      }))
+    );
+    expect(firstBoard.ports.map((port) => port.type)).toEqual(secondBoard.ports.map((port) => port.type));
+    expect(firstBoard.ports.map((port) => port.edgeId)).toEqual(secondBoard.ports.map((port) => port.edgeId));
   });
 
   it("grants resources to settlements adjacent to the rolled number", () => {
@@ -476,6 +531,21 @@ function findRandomStateForTotal(total: number): string {
   }
 
   throw new Error(`Could not find a deterministic RNG state for roll ${total}.`);
+}
+
+function findSeedWithStartingRollTie(): string {
+  for (let candidate = 1; candidate < 25_000; candidate += 1) {
+    const seed = `start-tie-${candidate}`;
+    const rolledStart = rollStartingPlayer(
+      createPlayers(["p1", "p2", "p3", "p4"], ["Alice", "Bob", "Cara", "Dino"]),
+      seed
+    );
+    if (rolledStart.rounds.length > 1) {
+      return seed;
+    }
+  }
+
+  throw new Error("Could not find a deterministic starting-player tie seed.");
 }
 
 function createAllOfficialPlacementOrders<T extends { q: number; r: number }>(tiles: T[]): T[][] {

@@ -4,7 +4,7 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import argon2 from "argon2";
-import { createMatchState, roomToPlayers } from "@hexagonia/rules";
+import { createMatchState, rollStartingPlayer, roomToPlayers } from "@hexagonia/rules";
 import type { ActionIntent, AuthUser, ClientMessage, RoomDetails } from "@hexagonia/shared";
 import type { RawData } from "ws";
 import { z } from "zod";
@@ -36,9 +36,10 @@ const readySchema = z.object({
 const roomSettingsSchema = z
   .object({
     setupMode: z.enum(["official_variable", "beginner"]).optional(),
+    startingPlayerMode: z.enum(["rolled", "manual"]).optional(),
     startingSeatIndex: z.number().int().min(0).max(3).optional()
   })
-  .refine((body) => body.setupMode !== undefined || body.startingSeatIndex !== undefined, {
+  .refine((body) => body.setupMode !== undefined || body.startingPlayerMode !== undefined || body.startingSeatIndex !== undefined, {
     message: "Mindestens eine Spieleinstellung muss gesetzt werden."
   });
 
@@ -566,7 +567,13 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     if (body.setupMode !== undefined) {
       room.setupMode = body.setupMode;
     }
+    if (body.startingPlayerMode !== undefined) {
+      room.startingPlayerMode = body.startingPlayerMode;
+    }
     if (body.startingSeatIndex !== undefined) {
+      if ((body.startingPlayerMode ?? room.startingPlayerMode) !== "manual") {
+        return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
+      }
       const seat = room.seats.find((entry) => entry.index === body.startingSeatIndex);
       if (!seat?.userId) {
         return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
@@ -603,15 +610,33 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply.code(409).send({ error: "Alle sitzenden Spieler müssen bereit sein." });
     }
 
+    if (room.startingPlayerMode === "manual") {
+      const configuredStartSeat = room.seats.find((seat) => seat.index === room.startingSeatIndex);
+      if (!configuredStartSeat?.userId) {
+        return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
+      }
+    }
+
+    const matchSeed = randomBytes(32).toString("hex");
+    const matchPlayers = roomToPlayers(room);
+    const rolledStart = room.startingPlayerMode === "rolled" ? rollStartingPlayer(matchPlayers, matchSeed) : null;
+    const startingSeatIndex =
+      room.startingPlayerMode === "manual"
+        ? resolveManualStartingSeatIndex(room)
+        : rolledStart?.winnerSeatIndex ?? room.startingSeatIndex;
+
     const state = createMatchState({
       matchId: randomUUID(),
       roomId: room.id,
-      seed: randomBytes(32).toString("hex"),
+      seed: matchSeed,
       setupMode: room.setupMode,
-      startingSeatIndex: room.startingSeatIndex,
-      players: roomToPlayers(room)
+      startingPlayerMode: room.startingPlayerMode,
+      startingSeatIndex,
+      ...(rolledStart ? { startingPlayerRoll: rolledStart } : {}),
+      players: matchPlayers
     });
 
+    room.startingSeatIndex = startingSeatIndex;
     room.status = "in_match";
     room.matchId = state.matchId;
 
@@ -850,6 +875,15 @@ function generateRoomCode(): string {
 
 function hasOccupiedSeats(room: RoomDetails): boolean {
   return room.seats.some((seat) => !!seat.userId);
+}
+
+function resolveManualStartingSeatIndex(room: RoomDetails): number {
+  const seat = room.seats.find((entry) => entry.index === room.startingSeatIndex);
+  if (!seat?.userId) {
+    throw new Error("Der gewählte Startspieler sitzt nicht im Raum.");
+  }
+
+  return seat.index;
 }
 
 async function removeUserFromOpenRoom(

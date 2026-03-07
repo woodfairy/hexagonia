@@ -740,6 +740,7 @@ export function MatchScreen(props: {
                     <PlayerBadge match={props.match} playerId={event.byPlayerId} compact />
                   ) : null}
                 </div>
+                {getEventSummary(event) ? <span>{getEventSummary(event)}</span> : null}
                 <span>Zug {event.atTurn}</span>
               </article>
             ))}
@@ -1084,9 +1085,16 @@ export function MatchScreen(props: {
                   })}
                   onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
                 />
-                <TradeFixedHint>
-                  {maritimeRatio}:1 bedeutet {maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)} gegen genau 1 Wunschkarte.
-                </TradeFixedHint>
+                <TradeQuantityControl
+                  label="Abgeben"
+                  resource={props.maritimeForm.give}
+                  value={maritimeRatio}
+                  min={maritimeRatio}
+                  max={maritimeRatio}
+                  fixed
+                  helper={`${maritimeRatio}:1 mit deiner aktuellen Hafenrate.`}
+                  onChange={() => undefined}
+                />
               </article>
 
               <div className="trade-direction-chip">{maritimeRatio}:1</div>
@@ -1106,7 +1114,16 @@ export function MatchScreen(props: {
                   }))}
                   onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, receive: resource }))}
                 />
-                <TradeFixedHint>Du erhältst immer genau 1 Karte der gewählten Sorte.</TradeFixedHint>
+                <TradeQuantityControl
+                  label="Erhalten"
+                  resource={props.maritimeForm.receive}
+                  value={1}
+                  min={1}
+                  max={1}
+                  fixed
+                  helper="Du erhältst im Seehandel immer genau 1 Karte."
+                  onChange={() => undefined}
+                />
               </article>
 
               <button
@@ -1488,15 +1505,16 @@ function TradeQuantityControl(props: {
   min: number;
   max?: number;
   disabled?: boolean;
+  fixed?: boolean;
   helper: string;
   onChange: (value: number | string) => void;
 }) {
   const max = props.max ?? 99;
-  const canDecrement = !props.disabled && props.value > props.min;
-  const canIncrement = !props.disabled && props.value < max;
+  const canDecrement = !props.fixed && !props.disabled && props.value > props.min;
+  const canIncrement = !props.fixed && !props.disabled && props.value < max;
 
   return (
-    <div className={`trade-quantity-card ${props.disabled ? "is-disabled" : ""}`}>
+    <div className={`trade-quantity-card ${props.disabled ? "is-disabled" : ""} ${props.fixed ? "is-fixed" : ""}`}>
       <div className="trade-quantity-head">
         <div className="trade-quantity-copy">
           <span className="eyebrow">{props.label}</span>
@@ -1504,36 +1522,39 @@ function TradeQuantityControl(props: {
         </div>
         <span className="trade-quantity-badge">{props.value}x</span>
       </div>
-      <div className="trade-quantity-stepper">
-        <div className="trade-quantity-buttons">
-          <button type="button" className="trade-quantity-button" disabled={!canDecrement} onClick={() => props.onChange(props.value - 1)}>
-            -
-          </button>
-          <button type="button" className="trade-quantity-button" disabled={!canIncrement} onClick={() => props.onChange(props.value + 1)}>
-            +
-          </button>
+      {props.fixed ? (
+        <div className="trade-quantity-fixed">
+          <span className="trade-quantity-fixed-value">{props.value}x</span>
+          <span className="trade-quantity-fixed-copy">{renderResourceLabel(props.resource)}</span>
         </div>
-        <div className="trade-quantity-input-row">
-          <input
-            type="number"
-            inputMode="numeric"
-            className="trade-quantity-input"
-            min={props.min}
-            max={props.max}
-            disabled={props.disabled}
-            value={props.value}
-            onChange={(event) => props.onChange(event.target.value)}
-          />
+      ) : (
+        <div className="trade-quantity-stepper">
+          <div className="trade-quantity-buttons">
+            <button type="button" className="trade-quantity-button" disabled={!canDecrement} onClick={() => props.onChange(props.value - 1)}>
+              -
+            </button>
+            <button type="button" className="trade-quantity-button" disabled={!canIncrement} onClick={() => props.onChange(props.value + 1)}>
+              +
+            </button>
+          </div>
+          <div className="trade-quantity-input-row">
+            <input
+              type="number"
+              inputMode="numeric"
+              className="trade-quantity-input"
+              min={props.min}
+              max={props.max}
+              disabled={props.disabled}
+              value={props.value}
+              onChange={(event) => props.onChange(event.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      )}
       <span className="trade-quantity-helper">{props.helper}</span>
       <span className="trade-quantity-summary">Aktuell: {props.value}x {renderResourceLabel(props.resource)}</span>
     </div>
   );
-}
-
-function TradeFixedHint(props: { children: ReactNode }) {
-  return <div className="trade-fixed-hint">{props.children}</div>;
 }
 
 function DiceFace(props: { value: number | null }) {
@@ -2172,6 +2193,14 @@ function getPlayerColor(match: MatchSnapshot, playerId?: string): PlayerColor | 
 function getPayloadString(payload: Record<string, unknown>, key: string): string | null {
   const value = payload[key];
   return typeof value === "string" ? value : null;
+}
+
+function getEventSummary(event: MatchSnapshot["eventLog"][number]): string | null {
+  if (event.type === "starting_player_rolled") {
+    return getPayloadString(event.payload, "summary");
+  }
+
+  return null;
 }
 
 function getPayloadNumber(payload: Record<string, unknown>, key: string): number | null {

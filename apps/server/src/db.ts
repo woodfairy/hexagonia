@@ -9,6 +9,7 @@ import type {
   RoomDetails,
   SeatState,
   SetupMode,
+  StartingPlayerMode,
   UserRole
 } from "@hexagonia/shared";
 import { PLAYER_COLORS } from "@hexagonia/shared";
@@ -46,6 +47,7 @@ create table if not exists rooms (
   code text unique not null,
   owner_user_id uuid not null references users(id) on delete cascade,
   setup_mode text not null default 'official_variable',
+  starting_player_mode text not null default 'rolled',
   starting_seat_index integer not null default 0,
   status text not null,
   match_id uuid null,
@@ -82,6 +84,7 @@ create table if not exists match_events (
 const MIGRATION_SQL = `
 alter table users add column if not exists role text not null default 'user';
 alter table rooms add column if not exists setup_mode text not null default 'official_variable';
+alter table rooms add column if not exists starting_player_mode text not null default 'rolled';
 alter table rooms add column if not exists starting_seat_index integer not null default 0;
 `;
 
@@ -373,11 +376,11 @@ export class Database {
 
     const result = await this.pool.query(
       `
-      insert into rooms (id, code, owner_user_id, setup_mode, starting_seat_index, status, match_id, seats)
-      values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-      returning id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      insert into rooms (id, code, owner_user_id, setup_mode, starting_player_mode, starting_seat_index, status, match_id, seats)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+      returning id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
       `,
-      [roomId, code, owner.id, "official_variable", 0, "open", null, JSON.stringify(seats)]
+      [roomId, code, owner.id, "official_variable", "rolled", 0, "open", null, JSON.stringify(seats)]
     );
 
     return normalizeRoom(result.rows[0]);
@@ -386,7 +389,7 @@ export class Database {
   async getRoom(roomId: string): Promise<RoomDetails | null> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
       from rooms
       where id = $1
       limit 1
@@ -400,7 +403,7 @@ export class Database {
   async getRoomByCode(code: string): Promise<RoomDetails | null> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
       from rooms
       where upper(code) = upper($1)
       limit 1
@@ -414,7 +417,7 @@ export class Database {
   async listUserRooms(userId: string): Promise<RoomDetails[]> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
       from rooms
       where status <> 'closed'
         and (
@@ -443,6 +446,7 @@ export class Database {
           code: string;
           ownerUserId: string;
           setupMode: SetupMode;
+          startingPlayerMode: StartingPlayerMode;
           startingSeatIndex: number;
           status: "open" | "in_match" | "closed";
           matchId: string | null;
@@ -456,7 +460,7 @@ export class Database {
   async listRooms(): Promise<RoomDetails[]> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
       from rooms
       order by
         case status
@@ -475,6 +479,7 @@ export class Database {
           code: string;
           ownerUserId: string;
           setupMode: SetupMode;
+          startingPlayerMode: StartingPlayerMode;
           startingSeatIndex: number;
           status: "open" | "in_match" | "closed";
           matchId: string | null;
@@ -523,17 +528,19 @@ export class Database {
       update rooms
       set owner_user_id = $2,
           setup_mode = $3,
-          starting_seat_index = $4,
-          status = $5,
-          match_id = $6,
-          seats = $7::jsonb
+          starting_player_mode = $4,
+          starting_seat_index = $5,
+          status = $6,
+          match_id = $7,
+          seats = $8::jsonb
       where id = $1
-      returning id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      returning id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
       `,
       [
         normalizedRoom.id,
         normalizedRoom.ownerUserId,
         normalizedRoom.setupMode,
+        normalizedRoom.startingPlayerMode,
         normalizedRoom.startingSeatIndex,
         normalizedRoom.status,
         normalizedRoom.matchId,
@@ -659,6 +666,7 @@ function normalizeRoom(row: {
   code: string;
   ownerUserId: string;
   setupMode: SetupMode;
+  startingPlayerMode: StartingPlayerMode;
   startingSeatIndex: number;
   status: "open" | "in_match" | "closed";
   matchId: string | null;
@@ -671,6 +679,7 @@ function normalizeRoom(row: {
     code: row.code,
     ownerUserId: row.ownerUserId,
     setupMode: row.setupMode,
+    startingPlayerMode: row.startingPlayerMode,
     startingSeatIndex: row.startingSeatIndex,
     status: row.status,
     matchId: row.matchId,

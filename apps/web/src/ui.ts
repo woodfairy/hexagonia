@@ -50,6 +50,7 @@ export function renderConnectionLabel(session: AuthUser | null | undefined, conn
 
 export function renderEventLabel(type: string): string {
   const labels: Record<string, string> = {
+    starting_player_rolled: "Startspieler ausgewürfelt.",
     match_started: "Partie gestartet.",
     initial_settlement_placed: "Start-Siedlung gesetzt.",
     initial_road_placed: "Start-Straße gesetzt.",

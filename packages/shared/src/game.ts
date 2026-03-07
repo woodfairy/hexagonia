@@ -1,6 +1,7 @@
 export const RESOURCES = ["brick", "lumber", "ore", "grain", "wool"] as const;
 export const PLAYER_COLORS = ["red", "blue", "white", "orange"] as const;
 export const SETUP_MODES = ["official_variable", "beginner"] as const;
+export const STARTING_PLAYER_MODES = ["rolled", "manual"] as const;
 export const DEVELOPMENT_CARD_TYPES = [
   "knight",
   "victory_point",
@@ -13,6 +14,7 @@ export const PORT_TYPES = ["generic", ...RESOURCES] as const;
 export type Resource = (typeof RESOURCES)[number];
 export type PlayerColor = (typeof PLAYER_COLORS)[number];
 export type SetupMode = (typeof SETUP_MODES)[number];
+export type StartingPlayerMode = (typeof STARTING_PLAYER_MODES)[number];
 export type DevelopmentCardType = (typeof DEVELOPMENT_CARD_TYPES)[number];
 export type PortType = (typeof PORT_TYPES)[number];
 export type UserRole = "user" | "admin";
@@ -200,6 +202,7 @@ export interface RoomSummary {
   code: string;
   ownerUserId: string;
   setupMode: SetupMode;
+  startingPlayerMode: StartingPlayerMode;
   startingSeatIndex: number;
   status: "open" | "in_match" | "closed";
   matchId: string | null;
