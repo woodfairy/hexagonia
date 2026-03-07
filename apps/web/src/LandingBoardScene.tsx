@@ -759,7 +759,7 @@ function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvValues, 2));
 }
 
-function createFancyTileProps(resource: Resource | "desert"): THREE.Group {
+export function createFancyTileProps(resource: Resource | "desert"): THREE.Group {
   const group = new THREE.Group();
 
   switch (resource) {
