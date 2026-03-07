@@ -2324,7 +2324,6 @@ select:hover {
 .trade-side-card {
   display: grid;
   gap: var(--gap-stack);
-  padding-inline: 1.08rem 1.18rem;
 }
 
 .trade-side-give {
@@ -2357,15 +2356,13 @@ select:hover {
 
 .trade-resource-card {
   display: grid;
-  inline-size: auto;
-  justify-self: stretch;
+  inline-size: 100%;
   justify-items: start;
   align-content: start;
   gap: 0.44rem;
   min-inline-size: 0;
   min-block-size: 7.6rem;
-  padding-block: 0.8rem;
-  padding-inline: 0.92rem 1.4rem;
+  padding: 0.8rem 0.88rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-card);
   background: rgba(6, 15, 23, 0.84);
@@ -2412,7 +2409,6 @@ select:hover {
   gap: 0.62rem;
   inline-size: 100%;
   min-inline-size: 0;
-  padding-inline-end: 0.34rem;
 }
 
 .trade-resource-card .trade-resource-card-head .resource-icon-shell {
@@ -2424,12 +2420,6 @@ select:hover {
   font-size: 0.94rem;
   line-height: 1.15;
   min-inline-size: 0;
-  padding-inline-end: 0.24rem;
-}
-
-.trade-resource-card .trade-resource-card-count,
-.trade-resource-card .trade-resource-card-meta {
-  padding-inline-end: 0.34rem;
 }
 
 .trade-resource-card .trade-resource-card-count {
@@ -3175,6 +3165,12 @@ select:hover {
   }
 }
 
+@media (min-width: 1024px) {
+  .trade-resource-card-grid {
+    padding-inline-end: 0.68rem;
+  }
+}
+
 @media (max-width: 1023px) {
   :root {
     --gap-section: 0.85rem;
@@ -3788,6 +3784,7 @@ select:hover {
 
   .trade-resource-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline-end: 0;
   }
 
   .trade-target-picker {
@@ -3921,7 +3918,17 @@ select:hover {
 
   .trade-resource-card {
     min-block-size: 6.7rem;
-    padding: 0.72rem 0.74rem;
+    padding-block: 0.72rem;
+    padding-inline: 0.76rem 1.08rem;
+  }
+
+  .trade-resource-card .trade-resource-card-head {
+    padding-inline-end: 0.22rem;
+  }
+
+  .trade-resource-card .trade-resource-card-count,
+  .trade-resource-card .trade-resource-card-meta {
+    padding-inline-end: 0.22rem;
   }
 
   .trade-quantity-stepper {
