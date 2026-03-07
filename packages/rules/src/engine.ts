@@ -76,6 +76,12 @@ interface RobberState {
   pendingDiscardByPlayerId: Record<string, number>;
 }
 
+interface PendingRoadBuildingEffect {
+  type: "road_building";
+  remainingRoads: 1 | 2;
+  resumePhase: "turn_roll" | "turn_action";
+}
+
 interface BeginnerPlacement {
   color: PlayerColor;
   firstSettlementVertexId: string;
@@ -133,6 +139,7 @@ export interface GameState {
   randomState: string;
   setupState: SetupState | null;
   robberState: RobberState | null;
+  pendingDevelopmentEffect: PendingRoadBuildingEffect | null;
 }
 
 export interface MatchPlayerInput {
@@ -244,7 +251,7 @@ export function createMatchState(input: {
     matchId: input.matchId,
     roomId: input.roomId,
     seed: input.seed,
-    schemaVersion: 2,
+    schemaVersion: 3,
     version: 1,
     setupMode: input.setupMode,
     startingSeatIndex: input.startingSeatIndex,
@@ -273,7 +280,8 @@ export function createMatchState(input: {
       currentIndex: 0,
       pendingSettlementVertexId: null
     },
-    robberState: null
+    robberState: null,
+    pendingDevelopmentEffect: null
   };
 
   if (input.startingPlayerRoll) {
@@ -333,6 +341,12 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
     dice: state.dice,
     tradeOffers: state.tradeOffers.map((trade) => toTradeView(trade)),
     robberDiscardStatus: getRobberDiscardStatusView(state),
+    pendingDevelopmentEffect: state.pendingDevelopmentEffect
+      ? {
+          type: state.pendingDevelopmentEffect.type,
+          remainingRoads: state.pendingDevelopmentEffect.remainingRoads
+        }
+      : null,
     allowedMoves: getAllowedMoves(state, viewerId),
     eventLog: state.eventLog.slice(-25),
     winnerId: state.winnerId
@@ -345,6 +359,9 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
   }
 
   const next = cloneState(state);
+  if (next.pendingDevelopmentEffect && !isPendingDevelopmentAction(action)) {
+    throw new GameRuleError("Der laufende Entwicklungskarten-Effekt muss zuerst abgeschlossen werden.");
+  }
 
   switch (action.type) {
     case "place_initial_settlement":
@@ -375,7 +392,13 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
       handlePlayKnight(next, playerId);
       break;
     case "play_road_building":
-      handlePlayRoadBuilding(next, playerId, action.edgeIds);
+      handlePlayRoadBuilding(next, playerId);
+      break;
+    case "place_free_road":
+      handlePlaceFreeRoad(next, playerId, action.edgeId);
+      break;
+    case "finish_road_building":
+      handleFinishRoadBuilding(next, playerId);
       break;
     case "play_year_of_plenty":
       handlePlayYearOfPlenty(next, playerId, action.resources);
@@ -752,24 +775,65 @@ function handlePlayKnight(state: GameState, playerId: string): void {
   });
 }
 
-function handlePlayRoadBuilding(state: GameState, playerId: string, edgeIds: string[]): void {
+function handlePlayRoadBuilding(state: GameState, playerId: string): void {
   ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
   ensureCurrentPlayer(state, playerId);
-  if (!edgeIds.length || edgeIds.length > 2) {
-    throw new GameRuleError("Straßenbau erlaubt eine oder zwei Straßen.");
+  if (!getLegalRoadEdges(state, playerId).length) {
+    throw new GameRuleError("Aktuell kann keine kostenlose Straße gesetzt werden.");
   }
 
   playDevelopmentCard(state, playerId, "road_building");
-  for (const edgeId of edgeIds) {
-    ensureRoadPlacement(state, playerId, edgeId);
-    placeRoad(state, playerId, edgeId);
-  }
+  clearTradeOffers(state);
+  state.pendingDevelopmentEffect = {
+    type: "road_building",
+    remainingRoads: 2,
+    resumePhase: state.phase === "turn_roll" ? "turn_roll" : "turn_action"
+  };
 
   appendEvent(state, {
     type: "development_card_played",
     byPlayerId: playerId,
-    payload: { cardType: "road_building", edgeIds }
+    payload: { cardType: "road_building" }
   });
+}
+
+function handlePlaceFreeRoad(state: GameState, playerId: string, edgeId: string): void {
+  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensureCurrentPlayer(state, playerId);
+  const effect = getPendingRoadBuildingEffect(state);
+  if (!getLegalRoadEdges(state, playerId).includes(edgeId)) {
+    throw new GameRuleError("Diese kostenlose Straße ist aktuell nicht erlaubt.");
+  }
+
+  placeRoad(state, playerId, edgeId);
+  appendEvent(state, {
+    type: "road_built",
+    byPlayerId: playerId,
+    payload: { edgeId, freeBuild: true }
+  });
+
+  if (effect.remainingRoads === 2) {
+    effect.remainingRoads = 1;
+    completeRoadBuildingIfDone(state);
+    return;
+  }
+
+  state.pendingDevelopmentEffect = null;
+  state.phase = effect.resumePhase;
+  state.previousPhase = null;
+}
+
+function handleFinishRoadBuilding(state: GameState, playerId: string): void {
+  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensureCurrentPlayer(state, playerId);
+  const effect = getPendingRoadBuildingEffect(state);
+  if (effect.remainingRoads === 2) {
+    throw new GameRuleError("Bevor Straßenbau beendet wird, muss mindestens eine Straße gesetzt werden.");
+  }
+
+  state.pendingDevelopmentEffect = null;
+  state.phase = effect.resumePhase;
+  state.previousPhase = null;
 }
 
 function handlePlayYearOfPlenty(
@@ -1384,6 +1448,8 @@ function maybeDeclareWinner(state: GameState): void {
 
   state.winnerId = currentPlayer.id;
   state.phase = "game_over";
+  state.previousPhase = null;
+  state.pendingDevelopmentEffect = null;
   appendEvent(state, {
     type: "game_won",
     byPlayerId: currentPlayer.id,
@@ -1413,16 +1479,30 @@ function createPlayerView(state: GameState, playerId: string, viewerId: string):
   };
 
   if (isSelf) {
+    const hasRoadBuildingTarget =
+      player.developmentCards.some((card) => card.type === "road_building") &&
+      getLegalRoadEdges(state, player.id).length > 0;
     view.resources = cloneResourceMap(player.resources);
-    view.developmentCards = player.developmentCards.map((card) => ({
-      id: card.id,
-      type: card.type,
-      boughtOnTurn: card.boughtOnTurn,
-      playable:
-        card.type !== "victory_point" &&
-        card.boughtOnTurn < state.turn &&
-        !player.hasPlayedDevelopmentCardThisTurn
-    }));
+    view.developmentCards = player.developmentCards.map((card) => {
+      const blockedReason =
+        card.type === "victory_point"
+          ? "passive"
+          : card.boughtOnTurn >= state.turn
+            ? "fresh"
+            : player.hasPlayedDevelopmentCardThisTurn
+              ? "turn_limit"
+              : card.type === "road_building" && !hasRoadBuildingTarget
+                ? "no_road_target"
+                : null;
+
+      return {
+        id: card.id,
+        type: card.type,
+        boughtOnTurn: card.boughtOnTurn,
+        playable: blockedReason === null,
+        blockedReason
+      };
+    });
     view.hiddenVictoryPoints = player.developmentCards.filter(
       (card) => card.type === "victory_point"
     ).length;
@@ -1435,16 +1515,23 @@ function createPlayerView(state: GameState, playerId: string, viewerId: string):
 function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
   const isCurrentPlayer = getCurrentPlayer(state).id === playerId;
   const pendingDiscardCount = state.robberState?.pendingDiscardByPlayerId[playerId] ?? 0;
+  const hasActivePendingDevelopmentEffect = !!state.pendingDevelopmentEffect;
+  const hasPendingDevelopmentEffect = isCurrentPlayer && hasActivePendingDevelopmentEffect;
+  const freeRoadEdgeIds =
+    hasPendingDevelopmentEffect && state.pendingDevelopmentEffect?.type === "road_building"
+      ? getLegalRoadEdges(state, playerId)
+      : [];
 
   return {
-    canRoll: state.phase === "turn_roll" && isCurrentPlayer,
+    canRoll: state.phase === "turn_roll" && isCurrentPlayer && !hasActivePendingDevelopmentEffect,
     canBuyDevelopmentCard:
       state.phase === "turn_action" &&
       isCurrentPlayer &&
+      !hasActivePendingDevelopmentEffect &&
       state.developmentDeck.length > 0 &&
       hasResources(getPlayer(state, playerId).resources, BUILD_COSTS.development),
-    canEndTurn: state.phase === "turn_action" && isCurrentPlayer,
-    canCreateTradeOffer: state.phase === "turn_action",
+    canEndTurn: state.phase === "turn_action" && isCurrentPlayer && !hasActivePendingDevelopmentEffect,
+    canCreateTradeOffer: state.phase === "turn_action" && !hasActivePendingDevelopmentEffect,
     initialSettlementVertexIds:
       isCurrentPlayer &&
       !!state.setupState &&
@@ -1460,14 +1547,20 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
         ? getInitialRoadEdges(state, state.setupState.pendingSettlementVertexId)
         : [],
     settlementVertexIds:
-      isCurrentPlayer && state.phase === "turn_action" ? getLegalSettlementVertices(state, playerId) : [],
+      isCurrentPlayer && state.phase === "turn_action" && !hasPendingDevelopmentEffect
+        ? getLegalSettlementVertices(state, playerId)
+        : [],
     cityVertexIds:
-      isCurrentPlayer && state.phase === "turn_action" ? getUpgradeableCityVertices(state, playerId) : [],
+      isCurrentPlayer && state.phase === "turn_action" && !hasPendingDevelopmentEffect
+        ? getUpgradeableCityVertices(state, playerId)
+        : [],
     roadEdgeIds:
-      isCurrentPlayer && state.phase === "turn_action" ? getLegalRoadEdges(state, playerId) : [],
+      isCurrentPlayer && state.phase === "turn_action" && !hasPendingDevelopmentEffect ? getLegalRoadEdges(state, playerId) : [],
+    freeRoadEdgeIds,
     robberMoveOptions:
       isCurrentPlayer &&
       state.phase === "robber_interrupt" &&
+      !hasActivePendingDevelopmentEffect &&
       pendingDiscardCount === 0 &&
       !hasPendingDiscard(state)
         ? getRobberMoveOptions(state, playerId)
@@ -1481,13 +1574,19 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
       resource,
       ratio: getMaritimeRate(state, playerId, resource)
     })),
-    acceptableTradeOfferIds: state.tradeOffers
+    acceptableTradeOfferIds: hasActivePendingDevelopmentEffect
+      ? []
+      : state.tradeOffers
       .filter((offer) => canPlayerAcceptTradeOffer(state, playerId, offer))
       .map((offer) => offer.id),
-    declineableTradeOfferIds: state.tradeOffers
+    declineableTradeOfferIds: hasActivePendingDevelopmentEffect
+      ? []
+      : state.tradeOffers
       .filter((offer) => canPlayerDeclineTradeOffer(state, playerId, offer))
       .map((offer) => offer.id),
-    withdrawableTradeOfferIds: state.tradeOffers
+    withdrawableTradeOfferIds: hasActivePendingDevelopmentEffect
+      ? []
+      : state.tradeOffers
       .filter((offer) => canPlayerWithdrawTradeOffer(playerId, offer))
       .map((offer) => offer.id)
   };
@@ -1575,9 +1674,14 @@ function getPlayableDevelopmentCards(state: GameState, playerId: string): Develo
     return [];
   }
 
+  const hasRoadBuildingTarget = getLegalRoadEdges(state, playerId).length > 0;
   const types = new Set<DevelopmentCardType>();
   for (const card of player.developmentCards) {
-    if (card.type === "victory_point" || card.boughtOnTurn >= state.turn) {
+    if (
+      card.type === "victory_point" ||
+      card.boughtOnTurn >= state.turn ||
+      (card.type === "road_building" && !hasRoadBuildingTarget)
+    ) {
       continue;
     }
     types.add(card.type);
@@ -1846,6 +1950,26 @@ function hasPendingDiscard(state: GameState): boolean {
   return !!state.robberState && Object.values(state.robberState.pendingDiscardByPlayerId).some((count) => count > 0);
 }
 
+function completeRoadBuildingIfDone(state: GameState): void {
+  const effect = getPendingRoadBuildingEffect(state);
+  const currentPlayerId = getCurrentPlayer(state).id;
+  if (effect.remainingRoads > 0 && getLegalRoadEdges(state, currentPlayerId).length > 0) {
+    return;
+  }
+
+  state.pendingDevelopmentEffect = null;
+  state.phase = effect.resumePhase;
+  state.previousPhase = null;
+}
+
+function getPendingRoadBuildingEffect(state: GameState): PendingRoadBuildingEffect {
+  if (!state.pendingDevelopmentEffect || state.pendingDevelopmentEffect.type !== "road_building") {
+    throw new GameRuleError("Es ist kein aktiver Straßenbau-Effekt offen.");
+  }
+
+  return state.pendingDevelopmentEffect;
+}
+
 function appendEvent(
   state: GameState,
   input: {
@@ -1874,6 +1998,10 @@ function getTradeOffer(state: GameState, tradeId: string): InternalTradeOffer | 
 
 function clearTradeOffers(state: GameState): void {
   state.tradeOffers = [];
+}
+
+function isPendingDevelopmentAction(action: ActionIntent): action is Extract<ActionIntent, { type: "place_free_road" | "finish_road_building" }> {
+  return action.type === "place_free_road" || action.type === "finish_road_building";
 }
 
 function canPlayerWithdrawTradeOffer(playerId: string, trade: InternalTradeOffer): boolean {
@@ -1907,7 +2035,7 @@ function canPlayerDeclineTradeOffer(state: GameState, playerId: string, trade: I
 }
 
 function reconcileTradeOffers(state: GameState): void {
-  if (state.phase !== "turn_action") {
+  if (state.phase !== "turn_action" || state.pendingDevelopmentEffect) {
     clearTradeOffers(state);
     return;
   }
@@ -1998,7 +2126,8 @@ function cloneState(state: GameState): GameState {
           resumePhase: state.robberState.resumePhase,
           pendingDiscardByPlayerId: { ...state.robberState.pendingDiscardByPlayerId }
         }
-      : null
+      : null,
+    pendingDevelopmentEffect: state.pendingDevelopmentEffect ? { ...state.pendingDevelopmentEffect } : null
   };
 }
 

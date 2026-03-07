@@ -999,8 +999,10 @@ export function BoardScene(props: BoardSceneProps) {
     const legalEdges = new Set(
       props.snapshot.allowedMoves.initialRoadEdgeIds.length
         ? props.snapshot.allowedMoves.initialRoadEdgeIds
-        : props.interactionMode === "road" || props.interactionMode === "road_building"
+        : props.interactionMode === "road"
           ? props.snapshot.allowedMoves.roadEdgeIds
+          : props.interactionMode === "road_building"
+            ? props.snapshot.allowedMoves.freeRoadEdgeIds
           : []
     );
     const selectedRoadEdges = new Set(props.selectedRoadEdges);

@@ -925,6 +925,16 @@ export function App() {
       return;
     }
 
+    if (match.pendingDevelopmentEffect?.type === "road_building" && match.currentPlayerId === match.you) {
+      if (interactionMode !== "road_building") {
+        setInteractionMode("road_building");
+      }
+      if (selectedRoadEdges.length > 0) {
+        setSelectedRoadEdges([]);
+      }
+      return;
+    }
+
     const selfPlayer = match.players.find((player) => player.id === match.you);
     const selfResources = selfPlayer?.resources;
     const canBuildRoad = !!selfResources && hasResources(selfResources, BUILD_COSTS.road);
@@ -942,11 +952,11 @@ export function App() {
       return;
     }
 
-    if (!match.allowedMoves.roadEdgeIds.length && interactionMode === "road_building") {
+    if (interactionMode === "road_building") {
       setInteractionMode(null);
       setSelectedRoadEdges([]);
     }
-  }, [interactionMode, match, robberUiDeferredByDiceAnimation]);
+  }, [interactionMode, match, robberUiDeferredByDiceAnimation, selectedRoadEdges.length]);
 
   const subscribeRoom = useCallback((roomId: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -1011,7 +1021,19 @@ export function App() {
         return;
       }
 
-      queueMatchConfirmation(message);
+      const afterConfirm =
+        message.action.type === "play_road_building"
+          ? () => setSelectedRoadEdges([])
+          : message.action.type === "finish_road_building"
+            ? () => {
+                setInteractionMode(null);
+                setSelectedRoadEdges([]);
+              }
+            : message.action.type === "place_free_road"
+              ? () => setSelectedRoadEdges([])
+              : undefined;
+
+      queueMatchConfirmation(message, afterConfirm);
     },
     [queueMatchConfirmation, sendCurrent]
   );
@@ -1682,33 +1704,15 @@ export function App() {
       );
     }
 
-    if (interactionMode === "road_building" && match.allowedMoves.roadEdgeIds.includes(edgeId)) {
+    if (interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(edgeId)) {
       playUiSound("click", { volume: 0.78 });
-      setSelectedRoadEdges((current) => {
-        if (current.includes(edgeId)) {
-          return current.filter((entry) => entry !== edgeId);
+      queueMatchConfirmation({
+        type: "match.action",
+        matchId: match.matchId,
+        action: {
+          type: "place_free_road",
+          edgeId
         }
-
-        const next = [...current, edgeId].slice(0, 2);
-        if (next.length === 2) {
-          queueMatchConfirmation(
-            {
-              type: "match.action",
-              matchId: match.matchId,
-              action: {
-                type: "play_road_building",
-                edgeIds: next
-              }
-            },
-            () => {
-              setInteractionMode(null);
-              setSelectedRoadEdges([]);
-            }
-          );
-          return next;
-        }
-
-        return next;
       });
     }
   };
@@ -2428,12 +2432,21 @@ function getMatchActionConfirmation(
       };
     case "play_road_building":
       return {
-        title: "Kostenlose Straßen setzen?",
-        detail:
-          action.edgeIds.length === 2
-            ? "Beide ausgewählten Kanten werden als kostenlose Straßen gesetzt."
-            : "Die ausgewählte Kante wird als kostenlose Straße gesetzt.",
-        confirmLabel: "Straßen setzen"
+        title: "Straßenbau spielen?",
+        detail: "Die Karte wird aktiviert. Danach setzt du eine oder zwei kostenlose Straßen direkt über das Brett.",
+        confirmLabel: "Straßenbau starten"
+      };
+    case "place_free_road":
+      return {
+        title: "Kostenlose Straße setzen?",
+        detail: "Die ausgewählte Kante wird als kostenlose Straße aus dem Straßenbau-Effekt gesetzt.",
+        confirmLabel: "Straße setzen"
+      };
+    case "finish_road_building":
+      return {
+        title: "Straßenbau beenden?",
+        detail: "Der offene Straßenbau-Effekt wird beendet. Du kannst in diesem Zug danach normal weiterspielen.",
+        confirmLabel: "Straßenbau beenden"
       };
     case "play_year_of_plenty":
       return {

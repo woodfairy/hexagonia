@@ -479,6 +479,354 @@ describe("rules engine", () => {
     expect(nextState.players.find((player) => player.id === "p2")!.resources.brick).toBe(0);
   });
 
+  it("creates the official development deck composition", () => {
+    const state = createMatchState({
+      matchId: "match-dev-deck",
+      roomId: "room-1",
+      seed: "dev-deck",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    const counts = state.developmentDeck.reduce<Record<string, number>>((acc, card) => {
+      acc[card.type] = (acc[card.type] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    expect(state.developmentDeck).toHaveLength(25);
+    expect(counts).toEqual({
+      knight: 14,
+      victory_point: 5,
+      road_building: 2,
+      year_of_plenty: 2,
+      monopoly: 2
+    });
+  });
+
+  it("does not allow playing a freshly bought development card in the same turn", () => {
+    const state = createMatchState({
+      matchId: "match-dev-buy-lock",
+      roomId: "room-1",
+      seed: "dev-buy-lock",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 3);
+    state.players.find((player) => player.id === "p1")!.resources = {
+      brick: 0,
+      lumber: 0,
+      ore: 1,
+      grain: 1,
+      wool: 1
+    };
+    state.developmentDeck = [
+      {
+        id: "dev-monopoly",
+        type: "monopoly",
+        boughtOnTurn: 0
+      }
+    ];
+
+    const nextState = applyAction(state, "p1", { type: "buy_development_card" });
+    const snapshot = createSnapshot(nextState, "p1");
+    const self = snapshot.players.find((player) => player.id === "p1")!;
+
+    expect(self.developmentCards).toEqual([
+      expect.objectContaining({
+        id: "dev-monopoly",
+        type: "monopoly",
+        boughtOnTurn: 3,
+        playable: false
+      })
+    ]);
+    expect(snapshot.allowedMoves.playableDevelopmentCards).toEqual([]);
+    expect(() => applyAction(nextState, "p1", { type: "play_monopoly", resource: "ore" })).toThrow();
+  });
+
+  it("counts victory point cards as hidden points and can win at the start of the turn", () => {
+    const state = createMatchState({
+      matchId: "match-victory-point",
+      roomId: "room-1",
+      seed: "victory-point",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 5);
+    const nextPlayer = state.players.find((player) => player.id === "p2")!;
+    nextPlayer.settlements = ["s1", "s2", "s3"];
+    nextPlayer.cities = ["c1", "c2", "c3"];
+    nextPlayer.developmentCards = [
+      {
+        id: "vp-1",
+        type: "victory_point",
+        boughtOnTurn: 2
+      }
+    ];
+
+    const nextSnapshot = createSnapshot(state, "p2");
+    const selfView = nextSnapshot.players.find((player) => player.id === "p2")!;
+    expect(selfView.hiddenVictoryPoints).toBe(1);
+    expect(selfView.totalVictoryPoints).toBe(10);
+    expect(nextSnapshot.allowedMoves.playableDevelopmentCards).not.toContain("victory_point");
+
+    const nextState = applyAction(state, "p1", { type: "end_turn" });
+    expect(nextState.currentPlayerIndex).toBe(1);
+    expect(nextState.winnerId).toBe("p2");
+    expect(nextState.phase).toBe("game_over");
+  });
+
+  it("wins immediately when buying a victory point card for the tenth point", () => {
+    const state = createMatchState({
+      matchId: "match-victory-point-buy-win",
+      roomId: "room-1",
+      seed: "victory-point-buy-win",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 6);
+    const player = state.players.find((entry) => entry.id === "p1")!;
+    player.settlements = ["s1", "s2", "s3"];
+    player.cities = ["c1", "c2", "c3"];
+    player.resources = {
+      brick: 0,
+      lumber: 0,
+      ore: 1,
+      grain: 1,
+      wool: 1
+    };
+    state.developmentDeck = [
+      {
+        id: "vp-buy-win",
+        type: "victory_point",
+        boughtOnTurn: 0
+      }
+    ];
+
+    const nextState = applyAction(state, "p1", { type: "buy_development_card" });
+    const snapshot = createSnapshot(nextState, "p1");
+    const self = snapshot.players.find((entry) => entry.id === "p1")!;
+
+    expect(nextState.winnerId).toBe("p1");
+    expect(nextState.phase).toBe("game_over");
+    expect(self.hiddenVictoryPoints).toBe(1);
+    expect(self.totalVictoryPoints).toBe(10);
+  });
+
+  it("moves all cards of the chosen resource to the monopoly player", () => {
+    const state = createMatchState({
+      matchId: "match-monopoly",
+      roomId: "room-1",
+      seed: "monopoly",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 4);
+    grantDevelopmentCard(state, "p1", "monopoly", 1);
+    state.players.find((player) => player.id === "p2")!.resources.wool = 2;
+    state.players.find((player) => player.id === "p3")!.resources.wool = 1;
+
+    const nextState = applyAction(state, "p1", { type: "play_monopoly", resource: "wool" });
+
+    expect(nextState.players.find((player) => player.id === "p1")!.resources.wool).toBe(3);
+    expect(nextState.players.find((player) => player.id === "p2")!.resources.wool).toBe(0);
+    expect(nextState.players.find((player) => player.id === "p3")!.resources.wool).toBe(0);
+    expect(nextState.eventLog.at(-1)?.payload).toEqual(
+      expect.objectContaining({
+        cardType: "monopoly",
+        resource: "wool",
+        total: 3
+      })
+    );
+  });
+
+  it("lets year of plenty take the same resource twice when the bank can pay", () => {
+    const state = createMatchState({
+      matchId: "match-year-plenty-success",
+      roomId: "room-1",
+      seed: "year-plenty-success",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 4);
+    grantDevelopmentCard(state, "p1", "year_of_plenty", 1);
+    state.bank.ore = 2;
+
+    const nextState = applyAction(state, "p1", {
+      type: "play_year_of_plenty",
+      resources: ["ore", "ore"]
+    });
+
+    expect(nextState.players.find((player) => player.id === "p1")!.resources.ore).toBe(2);
+    expect(nextState.bank.ore).toBe(0);
+  });
+
+  it("rejects year of plenty when the bank cannot pay both resources", () => {
+    const state = createMatchState({
+      matchId: "match-year-plenty-fail",
+      roomId: "room-1",
+      seed: "year-plenty-fail",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 4);
+    grantDevelopmentCard(state, "p1", "year_of_plenty", 1);
+    state.bank.ore = 1;
+
+    expect(() =>
+      applyAction(state, "p1", {
+        type: "play_year_of_plenty",
+        resources: ["ore", "ore"]
+      })
+    ).toThrow();
+  });
+
+  it("awards largest army when a player reaches the third played knight", () => {
+    const state = createMatchState({
+      matchId: "match-largest-army",
+      roomId: "room-1",
+      seed: "largest-army",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 4);
+    state.dice = [3, 4];
+    state.players.find((player) => player.id === "p1")!.playedKnightCount = 2;
+    grantDevelopmentCard(state, "p1", "knight", 1);
+
+    const nextState = applyAction(state, "p1", { type: "play_knight" });
+    const player = nextState.players.find((entry) => entry.id === "p1")!;
+
+    expect(player.playedKnightCount).toBe(3);
+    expect(player.hasLargestArmy).toBe(true);
+    expect(nextState.phase).toBe("robber_interrupt");
+  });
+
+  it("runs road building step by step before the roll and unlocks the second road after the first", () => {
+    const state = createMatchState({
+      matchId: "match-road-building-roll",
+      roomId: "room-1",
+      seed: "road-building-roll",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_roll", 4);
+    const { firstEdgeId, secondEdgeId } = prepareRoadBuildingState(state, "p1");
+    grantDevelopmentCard(state, "p1", "road_building", 1);
+
+    const started = applyAction(state, "p1", { type: "play_road_building" });
+    const startedSnapshot = createSnapshot(started, "p1");
+
+    expect(startedSnapshot.pendingDevelopmentEffect).toEqual({
+      type: "road_building",
+      remainingRoads: 2
+    });
+    expect(startedSnapshot.allowedMoves.canRoll).toBe(false);
+    expect(startedSnapshot.allowedMoves.freeRoadEdgeIds).toContain(firstEdgeId);
+    expect(startedSnapshot.allowedMoves.freeRoadEdgeIds).not.toContain(secondEdgeId);
+    expect(() => applyAction(started, "p1", { type: "end_turn" })).toThrow();
+
+    const afterFirstRoad = applyAction(started, "p1", {
+      type: "place_free_road",
+      edgeId: firstEdgeId
+    });
+    const afterFirstSnapshot = createSnapshot(afterFirstRoad, "p1");
+
+    expect(afterFirstSnapshot.pendingDevelopmentEffect).toEqual({
+      type: "road_building",
+      remainingRoads: 1
+    });
+    expect(afterFirstSnapshot.allowedMoves.freeRoadEdgeIds).toContain(secondEdgeId);
+
+    const finished = applyAction(afterFirstRoad, "p1", { type: "finish_road_building" });
+    expect(finished.pendingDevelopmentEffect).toBeNull();
+    expect(finished.phase).toBe("turn_roll");
+    expect(finished.players.find((player) => player.id === "p1")!.roads).toContain(firstEdgeId);
+  });
+
+  it("completes road building automatically after the second free road in the action phase", () => {
+    const state = createMatchState({
+      matchId: "match-road-building-action",
+      roomId: "room-1",
+      seed: "road-building-action",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 4);
+    state.dice = [2, 5];
+    const { firstEdgeId, secondEdgeId } = prepareRoadBuildingState(state, "p1");
+    grantDevelopmentCard(state, "p1", "road_building", 1);
+
+    const started = applyAction(state, "p1", { type: "play_road_building" });
+    const afterFirstRoad = applyAction(started, "p1", {
+      type: "place_free_road",
+      edgeId: firstEdgeId
+    });
+    const finished = applyAction(afterFirstRoad, "p1", {
+      type: "place_free_road",
+      edgeId: secondEdgeId
+    });
+
+    expect(finished.pendingDevelopmentEffect).toBeNull();
+    expect(finished.phase).toBe("turn_action");
+    expect(finished.players.find((player) => player.id === "p1")!.roads).toEqual(
+      expect.arrayContaining([firstEdgeId, secondEdgeId])
+    );
+    expect(finished.eventLog.at(-1)?.payload).toEqual(
+      expect.objectContaining({
+        edgeId: secondEdgeId,
+        freeBuild: true
+      })
+    );
+  });
+
+  it("ends road building automatically when no second free road remains legal", () => {
+    const state = createMatchState({
+      matchId: "match-road-building-auto-finish",
+      roomId: "room-1",
+      seed: "road-building-auto-finish",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 4);
+    state.dice = [4, 2];
+    const { existingEdgeId, firstEdgeId, blockedVertexId } = prepareAutoFinishingRoadBuildingState(state, "p1");
+
+    expect(existingEdgeId).toBeTruthy();
+    expect(blockedVertexId).toBeTruthy();
+    grantDevelopmentCard(state, "p1", "road_building", 1);
+
+    const started = applyAction(state, "p1", { type: "play_road_building" });
+    const finished = applyAction(started, "p1", {
+      type: "place_free_road",
+      edgeId: firstEdgeId
+    });
+
+    expect(finished.pendingDevelopmentEffect).toBeNull();
+    expect(finished.phase).toBe("turn_action");
+    expect(finished.players.find((player) => player.id === "p1")!.roads).toContain(firstEdgeId);
+  });
+
   it("removes longest road when the previous holder is no longer tied for the lead", () => {
     const state = createMatchState({
       matchId: "match-road-award",
@@ -667,6 +1015,82 @@ function assignSettlement(state: ReturnType<typeof createMatchState>, playerId: 
     type: "settlement"
   };
   player.settlements.push(vertexId);
+}
+
+function prepareTurnState(
+  state: ReturnType<typeof createMatchState>,
+  playerId: string,
+  phase: "turn_roll" | "turn_action",
+  turn: number
+) {
+  state.phase = phase;
+  state.previousPhase = null;
+  state.setupState = null;
+  state.robberState = null;
+  state.pendingDevelopmentEffect = null;
+  state.tradeOffers = [];
+  state.turn = turn;
+  state.dice = phase === "turn_action" ? [1, 1] : null;
+  state.currentPlayerIndex = state.players.findIndex((player) => player.id === playerId);
+  state.players.forEach((player) => {
+    player.hasPlayedDevelopmentCardThisTurn = false;
+    player.resources = createEmptyResourceMap();
+  });
+}
+
+function grantDevelopmentCard(
+  state: ReturnType<typeof createMatchState>,
+  playerId: string,
+  type: "knight" | "victory_point" | "road_building" | "year_of_plenty" | "monopoly",
+  boughtOnTurn: number
+) {
+  const player = state.players.find((entry) => entry.id === playerId)!;
+  player.developmentCards.push({
+    id: `grant-${type}-${player.developmentCards.length + 1}`,
+    type,
+    boughtOnTurn
+  });
+}
+
+function prepareRoadBuildingState(state: ReturnType<typeof createMatchState>, playerId: string) {
+  const [firstEdgeId, secondEdgeId] = findRoadPath(state, 2);
+  const firstEdge = state.board.edges.find((edge) => edge.id === firstEdgeId)!;
+  const secondEdge = state.board.edges.find((edge) => edge.id === secondEdgeId)!;
+  const sharedVertexId = firstEdge.vertexIds.find((vertexId) => secondEdge.vertexIds.includes(vertexId))!;
+  const startVertexId = firstEdge.vertexIds.find((vertexId) => vertexId !== sharedVertexId)!;
+
+  assignSettlement(state, playerId, startVertexId);
+  return { firstEdgeId, secondEdgeId, startVertexId, sharedVertexId };
+}
+
+function prepareAutoFinishingRoadBuildingState(state: ReturnType<typeof createMatchState>, playerId: string) {
+  const player = state.players.find((entry) => entry.id === playerId)!;
+
+  for (const vertex of state.board.vertices) {
+    if (vertex.edgeIds.length !== 2) {
+      continue;
+    }
+
+    const [existingEdgeId, firstEdgeId] = vertex.edgeIds;
+    const firstEdge = state.board.edges.find((edge) => edge.id === firstEdgeId)!;
+    const existingEdge = state.board.edges.find((edge) => edge.id === existingEdgeId)!;
+    const blockedVertexId = firstEdge.vertexIds.find((vertexId) => vertexId !== vertex.id)!;
+    const sealedVertexId = existingEdge.vertexIds.find((vertexId) => vertexId !== vertex.id)!;
+    const blockedVertex = state.board.vertices.find((entry) => entry.id === blockedVertexId)!;
+    if (blockedVertex.edgeIds.length < 2) {
+      continue;
+    }
+
+    state.board.edges.find((edge) => edge.id === existingEdgeId)!.ownerId = playerId;
+    state.board.edges.find((edge) => edge.id === existingEdgeId)!.color = player.color;
+    player.roads.push(existingEdgeId);
+    assignSettlement(state, "p2", blockedVertexId);
+    assignSettlement(state, "p2", sealedVertexId);
+
+    return { existingEdgeId, firstEdgeId, blockedVertexId, sealedVertexId };
+  }
+
+  throw new Error("Could not prepare an auto-finishing road-building state.");
 }
 
 function createAllOfficialPlacementOrders<T extends { q: number; r: number }>(tiles: T[]): T[][] {

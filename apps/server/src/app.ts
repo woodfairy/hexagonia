@@ -812,7 +812,7 @@ async function resetLegacyMatches(db: Database, hub: RealtimeHub, app: FastifyIn
     }
 
     const state = await db.loadMatchState(room.matchId);
-    if (state?.schemaVersion && state.schemaVersion >= 2) {
+    if (state?.schemaVersion && state.schemaVersion >= 3) {
       continue;
     }
 

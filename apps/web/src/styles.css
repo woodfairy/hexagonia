@@ -2556,6 +2556,50 @@ select:hover {
   gap: var(--gap-stack);
 }
 
+.development-summary-card,
+.development-card,
+.development-card-actions {
+  display: grid;
+  gap: var(--gap-stack-tight);
+}
+
+.development-summary-pills {
+  flex-wrap: wrap;
+}
+
+.development-summary-pills-hand {
+  margin-block-end: var(--gap-stack-tight);
+}
+
+.development-card {
+  align-content: start;
+}
+
+.development-card.is-playable {
+  border-color: rgba(243, 207, 131, 0.28);
+  background: linear-gradient(180deg, rgba(243, 207, 131, 0.08), rgba(255, 255, 255, 0.02));
+}
+
+.development-card.is-passive {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.development-card-active {
+  border-color: rgba(236, 177, 82, 0.36);
+  background: linear-gradient(180deg, rgba(236, 177, 82, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+.development-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap-stack-tight);
+}
+
+.development-card-head strong {
+  min-inline-size: 0;
+}
+
 .triple-select,
 .player-card-list,
 .card-list,
