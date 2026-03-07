@@ -285,6 +285,10 @@ export function MatchScreen(props: {
     () => createOwnActionCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
     [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
   );
+  const actionCameraCue = useMemo(
+    () => createOwnActionCameraCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
+    [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
+  );
   const visibleNotificationCue = isDiceAnimationActive ? null : notificationState.boardCue;
   const highlightCue = actionCue ?? visibleNotificationCue;
   const shouldAutoFocusRecentEvent =
@@ -296,7 +300,7 @@ export function MatchScreen(props: {
       heroNotification.playerId !== props.match.you);
   const cameraCue =
     autoFocusEnabled && !isDiceAnimationActive
-      ? (actionCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
+      ? (actionCameraCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
       : null;
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)
@@ -390,6 +394,30 @@ export function MatchScreen(props: {
     ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
   const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
+  const deferredDiceHeroNotification = useMemo<MatchNotification | null>(() => {
+    if (!deferDiceNotification || !latestDiceEvent) {
+      return null;
+    }
+
+    const actorId = latestDiceEvent.byPlayerId;
+    const actorLabel = actorId === props.match.you ? "Du" : getPlayerName(props.match, actorId);
+
+    return {
+      key: `dice-pending-${latestDiceEvent.id}`,
+      eventId: latestDiceEvent.id,
+      eventType: "dice_pending",
+      label: "Wurf",
+      title: `${actorLabel} ${actorId === props.match.you ? "würfelst" : "würfelt"}...`,
+      detail: "Das Ergebnis wird nach der Animation eingeblendet.",
+      badges: [{ label: "Würfel rollen" }],
+      playerId: actorId,
+      accentPlayerId: actorId,
+      atTurn: props.match.turn,
+      cue: null,
+      autoFocus: false,
+      emphasis: "neutral"
+    };
+  }, [deferDiceNotification, latestDiceEvent, props.match, props.match.turn, props.match.you]);
   const displayHeroNotification = useMemo<MatchNotification>(
     () =>
       visibleHeroNotification ?? {
@@ -2623,6 +2651,149 @@ function createOwnActionCue(
       vertexIds: [],
       edgeIds: [],
       tileIds: [],
+      scale: "wide"
+    };
+  }
+
+  return null;
+}
+
+function createOwnActionCameraCue(
+  match: MatchSnapshot,
+  _activePlayer: MatchSnapshot["players"][number] | null,
+  interactionMode: InteractionMode,
+  selectedRoadEdges: string[]
+): BoardFocusCue | null {
+  if (match.currentPlayerId !== match.you) {
+    return null;
+  }
+
+  if (match.allowedMoves.initialSettlementVertexIds.length > 0) {
+    const [vertexId] = match.allowedMoves.initialSettlementVertexIds;
+    if (!vertexId) {
+      return null;
+    }
+
+    return {
+      key: `camera-initial-settlement-${match.version}-${vertexId}`,
+      mode: "action",
+      title: "Setze deine Start-Siedlung",
+      detail: "Die Kamera startet auf einem gültigen Startplatz.",
+      vertexIds: [vertexId],
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (match.allowedMoves.initialRoadEdgeIds.length > 0) {
+    const [edgeId] = match.allowedMoves.initialRoadEdgeIds;
+    if (!edgeId) {
+      return null;
+    }
+
+    return {
+      key: `camera-initial-road-${match.version}-${edgeId}`,
+      mode: "action",
+      title: "Setze deine Start-Straße",
+      detail: "Die Kamera startet auf einer gültigen Startkante.",
+      vertexIds: [],
+      edgeIds: [edgeId],
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
+  if (interactionMode === "road_building") {
+    const seedEdgeId = selectedRoadEdges.length > 0 ? selectedRoadEdges[selectedRoadEdges.length - 1] : null;
+    const edgeIds = seedEdgeId
+      ? [seedEdgeId, ...match.allowedMoves.freeRoadEdgeIds.filter((edgeId) => edgeId !== seedEdgeId)]
+      : match.allowedMoves.freeRoadEdgeIds;
+    const remainingRoads = match.pendingDevelopmentEffect?.type === "road_building" ? match.pendingDevelopmentEffect.remainingRoads : 2;
+    if (!edgeIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-road-building-${match.version}-${edgeIds.join(",")}`,
+      mode: "action",
+      title: remainingRoads === 2 ? "Wähle die erste freie Straße" : "Wähle die zweite freie Straße",
+      detail:
+        remainingRoads === 2
+          ? "Die Kamera hält den relevanten Straßenbau-Bereich im Blick."
+          : "Die Kamera bleibt bei der ausgewählten Straßenbau-Kette.",
+      vertexIds: [],
+      edgeIds,
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
+  if (interactionMode === "road") {
+    if (!match.allowedMoves.roadEdgeIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-road-${match.version}-${match.allowedMoves.roadEdgeIds.join(",")}`,
+      mode: "action",
+      title: "Baue eine Straße",
+      detail: "Die Kamera fokussiert den lokalen Straßenbereich.",
+      vertexIds: [],
+      edgeIds: match.allowedMoves.roadEdgeIds,
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
+  if (interactionMode === "settlement") {
+    if (!match.allowedMoves.settlementVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-settlement-${match.version}-${match.allowedMoves.settlementVertexIds.join(",")}`,
+      mode: "action",
+      title: "Baue eine Siedlung",
+      detail: "Die Kamera fokussiert den lokalen Siedlungsbereich.",
+      vertexIds: match.allowedMoves.settlementVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (interactionMode === "city") {
+    if (!match.allowedMoves.cityVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-city-${match.version}-${match.allowedMoves.cityVertexIds.join(",")}`,
+      mode: "action",
+      title: "Werte eine Siedlung zur Stadt auf",
+      detail: "Die Kamera fokussiert den lokalen Ausbau-Bereich.",
+      vertexIds: match.allowedMoves.cityVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (interactionMode === "robber" || match.phase === "robber_interrupt") {
+    const tileIds = match.allowedMoves.robberMoveOptions.map((option) => option.tileId);
+    if (!tileIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-robber-${match.version}-${tileIds.join(",")}`,
+      mode: "action",
+      title: "Bewege den Räuber",
+      detail: "Die Kamera fokussiert den lokalen Räuber-Bereich.",
+      vertexIds: [],
+      edgeIds: [],
+      tileIds,
       scale: "wide"
     };
   }

@@ -113,6 +113,22 @@ interface FocusGeometry {
   x: number;
   z: number;
   span: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+interface FocusElement {
+  key: string;
+  kind: "tile" | "edge" | "vertex";
+  x: number;
+  z: number;
+  fitPoints: Array<{ x: number; z: number }>;
+  tileIds: string[];
+  edgeIds: string[];
+  vertexIds: string[];
+  adjacentVertexIds: string[];
 }
 
 interface BoardTooltipState {
@@ -696,7 +712,7 @@ export function BoardScene(props: BoardSceneProps) {
     };
 
     const onControlChange = () => {
-      if (!userInteractingRef.current && cameraRef.current && controlsRef.current) {
+      if (!userInteractingRef.current && !autoFlightRef.current && cameraRef.current && controlsRef.current) {
         focusTargetRef.current.copy(controlsRef.current.target);
         focusCameraPositionRef.current.copy(cameraRef.current.position);
       }
@@ -1151,18 +1167,17 @@ export function BoardScene(props: BoardSceneProps) {
 
     lastFocusKeyRef.current = props.cameraCue.key;
 
-    const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue);
+    const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue, controls.target);
     const currentDirection = camera.position.clone().sub(controls.target);
     const direction = currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
-    const baseDistance = props.cameraCue.scale === "tight" ? 24 : props.cameraCue.scale === "medium" ? 31 : 39;
+    const baseDistance = props.cameraCue.scale === "tight" ? 26 : props.cameraCue.scale === "medium" ? 34 : 44;
     const fitDistance =
       nextFocus.span > 0.01
-        ? nextFocus.span * (props.cameraCue.scale === "tight" ? 1.6 : props.cameraCue.scale === "medium" ? 1.5 : 1.4) + 12
+        ? nextFocus.span * (props.cameraCue.scale === "tight" ? 1.95 : props.cameraCue.scale === "medium" ? 1.82 : 1.7) + 16
         : baseDistance;
     const distance = Math.max(baseDistance, fitDistance);
     const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);
     const nextCameraPosition = target.clone().add(direction.multiplyScalar(distance));
-    nextCameraPosition.y = Math.max(nextCameraPosition.y, props.cameraCue.scale === "tight" ? 18 : 24);
 
     focusTargetRef.current.copy(target);
     focusCameraPositionRef.current.copy(nextCameraPosition);
@@ -4738,25 +4753,49 @@ function createVertexFocusMarker(strong: boolean): THREE.Mesh {
 
 function resolveFocusCuePosition(
   snapshot: MatchSnapshot,
-  cue: BoardFocusCue
+  cue: BoardFocusCue,
+  currentTarget: THREE.Vector3 = DEFAULT_CAMERA_TARGET
 ): FocusGeometry {
-  const verticesById = new Map(snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
-  const positions: Array<{ x: number; z: number }> = [];
-
-  for (const tileId of cue.tileIds) {
-    const tile = snapshot.board.tiles.find((entry) => entry.id === tileId);
-    if (tile) {
-      for (const vertexId of tile.vertexIds) {
-        const vertex = verticesById.get(vertexId);
-        if (vertex) {
-          positions.push({ x: vertex.x, z: vertex.y });
-        }
-      }
-    }
+  const elements = buildFocusElements(snapshot, cue);
+  if (!elements.length) {
+    return createEmptyFocusGeometry();
   }
 
-  for (const edgeId of cue.edgeIds) {
-    const edge = snapshot.board.edges.find((entry) => entry.id === edgeId);
+  const relevantElements = cue.mode === "action" ? selectActionFocusElements(elements, currentTarget) : elements;
+  return summarizeFocusElements(relevantElements);
+}
+
+function buildFocusElements(snapshot: MatchSnapshot, cue: BoardFocusCue): FocusElement[] {
+  const verticesById = new Map(snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
+  const edgesById = new Map(snapshot.board.edges.map((edge) => [edge.id, edge]));
+  const tilesById = new Map(snapshot.board.tiles.map((tile) => [tile.id, tile]));
+  const elements: FocusElement[] = [];
+
+  for (const tileId of new Set(cue.tileIds)) {
+    const tile = tilesById.get(tileId);
+    if (!tile) {
+      continue;
+    }
+
+    const fitPoints = tile.vertexIds.flatMap((vertexId) => {
+      const vertex = verticesById.get(vertexId);
+      return vertex ? [{ x: vertex.x, z: vertex.y }] : [];
+    });
+    elements.push({
+      key: `tile:${tile.id}`,
+      kind: "tile",
+      x: tile.x,
+      z: tile.y,
+      fitPoints,
+      tileIds: [tile.id],
+      edgeIds: [...tile.edgeIds],
+      vertexIds: [...tile.vertexIds],
+      adjacentVertexIds: []
+    });
+  }
+
+  for (const edgeId of new Set(cue.edgeIds)) {
+    const edge = edgesById.get(edgeId);
     if (!edge) {
       continue;
     }
@@ -4768,21 +4807,116 @@ function resolveFocusCuePosition(
       continue;
     }
 
-    positions.push({
+    elements.push({
+      key: `edge:${edge.id}`,
+      kind: "edge",
       x: (left.x + right.x) / 2,
-      z: (left.y + right.y) / 2
+      z: (left.y + right.y) / 2,
+      fitPoints: [
+        { x: left.x, z: left.y },
+        { x: right.x, z: right.y }
+      ],
+      tileIds: [...edge.tileIds],
+      edgeIds: [edge.id],
+      vertexIds: [...edge.vertexIds],
+      adjacentVertexIds: []
     });
   }
 
-  for (const vertexId of cue.vertexIds) {
+  for (const vertexId of new Set(cue.vertexIds)) {
     const vertex = verticesById.get(vertexId);
-    if (vertex) {
-      positions.push({ x: vertex.x, z: vertex.y });
+    if (!vertex) {
+      continue;
+    }
+
+    elements.push({
+      key: `vertex:${vertex.id}`,
+      kind: "vertex",
+      x: vertex.x,
+      z: vertex.y,
+      fitPoints: [{ x: vertex.x, z: vertex.y }],
+      tileIds: [...vertex.tileIds],
+      edgeIds: [...vertex.edgeIds],
+      vertexIds: [vertex.id],
+      adjacentVertexIds: [...vertex.adjacentVertexIds]
+    });
+  }
+
+  return elements;
+}
+
+function selectActionFocusElements(
+  elements: FocusElement[],
+  currentTarget: THREE.Vector3
+): FocusElement[] {
+  if (elements.length <= 1) {
+    return elements;
+  }
+
+  const visited = new Set<string>();
+  const clusters: FocusElement[][] = [];
+
+  for (const element of elements) {
+    if (visited.has(element.key)) {
+      continue;
+    }
+
+    const cluster: FocusElement[] = [];
+    const queue = [element];
+    visited.add(element.key);
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) {
+        continue;
+      }
+
+      cluster.push(current);
+      for (const candidate of elements) {
+        if (visited.has(candidate.key) || !areFocusElementsConnected(current, candidate)) {
+          continue;
+        }
+        visited.add(candidate.key);
+        queue.push(candidate);
+      }
+    }
+
+    clusters.push(cluster);
+  }
+
+  if (clusters.length <= 1) {
+    return elements;
+  }
+
+  const clusterCandidates = clusters.map((cluster) => ({
+    cluster,
+    geometry: summarizeFocusElements(cluster)
+  }));
+  const target = { x: currentTarget.x, z: currentTarget.z };
+  const containingClusters = clusterCandidates.filter(({ geometry }) =>
+    focusGeometryContains(geometry, target, Math.max(2.4, geometry.span * 0.18))
+  );
+  const candidates = containingClusters.length > 0 ? containingClusters : clusterCandidates;
+
+  let bestCandidate = candidates[0];
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const dx = candidate.geometry.x - target.x;
+    const dz = candidate.geometry.z - target.z;
+    const distance = dx * dx + dz * dz;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestCandidate = candidate;
     }
   }
 
+  return bestCandidate?.cluster ?? elements;
+}
+
+function summarizeFocusElements(elements: FocusElement[]): FocusGeometry {
+  const positions = elements.flatMap((element) => element.fitPoints);
   if (!positions.length) {
-    return { x: 0, z: 0, span: 0 };
+    return createEmptyFocusGeometry();
   }
 
   const aggregate = positions.reduce(
@@ -4811,8 +4945,74 @@ function resolveFocusCuePosition(
   return {
     x: aggregate.x / positions.length,
     z: aggregate.z / positions.length,
-    span: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ)
+    span: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ),
+    minX: bounds.minX,
+    maxX: bounds.maxX,
+    minZ: bounds.minZ,
+    maxZ: bounds.maxZ
   };
+}
+
+function createEmptyFocusGeometry(): FocusGeometry {
+  return {
+    x: 0,
+    z: 0,
+    span: 0,
+    minX: 0,
+    maxX: 0,
+    minZ: 0,
+    maxZ: 0
+  };
+}
+
+function focusGeometryContains(
+  geometry: FocusGeometry,
+  point: { x: number; z: number },
+  padding: number
+): boolean {
+  return (
+    point.x >= geometry.minX - padding &&
+    point.x <= geometry.maxX + padding &&
+    point.z >= geometry.minZ - padding &&
+    point.z <= geometry.maxZ + padding
+  );
+}
+
+function areFocusElementsConnected(left: FocusElement, right: FocusElement): boolean {
+  if (left.kind === right.kind) {
+    switch (left.kind) {
+      case "tile":
+        return arraysIntersect(left.vertexIds, right.vertexIds) || arraysIntersect(left.edgeIds, right.edgeIds);
+      case "edge":
+        return arraysIntersect(left.vertexIds, right.vertexIds);
+      case "vertex":
+        return (
+          arraysIntersect(left.edgeIds, right.edgeIds) ||
+          left.adjacentVertexIds.includes(right.vertexIds[0] ?? "") ||
+          right.adjacentVertexIds.includes(left.vertexIds[0] ?? "")
+        );
+    }
+  }
+
+  if (
+    (left.kind === "tile" && right.kind === "edge") ||
+    (left.kind === "edge" && right.kind === "tile")
+  ) {
+    return arraysIntersect(left.edgeIds, right.edgeIds);
+  }
+
+  if (
+    (left.kind === "tile" && right.kind === "vertex") ||
+    (left.kind === "vertex" && right.kind === "tile")
+  ) {
+    return arraysIntersect(left.vertexIds, right.vertexIds);
+  }
+
+  return arraysIntersect(left.vertexIds, right.vertexIds);
+}
+
+function arraysIntersect(left: string[], right: string[]): boolean {
+  return left.some((entry) => right.includes(entry));
 }
 
 function shadeColor(color: string, lightnessOffset: number): string {
