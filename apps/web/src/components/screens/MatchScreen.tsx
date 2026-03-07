@@ -2272,18 +2272,17 @@ function summarizeGrantLines(
   grantsByPlayerId: Record<string, ResourceMap>
 ): BoardFocusBadge[] {
   return Object.entries(grantsByPlayerId)
-    .map(([playerId, resourceMap]) => {
+    .flatMap(([playerId, resourceMap]) => {
       const playerName = playerId === match.you ? "Du" : getPlayerName(match, playerId);
       const resources = renderResourceMap(resourceMap);
       return resources
-        ? {
+        ? [{
             label: `${playerName}: +${resources}`,
             playerId,
             tone: "player" as const
-          }
-        : null;
-    })
-    .filter((entry): entry is BoardFocusBadge => !!entry);
+          }]
+        : [];
+    });
 }
 
 function getTurnStatus(
