@@ -1238,6 +1238,11 @@ function buildDesertRelief(
 
 function createTreeCluster(scale: number, active: boolean, dense: boolean): THREE.Group {
   const group = new THREE.Group();
+  const forestFloorMaterial = new THREE.MeshStandardMaterial({
+    color: dense ? "#355629" : "#446536",
+    roughness: 0.94,
+    metalness: 0.01
+  });
   const canopyMaterial = new THREE.MeshStandardMaterial({
     color: dense ? "#2d6a2f" : "#3a7d39",
     roughness: 0.84,
@@ -1255,11 +1260,28 @@ function createTreeCluster(scale: number, active: boolean, dense: boolean): THRE
     roughness: 0.92,
     metalness: 0.01
   });
+  const shrubMaterial = new THREE.MeshStandardMaterial({
+    color: dense ? "#527f3f" : "#6a9b52",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  const rockMaterial = new THREE.MeshStandardMaterial({
+    color: "#59635d",
+    roughness: 0.96,
+    metalness: 0.02
+  });
+
+  const floor = markTileShadow(
+    new THREE.Mesh(new THREE.CylinderGeometry(0.72 * scale, 0.86 * scale, 0.08 * scale, 7), forestFloorMaterial)
+  );
+  floor.position.y = 0.04 * scale;
+  group.add(floor);
 
   const offsets = [
-    { x: 0, z: 0, s: 1 },
-    { x: 0.38, z: -0.26, s: 0.82 },
-    { x: -0.34, z: 0.28, s: 0.76 }
+    { x: -0.04, z: 0.04, s: 1 },
+    { x: 0.42, z: -0.3, s: 0.8 },
+    { x: -0.38, z: 0.24, s: 0.74 },
+    { x: 0.22, z: 0.34, s: 0.58 }
   ] as const;
 
   for (const entry of offsets) {
@@ -1283,8 +1305,41 @@ function createTreeCluster(scale: number, active: boolean, dense: boolean): THRE
     cap.position.set(entry.x * scale, 0.7 * treeScale, entry.z * scale);
     cap.scale.set(1.15, 0.84, 1.05);
 
-    group.add(trunk, canopy, cap);
+    const underCanopy = markTileShadow(
+      new THREE.Mesh(new THREE.ConeGeometry(0.2 * treeScale, 0.34 * treeScale, 6), canopyMaterial)
+    );
+    underCanopy.position.set(entry.x * scale, 0.32 * treeScale, entry.z * scale);
+
+    group.add(trunk, canopy, cap, underCanopy);
   }
+
+  const shrubOffsets = [
+    { x: -0.42, z: -0.24, s: 0.18 },
+    { x: -0.18, z: 0.42, s: 0.14 },
+    { x: 0.36, z: 0.16, s: 0.16 },
+    { x: 0.48, z: -0.06, s: 0.12 }
+  ] as const;
+  for (const entry of shrubOffsets) {
+    const shrub = markTileShadow(
+      new THREE.Mesh(new THREE.SphereGeometry(entry.s * scale, 8, 6), shrubMaterial)
+    );
+    shrub.position.set(entry.x * scale, 0.12 * scale, entry.z * scale);
+    shrub.scale.set(1.24, 0.76, 1);
+    group.add(shrub);
+  }
+
+  const log = markTileShadow(
+    new THREE.Mesh(new THREE.CapsuleGeometry(0.05 * scale, 0.34 * scale, 4, 8), trunkMaterial)
+  );
+  log.position.set(-0.28 * scale, 0.09 * scale, -0.12 * scale);
+  log.rotation.z = Math.PI / 2;
+  log.rotation.y = 0.36;
+
+  const rock = markTileShadow(new THREE.Mesh(new THREE.DodecahedronGeometry(0.1 * scale, 0), rockMaterial));
+  rock.position.set(0.26 * scale, 0.08 * scale, -0.38 * scale);
+  rock.rotation.set(0.18, 0.44, -0.14);
+
+  group.add(log, rock);
 
   return group;
 }
@@ -1303,6 +1358,11 @@ function createMountainCluster(scale: number, active: boolean): THREE.Group {
     roughness: 0.8,
     metalness: 0.04
   });
+  const screeMaterial = new THREE.MeshStandardMaterial({
+    color: "#5e6775",
+    roughness: 0.96,
+    metalness: 0.02
+  });
   const oreMaterial = new THREE.MeshStandardMaterial({
     color: "#b9d7f6",
     roughness: 0.42,
@@ -1316,10 +1376,17 @@ function createMountainCluster(scale: number, active: boolean): THREE.Group {
   );
   base.position.y = 0.08 * scale;
 
+  const ridgeShelf = markTileShadow(
+    new THREE.Mesh(new THREE.BoxGeometry(0.74 * scale, 0.08 * scale, 0.34 * scale), ridgeMaterial)
+  );
+  ridgeShelf.position.set(-0.04 * scale, 0.16 * scale, 0.14 * scale);
+  ridgeShelf.rotation.set(0.08, 0.22, -0.04);
+
   const peakOffsets = [
     { x: -0.22, z: 0.08, s: 0.94 },
     { x: 0.26, z: -0.14, s: 0.72 },
-    { x: 0.1, z: 0.28, s: 0.62 }
+    { x: 0.1, z: 0.28, s: 0.62 },
+    { x: -0.38, z: -0.22, s: 0.48 }
   ] as const;
   for (const entry of peakOffsets) {
     const peakScale = scale * entry.s;
@@ -1331,6 +1398,19 @@ function createMountainCluster(scale: number, active: boolean): THREE.Group {
     group.add(peak);
   }
 
+  const crystalOffsets = [
+    { x: 0.24, z: 0.12, h: 0.26, s: 0.14 },
+    { x: 0.02, z: -0.22, h: 0.22, s: 0.1 }
+  ] as const;
+  for (const entry of crystalOffsets) {
+    const crystal = markTileShadow(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.03 * scale, 0.06 * scale, entry.h * scale, 6), oreMaterial)
+    );
+    crystal.position.set(entry.x * scale, 0.2 * scale, entry.z * scale);
+    crystal.rotation.set(0.12, 0.18, 0.22);
+    group.add(crystal);
+  }
+
   const oreVein = markTileShadow(
     new THREE.Mesh(new THREE.BoxGeometry(0.16 * scale, 0.08 * scale, 0.44 * scale), oreMaterial)
   );
@@ -1338,7 +1418,19 @@ function createMountainCluster(scale: number, active: boolean): THREE.Group {
   oreVein.rotation.z = -0.34;
   oreVein.rotation.x = 0.22;
 
-  group.add(base, oreVein);
+  const screeOffsets = [
+    { x: -0.22, z: 0.34, s: 0.08 },
+    { x: 0.38, z: 0.08, s: 0.09 },
+    { x: -0.42, z: -0.08, s: 0.07 }
+  ] as const;
+  for (const entry of screeOffsets) {
+    const rock = markTileShadow(new THREE.Mesh(new THREE.DodecahedronGeometry(entry.s * scale, 0), screeMaterial));
+    rock.position.set(entry.x * scale, 0.06 * scale, entry.z * scale);
+    rock.rotation.set(0.24, 0.36, -0.18);
+    group.add(rock);
+  }
+
+  group.add(base, ridgeShelf, oreVein);
   return group;
 }
 
@@ -1371,12 +1463,21 @@ function createWheatPatch(scale: number, active: boolean): THREE.Group {
     group.add(row);
   }
 
+  const terrace = markTileShadow(
+    new THREE.Mesh(new THREE.BoxGeometry(0.82 * scale, 0.05 * scale, 0.72 * scale), rowMaterial)
+  );
+  terrace.position.set(0, 0.02 * scale, 0);
+  terrace.rotation.y = 0.1;
+  group.add(terrace);
+
   const stalkOffsets = [
     [-0.28, -0.08],
     [-0.1, 0.14],
     [0.06, -0.12],
     [0.24, 0.1],
-    [0.34, -0.02]
+    [0.34, -0.02],
+    [-0.34, 0.24],
+    [0.12, 0.28]
   ] as const;
   for (const [x, z] of stalkOffsets) {
     const stalk = markTileShadow(
@@ -1416,6 +1517,11 @@ function createClayMesa(scale: number, active: boolean): THREE.Group {
     roughness: 0.92,
     metalness: 0.01
   });
+  const rubbleMaterial = new THREE.MeshStandardMaterial({
+    color: "#6b3f30",
+    roughness: 0.94,
+    metalness: 0.01
+  });
 
   const base = markTileShadow(
     new THREE.Mesh(new THREE.CylinderGeometry(0.34 * scale, 0.46 * scale, 0.22 * scale, 7), baseMaterial)
@@ -1439,7 +1545,25 @@ function createClayMesa(scale: number, active: boolean): THREE.Group {
   shardRight.position.set(0.24 * scale, 0.09 * scale, -0.12 * scale);
   shardRight.rotation.set(-0.12, -0.34, 0.18);
 
-  group.add(base, top, shardLeft, shardRight);
+  const lip = markTileShadow(
+    new THREE.Mesh(new THREE.BoxGeometry(0.24 * scale, 0.06 * scale, 0.5 * scale), topMaterial)
+  );
+  lip.position.set(-0.04 * scale, 0.21 * scale, 0.08 * scale);
+  lip.rotation.set(0.04, -0.18, 0.08);
+
+  const rubbleOffsets = [
+    { x: -0.36, z: -0.14, s: 0.06 },
+    { x: 0.34, z: 0.2, s: 0.08 },
+    { x: -0.12, z: 0.34, s: 0.05 }
+  ] as const;
+  for (const entry of rubbleOffsets) {
+    const rubble = markTileShadow(new THREE.Mesh(new THREE.DodecahedronGeometry(entry.s * scale, 0), rubbleMaterial));
+    rubble.position.set(entry.x * scale, 0.05 * scale, entry.z * scale);
+    rubble.rotation.set(0.18, 0.42, -0.12);
+    group.add(rubble);
+  }
+
+  group.add(base, top, lip, shardLeft, shardRight);
   return group;
 }
 
@@ -1462,33 +1586,58 @@ function createPastureTuft(scale: number, active: boolean): THREE.Group {
     roughness: 0.88,
     metalness: 0.01
   });
+  const grassMaterial = new THREE.MeshStandardMaterial({
+    color: "#88bf5d",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  const hoofMaterial = new THREE.MeshStandardMaterial({
+    color: "#4d4b47",
+    roughness: 0.9,
+    metalness: 0.01
+  });
 
   const hill = markTileShadow(
     new THREE.Mesh(new THREE.SphereGeometry(0.42 * scale, 14, 10), hillMaterial)
   );
   hill.scale.set(1.36, 0.42, 1);
   hill.position.y = 0.08 * scale;
+  group.add(hill);
 
-  const puffOffsets = [
-    { x: -0.18, z: -0.06, s: 0.26 },
-    { x: 0.06, z: 0.1, s: 0.22 },
-    { x: 0.22, z: -0.08, s: 0.2 }
+  const meadowPatch = markTileShadow(
+    new THREE.Mesh(new THREE.CylinderGeometry(0.52 * scale, 0.62 * scale, 0.04 * scale, 7), grassMaterial)
+  );
+  meadowPatch.position.y = 0.03 * scale;
+  group.add(meadowPatch);
+
+  const grassOffsets = [
+    { x: -0.34, z: -0.22, h: 0.16, s: 0.06 },
+    { x: -0.18, z: 0.2, h: 0.14, s: 0.05 },
+    { x: 0.08, z: -0.3, h: 0.15, s: 0.05 },
+    { x: 0.28, z: 0.18, h: 0.18, s: 0.06 },
+    { x: 0.38, z: -0.04, h: 0.13, s: 0.05 }
   ] as const;
-  for (const entry of puffOffsets) {
-    const puff = markTileShadow(
-      new THREE.Mesh(new THREE.SphereGeometry(entry.s * scale, 10, 8), woolMaterial)
+  for (const entry of grassOffsets) {
+    const blade = markTileShadow(
+      new THREE.Mesh(new THREE.ConeGeometry(entry.s * scale, entry.h * scale, 5), grassMaterial)
     );
-    puff.position.set(entry.x * scale, 0.22 * scale, entry.z * scale);
-    puff.scale.set(1.18, 0.92, 1.02);
-    group.add(puff);
+    blade.position.set(entry.x * scale, 0.07 * scale, entry.z * scale);
+    blade.rotation.z = entry.x * 0.3;
+    group.add(blade);
   }
 
-  const head = markTileShadow(
-    new THREE.Mesh(new THREE.SphereGeometry(0.1 * scale, 8, 6), faceMaterial)
-  );
-  head.position.set(0.34 * scale, 0.17 * scale, 0.04 * scale);
+  const sheepEntries = [
+    { x: -0.18, z: -0.02, s: 0.56, angle: 0.46 },
+    { x: 0.18, z: 0.18, s: 0.48, angle: -0.34 },
+    { x: 0.28, z: -0.18, s: 0.42, angle: 0.2 }
+  ] as const;
+  for (const entry of sheepEntries) {
+    const sheep = createSheepFigure(scale * entry.s, woolMaterial, faceMaterial, hoofMaterial, active);
+    sheep.position.set(entry.x * scale, 0.08 * scale, entry.z * scale);
+    sheep.rotation.y = entry.angle;
+    group.add(sheep);
+  }
 
-  group.add(hill, head);
   return group;
 }
 
@@ -1504,6 +1653,11 @@ function createDuneCluster(scale: number, active: boolean, withRock: boolean): T
   const ridgeMaterial = new THREE.MeshStandardMaterial({
     color: "#efd094",
     roughness: 0.88,
+    metalness: 0
+  });
+  const accentSandMaterial = new THREE.MeshStandardMaterial({
+    color: "#f3d9ab",
+    roughness: 0.84,
     metalness: 0
   });
   const rockMaterial = new THREE.MeshStandardMaterial({
@@ -1524,7 +1678,13 @@ function createDuneCluster(scale: number, active: boolean, withRock: boolean): T
   crest.scale.set(1.18, 0.24, 0.64);
   crest.position.set(0.14 * scale, 0.18 * scale, -0.06 * scale);
 
-  group.add(dune, crest);
+  const backDune = markTileShadow(
+    new THREE.Mesh(new THREE.SphereGeometry(0.26 * scale, 12, 8), accentSandMaterial)
+  );
+  backDune.scale.set(1.24, 0.22, 0.78);
+  backDune.position.set(-0.24 * scale, 0.14 * scale, 0.16 * scale);
+
+  group.add(dune, crest, backDune);
 
   if (withRock) {
     const rock = markTileShadow(
@@ -1535,6 +1695,62 @@ function createDuneCluster(scale: number, active: boolean, withRock: boolean): T
     group.add(rock);
   }
 
+  return group;
+}
+
+function createSheepFigure(
+  scale: number,
+  woolMaterial: THREE.MeshStandardMaterial,
+  faceMaterial: THREE.MeshStandardMaterial,
+  hoofMaterial: THREE.MeshStandardMaterial,
+  active: boolean
+): THREE.Group {
+  const group = new THREE.Group();
+  const glowMaterial = new THREE.MeshStandardMaterial({
+    color: "#fff7eb",
+    roughness: 0.62,
+    metalness: 0.01,
+    emissive: new THREE.Color(active ? "#fff1ba" : "#443f34"),
+    emissiveIntensity: active ? 0.08 : 0.01
+  });
+
+  const body = markTileShadow(new THREE.Mesh(new THREE.SphereGeometry(0.18 * scale, 10, 8), woolMaterial));
+  body.scale.set(1.3, 0.92, 0.96);
+  body.position.set(0, 0.14 * scale, 0);
+
+  const bodyPuffA = markTileShadow(new THREE.Mesh(new THREE.SphereGeometry(0.11 * scale, 8, 6), glowMaterial));
+  bodyPuffA.position.set(-0.1 * scale, 0.16 * scale, 0.05 * scale);
+
+  const bodyPuffB = markTileShadow(new THREE.Mesh(new THREE.SphereGeometry(0.11 * scale, 8, 6), glowMaterial));
+  bodyPuffB.position.set(0.08 * scale, 0.17 * scale, -0.04 * scale);
+
+  const head = markTileShadow(new THREE.Mesh(new THREE.SphereGeometry(0.09 * scale, 8, 6), faceMaterial));
+  head.position.set(0.2 * scale, 0.16 * scale, 0.02 * scale);
+  head.scale.set(0.9, 0.82, 1.1);
+
+  const earLeft = markTileShadow(new THREE.Mesh(new THREE.ConeGeometry(0.024 * scale, 0.07 * scale, 4), faceMaterial));
+  earLeft.position.set(0.22 * scale, 0.24 * scale, 0.06 * scale);
+  earLeft.rotation.set(0.12, 0.2, -0.5);
+
+  const earRight = markTileShadow(new THREE.Mesh(new THREE.ConeGeometry(0.024 * scale, 0.07 * scale, 4), faceMaterial));
+  earRight.position.set(0.22 * scale, 0.24 * scale, -0.03 * scale);
+  earRight.rotation.set(-0.12, 0.12, -0.42);
+
+  const legOffsets = [
+    [-0.1, -0.06],
+    [-0.02, 0.06],
+    [0.08, -0.05],
+    [0.15, 0.05]
+  ] as const;
+  for (const [x, z] of legOffsets) {
+    const leg = markTileShadow(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.014 * scale, 0.018 * scale, 0.16 * scale, 5), hoofMaterial)
+    );
+    leg.position.set(x * scale, 0.04 * scale, z * scale);
+    group.add(leg);
+  }
+
+  group.add(body, bodyPuffA, bodyPuffB, head, earLeft, earRight);
   return group;
 }
 
