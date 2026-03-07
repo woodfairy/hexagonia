@@ -1,9 +1,9 @@
 import type { Resource } from "@hexagonia/shared";
 
-export type BoardVisualProfile = "fast" | "modern" | "ultra";
+export type BoardVisualProfile = "modern" | "classic" | "fancy" | "ultra";
 
 export const BOARD_VISUAL_PROFILE_STORAGE_KEY = "hexagonia:board-visual-profile";
-const TEXTURED_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
+const LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
   brick: "#b86146",
@@ -16,27 +16,30 @@ export const TILE_COLORS: Record<Resource | "desert", string> = {
 
 export function resolveInitialBoardVisualProfile(): BoardVisualProfile {
   if (typeof window === "undefined") {
-    return "fast";
+    return "modern";
   }
 
   const storedProfile = window.localStorage.getItem(BOARD_VISUAL_PROFILE_STORAGE_KEY);
   switch (storedProfile) {
     case "ultra":
       return "ultra";
-    case TEXTURED_BOARD_VISUAL_PROFILE_STORAGE_VALUE:
-      return "modern";
-    case "fast":
+    case "fancy":
+      return "fancy";
+    case "classic":
+    case LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE:
+      return "classic";
     case "modern":
+    case "fast":
     default:
-      return "fast";
+      return "modern";
   }
 }
 
 export function serializeBoardVisualProfile(profile: BoardVisualProfile): string {
   switch (profile) {
+    case "classic":
+    case "fancy":
     case "modern":
-      return TEXTURED_BOARD_VISUAL_PROFILE_STORAGE_VALUE;
-    case "fast":
     case "ultra":
       return profile;
   }
