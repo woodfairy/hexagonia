@@ -25,6 +25,7 @@ export interface BoardFocusCue {
   edgeIds: string[];
   tileIds: string[];
   scale: "tight" | "medium" | "wide";
+  zoomPreset?: "distribution";
 }
 
 interface BoardSceneProps {
@@ -174,6 +175,24 @@ interface TileDecorationOptions {
 interface TexturedTileOptions extends TileDecorationOptions {}
 
 const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
+const DEFAULT_FOCUS_DISTANCE_PROFILE = {
+  tightBase: 26,
+  mediumBase: 34,
+  wideBase: 44,
+  tightMultiplier: 1.95,
+  mediumMultiplier: 1.82,
+  wideMultiplier: 1.7,
+  padding: 16
+} as const;
+const DISTRIBUTION_FOCUS_DISTANCE_PROFILE = {
+  tightBase: 24,
+  mediumBase: 30,
+  wideBase: 39,
+  tightMultiplier: 1.78,
+  mediumMultiplier: 1.68,
+  wideMultiplier: 1.58,
+  padding: 12
+} as const;
 
 function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: BoardVisualSettings): string {
   const tileKey = board.tiles
@@ -1175,12 +1194,7 @@ export function BoardScene(props: BoardSceneProps) {
     const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue, controls.target);
     const currentDirection = camera.position.clone().sub(controls.target);
     const direction = currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
-    const baseDistance = props.cameraCue.scale === "tight" ? 26 : props.cameraCue.scale === "medium" ? 34 : 44;
-    const fitDistance =
-      nextFocus.span > 0.01
-        ? nextFocus.span * (props.cameraCue.scale === "tight" ? 1.95 : props.cameraCue.scale === "medium" ? 1.82 : 1.7) + 16
-        : baseDistance;
-    const distance = Math.max(baseDistance, fitDistance);
+    const distance = resolveFocusCueDistance(props.cameraCue, nextFocus.span);
     const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);
     const nextCameraPosition = target.clone().add(direction.multiplyScalar(distance));
 
@@ -4916,6 +4930,24 @@ function selectActionFocusElements(
   }
 
   return bestCandidate?.cluster ?? elements;
+}
+
+function resolveFocusCueDistance(cue: BoardFocusCue, span: number): number {
+  const profile = cue.zoomPreset === "distribution" ? DISTRIBUTION_FOCUS_DISTANCE_PROFILE : DEFAULT_FOCUS_DISTANCE_PROFILE;
+  const baseDistance =
+    cue.scale === "tight" ? profile.tightBase : cue.scale === "medium" ? profile.mediumBase : profile.wideBase;
+  if (span <= 0.01) {
+    return baseDistance;
+  }
+
+  const fitMultiplier =
+    cue.scale === "tight"
+      ? profile.tightMultiplier
+      : cue.scale === "medium"
+        ? profile.mediumMultiplier
+        : profile.wideMultiplier;
+  const fitDistance = span * fitMultiplier + profile.padding;
+  return Math.max(baseDistance, fitDistance);
 }
 
 function summarizeFocusElements(elements: FocusElement[]): FocusGeometry {

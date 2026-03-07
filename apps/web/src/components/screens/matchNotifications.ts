@@ -418,7 +418,8 @@ function createDistributionNotification(match: MatchSnapshot, event: MatchEvent)
       vertexIds: [],
       edgeIds: [],
       tileIds,
-      scale: tileIds.length > 2 ? "wide" : "medium"
+      scale: tileIds.length <= 1 ? "tight" : tileIds.length > 2 ? "wide" : "medium",
+      zoomPreset: "distribution"
     },
     autoFocus: true
   });
