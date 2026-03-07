@@ -227,11 +227,11 @@ export function MatchScreen(props: {
   const activePlayer = props.match.players.find((player) => player.id === props.match.currentPlayerId) ?? null;
   const isCurrentPlayer = props.match.currentPlayerId === props.match.you;
   const recentEvents = useMemo(() => props.match.eventLog.slice(-5).reverse(), [props.match.eventLog]);
-  const recentFocusableEvent = useMemo(() => getLatestFocusableEvent(props.match), [props.match]);
+  const recentFocusableEvent = useMemo(() => getLatestFocusableEventSinceLatestDice(props.match), [props.match]);
+  const isDiceAnimationActive =
+    (latestDiceEvent?.id ?? null) !== seenDiceEventIdRef.current || diceDisplay.phase !== "idle";
   const visibleRecentFocusableEvent =
-    diceDisplay.phase !== "idle" && recentFocusableEvent && isDiceRevealEvent(recentFocusableEvent.event)
-      ? null
-      : recentFocusableEvent;
+    isDiceAnimationActive ? null : recentFocusableEvent;
   const incomingTradeOffers = useMemo(
     () =>
       props.match.tradeOffers.filter(
@@ -254,10 +254,10 @@ export function MatchScreen(props: {
       visibleRecentFocusableEvent.event.type === "resources_distributed" ||
       visibleRecentFocusableEvent.event.byPlayerId !== props.match.you);
   const cameraCue =
-    autoFocusEnabled
+    autoFocusEnabled && !isDiceAnimationActive
       ? (actionCue ?? (shouldAutoFocusRecentEvent ? (visibleRecentFocusableEvent?.cue ?? null) : null))
       : null;
-  const spotlightCue = cameraCue ?? actionCue ?? visibleRecentFocusableEvent?.cue ?? null;
+  const spotlightCue = isDiceAnimationActive ? null : cameraCue ?? actionCue ?? visibleRecentFocusableEvent?.cue ?? null;
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)
     : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
@@ -1584,19 +1584,6 @@ export function MatchScreen(props: {
               </span>
             </div>
           </div>
-          {!spotlightCue && !isMobileViewport ? (
-            <div className="board-bottom-hint">
-              <div
-                className={`turn-status-card ${
-                  turnStatus.playerId ? getPlayerAccentClass(getPlayerColor(props.match, turnStatus.playerId)) : ""
-                }`}
-              >
-                {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
-                <strong>{turnStatus.title}</strong>
-                <span>{turnStatus.detail}</span>
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <aside className="surface match-dock">
@@ -2209,6 +2196,36 @@ function getLatestFocusableEvent(match: MatchSnapshot): FocusableEventResult | n
   return null;
 }
 
+function getLatestFocusableEventSinceLatestDice(match: MatchSnapshot): FocusableEventResult | null {
+  let lowerBoundIndex = 0;
+
+  for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
+    const event = match.eventLog[index];
+    if (event?.type === "dice_rolled") {
+      lowerBoundIndex = index + 1;
+      break;
+    }
+  }
+
+  for (let index = match.eventLog.length - 1; index >= lowerBoundIndex; index -= 1) {
+    const event = match.eventLog[index];
+    if (!event) {
+      continue;
+    }
+
+    const cue = createEventCue(match, event);
+    if (cue) {
+      return { cue, event };
+    }
+  }
+
+  if (lowerBoundIndex > 0) {
+    return null;
+  }
+
+  return getLatestFocusableEvent(match);
+}
+
 function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"][number] | null {
   for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
     const event = match.eventLog[index];
@@ -2218,10 +2235,6 @@ function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"]
   }
 
   return null;
-}
-
-function isDiceRevealEvent(event: MatchSnapshot["eventLog"][number]): boolean {
-  return event.type === "dice_rolled" || event.type === "resources_distributed";
 }
 
 function createEventCue(
