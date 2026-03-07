@@ -1,8 +1,9 @@
 import type { Resource } from "@hexagonia/shared";
 
-export type BoardVisualProfile = "modern" | "ultra";
+export type BoardVisualProfile = "fast" | "modern" | "ultra";
 
 export const BOARD_VISUAL_PROFILE_STORAGE_KEY = "hexagonia:board-visual-profile";
+const TEXTURED_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
   brick: "#b86146",
@@ -15,8 +16,28 @@ export const TILE_COLORS: Record<Resource | "desert", string> = {
 
 export function resolveInitialBoardVisualProfile(): BoardVisualProfile {
   if (typeof window === "undefined") {
-    return "modern";
+    return "fast";
   }
 
-  return window.localStorage.getItem(BOARD_VISUAL_PROFILE_STORAGE_KEY) === "ultra" ? "ultra" : "modern";
+  const storedProfile = window.localStorage.getItem(BOARD_VISUAL_PROFILE_STORAGE_KEY);
+  switch (storedProfile) {
+    case "ultra":
+      return "ultra";
+    case TEXTURED_BOARD_VISUAL_PROFILE_STORAGE_VALUE:
+      return "modern";
+    case "fast":
+    case "modern":
+    default:
+      return "fast";
+  }
+}
+
+export function serializeBoardVisualProfile(profile: BoardVisualProfile): string {
+  switch (profile) {
+    case "modern":
+      return TEXTURED_BOARD_VISUAL_PROFILE_STORAGE_VALUE;
+    case "fast":
+    case "ultra":
+      return profile;
+  }
 }

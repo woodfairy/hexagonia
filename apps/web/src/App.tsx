@@ -41,7 +41,12 @@ import {
 } from "./api";
 import { bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
 import type { InteractionMode } from "./BoardScene";
-import { type BoardVisualProfile, resolveInitialBoardVisualProfile, BOARD_VISUAL_PROFILE_STORAGE_KEY } from "./boardVisuals";
+import {
+  type BoardVisualProfile,
+  resolveInitialBoardVisualProfile,
+  BOARD_VISUAL_PROFILE_STORAGE_KEY,
+  serializeBoardVisualProfile
+} from "./boardVisuals";
 import { AppHeader } from "./components/shell/AppHeader";
 import { ToastStack, type ToastMessage } from "./components/shell/ToastStack";
 import { AdminScreen, type AdminCreateFormState, type AdminUserDraftState } from "./components/screens/AdminScreen";
@@ -1187,7 +1192,7 @@ export function App() {
   const handleBoardVisualProfileChange = useCallback((nextProfile: BoardVisualProfile) => {
     setBoardVisualProfile(nextProfile);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(BOARD_VISUAL_PROFILE_STORAGE_KEY, nextProfile);
+      window.localStorage.setItem(BOARD_VISUAL_PROFILE_STORAGE_KEY, serializeBoardVisualProfile(nextProfile));
     }
   }, []);
 

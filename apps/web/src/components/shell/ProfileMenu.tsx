@@ -117,9 +117,17 @@ export function ProfileMenu(props: {
             <div className="profile-board-panel">
               <div className="profile-music-copy">
                 <strong>Feldstil</strong>
-                <span>Match-Board zwischen dem aktuellen Look und dem neuen Ultra-Terrain umschalten.</span>
+                <span>Fast fuer Klarheit, Modern fuer Texturen ohne 3D-Objekte, Ultra mit Texturen, Animation und 3D-Terrain.</span>
               </div>
               <div className="segmented-control profile-board-segmented" role="group" aria-label="Feldstil">
+                <button
+                  type="button"
+                  className={props.boardVisualProfile === "fast" ? "is-active" : ""}
+                  aria-pressed={props.boardVisualProfile === "fast"}
+                  onClick={() => props.onBoardVisualProfileChange("fast")}
+                >
+                  Fast
+                </button>
                 <button
                   type="button"
                   className={props.boardVisualProfile === "modern" ? "is-active" : ""}
