@@ -1312,6 +1312,7 @@ function createTexturedTileMesh(
   tileGroup.add(outerMesh, insetMesh, overlay);
   if (includeProps) {
     const propGroup = createLandingFancyTileProps(tile.resource);
+    nudgeFancyPropsAwayFromTileCenter(propGroup);
     propGroup.position.y = TILE_HEIGHT + 0.03;
     propGroup.traverse((entry) => {
       entry.userData.castTileShadow = true;
@@ -1319,6 +1320,21 @@ function createTexturedTileMesh(
     tileGroup.add(propGroup);
   }
   return tileGroup;
+}
+
+function nudgeFancyPropsAwayFromTileCenter(group: THREE.Group): void {
+  for (const child of group.children) {
+    const length = Math.hypot(child.position.x, child.position.z);
+    if (length < 0.04) {
+      continue;
+    }
+
+    const offsetScale = 1.08;
+    const extraOffset = 0.12;
+    const nextLength = length * offsetScale + extraOffset;
+    child.position.x = (child.position.x / length) * nextLength;
+    child.position.z = (child.position.z / length) * nextLength;
+  }
 }
 
 function createUltraTileMesh(
