@@ -1266,10 +1266,10 @@ function nudgeFancyPropsAwayFromTileCenter(group: THREE.Group): void {
       continue;
     }
 
-    const offsetScale = 1.22;
-    const extraOffset = 0.34;
-    const minRadius = 1.68;
-    const maxRadius = 2.18;
+    const offsetScale = 1.28;
+    const extraOffset = 0.44;
+    const minRadius = 1.82;
+    const maxRadius = 2.28;
     const nextLength = THREE.MathUtils.clamp(length * offsetScale + extraOffset, minRadius, maxRadius);
     child.position.x = (child.position.x / length) * nextLength;
     child.position.z = (child.position.z / length) * nextLength;
