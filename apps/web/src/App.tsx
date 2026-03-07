@@ -13,7 +13,7 @@ import type {
   ServerMessage,
   UserRole
 } from "@hexagonia/shared";
-import { createEmptyResourceMap, hasResources, RESOURCES } from "@hexagonia/shared";
+import { cloneResourceMap, createEmptyResourceMap, hasResources, RESOURCES } from "@hexagonia/shared";
 import {
   closeAdminRoom,
   createRoom,
@@ -119,10 +119,8 @@ export function App() {
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(null);
   const [selectedRoadEdges, setSelectedRoadEdges] = useState<string[]>([]);
   const [tradeForm, setTradeForm] = useState<TradeFormState>({
-    give: "brick",
-    giveCount: 1,
-    want: "grain",
-    wantCount: 1,
+    give: createEmptyResourceMap(),
+    want: createEmptyResourceMap(),
     targetPlayerId: ""
   });
   const [maritimeForm, setMaritimeForm] = useState<MaritimeFormState>({
@@ -1605,16 +1603,24 @@ export function App() {
 
     const toPlayerId = match.currentPlayerId === match.you ? tradeForm.targetPlayerId || null : match.currentPlayerId;
 
-    queueMatchConfirmation({
-      type: "match.action",
-      matchId: match.matchId,
-      action: {
-        type: "create_trade_offer",
-        toPlayerId,
-        give: singleResourceMap(tradeForm.give, tradeForm.giveCount),
-        want: singleResourceMap(tradeForm.want, tradeForm.wantCount)
-      }
-    });
+    queueMatchConfirmation(
+      {
+        type: "match.action",
+        matchId: match.matchId,
+        action: {
+          type: "create_trade_offer",
+          toPlayerId,
+          give: cloneResourceMap(tradeForm.give),
+          want: cloneResourceMap(tradeForm.want)
+        }
+      },
+      () =>
+        setTradeForm({
+          give: createEmptyResourceMap(),
+          want: createEmptyResourceMap(),
+          targetPlayerId: ""
+        })
+    );
   };
 
   const headerRoomProps =
@@ -2185,12 +2191,6 @@ function RobberWaitDialog(props: {
 
 function sendMessage(socket: WebSocket, message: ClientMessage) {
   socket.send(JSON.stringify(message));
-}
-
-function singleResourceMap(resource: Resource, count: number): ResourceMap {
-  const map = createEmptyResourceMap();
-  map[resource] = count;
-  return map;
 }
 
 function getMatchActionConfirmation(
