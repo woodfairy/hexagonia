@@ -59,8 +59,13 @@ const SHOWCASE_PLAYER_COLORS = {
   green: "#53b978"
 } as const;
 
-const TILE_HEIGHT = 1.18;
+const TILE_HEIGHT = 0.82;
 const BUILT_ROAD_RADIUS = 0.24;
+const TILE_OUTER_BEVEL_SIZE = 0.18;
+const TILE_OUTER_BEVEL_THICKNESS = 0.09;
+const TILE_INSET_DEPTH = 0.18;
+const TILE_INSET_BEVEL_SIZE = 0.09;
+const TILE_INSET_BEVEL_THICKNESS = 0.04;
 const HEX_RADIUS = 1;
 const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS;
 const HEX_HEIGHT = 2 * HEX_RADIUS;
@@ -171,7 +176,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       })
     );
     table.position.y = -1.05;
-    table.receiveShadow = true;
+    table.receiveShadow = false;
     boardGroup.add(table);
 
     const tableInset = new THREE.Mesh(
@@ -560,21 +565,20 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.24,
-    bevelThickness: 0.12,
+    bevelSize: TILE_OUTER_BEVEL_SIZE,
+    bevelThickness: TILE_OUTER_BEVEL_THICKNESS,
     curveSegments: 6
   });
   outerGeometry.rotateX(-Math.PI / 2);
 
-  const insetDepth = 0.26;
   const insetShape = createTileShape(tile, verticesById, 0.962);
   const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
-    depth: insetDepth,
+    depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.05,
+    bevelSize: TILE_INSET_BEVEL_SIZE,
+    bevelThickness: TILE_INSET_BEVEL_THICKNESS,
     curveSegments: 6
   });
   insetGeometry.rotateX(-Math.PI / 2);
@@ -604,7 +608,7 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
       metalness: 0.01
     })
   ]);
-  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
+  insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh, insetMesh);
@@ -619,22 +623,21 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.24,
-    bevelThickness: 0.12,
+    bevelSize: TILE_OUTER_BEVEL_SIZE,
+    bevelThickness: TILE_OUTER_BEVEL_THICKNESS,
     curveSegments: 6
   });
   outerGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(outerGeometry);
 
-  const insetDepth = 0.26;
   const insetShape = createTileShape(tile, verticesById, 0.962);
   const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
-    depth: insetDepth,
+    depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.05,
+    bevelSize: TILE_INSET_BEVEL_SIZE,
+    bevelThickness: TILE_INSET_BEVEL_THICKNESS,
     curveSegments: 6
   });
   insetGeometry.rotateX(-Math.PI / 2);
@@ -681,7 +684,7 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
       metalness: 0.01
     })
   ]);
-  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
+  insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
   const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
   overlayGeometry.rotateX(-Math.PI / 2);
