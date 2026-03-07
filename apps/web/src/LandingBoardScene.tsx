@@ -53,7 +53,7 @@ const SHARED_RESOURCE_FLAG = "__sharedResource";
 const fancyTilePropTemplateCache = new Map<Resource | "desert", THREE.Group>();
 
 const SHOWCASE_PLAYER_COLORS = {
-  red: "#d75a4a",
+  red: "#cf3b35",
   blue: "#4f78d7",
   orange: "#eb8e47",
   green: "#53b978"

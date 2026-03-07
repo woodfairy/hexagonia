@@ -9,7 +9,7 @@ export interface BoardVisualSettings {
 export const BOARD_VISUAL_SETTINGS_STORAGE_KEY = "hexagonia:board-visual-profile";
 const LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
 export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
-  textures: false,
+  textures: true,
   props: true,
   terrainRelief: false
 };
@@ -66,9 +66,9 @@ function normalizeBoardVisualSettings(value: unknown): BoardVisualSettings {
 
   const candidate = value as Partial<Record<keyof BoardVisualSettings, unknown>>;
   return createBoardVisualSettings({
-    textures: candidate.textures === true,
-    props: candidate.props === true,
-    terrainRelief: candidate.terrainRelief === true
+    ...(typeof candidate.textures === "boolean" ? { textures: candidate.textures } : {}),
+    ...(typeof candidate.props === "boolean" ? { props: candidate.props } : {}),
+    ...(typeof candidate.terrainRelief === "boolean" ? { terrainRelief: candidate.terrainRelief } : {})
   });
 }
 

@@ -351,7 +351,7 @@ select {
   padding: var(--gap-section);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-card);
-  background: rgba(8, 16, 24, 0.97);
+  background: rgb(8, 16, 24);
   box-shadow: var(--shadow-lg);
   z-index: 15;
 }
@@ -534,32 +534,6 @@ button:disabled {
   .mini-segmented button:hover,
   .brand-mark:hover {
     transform: translateY(-1px);
-  }
-
-  .menu-action:hover:not(:disabled),
-  .ghost-button:hover:not(:disabled),
-  .secondary-button:hover:not(:disabled),
-  .sheet-size-button:hover:not(:disabled),
-  .tab-strip button:hover:not(:disabled),
-  .segmented-control button:hover:not(:disabled),
-  .mini-segmented button:hover:not(:disabled),
-  .profile-trigger:hover,
-  .brand-mark:hover {
-    border-color: rgba(var(--accent-rgb), 0.32);
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .primary-button:hover:not(:disabled),
-  .segmented-control .is-active:hover,
-  .mini-segmented .is-active:hover,
-  .tab-strip .is-active:hover {
-    border-color: rgba(var(--accent-strong-rgb), 0.34);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 48%),
-      linear-gradient(135deg, #c3a7ff, #d7c5ff);
-    box-shadow:
-      0 0.55rem 1rem rgba(10, 18, 28, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
 }
 
@@ -1097,7 +1071,7 @@ select {
 }
 
 .seat-red {
-  background: #df7a67;
+  background: #cf3b35;
 }
 
 .seat-blue {
@@ -1113,9 +1087,9 @@ select {
 }
 
 .player-accent-red {
-  --player-accent: #df7a67;
-  --player-accent-soft: rgba(223, 122, 103, 0.14);
-  --player-accent-border: rgba(223, 122, 103, 0.42);
+  --player-accent: #cf3b35;
+  --player-accent-soft: rgba(207, 59, 53, 0.14);
+  --player-accent-border: rgba(207, 59, 53, 0.42);
   --player-text: #ffd4cc;
 }
 
@@ -1536,6 +1510,13 @@ select {
   border: 0;
   background: transparent;
   box-shadow: none;
+  backdrop-filter: none;
+}
+
+.board-mobile-summary .match-notification-card.is-success,
+.board-mobile-summary .match-notification-card.is-warning,
+.board-mobile-summary .match-notification-card[class*="player-accent-"] {
+  background: transparent;
 }
 
 .board-mobile-summary .match-notification-card.is-hero-mobile {
@@ -1594,22 +1575,26 @@ select {
 
 .board-topbar-profile {
   justify-self: end;
-  align-self: stretch;
+  align-self: start;
   pointer-events: auto;
 }
 
 .board-topbar-profile .profile-menu {
-  block-size: 100%;
+  display: flex;
+  align-items: flex-start;
+  block-size: auto;
 }
 
 .board-topbar-profile .profile-trigger {
-  block-size: 100%;
-  min-block-size: 0;
-  min-inline-size: 3.2rem;
+  inline-size: 2.9rem;
+  block-size: 2.9rem;
+  min-block-size: 2.9rem;
+  min-inline-size: 2.9rem;
   justify-content: center;
-  padding: 0.3rem 0.34rem;
-  background: rgba(7, 15, 23, 0.82);
-  box-shadow: var(--shadow-md);
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .board-topbar-profile .profile-trigger-copy {
@@ -2563,13 +2548,6 @@ select {
   transform: scaleX(0.42);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .tab-strip button:hover {
-    color: var(--text);
-    background: rgba(255, 255, 255, 0.04);
-  }
-}
-
 .tab-strip button[aria-selected="true"] {
   color: #14202c;
   border-color: rgba(214, 197, 255, 0.58);
@@ -2647,6 +2625,17 @@ select {
   scrollbar-color: rgba(210, 197, 255, 0.34) rgba(255, 255, 255, 0.04);
 }
 
+.tab-panel-view {
+  --tab-panel-shift-x: 0.7rem;
+  min-inline-size: 0;
+  animation: tab-panel-enter 220ms cubic-bezier(0.22, 0.82, 0.24, 1);
+  will-change: transform, opacity;
+}
+
+.tab-panel-view.is-backward {
+  --tab-panel-shift-x: -0.7rem;
+}
+
 .tab-panel-shell::-webkit-scrollbar,
 .panel-frame::-webkit-scrollbar {
   inline-size: 0.55rem;
@@ -2669,6 +2658,25 @@ select {
 .tab-panel-shell::-webkit-scrollbar-thumb:hover,
 .panel-frame::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(224, 213, 255, 0.56), rgba(182, 160, 244, 0.52));
+}
+
+@keyframes tab-panel-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--tab-panel-shift-x), 0.28rem, 0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel-view {
+    animation: none;
+    will-change: auto;
+  }
 }
 
 @keyframes dice-widget-pop {
@@ -3079,18 +3087,6 @@ select {
   box-shadow: none;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .trade-resource-card:hover {
-    border-color: rgba(var(--accent-rgb), 0.34);
-    background: rgba(var(--accent-rgb), 0.08);
-  }
-
-  .trade-resource-card:disabled:hover {
-    border-color: rgba(255, 255, 255, 0.08);
-    background: rgba(6, 15, 23, 0.84);
-  }
-}
-
 .trade-resource-card.is-active {
   border-color: rgba(var(--accent-rgb), 0.5);
   background:
@@ -3375,21 +3371,6 @@ select {
   border-color: rgba(var(--accent-rgb), 0.42);
   background: rgba(var(--accent-rgb), 0.1);
   box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.12);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .trade-target-option[class*="player-accent-"]:hover {
-    border-color: var(--player-accent-border, rgba(255, 255, 255, 0.14));
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025)),
-      var(--player-accent-soft, rgba(255, 255, 255, 0.08));
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
-  }
-
-  .trade-target-option:hover:not([class*="player-accent-"]) {
-    border-color: rgba(var(--accent-rgb), 0.24);
-    background: rgba(var(--accent-rgb), 0.06);
-  }
 }
 
 .trade-target-title {
@@ -4338,7 +4319,7 @@ select {
   .board-topbar.is-mobile {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: stretch;
+    align-items: start;
   }
 
   .board-hud {
@@ -4818,7 +4799,7 @@ select {
   .board-topbar.is-mobile {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: stretch;
+    align-items: start;
   }
 
   .app-shell.is-match-screen > .app-header .profile-menu {
@@ -4911,8 +4892,10 @@ select {
   }
 
   .board-topbar-profile .profile-trigger {
-    min-inline-size: 2.95rem;
-    padding: 0.28rem 0.3rem;
+    inline-size: 2.7rem;
+    block-size: 2.7rem;
+    min-inline-size: 2.7rem;
+    min-block-size: 2.7rem;
   }
 
   .board-topbar-profile .profile-avatar {
