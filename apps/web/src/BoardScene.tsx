@@ -126,6 +126,23 @@ interface BoardTooltipState {
   accentColor: string;
 }
 
+interface UltraTileOverlayUniforms {
+  uMask: THREE.IUniform<THREE.Texture>;
+  uBaseColor: THREE.IUniform<THREE.Color>;
+  uAccentColor: THREE.IUniform<THREE.Color>;
+  uTime: THREE.IUniform<number>;
+  uOpacity: THREE.IUniform<number>;
+  uMotionScale: THREE.IUniform<number>;
+  uStyleIndex: THREE.IUniform<number>;
+}
+
+type UltraTileOverlayMaterial = THREE.ShaderMaterial & {
+  uniforms: UltraTileOverlayUniforms;
+  userData: THREE.ShaderMaterial["userData"] & {
+    motionBase: number;
+  };
+};
+
 export function BoardScene(props: BoardSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -135,7 +152,7 @@ export function BoardScene(props: BoardSceneProps) {
   const boardGroupRef = useRef<THREE.Group | null>(null);
   const interactiveRef = useRef<THREE.Object3D[]>([]);
   const pulseObjectsRef = useRef<THREE.Object3D[]>([]);
-  const ultraAnimatedMaterialsRef = useRef<THREE.ShaderMaterial[]>([]);
+  const ultraAnimatedMaterialsRef = useRef<UltraTileOverlayMaterial[]>([]);
   const focusTargetRef = useRef(DEFAULT_CAMERA_TARGET.clone());
   const focusCameraPositionRef = useRef(DEFAULT_CAMERA_POSITION.clone());
   const lastFocusKeyRef = useRef<string | null>(null);
@@ -1007,7 +1024,7 @@ function createUltraTileMesh(
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
   active: boolean,
   terrainBundle: UltraTerrainTextureBundle,
-  animatedMaterials: THREE.ShaderMaterial[],
+  animatedMaterials: UltraTileOverlayMaterial[],
   reducedMotion: boolean
 ): THREE.Group {
   const outerShape = createTileShape(tile, verticesById);
@@ -1098,7 +1115,7 @@ function createUltraTileOverlayMaterial(
   terrainBundle: UltraTerrainTextureBundle,
   active: boolean,
   reducedMotion: boolean
-): THREE.ShaderMaterial {
+): UltraTileOverlayMaterial {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uMask: { value: terrainBundle.overlayMask },
@@ -1115,7 +1132,7 @@ function createUltraTileOverlayMaterial(
     fragmentShader: ULTRA_TILE_OVERLAY_FRAGMENT_SHADER,
     transparent: true,
     depthWrite: false
-  });
+  }) as UltraTileOverlayMaterial;
   material.userData.motionBase = terrainBundle.appearance.overlayMotion;
   return material;
 }
@@ -1863,10 +1880,12 @@ function collectTexturesFromMaterial(material: THREE.Material, textures: Set<THR
     "roughnessMap",
     "specularMap"
   ] as const;
+  type TextureMaterialKey = (typeof textureKeys)[number];
+  const textureMaterial = material as unknown as Partial<Record<TextureMaterialKey, THREE.Texture | null | undefined>>;
 
   for (const key of textureKeys) {
-    const value = (material as Record<string, unknown>)[key];
-    if (value instanceof THREE.Texture) {
+    const value = textureMaterial[key];
+    if (value) {
       textures.add(value);
     }
   }
