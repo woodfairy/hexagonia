@@ -2335,6 +2335,8 @@ select:hover {
 
 .trade-side-head {
   gap: 0.2rem;
+  align-content: start;
+  min-block-size: 5.8rem;
 }
 
 .trade-side-head strong {
@@ -2576,6 +2578,21 @@ select:hover {
   display: grid;
   gap: 0.7rem;
   grid-column: 1 / -1;
+}
+
+.trade-target-card-placeholder {
+  align-content: start;
+}
+
+.trade-target-placeholder-copy {
+  min-block-size: 3.5rem;
+  padding: 0.72rem 0.8rem;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: calc(var(--radius-card) - 0.18rem);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.32;
 }
 
 .trade-target-picker {
@@ -3168,8 +3185,13 @@ select:hover {
     scrollbar-gutter: stable both-edges;
   }
 
+  .trade-side-card,
+  .trade-target-card {
+    padding-inline: 1.22rem;
+  }
+
   .trade-resource-card-grid {
-    padding-inline: 0.36rem;
+    padding-inline: 0;
   }
 }
 
