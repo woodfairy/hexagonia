@@ -272,7 +272,7 @@ function paintOreTerrain(
     ridge.lineTo(-20, TERRAIN_TEXTURE_SIZE + 20);
     ridge.closePath();
 
-    colorContext.fillStyle = pick(random, ["rgba(112,126,145,0.4)", "rgba(136,151,171,0.36)", "rgba(84,98,116,0.42)"]);
+    colorContext.fillStyle = pick(random, ["rgba(142,148,156,0.34)", "rgba(170,176,184,0.3)", "rgba(108,116,126,0.38)"]);
     colorContext.fill(ridge);
     bumpContext.fillStyle = pick(random, ["rgba(220,220,220,0.12)", "rgba(160,160,160,0.22)", "rgba(90,90,90,0.18)"]);
     bumpContext.fill(ridge);
@@ -289,7 +289,7 @@ function paintOreTerrain(
     const endX = startX + (random() - 0.5) * 180;
     const endY = startY + (random() - 0.5) * 90;
     const veinWidth = 1.6 + random() * 2.6;
-    colorContext.strokeStyle = index % 2 === 0 ? "rgba(177,210,238,0.34)" : "rgba(214,224,235,0.3)";
+    colorContext.strokeStyle = index % 2 === 0 ? "rgba(198,206,216,0.34)" : "rgba(226,230,235,0.3)";
     colorContext.lineWidth = veinWidth;
     colorContext.beginPath();
     colorContext.moveTo(startX, startY);
