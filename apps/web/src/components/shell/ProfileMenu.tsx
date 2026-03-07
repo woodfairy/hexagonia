@@ -1,20 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@hexagonia/shared";
+import { uiSoundManager } from "../../audio/uiSoundManager";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
 
 export function ProfileMenu(props: {
   session: AuthUser;
   connectionState: ConnectionState;
+  soundMuted: boolean;
   roomCode?: string;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onCopyInviteLink?: () => void | Promise<void>;
   onCopyRoomCode?: () => void | Promise<void>;
+  onToggleSoundMuted: () => void;
   onLogout: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const hasOpenStateChangedRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasOpenStateChangedRef.current) {
+      hasOpenStateChangedRef.current = true;
+      return;
+    }
+
+    void uiSoundManager.play(open ? "open" : "close", { volume: 0.9 });
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -46,6 +59,7 @@ export function ProfileMenu(props: {
       <button
         type="button"
         className="profile-trigger"
+        data-ui-sound="off"
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((current) => !current)}
@@ -70,6 +84,18 @@ export function ProfileMenu(props: {
             </div>
           </div>
           <div className="profile-dropdown-actions">
+            <button
+              type="button"
+              className={`menu-action menu-toggle-action ${props.soundMuted ? "is-muted" : "is-active"}`}
+              aria-pressed={!props.soundMuted}
+              onClick={() => props.onToggleSoundMuted()}
+            >
+              <span className="menu-toggle-copy">
+                <strong>UI-Sounds</strong>
+                <span>{props.soundMuted ? "Stumm geschaltet" : "Aktiv und bereit"}</span>
+              </span>
+              <span className={`status-pill ${props.soundMuted ? "muted" : ""}`}>{props.soundMuted ? "Aus" : "An"}</span>
+            </button>
             <button
               type="button"
               className="menu-action"
