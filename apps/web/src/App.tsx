@@ -74,6 +74,10 @@ const BUILD_COSTS = {
   settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
   city: { grain: 2, ore: 3 }
 } as const;
+const DICE_EXPAND_MS = 150;
+const DICE_ROLL_MS = 560;
+const DICE_SETTLE_MS = 260;
+const ROBBER_UI_DELAY_MS = DICE_EXPAND_MS + DICE_ROLL_MS + DICE_SETTLE_MS;
 
 type MatchAction = Extract<ClientMessage, { type: "match.action" }>["action"];
 
@@ -134,6 +138,7 @@ export function App() {
   const [pendingRobberTargetSelection, setPendingRobberTargetSelection] = useState<PendingRobberTargetSelection | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
   const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
+  const [robberUiBlockedByDiceAnimation, setRobberUiBlockedByDiceAnimation] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
@@ -147,6 +152,9 @@ export function App() {
   const lastServerActivityRef = useRef(Date.now());
   const toastCounterRef = useRef(0);
   const hasSeenDialogStateRef = useRef(false);
+  const robberUiMatchIdRef = useRef<string | null>(null);
+  const robberUiDiceEventIdRef = useRef<string | null>(null);
+  const robberUiBlockTimerRef = useRef<number | null>(null);
   const matchSoundStateRef = useRef<{
     matchId: string | null;
     currentPlayerId: string | null;
@@ -163,6 +171,7 @@ export function App() {
     () => match?.players.find((player) => player.id === match.you) ?? null,
     [match]
   );
+  const latestDiceEvent = useMemo(() => (match ? getLatestDiceRollEvent(match) : null), [match]);
   const requiredDiscardCount = match?.allowedMoves.pendingDiscardCount ?? 0;
   const selectedDiscardCount = useMemo(
     () => RESOURCES.reduce((sum, resource) => sum + (robberDiscardDraft[resource] ?? 0), 0),
@@ -172,6 +181,12 @@ export function App() {
   const canSubmitRobberDiscard =
     !!match && !!selfPlayer?.resources && requiredDiscardCount > 0 && selectedDiscardCount === requiredDiscardCount;
   const robberDiscardStatus = match?.robberDiscardStatus ?? [];
+  const robberUiDeferredByDiceAnimation =
+    robberUiBlockedByDiceAnimation ||
+    (!!match &&
+      robberUiMatchIdRef.current === match.matchId &&
+      robberUiDiceEventIdRef.current !== null &&
+      (latestDiceEvent?.id ?? null) !== robberUiDiceEventIdRef.current);
 
   const activeScreen = useMemo(() => {
     if (!session) {
@@ -343,6 +358,53 @@ export function App() {
       setRobberDiscardMinimized(false);
     }
   }, [requiredDiscardCount, match?.matchId]);
+
+  useEffect(() => {
+    if (!match) {
+      if (robberUiBlockTimerRef.current !== null) {
+        window.clearTimeout(robberUiBlockTimerRef.current);
+        robberUiBlockTimerRef.current = null;
+      }
+      robberUiMatchIdRef.current = null;
+      robberUiDiceEventIdRef.current = null;
+      setRobberUiBlockedByDiceAnimation(false);
+      return;
+    }
+
+    const latestDiceEventId = latestDiceEvent?.id ?? null;
+    if (robberUiMatchIdRef.current !== match.matchId) {
+      if (robberUiBlockTimerRef.current !== null) {
+        window.clearTimeout(robberUiBlockTimerRef.current);
+        robberUiBlockTimerRef.current = null;
+      }
+      robberUiMatchIdRef.current = match.matchId;
+      robberUiDiceEventIdRef.current = latestDiceEventId;
+      setRobberUiBlockedByDiceAnimation(false);
+      return;
+    }
+
+    if (latestDiceEventId === null || latestDiceEventId === robberUiDiceEventIdRef.current) {
+      return;
+    }
+
+    robberUiDiceEventIdRef.current = latestDiceEventId;
+    if (robberUiBlockTimerRef.current !== null) {
+      window.clearTimeout(robberUiBlockTimerRef.current);
+    }
+    setRobberUiBlockedByDiceAnimation(true);
+    robberUiBlockTimerRef.current = window.setTimeout(() => {
+      setRobberUiBlockedByDiceAnimation(false);
+      robberUiBlockTimerRef.current = null;
+    }, ROBBER_UI_DELAY_MS);
+  }, [latestDiceEvent?.id, match?.matchId]);
+
+  useEffect(() => {
+    return () => {
+      if (robberUiBlockTimerRef.current !== null) {
+        window.clearTimeout(robberUiBlockTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!match || interactionMode !== "robber") {
@@ -816,6 +878,14 @@ export function App() {
     }
 
     if (match.allowedMoves.robberMoveOptions.length > 0) {
+      if (robberUiDeferredByDiceAnimation) {
+        if (interactionMode !== null) {
+          setInteractionMode(null);
+          setSelectedRoadEdges([]);
+        }
+        return;
+      }
+
       setInteractionMode("robber");
       return;
     }
@@ -841,7 +911,7 @@ export function App() {
       setInteractionMode(null);
       setSelectedRoadEdges([]);
     }
-  }, [interactionMode, match]);
+  }, [interactionMode, match, robberUiDeferredByDiceAnimation]);
 
   const subscribeRoom = useCallback((roomId: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -1767,16 +1837,23 @@ export function App() {
         />
       ) : null}
 
-      {pendingRobberTargetSelection && match ? (
+      {!robberUiDeferredByDiceAnimation && pendingRobberTargetSelection && match ? (
         <RobberTargetDialog
           players={match.players}
           targetPlayerIds={pendingRobberTargetSelection.targetPlayerIds}
           onCancel={() => setPendingRobberTargetSelection(null)}
-          onSelect={(targetPlayerId) => queueRobberMoveConfirmation(pendingRobberTargetSelection.tileId, targetPlayerId)}
+          onSelect={(targetPlayerId) => {
+            if (!pendingRobberTargetSelection) {
+              return;
+            }
+            const { tileId } = pendingRobberTargetSelection;
+            setPendingRobberTargetSelection(null);
+            queueRobberMoveConfirmation(tileId, targetPlayerId);
+          }}
         />
       ) : null}
 
-      {requiredDiscardCount > 0 ? (
+      {!robberUiDeferredByDiceAnimation && requiredDiscardCount > 0 ? (
         <RobberDiscardDialog
           canConfirm={canSubmitRobberDiscard}
           draft={robberDiscardDraft}
@@ -1794,7 +1871,8 @@ export function App() {
         />
       ) : null}
 
-      {match &&
+      {!robberUiDeferredByDiceAnimation &&
+      match &&
       match.phase === "robber_interrupt" &&
       requiredDiscardCount === 0 &&
       robberDiscardStatus.length > 0 &&
@@ -1810,6 +1888,17 @@ export function App() {
       <ToastStack onDismiss={removeToast} toasts={toasts} />
     </main>
   );
+}
+
+function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"][number] | null {
+  for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
+    const event = match.eventLog[index];
+    if (event?.type === "dice_rolled") {
+      return event;
+    }
+  }
+
+  return null;
 }
 
 function getReconnectJitter(attempt: number): number {
