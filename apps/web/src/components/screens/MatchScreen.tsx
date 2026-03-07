@@ -149,6 +149,8 @@ export function MatchScreen(props: {
   });
   const [actionSection, setActionSection] = useState<ActionSection>("build");
   const [tradeSection, setTradeSection] = useState<TradeSection>("player");
+  const [selectedTradeGiveResource, setSelectedTradeGiveResource] = useState<Resource>("brick");
+  const [selectedTradeWantResource, setSelectedTradeWantResource] = useState<Resource>("grain");
   const [isCompactViewport, setIsCompactViewport] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -268,6 +270,9 @@ export function MatchScreen(props: {
   const tradeGiveSummary = renderResourceMap(props.tradeForm.give) || "Noch nichts im Angebot";
   const tradeWantSummary = renderResourceMap(props.tradeForm.want) || "Noch nichts angefragt";
   const effectiveTradeTargetPlayer = !isCurrentPlayer ? activePlayer : null;
+  const selectedTradeGiveCount = props.tradeForm.give[selectedTradeGiveResource] ?? 0;
+  const selectedTradeWantCount = props.tradeForm.want[selectedTradeWantResource] ?? 0;
+  const selectedTradeGiveMax = props.selfPlayer?.resources?.[selectedTradeGiveResource] ?? 0;
   const affordableMaritimeGiveResources = RESOURCES.filter((resource) => {
     const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
     return (props.selfPlayer?.resources?.[resource] ?? 0) >= ratio;
@@ -652,6 +657,15 @@ export function MatchScreen(props: {
       want: normalizedWant
     }));
   }, [props.selfPlayer?.resources, props.setTradeForm, props.tradeForm.give, props.tradeForm.want]);
+
+  useEffect(() => {
+    const ownedGiveResources = RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) > 0);
+    if (ownedGiveResources.length === 0 || ownedGiveResources.includes(selectedTradeGiveResource)) {
+      return;
+    }
+
+    setSelectedTradeGiveResource(ownedGiveResources[0]!);
+  }, [props.selfPlayer?.resources, selectedTradeGiveResource]);
 
   useEffect(() => {
     const normalizedGive =
@@ -1117,18 +1131,42 @@ export function MatchScreen(props: {
                     <strong>{tradeGiveSummary}</strong>
                     <span>Stelle dein Angebot aus beliebigen Rohstoffen deiner Hand zusammen.</span>
                   </div>
-                  <TradeResourceStepperGrid
-                    draft={props.tradeForm.give}
-                    mode="give"
-                    limits={props.selfPlayer?.resources ?? createEmptyResourceMap()}
-                    onAdjust={(resource, delta) =>
+                  <div className="trade-resource-grid-shell">
+                    <TradeResourceCardGrid
+                      value={selectedTradeGiveResource}
+                      resources={RESOURCES.map((resource) => {
+                        const available = props.selfPlayer?.resources?.[resource] ?? 0;
+                        const drafted = props.tradeForm.give[resource] ?? 0;
+                        return {
+                          resource,
+                          count: available,
+                          meta: drafted > 0 ? `${drafted} im Angebot` : "Auf der Hand",
+                          disabled: available <= 0
+                        };
+                      })}
+                      onChange={setSelectedTradeGiveResource}
+                    />
+                  </div>
+                  <TradeQuantityControl
+                    label="Abgeben"
+                    resource={selectedTradeGiveResource}
+                    value={selectedTradeGiveCount}
+                    min={0}
+                    max={selectedTradeGiveMax}
+                    disabled={selectedTradeGiveMax <= 0}
+                    helper={
+                      selectedTradeGiveMax > 0
+                        ? `Maximal ${selectedTradeGiveMax} Karten aus deiner Hand.`
+                        : "Von diesem Rohstoff hast du aktuell nichts."
+                    }
+                    onChange={(value) =>
                       props.setTradeForm((current) => ({
                         ...current,
-                        give: adjustTradeDraftCount(
+                        give: setTradeDraftCount(
                           current.give,
-                          resource,
-                          delta,
-                          props.selfPlayer?.resources?.[resource] ?? 0
+                          selectedTradeGiveResource,
+                          value,
+                          props.selfPlayer?.resources?.[selectedTradeGiveResource] ?? 0
                         )
                       }))
                     }
@@ -1160,13 +1198,30 @@ export function MatchScreen(props: {
                     <strong>{tradeWantSummary}</strong>
                     <span>Fordere eine beliebige Kombination von Rohstoffen an.</span>
                   </div>
-                  <TradeResourceStepperGrid
-                    draft={props.tradeForm.want}
-                    mode="want"
-                    onAdjust={(resource, delta) =>
+                  <div className="trade-resource-grid-shell">
+                    <TradeResourceCardGrid
+                      value={selectedTradeWantResource}
+                      resources={RESOURCES.map((resource) => {
+                        const drafted = props.tradeForm.want[resource] ?? 0;
+                        return {
+                          resource,
+                          count: drafted,
+                          meta: drafted > 0 ? `${drafted} angefragt` : "Anfragen"
+                        };
+                      })}
+                      onChange={setSelectedTradeWantResource}
+                    />
+                  </div>
+                  <TradeQuantityControl
+                    label="Erhalten"
+                    resource={selectedTradeWantResource}
+                    value={selectedTradeWantCount}
+                    min={0}
+                    helper="Lege die gewünschte Kartenanzahl fest."
+                    onChange={(value) =>
                       props.setTradeForm((current) => ({
                         ...current,
-                        want: adjustTradeDraftCount(current.want, resource, delta, 99)
+                        want: setTradeDraftCount(current.want, selectedTradeWantResource, value, 99)
                       }))
                     }
                   />
@@ -1768,55 +1823,6 @@ function TradeQuantityControl(props: {
   );
 }
 
-function TradeResourceStepperGrid(props: {
-  draft: ResourceMap;
-  mode: "give" | "want";
-  limits?: Partial<Record<Resource, number>>;
-  onAdjust: (resource: Resource, delta: -1 | 1) => void;
-}) {
-  return (
-    <div className="discard-resource-grid trade-draft-grid">
-      {RESOURCES.map((resource) => {
-        const selected = props.draft[resource] ?? 0;
-        const limit = props.mode === "give" ? (props.limits?.[resource] ?? 0) : (props.limits?.[resource] ?? 99);
-        const canDecrement = selected > 0;
-        const canIncrement = selected < limit;
-        const helper =
-          props.mode === "give"
-            ? `${limit} auf der Hand`
-            : selected > 0
-              ? `${selected} angefragt`
-              : "Noch nicht angefragt";
-
-        return (
-          <article key={resource} className={`discard-resource-card trade-draft-card ${selected > 0 ? "is-selected" : ""}`}>
-            <div className="discard-resource-head">
-              <span className="discard-resource-icon" aria-hidden="true">
-                <ResourceIcon resource={resource} tone="light" size={20} />
-              </span>
-              <div className="discard-resource-copy">
-                <strong>{renderResourceLabel(resource)}</strong>
-                <span>{helper}</span>
-              </div>
-            </div>
-            <div className="discard-stepper trade-draft-stepper">
-              <button type="button" className="ghost-button" onClick={() => props.onAdjust(resource, -1)} disabled={!canDecrement}>
-                -
-              </button>
-              <div className="discard-stepper-count" aria-label={`${selected} ${renderResourceLabel(resource)}`}>
-                {selected}
-              </div>
-              <button type="button" className="ghost-button" onClick={() => props.onAdjust(resource, 1)} disabled={!canIncrement}>
-                +
-              </button>
-            </div>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
 function DiceFace(props: { value: number | null }) {
   const positions = getDicePipPositions(props.value);
   return (
@@ -1842,10 +1848,10 @@ function clampTradeDraftCount(value: number | string, maxAvailable: number): num
   return Math.min(Math.max(sanitized, 0), maxAvailable);
 }
 
-function adjustTradeDraftCount(
+function setTradeDraftCount(
   draft: ResourceMap,
   resource: Resource,
-  delta: -1 | 1,
+  value: number | string,
   maxAvailable: number
 ): ResourceMap {
   const next = createEmptyResourceMap();
@@ -1853,7 +1859,7 @@ function adjustTradeDraftCount(
   for (const currentResource of RESOURCES) {
     next[currentResource] =
       currentResource === resource
-        ? clampTradeDraftCount((draft[currentResource] ?? 0) + delta, maxAvailable)
+        ? clampTradeDraftCount(value, maxAvailable)
         : draft[currentResource] ?? 0;
   }
 
