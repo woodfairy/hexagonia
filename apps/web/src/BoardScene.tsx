@@ -680,6 +680,7 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     if (!props.cameraCue) {
+      autoFlightRef.current = false;
       return;
     }
 
