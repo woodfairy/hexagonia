@@ -2348,7 +2348,7 @@ select:hover {
 
 .trade-resource-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(6.35rem, 1fr));
   gap: 0.58rem;
   min-inline-size: 0;
   align-content: start;
@@ -3162,12 +3162,6 @@ select:hover {
 
   .discard-dialog {
     inline-size: min(38rem, 100%);
-  }
-}
-
-@media (min-width: 1024px) {
-  .trade-resource-card-grid {
-    padding-inline: 0.52rem;
   }
 }
 
