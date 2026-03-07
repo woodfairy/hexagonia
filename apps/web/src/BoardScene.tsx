@@ -35,12 +35,12 @@ interface BoardSceneProps {
 }
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
-  brick: "#b6543d",
-  lumber: "#3f7f4b",
-  ore: "#9aa5b5",
-  grain: "#d4a73b",
-  wool: "#dfe7d7",
-  desert: "#c6ad72"
+  brick: "#b6644c",
+  lumber: "#4c7d46",
+  ore: "#8e98aa",
+  grain: "#caa13b",
+  wool: "#a8c98e",
+  desert: "#c8b07a"
 };
 
 const TILE_HEIGHT = 1.18;
@@ -715,7 +715,7 @@ function createTileMesh(
     insetGeometry,
     [
       new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], 0.025),
+        color: shadeColor(TILE_COLORS[tile.resource], 0.008),
         roughness: 0.86,
         metalness: 0.02,
         emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
