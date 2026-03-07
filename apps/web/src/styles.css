@@ -2347,7 +2347,7 @@ select:hover {
 
 .trade-resource-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(8.2rem, 100%), 1fr));
   gap: 0.58rem;
   min-inline-size: 0;
   align-content: start;
@@ -3195,7 +3195,7 @@ select:hover {
   }
 
   .trade-resource-grid-shell {
-    padding-inline: 0.28rem;
+    padding-inline: 0;
   }
 }
 
