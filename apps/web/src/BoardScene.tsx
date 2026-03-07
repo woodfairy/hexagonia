@@ -634,24 +634,26 @@ export function BoardScene(props: BoardSceneProps) {
         ? props.snapshot.allowedMoves.robberMoveOptions.map((option) => option.tileId)
         : []
     );
-    const ultraTerrainBundles = new Map<Resource | "desert", UltraTerrainTextureBundle>();
+    const texturedTerrainBundles = new Map<Resource | "desert", UltraTerrainTextureBundle>();
 
     for (const tile of props.snapshot.board.tiles) {
       const active = robberTileIds.has(tile.id);
-      if (props.visualProfile === "ultra" && !ultraTerrainBundles.has(tile.resource)) {
-        ultraTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
+      if (props.visualProfile !== "fast" && !texturedTerrainBundles.has(tile.resource)) {
+        texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
       }
       const base =
-        props.visualProfile === "ultra"
-          ? createUltraTileMesh(
+        props.visualProfile === "fast"
+          ? createModernTileMesh(tile, verticesById, active)
+          : createUltraTileMesh(
               tile,
               verticesById,
               active,
-              ultraTerrainBundles.get(tile.resource)!,
+              texturedTerrainBundles.get(tile.resource)!,
               ultraAnimatedMaterialsRef.current,
-              reducedMotionRef.current
-            )
-          : createModernTileMesh(tile, verticesById, active);
+              reducedMotionRef.current,
+              props.visualProfile === "ultra",
+              props.visualProfile === "ultra"
+            );
       base.position.set(tile.x, 0, tile.y);
       base.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -1036,7 +1038,9 @@ function createUltraTileMesh(
   active: boolean,
   terrainBundle: UltraTerrainTextureBundle,
   animatedMaterials: UltraTileOverlayMaterial[],
-  reducedMotion: boolean
+  reducedMotion: boolean,
+  animateOverlay: boolean,
+  includeRelief: boolean
 ): THREE.Group {
   const outerShape = createTileShape(tile, verticesById);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
@@ -1112,19 +1116,22 @@ function createUltraTileMesh(
   const overlayGeometry = new THREE.ShapeGeometry(overlayShape, 12);
   overlayGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(overlayGeometry);
-  const overlayMaterial = createUltraTileOverlayMaterial(terrainBundle, active, reducedMotion);
-  animatedMaterials.push(overlayMaterial);
+  const overlayMaterial = createUltraTileOverlayMaterial(terrainBundle, active, reducedMotion, animateOverlay);
+  if (animateOverlay) {
+    animatedMaterials.push(overlayMaterial);
+  }
   const overlayMesh = new THREE.Mesh(overlayGeometry, overlayMaterial);
   overlayMesh.position.y = TILE_HEIGHT + 0.028;
   overlayMesh.renderOrder = 4;
 
-  const reliefGroup = createUltraTerrainRelief(tile, active);
-  reliefGroup.position.y = TILE_HEIGHT + 0.006;
-
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh);
   tileGroup.add(insetMesh);
-  tileGroup.add(reliefGroup);
+  if (includeRelief) {
+    const reliefGroup = createUltraTerrainRelief(tile, active);
+    reliefGroup.position.y = TILE_HEIGHT + 0.006;
+    tileGroup.add(reliefGroup);
+  }
   tileGroup.add(overlayMesh);
   return tileGroup;
 }
@@ -3073,8 +3080,10 @@ function hashTileSeed(input: string): number {
 function createUltraTileOverlayMaterial(
   terrainBundle: UltraTerrainTextureBundle,
   active: boolean,
-  reducedMotion: boolean
+  reducedMotion: boolean,
+  animateOverlay: boolean
 ): UltraTileOverlayMaterial {
+  const motionBase = animateOverlay ? terrainBundle.appearance.overlayMotion : 0;
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uMask: { value: terrainBundle.overlayMask },
@@ -3084,7 +3093,7 @@ function createUltraTileOverlayMaterial(
       },
       uTime: { value: 0 },
       uOpacity: { value: terrainBundle.appearance.overlayOpacity + (active ? 0.08 : 0) },
-      uMotionScale: { value: terrainBundle.appearance.overlayMotion * (reducedMotion ? 0.12 : 1) },
+      uMotionScale: { value: motionBase * (reducedMotion ? 0.12 : 1) },
       uStyleIndex: { value: terrainBundle.appearance.styleIndex }
     },
     vertexShader: ULTRA_TILE_OVERLAY_VERTEX_SHADER,
@@ -3092,7 +3101,7 @@ function createUltraTileOverlayMaterial(
     transparent: true,
     depthWrite: false
   }) as UltraTileOverlayMaterial;
-  material.userData.motionBase = terrainBundle.appearance.overlayMotion;
+  material.userData.motionBase = motionBase;
   return material;
 }
 
