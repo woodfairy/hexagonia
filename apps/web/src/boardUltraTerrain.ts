@@ -18,7 +18,6 @@ export interface UltraTerrainAppearance {
   sideTint: string;
   insetSideTint: string;
   overlayBase: string;
-  overlayAccent: string;
   emissive: string;
   roughness: number;
   metalness: number;
@@ -26,9 +25,7 @@ export interface UltraTerrainAppearance {
   clearcoat: number;
   clearcoatRoughness: number;
   overlayOpacity: number;
-  overlayMotion: number;
   overlayScale: number;
-  styleIndex: number;
 }
 
 export interface UltraTerrainTextureBundle {
@@ -116,7 +113,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
   const sideTint = tint(base, -0.1);
   const insetSideTint = tint(base, -0.05);
   const overlayBase = tint(base, 0.06);
-  const overlayAccent = tint(base, 0.16);
   const emissive = tint(base, -0.22);
 
   switch (resource) {
@@ -127,7 +123,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         sideTint,
         insetSideTint,
         overlayBase,
-        overlayAccent,
         emissive,
         roughness: 0.86,
         metalness: 0.03,
@@ -135,9 +130,7 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         clearcoat: 0.08,
         clearcoatRoughness: 0.6,
         overlayOpacity: 0.26,
-        overlayMotion: 0.92,
-        overlayScale: 1.12,
-        styleIndex: 0
+        overlayScale: 1.12
       };
     case "ore":
       return {
@@ -146,7 +139,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         sideTint,
         insetSideTint,
         overlayBase,
-        overlayAccent,
         emissive,
         roughness: 0.74,
         metalness: 0.08,
@@ -154,9 +146,7 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         clearcoat: 0.04,
         clearcoatRoughness: 0.78,
         overlayOpacity: 0.2,
-        overlayMotion: 0.48,
-        overlayScale: 1.04,
-        styleIndex: 1
+        overlayScale: 1.04
       };
     case "grain":
       return {
@@ -165,7 +155,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         sideTint,
         insetSideTint,
         overlayBase,
-        overlayAccent,
         emissive,
         roughness: 0.72,
         metalness: 0.02,
@@ -173,9 +162,7 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         clearcoat: 0.12,
         clearcoatRoughness: 0.42,
         overlayOpacity: 0.28,
-        overlayMotion: 1.18,
-        overlayScale: 1.18,
-        styleIndex: 2
+        overlayScale: 1.18
       };
     case "brick":
       return {
@@ -184,7 +171,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         sideTint,
         insetSideTint,
         overlayBase,
-        overlayAccent,
         emissive,
         roughness: 0.9,
         metalness: 0.01,
@@ -192,9 +178,7 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         clearcoat: 0.02,
         clearcoatRoughness: 0.9,
         overlayOpacity: 0.18,
-        overlayMotion: 0.36,
-        overlayScale: 1.02,
-        styleIndex: 3
+        overlayScale: 1.02
       };
     case "wool":
       return {
@@ -203,7 +187,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         sideTint,
         insetSideTint,
         overlayBase,
-        overlayAccent,
         emissive,
         roughness: 0.82,
         metalness: 0.02,
@@ -211,9 +194,7 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         clearcoat: 0.08,
         clearcoatRoughness: 0.52,
         overlayOpacity: 0.2,
-        overlayMotion: 0.86,
-        overlayScale: 1.1,
-        styleIndex: 4
+        overlayScale: 1.1
       };
     case "desert":
       return {
@@ -222,7 +203,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         sideTint,
         insetSideTint,
         overlayBase,
-        overlayAccent,
         emissive,
         roughness: 0.94,
         metalness: 0,
@@ -230,9 +210,7 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         clearcoat: 0.02,
         clearcoatRoughness: 0.88,
         overlayOpacity: 0.16,
-        overlayMotion: 0.68,
-        overlayScale: 1.06,
-        styleIndex: 5
+        overlayScale: 1.06
       };
   }
 }

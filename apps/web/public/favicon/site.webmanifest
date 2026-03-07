@@ -1,0 +1,23 @@
+{
+  "name": "Hexagonia",
+  "short_name": "Hexagonia",
+  "description": "Hexagonia ist ein browserbasiertes Strategiespiel fuer private Live-Partien mit Raumcodes und Echtzeit-Board.",
+  "lang": "de-DE",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#091520",
+  "theme_color": "#091520",
+  "icons": [
+    {
+      "src": "/favicon/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
