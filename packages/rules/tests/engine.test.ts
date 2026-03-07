@@ -145,6 +145,20 @@ describe("rules engine", () => {
     expect(firstBoard.ports.map((port) => port.edgeId)).toEqual(secondBoard.ports.map((port) => port.edgeId));
   });
 
+  it("uses red, blue and orange for the 3-player beginner setup", () => {
+    const state = createMatchState({
+      matchId: "match-beginner-colors",
+      roomId: "room-1",
+      seed: "beginner-colors",
+      setupMode: "beginner",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    expect(state.players.map((player) => player.color)).toEqual(["red", "blue", "orange"]);
+    expect(state.players.some((player) => player.color === "white")).toBe(false);
+  });
+
   it("grants resources to settlements adjacent to the rolled number", () => {
     const state = createMatchState({
       matchId: "match-1",
@@ -390,6 +404,81 @@ describe("rules engine", () => {
     );
   });
 
+  it("requires choosing a robber victim when multiple players can be stolen from", () => {
+    const state = createMatchState({
+      matchId: "match-robber-multi",
+      roomId: "room-1",
+      seed: "robber-multi",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    const { tile } = prepareRobberMoveState(state);
+    assignSettlement(state, "p2", tile.vertexIds[0]!);
+    assignSettlement(state, "p3", tile.vertexIds[2]!);
+    state.players.find((player) => player.id === "p2")!.resources.brick = 1;
+    state.players.find((player) => player.id === "p3")!.resources.ore = 1;
+
+    const snapshot = createSnapshot(state, "p1");
+    const option = snapshot.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === tile.id)!;
+
+    expect(option.targetPlayerIds).toEqual(expect.arrayContaining(["p2", "p3"]));
+    expect(() => applyAction(state, "p1", { type: "move_robber", tileId: tile.id })).toThrow(
+      /Wähle den Spieler/
+    );
+  });
+
+  it("steals from the explicitly chosen robber victim", () => {
+    const state = createMatchState({
+      matchId: "match-robber-choice",
+      roomId: "room-1",
+      seed: "robber-choice",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    const { tile } = prepareRobberMoveState(state);
+    assignSettlement(state, "p2", tile.vertexIds[0]!);
+    assignSettlement(state, "p3", tile.vertexIds[2]!);
+    state.players.find((player) => player.id === "p2")!.resources.brick = 1;
+    state.players.find((player) => player.id === "p3")!.resources.ore = 1;
+
+    const nextState = applyAction(state, "p1", {
+      type: "move_robber",
+      tileId: tile.id,
+      targetPlayerId: "p3"
+    });
+
+    expect(nextState.players.find((player) => player.id === "p1")!.resources.ore).toBe(1);
+    expect(nextState.players.find((player) => player.id === "p2")!.resources.brick).toBe(1);
+    expect(nextState.players.find((player) => player.id === "p3")!.resources.ore).toBe(0);
+  });
+
+  it("still auto-steals when only one robber victim is possible", () => {
+    const state = createMatchState({
+      matchId: "match-robber-single",
+      roomId: "room-1",
+      seed: "robber-single",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    const { tile } = prepareRobberMoveState(state);
+    assignSettlement(state, "p2", tile.vertexIds[0]!);
+    state.players.find((player) => player.id === "p2")!.resources.brick = 1;
+
+    const nextState = applyAction(state, "p1", {
+      type: "move_robber",
+      tileId: tile.id
+    });
+
+    expect(nextState.players.find((player) => player.id === "p1")!.resources.brick).toBe(1);
+    expect(nextState.players.find((player) => player.id === "p2")!.resources.brick).toBe(0);
+  });
+
   it("removes longest road when the previous holder is no longer tied for the lead", () => {
     const state = createMatchState({
       matchId: "match-road-award",
@@ -546,6 +635,38 @@ function findSeedWithStartingRollTie(): string {
   }
 
   throw new Error("Could not find a deterministic starting-player tie seed.");
+}
+
+function prepareRobberMoveState(state: ReturnType<typeof createMatchState>) {
+  state.phase = "robber_interrupt";
+  state.previousPhase = null;
+  state.setupState = null;
+  state.turn = 2;
+  state.currentPlayerIndex = 0;
+  state.tradeOffers = [];
+  state.robberState = {
+    resumePhase: "turn_action",
+    pendingDiscardByPlayerId: {}
+  };
+  state.players.forEach((player) => {
+    player.resources = createEmptyResourceMap();
+    player.settlements = [];
+  });
+
+  const tile = state.board.tiles.find((entry) => entry.resource !== "desert" && !entry.robber)!;
+  return { tile };
+}
+
+function assignSettlement(state: ReturnType<typeof createMatchState>, playerId: string, vertexId: string) {
+  const player = state.players.find((entry) => entry.id === playerId)!;
+  const vertex = state.board.vertices.find((entry) => entry.id === vertexId)!;
+
+  vertex.building = {
+    ownerId: player.id,
+    color: player.color,
+    type: "settlement"
+  };
+  player.settlements.push(vertexId);
 }
 
 function createAllOfficialPlacementOrders<T extends { q: number; r: number }>(tiles: T[]): T[][] {

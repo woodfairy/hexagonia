@@ -3062,6 +3062,48 @@ select:hover {
   overflow: auto;
 }
 
+.robber-target-dialog {
+  inline-size: min(30rem, 100%);
+}
+
+.robber-target-copy {
+  gap: 0.48rem;
+}
+
+.robber-target-options {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.robber-target-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  min-block-size: 3.6rem;
+  padding: 0.9rem 1rem;
+  text-align: left;
+}
+
+.robber-target-option .player-identity {
+  min-inline-size: 0;
+}
+
+.robber-target-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.robber-target-option.is-offline .robber-target-meta {
+  color: rgb(255 150 150 / 0.92);
+}
+
+.robber-target-actions {
+  grid-template-columns: 1fr;
+}
+
 .confirm-copy,
 .confirm-actions {
   display: grid;

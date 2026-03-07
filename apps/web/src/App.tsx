@@ -53,6 +53,7 @@ import {
   type AuthMode,
   type ConnectionState,
   type RouteState,
+  getPlayerAccentClass,
   readRoute,
   renderResourceLabel,
   renderResourceMap
@@ -81,6 +82,11 @@ interface PendingMatchConfirmation {
   confirmLabel: string;
   message: Extract<ClientMessage, { type: "match.action" }>;
   afterConfirm?: () => void;
+}
+
+interface PendingRobberTargetSelection {
+  tileId: string;
+  targetPlayerIds: string[];
 }
 
 export function App() {
@@ -125,6 +131,7 @@ export function App() {
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
   const [route, setRoute] = useState<RouteState>(readRoute());
   const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<PendingMatchConfirmation | null>(null);
+  const [pendingRobberTargetSelection, setPendingRobberTargetSelection] = useState<PendingRobberTargetSelection | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
   const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
 
@@ -279,6 +286,29 @@ export function App() {
       setRobberDiscardMinimized(false);
     }
   }, [requiredDiscardCount, match?.matchId]);
+
+  useEffect(() => {
+    if (!match || interactionMode !== "robber") {
+      setPendingRobberTargetSelection(null);
+      return;
+    }
+
+    setPendingRobberTargetSelection((current) => {
+      if (!current) {
+        return null;
+      }
+
+      const option = match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === current.tileId);
+      if (!option || option.targetPlayerIds.length <= 1) {
+        return null;
+      }
+
+      return {
+        tileId: current.tileId,
+        targetPlayerIds: option.targetPlayerIds
+      };
+    });
+  }, [interactionMode, match]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -827,6 +857,33 @@ export function App() {
   const handleCancelPendingAction = useCallback(() => {
     setPendingMatchConfirmation(null);
   }, []);
+
+  const queueRobberMoveConfirmation = useCallback(
+    (tileId: string, targetPlayerId?: string) => {
+      if (!matchRef.current) {
+        return;
+      }
+
+      const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+        type: "move_robber",
+        tileId,
+        ...(targetPlayerId ? { targetPlayerId } : {})
+      };
+
+      queueMatchConfirmation(
+        {
+          type: "match.action",
+          matchId: matchRef.current.matchId,
+          action
+        },
+        () => {
+          setPendingRobberTargetSelection(null);
+          setInteractionMode(null);
+        }
+      );
+    },
+    [queueMatchConfirmation]
+  );
 
   const handleAdjustRobberDiscard = useCallback(
     (resource: Resource, delta: -1 | 1) => {
@@ -1440,21 +1497,19 @@ export function App() {
     }
 
     const option = match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === tileId);
-    const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
-      type: "move_robber",
-      tileId
-    };
-    if (option?.targetPlayerIds[0]) {
-      action.targetPlayerId = option.targetPlayerIds[0];
+    if (!option) {
+      return;
     }
-    queueMatchConfirmation(
-      {
-        type: "match.action",
-        matchId: match.matchId,
-        action
-      },
-      () => setInteractionMode(null)
-    );
+
+    if (option.targetPlayerIds.length > 1) {
+      setPendingRobberTargetSelection({
+        tileId,
+        targetPlayerIds: option.targetPlayerIds
+      });
+      return;
+    }
+
+    queueRobberMoveConfirmation(tileId, option.targetPlayerIds[0]);
   };
 
   const sendTradeOffer = () => {
@@ -1618,6 +1673,15 @@ export function App() {
         />
       ) : null}
 
+      {pendingRobberTargetSelection && match ? (
+        <RobberTargetDialog
+          players={match.players}
+          targetPlayerIds={pendingRobberTargetSelection.targetPlayerIds}
+          onCancel={() => setPendingRobberTargetSelection(null)}
+          onSelect={(targetPlayerId) => queueRobberMoveConfirmation(pendingRobberTargetSelection.tileId, targetPlayerId)}
+        />
+      ) : null}
+
       {requiredDiscardCount > 0 ? (
         <RobberDiscardDialog
           canConfirm={canSubmitRobberDiscard}
@@ -1684,6 +1748,54 @@ function ConfirmActionDialog(props: {
           </button>
           <button type="button" className="primary-button" onClick={props.onConfirm}>
             {props.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RobberTargetDialog(props: {
+  players: MatchSnapshot["players"];
+  targetPlayerIds: string[];
+  onCancel: () => void;
+  onSelect: (targetPlayerId: string) => void;
+}) {
+  const targets = props.targetPlayerIds.flatMap((targetPlayerId) => {
+    const player = props.players.find((entry) => entry.id === targetPlayerId);
+    return player ? [player] : [];
+  });
+
+  return (
+    <div className="confirm-overlay robber-target-overlay" role="presentation" onClick={props.onCancel}>
+      <div
+        className="confirm-dialog robber-target-dialog surface"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="robber-target-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="confirm-copy robber-target-copy">
+          <span className="eyebrow">Räuberphase</span>
+          <h2 id="robber-target-title">Von wem stehlen?</h2>
+          <p>Auf diesem Feld kommen mehrere Spieler infrage. Wähle das Opfer aus, bevor der Räuber bestätigt wird.</p>
+        </div>
+        <div className="robber-target-options">
+          {targets.map((player) => (
+            <button
+              key={player.id}
+              type="button"
+              className={`robber-target-option surface ${player.connected ? "" : "is-offline"} ${getPlayerAccentClass(player.color)}`}
+              onClick={() => props.onSelect(player.id)}
+            >
+              <PlayerIdentity color={player.color} username={player.username} />
+              <span className="robber-target-meta">{player.connected ? "Online" : "Getrennt"}</span>
+            </button>
+          ))}
+        </div>
+        <div className="confirm-actions robber-target-actions">
+          <button type="button" className="ghost-button" onClick={props.onCancel}>
+            Abbrechen
           </button>
         </div>
       </div>
