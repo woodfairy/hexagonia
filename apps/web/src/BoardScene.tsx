@@ -133,6 +133,10 @@ interface ReliefAnchor {
   angle: number;
 }
 
+function getCyclicVariant<T>(variants: readonly [T, ...T[]], index: number): T {
+  return variants[index % variants.length] ?? variants[0];
+}
+
 interface UltraTileOverlayUniforms {
   uMask: THREE.IUniform<THREE.Texture>;
   uBaseColor: THREE.IUniform<THREE.Color>;
@@ -1176,7 +1180,7 @@ function buildLumberRelief(
   const fillAnchors = createReliefAnchors(tile, 8, 1.16, 2.54, 0.24, 0.46, "forest-scatter");
   const fillVariants = ["fern", "log", "stones"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createForestGroundDetail(anchor.scale, active, fillVariants[index % fillVariants.length]);
+    const detail = createForestGroundDetail(anchor.scale, active, getCyclicVariant(fillVariants, index));
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1207,7 +1211,7 @@ function buildOreRelief(
   const fillAnchors = createReliefAnchors(tile, 8, 1.18, 2.58, 0.24, 0.48, "ore-scatter");
   const fillVariants = ["rubble", "crystal", "ledge"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createOreScatter(anchor.scale, active, fillVariants[index % fillVariants.length]);
+    const detail = createOreScatter(anchor.scale, active, getCyclicVariant(fillVariants, index));
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1238,7 +1242,7 @@ function buildGrainRelief(
   const fillAnchors = createReliefAnchors(tile, 9, 1.14, 2.48, 0.24, 0.42, "grain-scatter");
   const fillVariants = ["furrow", "tuft", "stook"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createFieldDetail(anchor.scale, active, fillVariants[index % fillVariants.length]);
+    const detail = createFieldDetail(anchor.scale, active, getCyclicVariant(fillVariants, index));
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle + Math.PI / 2;
     group.add(detail);
@@ -1269,7 +1273,7 @@ function buildBrickRelief(
   const fillAnchors = createReliefAnchors(tile, 8, 1.14, 2.48, 0.24, 0.44, "brick-scatter");
   const fillVariants = ["rubble", "cut", "pit"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createClayScatter(anchor.scale, active, fillVariants[index % fillVariants.length]);
+    const detail = createClayScatter(anchor.scale, active, getCyclicVariant(fillVariants, index));
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1292,7 +1296,7 @@ function buildWoolRelief(
   const accentAnchors = createReliefAnchors(tile, 8, 1.72, 3.08, 0.38, 0.68, "wool-accent");
   const accentVariants = ["fence", "lamb", "shrub", "trough", "flowers"] as const;
   for (const [index, anchor] of accentAnchors.entries()) {
-    const accent = createPastureAccent(anchor.scale, active, accentVariants[index % accentVariants.length]);
+    const accent = createPastureAccent(anchor.scale, active, getCyclicVariant(accentVariants, index));
     accent.position.set(anchor.x, 0, anchor.z);
     accent.rotation.y = anchor.angle;
     group.add(accent);
@@ -1301,7 +1305,7 @@ function buildWoolRelief(
   const fillAnchors = createReliefAnchors(tile, 9, 1.14, 2.46, 0.22, 0.4, "wool-scatter");
   const fillVariants = ["flowers", "trough", "shrub"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createPastureGroundDetail(anchor.scale, active, fillVariants[index % fillVariants.length]);
+    const detail = createPastureGroundDetail(anchor.scale, active, getCyclicVariant(fillVariants, index));
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
@@ -1332,7 +1336,7 @@ function buildDesertRelief(
   const fillAnchors = createReliefAnchors(tile, 8, 1.16, 2.54, 0.24, 0.42, "desert-scatter");
   const fillVariants = ["ripple", "scrub", "bones"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
-    const detail = createDesertScatter(anchor.scale, active, fillVariants[index % fillVariants.length]);
+    const detail = createDesertScatter(anchor.scale, active, getCyclicVariant(fillVariants, index));
     detail.position.set(anchor.x, 0, anchor.z);
     detail.rotation.y = anchor.angle;
     group.add(detail);
