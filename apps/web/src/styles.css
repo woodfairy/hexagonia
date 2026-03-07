@@ -1482,9 +1482,9 @@ select {
   flex: 1 1 auto;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 0.3rem;
-  block-size: 5.45rem;
-  padding: 0.42rem 0.5rem;
+  gap: 0.34rem;
+  block-size: 5.55rem;
+  padding: 0.5rem 0.62rem 0.56rem;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-control);
   background: rgba(255, 255, 255, 0.045);
@@ -1523,7 +1523,7 @@ select {
   block-size: 100%;
   min-block-size: 0;
   align-content: start;
-  gap: 0.2rem;
+  gap: 0.24rem;
   animation-duration: 220ms;
 }
 
@@ -1564,7 +1564,8 @@ select {
   gap: 0.38rem;
   color: var(--muted);
   font-size: 0.76rem;
-  line-height: 1.24;
+  line-height: 1.18;
+  padding-inline-start: 0.02rem;
 }
 
 .board-mobile-meta span + span::before {
@@ -1611,6 +1612,53 @@ select {
   inset-block-start: calc(100% + 0.5rem);
   inset-inline-end: 0;
   inline-size: min(22rem, calc(100vw - 1.5rem));
+}
+
+.match-sheet-mobile-profile {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.match-sheet-mobile-profile .profile-menu {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.match-sheet-mobile-profile .profile-trigger {
+  min-inline-size: min(100%, 10.5rem);
+  min-block-size: 2.65rem;
+  padding: 0.36rem 0.72rem 0.36rem 0.42rem;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022)),
+    rgba(8, 16, 24, 0.92);
+  box-shadow: var(--shadow-md);
+}
+
+.match-sheet-mobile-profile .profile-trigger-copy {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.match-sheet-mobile-profile .profile-trigger-copy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-sheet-mobile-profile .profile-trigger-copy span {
+  display: none;
+}
+
+.match-sheet-mobile-profile .profile-avatar {
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+
+.match-sheet-mobile-profile .profile-dropdown {
+  inset-block-start: calc(100% + 0.55rem);
+  inline-size: min(22rem, calc(100vw - 1.4rem));
 }
 
 .board-toggle,
@@ -4281,21 +4329,6 @@ select {
   }
 
   .app-shell.is-match-screen > .app-header {
-    position: absolute;
-    inset-block-start: max(0.7rem, env(safe-area-inset-top));
-    inset-inline-end: max(0.7rem, env(safe-area-inset-right));
-    inset-inline-start: auto;
-    z-index: 9;
-    align-self: start;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-
-  .app-shell.is-match-screen > .app-header .brand-cluster,
-  .app-shell.is-match-screen > .app-header .connection-indicator span {
     display: none;
   }
 
@@ -4417,7 +4450,7 @@ select {
 
   .board-topbar.is-mobile {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
@@ -4668,20 +4701,6 @@ select {
   }
 
   .app-shell.is-match-screen > .app-header {
-    position: absolute;
-    inset-block-start: max(0.55rem, env(safe-area-inset-top));
-    inset-inline-end: max(0.55rem, env(safe-area-inset-right));
-    inset-inline-start: auto;
-    z-index: 9;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-
-  .app-shell.is-match-screen > .app-header .brand-cluster,
-  .app-shell.is-match-screen > .app-header .connection-indicator span {
     display: none;
   }
 
@@ -4897,7 +4916,7 @@ select {
 
   .board-topbar.is-mobile {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
@@ -5121,8 +5140,9 @@ select {
   }
 
   .board-mobile-summary {
-    block-size: 5rem;
-    padding: 0.4rem 0.46rem;
+    gap: 0.32rem;
+    block-size: 5.16rem;
+    padding: 0.46rem 0.56rem 0.52rem;
   }
 
   .board-mobile-summary strong {
@@ -5130,7 +5150,7 @@ select {
   }
 
   .board-mobile-meta {
-    gap: 0.3rem;
+    gap: 0.32rem;
     font-size: 0.72rem;
   }
 
