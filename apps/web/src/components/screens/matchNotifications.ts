@@ -30,6 +30,7 @@ export interface MatchNotificationPrivateCache {
 
 export interface MatchNotificationState {
   heroNotification: MatchNotification | null;
+  boardFocusNotification: MatchNotification | null;
   recentNotifications: MatchNotification[];
   historyNotifications: MatchNotification[];
   announcementText: string | null;
@@ -79,7 +80,8 @@ export function createMatchNotificationState(args: {
   const recentNotifications = historyNotifications.slice(0, 8);
   const newNotifications = notificationsInOrder.filter((notification) => newlySeenEventIdSet.has(notification.eventId));
   const heroNotification = newNotifications.at(-1) ?? notificationsInOrder.at(-1) ?? null;
-  const boardCue = heroNotification?.cue ?? null;
+  const boardFocusNotification = pickBoardFocusNotification(newNotifications, notificationsInOrder);
+  const boardCue = boardFocusNotification?.cue ?? null;
   const announcementText =
     args.previousMatch && newNotifications.length
       ? newNotifications
@@ -91,12 +93,69 @@ export function createMatchNotificationState(args: {
 
   return {
     heroNotification,
+    boardFocusNotification,
     recentNotifications,
     historyNotifications,
     announcementText,
     boardCue,
     privateCache
   };
+}
+
+function pickBoardFocusNotification(
+  newNotifications: MatchNotification[],
+  notificationsInOrder: MatchNotification[]
+): MatchNotification | null {
+  if (newNotifications.length > 0) {
+    return pickPreferredNewBoardFocusNotification(newNotifications);
+  }
+
+  for (let index = notificationsInOrder.length - 1; index >= 0; index -= 1) {
+    const notification = notificationsInOrder[index];
+    if (notification?.cue) {
+      return notification;
+    }
+  }
+
+  return null;
+}
+
+function pickPreferredNewBoardFocusNotification(notifications: MatchNotification[]): MatchNotification | null {
+  let bestNotification: MatchNotification | null = null;
+  let bestPriority = Number.NEGATIVE_INFINITY;
+
+  for (const notification of notifications) {
+    if (!notification.cue) {
+      continue;
+    }
+
+    const priority = getBoardFocusPriority(notification.eventType);
+    if (priority >= bestPriority) {
+      bestNotification = notification;
+      bestPriority = priority;
+    }
+  }
+
+  return bestNotification;
+}
+
+function getBoardFocusPriority(eventType: MatchNotification["eventType"]): number {
+  switch (eventType) {
+    case "initial_settlement_placed":
+    case "settlement_built":
+    case "initial_road_placed":
+    case "road_built":
+    case "city_built":
+    case "robber_moved":
+      return 4;
+    case "resources_distributed":
+      return 3;
+    case "longest_road_awarded":
+    case "largest_army_awarded":
+      return 2;
+    default:
+      return 1;
+  }
 }
 
 function createNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification | null {

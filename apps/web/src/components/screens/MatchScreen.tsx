@@ -262,6 +262,7 @@ export function MatchScreen(props: {
     [props.match]
   );
   const heroNotification = notificationState.heroNotification;
+  const boardFocusNotification = notificationState.boardFocusNotification;
   const isDiceAnimationActive =
     (latestDiceEvent?.id ?? null) !== seenDiceEventIdRef.current || diceDisplay.phase !== "idle";
   const deferDiceNotification =
@@ -292,12 +293,12 @@ export function MatchScreen(props: {
   const visibleNotificationCue = isDiceAnimationActive ? null : notificationState.boardCue;
   const highlightCue = actionCue ?? visibleNotificationCue;
   const shouldAutoFocusRecentEvent =
-    !!heroNotification &&
+    !!boardFocusNotification &&
     !!visibleNotificationCue &&
-    heroNotification.autoFocus &&
-    (heroNotification.eventType === "dice_rolled" ||
-      heroNotification.eventType === "resources_distributed" ||
-      heroNotification.playerId !== props.match.you);
+    boardFocusNotification.autoFocus &&
+    (boardFocusNotification.eventType === "dice_rolled" ||
+      boardFocusNotification.eventType === "resources_distributed" ||
+      boardFocusNotification.playerId !== props.match.you);
   const cameraCue =
     autoFocusEnabled && !isDiceAnimationActive
       ? (actionCameraCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
