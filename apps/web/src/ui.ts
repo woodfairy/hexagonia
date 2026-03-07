@@ -42,10 +42,10 @@ export function renderConnectionLabel(session: AuthUser | null | undefined, conn
   }
 
   if (connectionState === "connecting") {
-    return "Verbinde";
+    return "Reconnect...";
   }
 
-  return "Getrennt";
+  return "Offline";
 }
 
 export function renderEventLabel(type: string): string {

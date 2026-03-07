@@ -2,6 +2,7 @@ import type { AuthUser } from "@hexagonia/shared";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel } from "../../ui";
 import { ProfileMenu } from "./ProfileMenu";
+import hexaLogo from "../../../../../assets/img/hexa.png";
 
 export function AppHeader(props: {
   session: AuthUser | null | undefined;
@@ -28,8 +29,8 @@ export function AppHeader(props: {
   return (
     <header className="app-header">
       <div className="brand-cluster">
-        <button type="button" className="brand-mark" onClick={props.onNavigateHome}>
-          HX
+        <button type="button" className="brand-mark" onClick={props.onNavigateHome} aria-label="Zur Startseite von Hexagonia">
+          <img src={hexaLogo} alt="Hexagonia" className="brand-mark-image" />
         </button>
         <div className="brand-copy">
           <span className="eyebrow">{props.eyebrow}</span>
