@@ -37,17 +37,26 @@ export interface UltraTerrainTextureBundle {
 }
 
 const TERRAIN_TEXTURE_SIZE = 512;
+const SHARED_RESOURCE_FLAG = "__sharedResource";
 const terrainMapCache = new Map<TerrainResource, CachedTerrainMaps>();
+const terrainTextureBundleCache = new Map<TerrainResource, UltraTerrainTextureBundle>();
 
 export function createUltraTerrainTextureBundle(resource: TerrainResource): UltraTerrainTextureBundle {
+  const existing = terrainTextureBundleCache.get(resource);
+  if (existing) {
+    return existing;
+  }
+
   const cached = getCachedTerrainMaps(resource);
-  return {
+  const bundle = {
     appearance: cached.appearance,
     colorMap: createCanvasTexture(cached.colorCanvas, true),
     roughnessMap: createCanvasTexture(cached.roughnessCanvas, false),
     bumpMap: createCanvasTexture(cached.bumpCanvas, false),
     overlayMask: createCanvasTexture(cached.overlayCanvas, false, cached.appearance.overlayScale, THREE.RepeatWrapping)
   };
+  terrainTextureBundleCache.set(resource, bundle);
+  return bundle;
 }
 
 function getCachedTerrainMaps(resource: TerrainResource): CachedTerrainMaps {
@@ -546,6 +555,7 @@ function createCanvasTexture(
   wrapMode: THREE.Wrapping = THREE.ClampToEdgeWrapping
 ): THREE.CanvasTexture {
   const texture = new THREE.CanvasTexture(canvas);
+  texture.userData[SHARED_RESOURCE_FLAG] = true;
   texture.wrapS = wrapMode;
   texture.wrapT = wrapMode;
   texture.repeat.set(repeat, repeat);
