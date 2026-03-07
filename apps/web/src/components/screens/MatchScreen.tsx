@@ -1700,9 +1700,6 @@ export function MatchScreen(props: {
                     <span>{boardDiceLabel}</span>
                   </span>
                 </div>
-                <div className="board-topbar-profile">
-                  <ProfileMenu {...props.profileMenuProps} />
-                </div>
               </>
             ) : (
               <>
@@ -1930,6 +1927,11 @@ export function MatchScreen(props: {
                   {renderTabLabel(tab)}
                 </button>
               ))}
+            </div>
+          ) : null}
+          {isMobileViewport ? (
+            <div className="match-sheet-mobile-profile">
+              <ProfileMenu {...props.profileMenuProps} />
             </div>
           ) : null}
           {effectiveSheetState !== "peek" ? renderActiveTabPanel(true) : null}
