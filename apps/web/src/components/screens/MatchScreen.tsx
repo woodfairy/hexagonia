@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import type { ClientMessage, MatchSnapshot, PlayerColor, PortType, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
+import type {
+  ClientMessage,
+  DevelopmentCardView,
+  MatchSnapshot,
+  PlayerColor,
+  PortType,
+  Resource,
+  ResourceMap,
+  RoomDetails
+} from "@hexagonia/shared";
 import { createEmptyResourceMap, equalResourceMaps, hasResources, isEmptyResourceMap, RESOURCES, totalResources } from "@hexagonia/shared";
 import { BoardScene, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
@@ -20,7 +29,6 @@ export interface MaritimeFormState {
 
 type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players";
 type SheetState = "peek" | "half" | "full";
-type ActionSection = "build" | "cards";
 type TradeSection = "player" | "maritime";
 type BuildActionId = "road" | "settlement" | "city" | "development";
 
@@ -149,7 +157,6 @@ export function MatchScreen(props: {
 
     return window.innerWidth <= 719 || window.innerHeight <= 560 ? "peek" : "half";
   });
-  const [actionSection, setActionSection] = useState<ActionSection>("build");
   const [tradeSection, setTradeSection] = useState<TradeSection>("player");
   const [selectedTradeGiveResource, setSelectedTradeGiveResource] = useState<Resource>("brick");
   const [selectedTradeWantResource, setSelectedTradeWantResource] = useState<Resource>("grain");
@@ -339,8 +346,17 @@ export function MatchScreen(props: {
     hasResources(props.selfPlayer?.resources ?? createEmptyResourceMap(), props.tradeForm.give);
   const canSubmitMaritimeTrade = (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
+  const developmentCards = props.selfPlayer?.developmentCards ?? [];
+  const hiddenVictoryPoints = props.selfPlayer?.hiddenVictoryPoints ?? 0;
+  const totalVictoryPoints = props.selfPlayer?.totalVictoryPoints ?? props.selfPlayer?.publicVictoryPoints ?? 0;
+  const pendingRoadBuilding =
+    props.match.pendingDevelopmentEffect?.type === "road_building" ? props.match.pendingDevelopmentEffect : null;
+  const playableDevelopmentCardCount =
+    isCurrentPlayer && !pendingRoadBuilding && (props.match.phase === "turn_roll" || props.match.phase === "turn_action")
+      ? developmentCards.filter((card) => card.playable).length
+      : 0;
   const mobileHudSummary = props.selfPlayer
-    ? `${props.selfPlayer.publicVictoryPoints} VP · ${props.selfPlayer.resourceCount} Karten`
+    ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
   const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
   const mobileBoardSummary = activePlayer
@@ -360,6 +376,172 @@ export function MatchScreen(props: {
       setSheetState("half");
     }
   };
+  const openHandPanel = () => {
+    setActiveTab("hand");
+    if (effectiveSheetState === "peek") {
+      setSheetState("half");
+    }
+  };
+  const renderDevelopmentCardControls = (card: DevelopmentCardView): ReactNode => {
+    if (!isCurrentPlayer) {
+      return null;
+    }
+
+    switch (card.type) {
+      case "knight":
+        return card.playable ? (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() =>
+              props.onAction({
+                type: "match.action",
+                matchId: props.match.matchId,
+                action: { type: "play_knight" }
+              })
+            }
+          >
+            Ritter spielen
+          </button>
+        ) : null;
+      case "road_building":
+        return card.playable ? (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() =>
+              props.onAction({
+                type: "match.action",
+                matchId: props.match.matchId,
+                action: { type: "play_road_building" }
+              })
+            }
+          >
+            Straßenbau starten
+          </button>
+        ) : null;
+      case "year_of_plenty":
+        return card.playable ? (
+          <div className="triple-select development-card-controls">
+            <select
+              value={props.yearOfPlenty[0]}
+              onChange={(event) => props.setYearOfPlenty(([_, second]) => [event.target.value as Resource, second])}
+            >
+              {RESOURCES.map((resource) => (
+                <option key={resource} value={resource}>
+                  {renderResourceLabel(resource)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={props.yearOfPlenty[1]}
+              onChange={(event) => props.setYearOfPlenty(([first]) => [first, event.target.value as Resource])}
+            >
+              {RESOURCES.map((resource) => (
+                <option key={resource} value={resource}>
+                  {renderResourceLabel(resource)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!canPlayYearOfPlenty}
+              onClick={() =>
+                props.onAction({
+                  type: "match.action",
+                  matchId: props.match.matchId,
+                  action: {
+                    type: "play_year_of_plenty",
+                    resources: props.yearOfPlenty
+                  }
+                })
+              }
+            >
+              Erfindung spielen
+            </button>
+          </div>
+        ) : null;
+      case "monopoly":
+        return card.playable ? (
+          <div className="triple-select development-card-controls">
+            <select
+              value={props.monopolyResource}
+              onChange={(event) => props.setMonopolyResource(event.target.value as Resource)}
+            >
+              {RESOURCES.map((resource) => (
+                <option key={resource} value={resource}>
+                  {renderResourceLabel(resource)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() =>
+                props.onAction({
+                  type: "match.action",
+                  matchId: props.match.matchId,
+                  action: {
+                    type: "play_monopoly",
+                    resource: props.monopolyResource
+                  }
+                })
+              }
+            >
+              Monopol spielen
+            </button>
+          </div>
+        ) : null;
+      case "victory_point":
+        return null;
+      default:
+        return null;
+    }
+  };
+  const pendingRoadBuildingCard =
+    pendingRoadBuilding && isCurrentPlayer ? (
+      <article className="mini-card development-card development-card-active">
+        <div className="development-card-head">
+          <strong>Straßenbau aktiv</strong>
+          <span className="status-pill is-warning">
+            {pendingRoadBuilding.remainingRoads === 2 ? "2 Straßen offen" : "1 Straße offen"}
+          </span>
+        </div>
+        <span>
+          {pendingRoadBuilding.remainingRoads === 2
+            ? "Wähle jetzt die erste kostenlose Straße auf dem Brett."
+            : "Wähle die zweite kostenlose Straße oder beende den Effekt."}
+        </span>
+        <div className="development-card-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              props.setInteractionMode("road_building");
+              props.setSelectedRoadEdges([]);
+            }}
+          >
+            Straße auf Brett wählen
+          </button>
+          {pendingRoadBuilding.remainingRoads === 1 ? (
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() =>
+                props.onAction({
+                  type: "match.action",
+                  matchId: props.match.matchId,
+                  action: { type: "finish_road_building" }
+                })
+              }
+            >
+              Mit einer Straße beenden
+            </button>
+          ) : null}
+        </div>
+      </article>
+    ) : null;
   const renderTabLabel = (tab: { id: MatchPanelTab; label: string }) => {
     const alertCount = tab.id === "trade" ? incomingTradeCount : 0;
     return (
@@ -950,126 +1132,29 @@ export function MatchScreen(props: {
         <section className="dock-section">
           <div className="dock-section-head">
             <h3>Entwicklungskarten</h3>
-            <span>Spielbar: {props.match.allowedMoves.playableDevelopmentCards.length}</span>
+            <span>Spielbar: {playableDevelopmentCardCount}</span>
           </div>
-          <div className="mini-segmented">
-            <button type="button" className={actionSection === "build" ? "is-active" : ""} onClick={() => setActionSection("build")}>
-              Schnell
-            </button>
-            <button type="button" className={actionSection === "cards" ? "is-active" : ""} onClick={() => setActionSection("cards")}>
-              Karten
-            </button>
+          <article className="mini-card development-summary-card">
+            <strong>{pendingRoadBuilding ? "Straßenbau-Effekt läuft" : "Direkt aus der Hand spielen"}</strong>
+            <span>
+              {pendingRoadBuilding
+                ? `Es sind noch ${pendingRoadBuilding.remainingRoads} kostenlose ${pendingRoadBuilding.remainingRoads === 1 ? "Straße" : "Straßen"} offen.`
+                : "Alle Entwicklungskarten werden in der Hand erklärt und von dort direkt ausgespielt."}
+            </span>
+          </article>
+          <div className="status-strip development-summary-pills">
+            <span className="status-pill">Hand {developmentCards.length}</span>
+            <span className="status-pill">Geheime VP {hiddenVictoryPoints}</span>
+            <span className="status-pill">Gesamt VP {totalVictoryPoints}</span>
           </div>
-          {actionSection === "build" ? (
-            <div className="action-stack compact">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!props.match.allowedMoves.playableDevelopmentCards.includes("knight")}
-                onClick={() =>
-                  props.onAction({
-                    type: "match.action",
-                    matchId: props.match.matchId,
-                    action: { type: "play_knight" }
-                  })
-                }
-              >
-                Ritter spielen
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={
-                  !props.match.allowedMoves.playableDevelopmentCards.includes("road_building") ||
-                  props.match.allowedMoves.roadEdgeIds.length === 0
-                }
-                onClick={() => {
-                  props.setInteractionMode("road_building");
-                  props.setSelectedRoadEdges([]);
-                }}
-              >
-                Straßenbau
-              </button>
-            </div>
-          ) : (
-            <div className="action-stack compact">
-              <div className="triple-select">
-                <select
-                  value={props.yearOfPlenty[0]}
-                  onChange={(event) =>
-                    props.setYearOfPlenty(([_, second]) => [event.target.value as Resource, second])
-                  }
-                >
-                  {RESOURCES.map((resource) => (
-                    <option key={resource} value={resource}>
-                      {renderResourceLabel(resource)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={props.yearOfPlenty[1]}
-                  onChange={(event) =>
-                    props.setYearOfPlenty(([first]) => [first, event.target.value as Resource])
-                  }
-                >
-                  {RESOURCES.map((resource) => (
-                    <option key={resource} value={resource}>
-                      {renderResourceLabel(resource)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={
-                    !props.match.allowedMoves.playableDevelopmentCards.includes("year_of_plenty") ||
-                    !canPlayYearOfPlenty
-                  }
-                  onClick={() =>
-                    props.onAction({
-                      type: "match.action",
-                      matchId: props.match.matchId,
-                      action: {
-                        type: "play_year_of_plenty",
-                        resources: props.yearOfPlenty
-                      }
-                    })
-                  }
-                >
-                  Erfindung
-                </button>
-              </div>
-              <div className="triple-select">
-                <select
-                  value={props.monopolyResource}
-                  onChange={(event) => props.setMonopolyResource(event.target.value as Resource)}
-                >
-                  {RESOURCES.map((resource) => (
-                    <option key={resource} value={resource}>
-                      {renderResourceLabel(resource)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!props.match.allowedMoves.playableDevelopmentCards.includes("monopoly")}
-                  onClick={() =>
-                    props.onAction({
-                      type: "match.action",
-                      matchId: props.match.matchId,
-                      action: {
-                        type: "play_monopoly",
-                        resource: props.monopolyResource
-                      }
-                    })
-                  }
-                >
-                  Monopol
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={openHandPanel}
+            disabled={!developmentCards.length && !pendingRoadBuilding}
+          >
+            Zur Hand wechseln
+          </button>
         </section>
       </div>
     ),
@@ -1078,19 +1163,37 @@ export function MatchScreen(props: {
         <section className="dock-section">
           <div className="dock-section-head">
             <h3>Entwicklungskarten</h3>
-            <span>{props.selfPlayer?.developmentCards?.length ?? 0} Karten</span>
+            <span>{developmentCards.length} Karten</span>
+          </div>
+          <div className="status-strip development-summary-pills development-summary-pills-hand">
+            <span className="status-pill">Öffentlich {props.selfPlayer?.publicVictoryPoints ?? 0}</span>
+            <span className="status-pill">Geheim {hiddenVictoryPoints}</span>
+            <span className="status-pill">Gesamt {totalVictoryPoints}</span>
           </div>
           <div className="scroll-list card-list">
-            {props.selfPlayer?.developmentCards?.length ? (
-              props.selfPlayer.developmentCards.map((card) => (
-                <article key={card.id} className="mini-card">
-                  <strong>{renderDevelopmentLabel(card.type)}</strong>
-                  <span>{card.playable ? "Spielbar" : "Noch gesperrt"}</span>
-                </article>
-              ))
-            ) : (
+            {pendingRoadBuildingCard}
+            {developmentCards.length ? (
+              developmentCards.map((card) => {
+                const status = describeDevelopmentCardStatus(card, props.match);
+                return (
+                  <article
+                    key={card.id}
+                    className={`mini-card development-card ${card.playable ? "is-playable" : ""} ${
+                      card.type === "victory_point" ? "is-passive" : ""
+                    }`}
+                  >
+                    <div className="development-card-head">
+                      <strong>{renderDevelopmentLabel(card.type)}</strong>
+                      <span className={`status-pill ${status.toneClass}`}>{status.label}</span>
+                    </div>
+                    <span>{status.detail}</span>
+                    <div className="development-card-actions">{renderDevelopmentCardControls(card)}</div>
+                  </article>
+                );
+              })
+            ) : !pendingRoadBuildingCard ? (
               <div className="empty-state">Keine Entwicklungskarten auf der Hand.</div>
-            )}
+            ) : null}
           </div>
         </section>
       </div>
@@ -1554,12 +1657,16 @@ export function MatchScreen(props: {
                   </div>
                   <div className="board-hud-row board-hud-stats">
                     <span className="board-hud-pill">
-                      <strong>VP</strong>
+                      <strong>Öff. VP</strong>
                       <span>{props.selfPlayer?.publicVictoryPoints ?? 0}</span>
                     </span>
                     <span className="board-hud-pill">
-                      <strong>Hand</strong>
-                      <span>{props.selfPlayer?.resourceCount ?? 0}</span>
+                      <strong>Geheim</strong>
+                      <span>{hiddenVictoryPoints}</span>
+                    </span>
+                    <span className="board-hud-pill">
+                      <strong>Gesamt</strong>
+                      <span>{totalVictoryPoints}</span>
                     </span>
                     <span className="board-hud-pill">
                       <strong>Entwicklung</strong>
@@ -2072,6 +2179,89 @@ function renderDevelopmentLabel(type: string): string {
   return labels[type] ?? type;
 }
 
+function describeDevelopmentCardStatus(
+  card: DevelopmentCardView,
+  match: MatchSnapshot
+): { label: string; detail: string; toneClass: string } {
+  const isOwnActionWindow =
+    match.currentPlayerId === match.you &&
+    (match.phase === "turn_roll" || match.phase === "turn_action") &&
+    !match.pendingDevelopmentEffect;
+
+  if (card.type === "victory_point") {
+    return {
+      label: "Passiv",
+      detail: "Zählt automatisch als geheimer Siegpunkt und wird nicht manuell ausgespielt.",
+      toneClass: "muted"
+    };
+  }
+
+  if (card.boughtOnTurn >= match.turn) {
+    return {
+      label: "Ab nächstem Zug",
+      detail: "Diese Karte darf erst ab deinem nächsten eigenen Zug ausgespielt werden.",
+      toneClass: "is-warning"
+    };
+  }
+
+  if (!isOwnActionWindow) {
+    return {
+      label: "Bereit",
+      detail: "Die Karte ist vorbereitet und kann in deinem nächsten aktiven Zug gespielt werden.",
+      toneClass: "muted"
+    };
+  }
+
+  if (!card.playable) {
+    if (card.blockedReason === "no_road_target") {
+      return {
+        label: "Kein Ziel",
+        detail: "Aktuell gibt es keine legale kostenlose Straße für diese Karte.",
+        toneClass: "is-warning"
+      };
+    }
+
+    return {
+      label: "Zuglimit erreicht",
+      detail: "In diesem Zug wurde bereits eine Entwicklungskarte ausgespielt.",
+      toneClass: "is-warning"
+    };
+  }
+
+  switch (card.type) {
+    case "knight":
+      return {
+        label: "Spielbar",
+        detail: "Startet sofort die Räuberphase und zählt für die größte Rittermacht.",
+        toneClass: ""
+      };
+    case "road_building":
+      return {
+        label: "Spielbar",
+        detail: "Erlaubt dir bis zu zwei kostenlose Straßen, vor oder nach dem Würfeln.",
+        toneClass: ""
+      };
+    case "year_of_plenty":
+      return {
+        label: "Spielbar",
+        detail: "Nimmt zwei frei gewählte Rohstoffe aus der Bank.",
+        toneClass: ""
+      };
+    case "monopoly":
+      return {
+        label: "Spielbar",
+        detail: "Zieht eine gewählte Rohstoffart von allen Mitspielern ein.",
+        toneClass: ""
+      };
+    default:
+      return {
+        label: "Spielbar",
+        detail: "Diese Entwicklungskarte kann jetzt ausgespielt werden.",
+        toneClass: ""
+      };
+  }
+}
+
 function createBuildActionState(
   id: BuildActionId,
   label: string,
@@ -2123,7 +2313,7 @@ function createOwnActionCue(
   match: MatchSnapshot,
   activePlayer: MatchSnapshot["players"][number] | null,
   interactionMode: InteractionMode,
-  selectedRoadEdges: string[]
+  _selectedRoadEdges: string[]
 ): BoardFocusCue | null {
   if (match.currentPlayerId !== match.you) {
     return null;
@@ -2147,9 +2337,8 @@ function createOwnActionCue(
   }
 
   if (interactionMode === "road_building") {
-    const focusEdgeIds = selectedRoadEdges.length
-      ? [...selectedRoadEdges, ...match.allowedMoves.roadEdgeIds.filter((edgeId) => !selectedRoadEdges.includes(edgeId))]
-      : match.allowedMoves.roadEdgeIds;
+    const focusEdgeIds = match.allowedMoves.freeRoadEdgeIds;
+    const remainingRoads = match.pendingDevelopmentEffect?.type === "road_building" ? match.pendingDevelopmentEffect.remainingRoads : 2;
     if (!focusEdgeIds.length) {
       return null;
     }
@@ -2157,8 +2346,11 @@ function createOwnActionCue(
     return {
       key: `action-road-building-${match.version}-${focusEdgeIds.join(",")}`,
       mode: "action",
-      title: selectedRoadEdges.length === 0 ? "Wähle die erste freie Straße" : "Wähle die zweite freie Straße",
-      detail: "Alle aktuell erlaubten kostenlosen Straßen sind markiert.",
+      title: remainingRoads === 2 ? "Wähle die erste freie Straße" : "Wähle die zweite freie Straße",
+      detail:
+        remainingRoads === 2
+          ? "Alle aktuell erlaubten kostenlosen Straßen für Straßenbau sind markiert."
+          : "Alle legalen Folgeplätze für die zweite kostenlose Straße sind markiert.",
       vertexIds: [],
       edgeIds: focusEdgeIds,
       tileIds: [],
@@ -2353,6 +2545,7 @@ function createEventCue(
     case "initial_road_placed":
     case "road_built": {
       const edgeId = getPayloadString(event.payload, "edgeId");
+      const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
       if (!edgeId) {
         return null;
       }
@@ -2360,8 +2553,10 @@ function createEventCue(
       return {
         key: `event-${event.id}-${edgeId}`,
         mode: "event",
-        title: `${actorName} baut eine Straße`,
-        detail: "Die neue Verbindung ist direkt im Brett markiert.",
+        title: freeBuild ? `${actorName} setzt eine kostenlose Straße` : `${actorName} baut eine Straße`,
+        detail: freeBuild
+          ? "Die kostenlose Straße aus Straßenbau ist direkt im Brett markiert."
+          : "Die neue Verbindung ist direkt im Brett markiert.",
         vertexIds: [],
         edgeIds: [edgeId],
         tileIds: [],
@@ -2563,24 +2758,29 @@ function createEventCue(
     }
     case "development_card_played": {
       const cardType = getPayloadString(event.payload, "cardType");
-      if (cardType === "road_building") {
-        const edgeIds = getPayloadStringArray(event.payload, "edgeIds");
-        if (!edgeIds.length) {
-          return null;
-        }
-
-        return {
-          key: `event-${event.id}-${edgeIds.join(",")}`,
-          mode: "event",
-          title: `${actorName} spielt Straßenbau`,
-          detail: "Die kostenlosen Straßen werden im Brett markiert.",
-          vertexIds: [],
-          edgeIds,
-          tileIds: [],
-          scale: "medium"
-        };
+      if (!cardType) {
+        return null;
       }
-      return null;
+
+      return {
+        key: `event-${event.id}-${cardType}`,
+        mode: "event",
+        title: `${actorName} spielt ${renderDevelopmentLabel(cardType)}`,
+        detail:
+          cardType === "knight"
+            ? "Die Räuberphase startet sofort."
+            : cardType === "road_building"
+              ? "Der Straßenbau-Effekt ist aktiv. Die kostenlosen Straßen folgen direkt über das Brett."
+              : cardType === "year_of_plenty"
+                ? "Die gewählten Rohstoffe werden aus der Bank genommen."
+                : cardType === "monopoly"
+                  ? "Alle Mitspieler geben die gewählte Rohstoffart ab."
+                  : "Die Entwicklungskarte wird ausgeführt.",
+        vertexIds: [],
+        edgeIds: [],
+        tileIds: [],
+        scale: "medium"
+      };
     }
     default:
       return null;
@@ -2675,6 +2875,36 @@ function getEventSummary(match: MatchSnapshot, event: MatchSnapshot["eventLog"][
     return getPayloadString(event.payload, "summary");
   }
 
+  if (event.type === "development_card_played") {
+    const cardType = getPayloadString(event.payload, "cardType");
+    if (!cardType) {
+      return null;
+    }
+
+    if (cardType === "knight") {
+      return `${getPlayerName(match, event.byPlayerId)} spielt einen Ritter und startet die Räuberphase.`;
+    }
+    if (cardType === "road_building") {
+      return `${getPlayerName(match, event.byPlayerId)} aktiviert Straßenbau und setzt jetzt bis zu zwei kostenlose Straßen.`;
+    }
+    if (cardType === "year_of_plenty") {
+      const resources = getPayloadStringArray(event.payload, "resources");
+      return `${getPlayerName(match, event.byPlayerId)} nimmt ${resources.map((resource) => renderResourceLabel(resource)).join(" und ")} aus der Bank.`;
+    }
+    if (cardType === "monopoly") {
+      const resource = getPayloadString(event.payload, "resource");
+      const total = getPayloadNumber(event.payload, "total");
+      return `${getPlayerName(match, event.byPlayerId)} spielt Monopol auf ${renderResourceLabel(resource ?? "unbekannt")} und erhält ${total ?? "?"} Karten.`;
+    }
+  }
+
+  if (event.type === "road_built") {
+    const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
+    return freeBuild
+      ? `${getPlayerName(match, event.byPlayerId)} setzt eine kostenlose Straße aus Straßenbau.`
+      : `${getPlayerName(match, event.byPlayerId)} baut eine Straße.`;
+  }
+
   if (event.type === "longest_road_awarded") {
     const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
     const length = getPayloadNumber(event.payload, "length");
@@ -2719,6 +2949,10 @@ function getEventSummary(match: MatchSnapshot, event: MatchSnapshot["eventLog"][
 function getPayloadNumber(payload: Record<string, unknown>, key: string): number | null {
   const value = payload[key];
   return typeof value === "number" ? value : null;
+}
+
+function getPayloadBoolean(payload: Record<string, unknown>, key: string): boolean {
+  return payload[key] === true;
 }
 
 function getPayloadDice(payload: Record<string, unknown>, key: string): [number, number] | null {
@@ -2832,8 +3066,8 @@ function getTurnStatus(
   activePlayer: MatchSnapshot["players"][number] | null,
   selfPlayer: MatchSnapshot["players"][number] | null,
   interactionMode: InteractionMode,
-  selectedRoadCount: number
-) : TurnStatus {
+  _selectedRoadCount: number
+): TurnStatus {
   const activePlayerName = activePlayer?.username ?? "Unbekannt";
   const isCurrentPlayer = match.currentPlayerId === match.you;
   const ownTrade =
@@ -2930,9 +3164,12 @@ function getTurnStatus(
   }
 
   if (interactionMode === "road_building") {
+    const remainingRoads = match.pendingDevelopmentEffect?.type === "road_building" ? match.pendingDevelopmentEffect.remainingRoads : 2;
     return withPlayer(
       "Aktion von dir",
-      selectedRoadCount === 0 ? "Wähle die erste kostenlose Straße." : "Wähle die zweite kostenlose Straße.",
+      remainingRoads === 2
+        ? "Wähle die erste kostenlose Straße."
+        : "Wähle die zweite kostenlose Straße oder beende den Effekt.",
       selfId
     );
   }

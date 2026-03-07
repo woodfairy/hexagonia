@@ -35,6 +35,12 @@ export interface DevelopmentCardView {
   type: DevelopmentCardType;
   boughtOnTurn: number;
   playable: boolean;
+  blockedReason?: "fresh" | "turn_limit" | "no_road_target" | "passive" | null;
+}
+
+export interface PendingDevelopmentEffectView {
+  type: "road_building";
+  remainingRoads: 1 | 2;
 }
 
 export interface BuildingView {
@@ -150,6 +156,7 @@ export interface AllowedMoves {
   settlementVertexIds: string[];
   cityVertexIds: string[];
   roadEdgeIds: string[];
+  freeRoadEdgeIds: string[];
   robberMoveOptions: RobberMoveOption[];
   pendingDiscardCount: number;
   playableDevelopmentCards: DevelopmentCardType[];
@@ -185,6 +192,7 @@ export interface MatchSnapshot {
   dice: [number, number] | null;
   tradeOffers: TradeOfferView[];
   robberDiscardStatus: RobberDiscardStatusView[];
+  pendingDevelopmentEffect: PendingDevelopmentEffectView | null;
   allowedMoves: AllowedMoves;
   eventLog: MatchEvent[];
   winnerId: string | null;
@@ -250,7 +258,13 @@ export type ActionIntent =
     }
   | {
       type: "play_road_building";
-      edgeIds: string[];
+    }
+  | {
+      type: "place_free_road";
+      edgeId: string;
+    }
+  | {
+      type: "finish_road_building";
     }
   | {
       type: "play_year_of_plenty";
