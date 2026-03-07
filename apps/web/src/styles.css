@@ -2305,8 +2305,8 @@ select:hover {
 }
 
 .trade-builder {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 4.9rem minmax(0, 1fr);
+  align-items: start;
 }
 
 .trade-side-card,
@@ -2567,7 +2567,8 @@ select:hover {
 .trade-direction-chip {
   display: inline-grid;
   place-items: center;
-  min-inline-size: 3.8rem;
+  inline-size: 4.9rem;
+  min-inline-size: 4.9rem;
   min-block-size: 3.8rem;
   padding: 0.5rem;
   border-radius: 999px;
@@ -2577,6 +2578,8 @@ select:hover {
   font-size: 0.84rem;
   font-weight: 800;
   letter-spacing: 0.04em;
+  justify-self: center;
+  align-self: center;
 }
 
 .trade-target-card {
