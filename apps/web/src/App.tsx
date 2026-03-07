@@ -44,7 +44,7 @@ import type { InteractionMode } from "./BoardScene";
 import { AppHeader } from "./components/shell/AppHeader";
 import { ToastStack, type ToastMessage } from "./components/shell/ToastStack";
 import { AdminScreen, type AdminCreateFormState, type AdminUserDraftState } from "./components/screens/AdminScreen";
-import { AuthScreen } from "./components/screens/AuthScreen";
+import { LandingScreen } from "./components/screens/LandingScreen";
 import { LobbyScreen } from "./components/screens/LobbyScreen";
 import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
 import { RoomScreen } from "./components/screens/RoomScreen";
@@ -1728,8 +1728,38 @@ export function App() {
           want: createEmptyResourceMap(),
           targetPlayerId: ""
         })
-    );
+      );
   };
+
+  const isGuestLanding = activeScreen === "auth";
+  const guestInviteCode = !session && route.kind === "invite" ? route.code : null;
+
+  useEffect(() => {
+    const guestClassName = "guest-landing-mode";
+    document.documentElement.classList.toggle(guestClassName, isGuestLanding);
+    document.body.classList.toggle(guestClassName, isGuestLanding);
+
+    return () => {
+      document.documentElement.classList.remove(guestClassName);
+      document.body.classList.remove(guestClassName);
+    };
+  }, [isGuestLanding]);
+
+  if (isGuestLanding) {
+    return (
+      <>
+        <LandingScreen
+          authForm={authForm}
+          authMode={authMode}
+          inviteCode={guestInviteCode}
+          onAuthFieldChange={(field, value) => setAuthForm((current) => ({ ...current, [field]: value }))}
+          onAuthModeChange={setAuthMode}
+          onSubmit={handleAuthSubmit}
+        />
+        <ToastStack onDismiss={removeToast} toasts={toasts} />
+      </>
+    );
+  }
 
   const headerRoomProps =
     (activeScreen === "room" || activeScreen === "match") && room?.code
@@ -1778,16 +1808,6 @@ export function App() {
       />
 
       <div className="app-stage">
-        {activeScreen === "auth" ? (
-          <AuthScreen
-            authForm={authForm}
-            authMode={authMode}
-            onAuthFieldChange={(field, value) => setAuthForm((current) => ({ ...current, [field]: value }))}
-            onAuthModeChange={setAuthMode}
-            onSubmit={handleAuthSubmit}
-          />
-        ) : null}
-
         {activeScreen === "lobby" && session ? (
           <LobbyScreen
             joinCode={joinCode}
