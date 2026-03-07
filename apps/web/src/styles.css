@@ -2069,9 +2069,8 @@ select:hover {
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-inline-start: 0.05rem;
-  padding-inline-end: 0.82rem;
-  scrollbar-gutter: stable both-edges;
+  padding-inline: 0.2rem;
+  scrollbar-gutter: stable;
 }
 
 @keyframes dice-widget-pop {
@@ -3160,6 +3159,17 @@ select:hover {
 
   .discard-dialog {
     inline-size: min(38rem, 100%);
+  }
+}
+
+@media (min-width: 1024px) {
+  .tab-panel-shell:not(.mobile) {
+    padding-inline: 0.82rem;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  .trade-resource-card-grid {
+    padding-inline: 0.36rem;
   }
 }
 
