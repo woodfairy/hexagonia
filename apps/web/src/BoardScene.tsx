@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualProfile } from "./boardVisuals";
 import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
@@ -298,6 +299,9 @@ export function BoardScene(props: BoardSceneProps) {
       alpha: false
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountRef.current.appendChild(renderer.domElement);
@@ -328,15 +332,19 @@ export function BoardScene(props: BoardSceneProps) {
     focusCameraPositionRef.current.copy(DEFAULT_CAMERA_POSITION);
     renderer.domElement.style.cursor = "";
 
-    scene.add(new THREE.AmbientLight("#d5e4f2", 1.35));
-    const keyLight = new THREE.DirectionalLight("#f6efe0", 1.45);
+    scene.add(new THREE.AmbientLight("#dce6ea", 1.2));
+    const keyLight = new THREE.DirectionalLight("#f5e8cb", 1.8);
     keyLight.position.set(24, 36, 16);
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight("#89b9ff", 0.55);
+    const fillLight = new THREE.DirectionalLight("#6ab6ea", 0.62);
     fillLight.position.set(-20, 18, -20);
     scene.add(fillLight);
+
+    const rimLight = new THREE.PointLight("#f0c373", 1.6, 72, 2);
+    rimLight.position.set(0, 12, 0);
+    scene.add(rimLight);
 
     const onControlStart = () => {
       userInteractingRef.current = true;
@@ -720,21 +728,27 @@ export function BoardScene(props: BoardSceneProps) {
       if (props.visualProfile !== "modern" && !texturedTerrainBundles.has(tile.resource)) {
         texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
       }
-      const reliefMode: UltraTileReliefMode =
-        props.visualProfile === "ultra" ? "full" : props.visualProfile === "fancy" ? "props" : "none";
       const base =
         props.visualProfile === "modern"
           ? createModernTileMesh(tile, verticesById, active)
-          : createUltraTileMesh(
-              tile,
-              verticesById,
-              active,
-              texturedTerrainBundles.get(tile.resource)!,
-              ultraAnimatedMaterialsRef.current,
-              reducedMotionRef.current,
-              props.visualProfile === "ultra",
-              reliefMode
-            );
+          : props.visualProfile === "ultra"
+            ? createUltraTileMesh(
+                tile,
+                verticesById,
+                active,
+                texturedTerrainBundles.get(tile.resource)!,
+                ultraAnimatedMaterialsRef.current,
+                reducedMotionRef.current,
+                true,
+                "full"
+              )
+            : createTexturedTileMesh(
+                tile,
+                verticesById,
+                active,
+                texturedTerrainBundles.get(tile.resource)!,
+                props.visualProfile === "fancy"
+              );
       base.position.set(tile.x, 0, tile.y);
       base.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -1110,6 +1124,111 @@ function createModernTileMesh(
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh);
   tileGroup.add(insetMesh);
+  return tileGroup;
+}
+
+function createTexturedTileMesh(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  active: boolean,
+  terrainBundle: UltraTerrainTextureBundle,
+  includeProps: boolean
+): THREE.Group {
+  const outerShape = createTileShape(tile, verticesById);
+  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
+    depth: TILE_HEIGHT,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.24,
+    bevelThickness: 0.12,
+    curveSegments: 6
+  });
+  outerGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(outerGeometry);
+
+  const insetDepth = 0.26;
+  const insetShape = createTileShape(tile, verticesById, 0.962);
+  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
+    depth: insetDepth,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.12,
+    bevelThickness: 0.05,
+    curveSegments: 6
+  });
+  insetGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(insetGeometry);
+
+  const outerMesh = new THREE.Mesh(outerGeometry, [
+    new THREE.MeshPhysicalMaterial({
+      color: terrainBundle.appearance.topTint,
+      map: terrainBundle.colorMap,
+      roughnessMap: terrainBundle.roughnessMap,
+      bumpMap: terrainBundle.bumpMap,
+      roughness: terrainBundle.appearance.roughness,
+      metalness: terrainBundle.appearance.metalness,
+      bumpScale: terrainBundle.appearance.bumpScale * 0.82,
+      clearcoat: terrainBundle.appearance.clearcoat,
+      clearcoatRoughness: terrainBundle.appearance.clearcoatRoughness,
+      emissive: new THREE.Color(active ? "#f0cb7a" : terrainBundle.appearance.emissive),
+      emissiveIntensity: active ? 0.12 : 0.02
+    }),
+    new THREE.MeshStandardMaterial({
+      color: terrainBundle.appearance.sideTint,
+      roughness: 0.96,
+      metalness: 0.02
+    })
+  ]);
+
+  const insetMesh = new THREE.Mesh(insetGeometry, [
+    new THREE.MeshPhysicalMaterial({
+      color: terrainBundle.appearance.insetTint,
+      map: terrainBundle.colorMap,
+      roughnessMap: terrainBundle.roughnessMap,
+      bumpMap: terrainBundle.bumpMap,
+      roughness: Math.max(terrainBundle.appearance.roughness - 0.05, 0.36),
+      metalness: terrainBundle.appearance.metalness,
+      bumpScale: terrainBundle.appearance.bumpScale,
+      clearcoat: terrainBundle.appearance.clearcoat,
+      clearcoatRoughness: Math.max(terrainBundle.appearance.clearcoatRoughness - 0.08, 0.2),
+      emissive: new THREE.Color(active ? "#f4d990" : terrainBundle.appearance.emissive),
+      emissiveIntensity: active ? 0.14 : 0.028
+    }),
+    new THREE.MeshStandardMaterial({
+      color: terrainBundle.appearance.insetSideTint,
+      roughness: 0.94,
+      metalness: 0.01
+    })
+  ]);
+  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
+
+  const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
+  overlayGeometry.rotateX(-Math.PI / 2);
+  remapPlanarTileUvs(overlayGeometry);
+  const overlay = new THREE.Mesh(
+    overlayGeometry,
+    new THREE.MeshBasicMaterial({
+      color: terrainBundle.appearance.overlayBase,
+      alphaMap: terrainBundle.overlayMask,
+      transparent: true,
+      opacity: tile.resource === "grain" ? 0.2 : 0.12,
+      depthWrite: false
+    })
+  );
+  overlay.position.y = TILE_HEIGHT + 0.03;
+
+  const tileGroup = new THREE.Group();
+  tileGroup.add(outerMesh, insetMesh, overlay);
+  if (includeProps) {
+    const propGroup = createLandingFancyTileProps(tile.resource);
+    propGroup.position.y = TILE_HEIGHT + 0.03;
+    propGroup.traverse((entry) => {
+      entry.userData.castTileShadow = true;
+    });
+    tileGroup.add(propGroup);
+  }
   return tileGroup;
 }
 
