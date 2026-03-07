@@ -45,57 +45,6 @@ const GUIDE_ROAD_RADIUS = 0.14;
 const PORT_MARKER_DISTANCE = 1.9;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
-const ULTRA_TILE_OVERLAY_VERTEX_SHADER = `
-varying vec2 vUv;
-
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`;
-const ULTRA_TILE_OVERLAY_FRAGMENT_SHADER = `
-uniform sampler2D uMask;
-uniform vec3 uBaseColor;
-uniform vec3 uAccentColor;
-uniform float uTime;
-uniform float uOpacity;
-uniform float uMotionScale;
-uniform float uStyleIndex;
-
-varying vec2 vUv;
-
-float hash21(vec2 p) {
-  p = fract(p * vec2(123.34, 345.45));
-  p += dot(p, p + 34.345);
-  return fract(p.x * p.y);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  float a = hash21(i);
-  float b = hash21(i + vec2(1.0, 0.0));
-  float c = hash21(i + vec2(0.0, 1.0));
-  float d = hash21(i + vec2(1.0, 1.0));
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
-
-void main() {
-  float speed = 0.18 + uStyleIndex * 0.025;
-  vec2 baseUv = vUv;
-  vec2 flow = vec2(
-    sin((baseUv.y + uStyleIndex * 0.17) * 12.0 + uTime * (speed + 0.16)) * 0.018,
-    cos((baseUv.x - uStyleIndex * 0.11) * 10.0 + uTime * (speed * 0.78 + 0.1)) * 0.014
-  ) * uMotionScale;
-  float mask = texture2D(uMask, fract(baseUv + flow)).r;
-  float shimmer = 0.5 + 0.5 * sin((baseUv.x * 14.0 + baseUv.y * 16.0) + uTime * (0.32 + uStyleIndex * 0.06));
-  float sparkle = noise(baseUv * 9.0 + vec2(uTime * 0.06, -uTime * 0.04));
-  float alpha = smoothstep(0.34, 0.94, mask) * (0.42 + shimmer * 0.32 + sparkle * 0.18) * uOpacity;
-  vec3 color = mix(uBaseColor, uAccentColor, clamp(shimmer * 0.72 + sparkle * 0.28, 0.0, 1.0));
-  gl_FragColor = vec4(color, alpha);
-}
-`;
 
 interface MaterialState {
   material: THREE.Material | THREE.SpriteMaterial;
@@ -154,11 +103,7 @@ interface TileDecorationOptions {
   includeTerrainRelief: boolean;
 }
 
-interface TexturedTileOptions extends TileDecorationOptions {
-  animatedMaterials: UltraTileOverlayMaterial[];
-  reducedMotion: boolean;
-  animateOverlay: boolean;
-}
+interface TexturedTileOptions extends TileDecorationOptions {}
 
 const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
 
@@ -175,23 +120,6 @@ function createBoardStructureKey(board: MatchSnapshot["board"]): string {
 function getCyclicVariant<T>(variants: readonly [T, ...T[]], index: number): T {
   return variants[index % variants.length] ?? variants[0];
 }
-
-interface UltraTileOverlayUniforms {
-  uMask: THREE.IUniform<THREE.Texture>;
-  uBaseColor: THREE.IUniform<THREE.Color>;
-  uAccentColor: THREE.IUniform<THREE.Color>;
-  uTime: THREE.IUniform<number>;
-  uOpacity: THREE.IUniform<number>;
-  uMotionScale: THREE.IUniform<number>;
-  uStyleIndex: THREE.IUniform<number>;
-}
-
-type UltraTileOverlayMaterial = THREE.ShaderMaterial & {
-  uniforms: UltraTileOverlayUniforms;
-  userData: THREE.ShaderMaterial["userData"] & {
-    motionBase: number;
-  };
-};
 
 type UltraTileReliefMode = "none" | "props" | "terrain" | "full";
 type ReliefPropLayer = "hero" | "accent" | "detail";
@@ -270,14 +198,12 @@ export function BoardScene(props: BoardSceneProps) {
   const staticTileObjectsRef = useRef<Map<string, THREE.Object3D>>(new Map());
   const dynamicStaticInteractiveRef = useRef<THREE.Object3D[]>([]);
   const pulseObjectsRef = useRef<THREE.Object3D[]>([]);
-  const ultraAnimatedMaterialsRef = useRef<UltraTileOverlayMaterial[]>([]);
   const focusTargetRef = useRef(DEFAULT_CAMERA_TARGET.clone());
   const focusCameraPositionRef = useRef(DEFAULT_CAMERA_POSITION.clone());
   const lastFocusKeyRef = useRef<string | null>(null);
   const autoFlightRef = useRef(false);
   const userInteractingRef = useRef(false);
   const hoveredInteractiveRef = useRef<THREE.Object3D | null>(null);
-  const reducedMotionRef = useRef(false);
   const [boardTooltip, setBoardTooltip] = useState<BoardTooltipState | null>(null);
   const handlersRef = useRef({
     onVertexSelect: props.onVertexSelect,
@@ -293,22 +219,6 @@ export function BoardScene(props: BoardSceneProps) {
       onTileSelect: props.onTileSelect
     };
   }, [props.onEdgeSelect, props.onTileSelect, props.onVertexSelect]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return;
-    }
-
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => {
-      reducedMotionRef.current = media.matches;
-    };
-    sync();
-    media.addEventListener("change", sync);
-    return () => {
-      media.removeEventListener("change", sync);
-    };
-  }, []);
 
   useEffect(() => {
     if (!mountRef.current || rendererRef.current) {
@@ -626,7 +536,6 @@ export function BoardScene(props: BoardSceneProps) {
     renderer.domElement.addEventListener("pointercancel", onPointerCancel);
     renderer.setAnimationLoop(() => {
       const pulse = performance.now() * 0.005;
-      const elapsedSeconds = performance.now() * 0.001;
       if (autoFlightRef.current && !userInteractingRef.current) {
         controls.target.lerp(focusTargetRef.current, 0.12);
         camera.position.lerp(focusCameraPositionRef.current, 0.12);
@@ -675,10 +584,6 @@ export function BoardScene(props: BoardSceneProps) {
           }
         }
       }
-      for (const material of ultraAnimatedMaterialsRef.current) {
-        material.uniforms.uTime.value = elapsedSeconds;
-        material.uniforms.uMotionScale.value = (material.userData.motionBase as number) * (reducedMotionRef.current ? 0.12 : 1);
-      }
       controls.update();
       renderer.render(scene, camera);
     });
@@ -697,7 +602,6 @@ export function BoardScene(props: BoardSceneProps) {
       dynamicStaticInteractiveRef.current = [];
       interactiveRef.current = [];
       pulseObjectsRef.current = [];
-      ultraAnimatedMaterialsRef.current = [];
       renderer.setAnimationLoop(null);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
@@ -737,7 +641,6 @@ export function BoardScene(props: BoardSceneProps) {
     dynamicInteractiveRef.current = dynamicInteractiveRef.current.filter((object) => !staleStaticInteractive.has(object));
     staticInteractiveRef.current = [];
     staticTileObjectsRef.current = new Map();
-    ultraAnimatedMaterialsRef.current = [];
 
     if (staticBoardLayerRef.current) {
       boardRoot.remove(staticBoardLayerRef.current);
@@ -755,7 +658,6 @@ export function BoardScene(props: BoardSceneProps) {
     const useTexturedTiles = props.visualSettings.textures;
     const includeProps = props.visualSettings.props;
     const includeTerrainRelief = props.visualSettings.terrainRelief;
-    const animateOverlay = useTexturedTiles && props.visualSettings.terrainMotion;
 
     for (const tile of props.snapshot.board.tiles) {
       if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
@@ -765,10 +667,7 @@ export function BoardScene(props: BoardSceneProps) {
         useTexturedTiles
           ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, {
               includeProps,
-              includeTerrainRelief,
-              animatedMaterials: ultraAnimatedMaterialsRef.current,
-              reducedMotion: reducedMotionRef.current,
-              animateOverlay
+              includeTerrainRelief
             })
           : createModernTileMesh(tile, verticesById, false, {
               includeProps,
@@ -811,7 +710,6 @@ export function BoardScene(props: BoardSceneProps) {
   }, [
     boardStructureKey,
     props.visualSettings.props,
-    props.visualSettings.terrainMotion,
     props.visualSettings.terrainRelief,
     props.visualSettings.textures
   ]);
@@ -1314,16 +1212,18 @@ function createTexturedTileMesh(
   const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
   overlayGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(overlayGeometry);
-  const overlayMaterial = createUltraTileOverlayMaterial(
-    terrainBundle,
-    active,
-    options.reducedMotion,
-    options.animateOverlay
+  const overlay = new THREE.Mesh(
+    overlayGeometry,
+    new THREE.MeshBasicMaterial({
+      color: active ? shadeColor(terrainBundle.appearance.overlayBase, 0.06) : terrainBundle.appearance.overlayBase,
+      alphaMap: terrainBundle.overlayMask,
+      transparent: true,
+      opacity: terrainBundle.appearance.overlayOpacity + (active ? 0.08 : 0),
+      depthWrite: false,
+      toneMapped: false,
+      fog: false
+    })
   );
-  if (options.animateOverlay) {
-    options.animatedMaterials.push(overlayMaterial);
-  }
-  const overlay = new THREE.Mesh(overlayGeometry, overlayMaterial);
   overlay.position.y = TILE_HEIGHT + 0.03;
   overlay.renderOrder = 4;
 
@@ -1366,118 +1266,14 @@ function nudgeFancyPropsAwayFromTileCenter(group: THREE.Group): void {
       continue;
     }
 
-    const offsetScale = 1.18;
-    const extraOffset = 0.28;
-    const minRadius = 1.56;
+    const offsetScale = 1.22;
+    const extraOffset = 0.34;
+    const minRadius = 1.68;
     const maxRadius = 2.18;
     const nextLength = THREE.MathUtils.clamp(length * offsetScale + extraOffset, minRadius, maxRadius);
     child.position.x = (child.position.x / length) * nextLength;
     child.position.z = (child.position.z / length) * nextLength;
   }
-}
-
-function createUltraTileMesh(
-  tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
-  active: boolean,
-  terrainBundle: UltraTerrainTextureBundle,
-  animatedMaterials: UltraTileOverlayMaterial[],
-  reducedMotion: boolean,
-  animateOverlay: boolean,
-  reliefMode: UltraTileReliefMode
-): THREE.Group {
-  const outerShape = createTileShape(tile, verticesById);
-  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
-    depth: TILE_HEIGHT,
-    bevelEnabled: true,
-    bevelSegments: 2,
-    steps: 1,
-    bevelSize: 0.22,
-    bevelThickness: 0.12,
-    curveSegments: 8
-  });
-  outerGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(outerGeometry);
-
-  const insetDepth = 0.28;
-  const insetShape = createTileShape(tile, verticesById, 0.956);
-  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
-    depth: insetDepth,
-    bevelEnabled: true,
-    bevelSegments: 2,
-    steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.045,
-    curveSegments: 8
-  });
-  insetGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(insetGeometry);
-
-  const outerMesh = markTileShadowReceiver(new THREE.Mesh(outerGeometry, [
-    new THREE.MeshPhysicalMaterial({
-      color: terrainBundle.appearance.topTint,
-      map: terrainBundle.colorMap,
-      roughnessMap: terrainBundle.roughnessMap,
-      bumpMap: terrainBundle.bumpMap,
-      roughness: terrainBundle.appearance.roughness,
-      metalness: terrainBundle.appearance.metalness,
-      bumpScale: terrainBundle.appearance.bumpScale,
-      clearcoat: terrainBundle.appearance.clearcoat,
-      clearcoatRoughness: terrainBundle.appearance.clearcoatRoughness,
-      emissive: new THREE.Color(active ? "#f0cb7a" : terrainBundle.appearance.emissive),
-      emissiveIntensity: active ? 0.24 : 0.08
-    }),
-    new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.sideTint,
-      roughness: 0.96,
-      metalness: 0.02
-    })
-  ]));
-
-  const insetMesh = markTileShadowReceiver(new THREE.Mesh(insetGeometry, [
-    new THREE.MeshPhysicalMaterial({
-      color: terrainBundle.appearance.insetTint,
-      map: terrainBundle.colorMap,
-      roughnessMap: terrainBundle.roughnessMap,
-      bumpMap: terrainBundle.bumpMap,
-      roughness: Math.max(terrainBundle.appearance.roughness - 0.06, 0.18),
-      metalness: terrainBundle.appearance.metalness,
-      bumpScale: terrainBundle.appearance.bumpScale * 0.86,
-      clearcoat: terrainBundle.appearance.clearcoat,
-      clearcoatRoughness: terrainBundle.appearance.clearcoatRoughness,
-      emissive: new THREE.Color(active ? "#f4d990" : terrainBundle.appearance.emissive),
-      emissiveIntensity: active ? 0.3 : 0.1
-    }),
-    new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.insetSideTint,
-      roughness: 0.92,
-      metalness: 0.02
-    })
-  ]));
-  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
-
-  const overlayShape = createTileShape(tile, verticesById, 0.928);
-  const overlayGeometry = new THREE.ShapeGeometry(overlayShape, 12);
-  overlayGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(overlayGeometry);
-  const overlayMaterial = createUltraTileOverlayMaterial(terrainBundle, active, reducedMotion, animateOverlay);
-  if (animateOverlay) {
-    animatedMaterials.push(overlayMaterial);
-  }
-  const overlayMesh = new THREE.Mesh(overlayGeometry, overlayMaterial);
-  overlayMesh.position.y = TILE_HEIGHT + 0.028;
-  overlayMesh.renderOrder = 4;
-
-  const tileGroup = new THREE.Group();
-  tileGroup.add(outerMesh);
-  tileGroup.add(insetMesh);
-  if (reliefMode !== "none") {
-    const reliefGroup = createUltraTerrainRelief(tile, active, reliefMode);
-    reliefGroup.position.y = TILE_HEIGHT + 0.006;
-    tileGroup.add(reliefGroup);
-  }
-  tileGroup.add(overlayMesh);
-  return tileGroup;
 }
 
 function createUltraTerrainRelief(
@@ -3976,34 +3772,6 @@ function hashTileSeed(input: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return hash >>> 0;
-}
-
-function createUltraTileOverlayMaterial(
-  terrainBundle: UltraTerrainTextureBundle,
-  active: boolean,
-  reducedMotion: boolean,
-  animateOverlay: boolean
-): UltraTileOverlayMaterial {
-  const motionBase = animateOverlay ? terrainBundle.appearance.overlayMotion : 0;
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uMask: { value: terrainBundle.overlayMask },
-      uBaseColor: { value: new THREE.Color(terrainBundle.appearance.overlayBase) },
-      uAccentColor: {
-        value: new THREE.Color(active ? shadeColor(terrainBundle.appearance.overlayAccent, 0.08) : terrainBundle.appearance.overlayAccent)
-      },
-      uTime: { value: 0 },
-      uOpacity: { value: terrainBundle.appearance.overlayOpacity + (active ? 0.08 : 0) },
-      uMotionScale: { value: motionBase * (reducedMotion ? 0.12 : 1) },
-      uStyleIndex: { value: terrainBundle.appearance.styleIndex }
-    },
-    vertexShader: ULTRA_TILE_OVERLAY_VERTEX_SHADER,
-    fragmentShader: ULTRA_TILE_OVERLAY_FRAGMENT_SHADER,
-    transparent: true,
-    depthWrite: false
-  }) as UltraTileOverlayMaterial;
-  material.userData.motionBase = motionBase;
-  return material;
 }
 
 function createPortMarker(

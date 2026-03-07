@@ -123,7 +123,7 @@ export function ProfileMenu(props: {
             <div className="profile-board-panel">
               <div className="profile-music-copy">
                 <strong>Feldstil</strong>
-                <span>Additiv statt Presets: Props bleiben aktiv, wenn du Texturen, 3D-Terrain oder Bewegung dazuschaltest.</span>
+                <span>Additiv statt Presets: Props bleiben aktiv, wenn du Texturen oder 3D-Terrain dazuschaltest.</span>
               </div>
               <div className="profile-board-toggle-grid" role="group" aria-label="Feldstil">
                 <button
@@ -166,20 +166,6 @@ export function ProfileMenu(props: {
                   </span>
                   <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>
                     {props.boardVisualSettings.terrainRelief ? "An" : "Aus"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={`menu-action menu-toggle-action ${props.boardVisualSettings.terrainMotion ? "is-active" : "is-muted"}`}
-                  aria-pressed={props.boardVisualSettings.terrainMotion}
-                  onClick={() => toggleBoardVisualSetting("terrainMotion")}
-                >
-                  <span className="menu-toggle-copy">
-                    <strong>Bewegung</strong>
-                    <span>Subtile Shader-Bewegung. Sichtbar nur zusammen mit aktivierten Texturen.</span>
-                  </span>
-                  <span className={`status-pill ${props.boardVisualSettings.terrainMotion ? "" : "muted"}`}>
-                    {props.boardVisualSettings.terrainMotion ? "An" : "Aus"}
                   </span>
                 </button>
               </div>
