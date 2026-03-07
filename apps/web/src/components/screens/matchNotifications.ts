@@ -783,12 +783,13 @@ function getDevelopmentCardTypeForViewer(
   const currentCards = currentSelf?.developmentCards ?? [];
   const previousIds = new Set(previousCards.map((card) => card.id));
   const addedCards = currentCards.filter((card) => !previousIds.has(card.id));
-  if (addedCards.length !== 1) {
+  const [addedCard] = addedCards;
+  if (addedCards.length !== 1 || !addedCard) {
     return null;
   }
 
-  context.privateCache.developmentCardTypesByEventId[event.id] = addedCards[0].type;
-  return addedCards[0].type;
+  context.privateCache.developmentCardTypesByEventId[event.id] = addedCard.type;
+  return addedCard.type;
 }
 
 function getRobberVictimId(context: NotificationBuildContext, event: MatchEvent): string | null {
@@ -824,12 +825,13 @@ function getRobberVictimId(context: NotificationBuildContext, event: MatchEvent)
   const hasOtherCountChanges = playerCountDeltas.some(
     (entry) => entry.delta === null || (entry.playerId !== thiefId && entry.delta !== 0 && entry.delta !== -1)
   );
-  if (victimCandidates.length !== 1 || hasOtherCountChanges) {
+  const [victimCandidate] = victimCandidates;
+  if (victimCandidates.length !== 1 || hasOtherCountChanges || !victimCandidate) {
     return null;
   }
 
-  context.privateCache.robberVictimIdsByEventId[event.id] = victimCandidates[0].playerId;
-  return victimCandidates[0].playerId;
+  context.privateCache.robberVictimIdsByEventId[event.id] = victimCandidate.playerId;
+  return victimCandidate.playerId;
 }
 
 function getRobberResourceForViewer(
