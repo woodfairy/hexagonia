@@ -1120,7 +1120,7 @@ export function MatchScreen(props: {
                   <TradeResourceStepperGrid
                     draft={props.tradeForm.give}
                     mode="give"
-                    limits={props.selfPlayer?.resources}
+                    limits={props.selfPlayer?.resources ?? createEmptyResourceMap()}
                     onAdjust={(resource, delta) =>
                       props.setTradeForm((current) => ({
                         ...current,
@@ -1771,7 +1771,7 @@ function TradeQuantityControl(props: {
 function TradeResourceStepperGrid(props: {
   draft: ResourceMap;
   mode: "give" | "want";
-  limits?: Partial<Record<Resource, number>> | undefined;
+  limits?: Partial<Record<Resource, number>>;
   onAdjust: (resource: Resource, delta: -1 | 1) => void;
 }) {
   return (
