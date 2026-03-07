@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
@@ -151,6 +151,16 @@ interface ReliefAnchorOptions {
 
 const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
 
+function createBoardStructureKey(board: MatchSnapshot["board"]): string {
+  const tileKey = board.tiles
+    .map((tile) => `${tile.id}:${tile.resource}:${tile.x.toFixed(3)}:${tile.y.toFixed(3)}:${tile.vertexIds.join(",")}`)
+    .join("|");
+  const vertexKey = board.vertices.map((vertex) => `${vertex.id}:${vertex.x.toFixed(3)}:${vertex.y.toFixed(3)}`).join("|");
+  const edgeKey = board.edges.map((edge) => `${edge.id}:${edge.vertexIds.join(",")}:${edge.tileIds.join(",")}`).join("|");
+  const portKey = board.ports.map((port) => `${port.id}:${port.type}:${port.edgeId}`).join("|");
+  return [tileKey, vertexKey, edgeKey, portKey].join("~");
+}
+
 function getCyclicVariant<T>(variants: readonly [T, ...T[]], index: number): T {
   return variants[index % variants.length] ?? variants[0];
 }
@@ -241,7 +251,13 @@ export function BoardScene(props: BoardSceneProps) {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const boardGroupRef = useRef<THREE.Group | null>(null);
+  const staticBoardLayerRef = useRef<THREE.Group | null>(null);
+  const dynamicBoardLayerRef = useRef<THREE.Group | null>(null);
   const interactiveRef = useRef<THREE.Object3D[]>([]);
+  const staticInteractiveRef = useRef<THREE.Object3D[]>([]);
+  const dynamicInteractiveRef = useRef<THREE.Object3D[]>([]);
+  const staticTileObjectsRef = useRef<Map<string, THREE.Object3D>>(new Map());
+  const dynamicStaticInteractiveRef = useRef<THREE.Object3D[]>([]);
   const pulseObjectsRef = useRef<THREE.Object3D[]>([]);
   const ultraAnimatedMaterialsRef = useRef<UltraTileOverlayMaterial[]>([]);
   const focusTargetRef = useRef(DEFAULT_CAMERA_TARGET.clone());
@@ -257,6 +273,7 @@ export function BoardScene(props: BoardSceneProps) {
     onEdgeSelect: props.onEdgeSelect,
     onTileSelect: props.onTileSelect
   });
+  const boardStructureKey = useMemo(() => createBoardStructureKey(props.snapshot.board), [props.snapshot.board]);
 
   useEffect(() => {
     handlersRef.current = {
@@ -395,10 +412,19 @@ export function BoardScene(props: BoardSceneProps) {
     table.receiveShadow = true;
     scene.add(table);
 
+    const boardRoot = new THREE.Group();
+    const staticLayer = new THREE.Group();
+    const dynamicLayer = new THREE.Group();
+    boardRoot.add(staticLayer, dynamicLayer);
+    scene.add(boardRoot);
+
     sceneRef.current = scene;
     cameraRef.current = camera;
     rendererRef.current = renderer;
     controlsRef.current = controls;
+    boardGroupRef.current = boardRoot;
+    staticBoardLayerRef.current = staticLayer;
+    dynamicBoardLayerRef.current = dynamicLayer;
 
     const handleResize = () => {
       const container = mountRef.current;
@@ -652,6 +678,14 @@ export function BoardScene(props: BoardSceneProps) {
         scene.remove(boardGroupRef.current);
         boardGroupRef.current = null;
       }
+      staticBoardLayerRef.current = null;
+      dynamicBoardLayerRef.current = null;
+      staticInteractiveRef.current = [];
+      dynamicInteractiveRef.current = [];
+      staticTileObjectsRef.current = new Map();
+      dynamicStaticInteractiveRef.current = [];
+      interactiveRef.current = [];
+      pulseObjectsRef.current = [];
       ultraAnimatedMaterialsRef.current = [];
       renderer.setAnimationLoop(null);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
@@ -672,70 +706,54 @@ export function BoardScene(props: BoardSceneProps) {
   }, []);
 
   useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) {
+    const boardRoot = boardGroupRef.current;
+    if (!boardRoot) {
       return;
     }
 
     setBoardTooltip(null);
-    if (boardGroupRef.current) {
-      setInteractiveHoverState(hoveredInteractiveRef.current, false);
-      hoveredInteractiveRef.current = null;
-      if (rendererRef.current && !userInteractingRef.current) {
-        rendererRef.current.domElement.style.cursor = "";
-      }
-      disposeObjectTree(boardGroupRef.current);
-      scene.remove(boardGroupRef.current);
+    setInteractiveHoverState(hoveredInteractiveRef.current, false);
+    hoveredInteractiveRef.current = null;
+    if (rendererRef.current && !userInteractingRef.current) {
+      rendererRef.current.domElement.style.cursor = "";
+    }
+
+    const staleStaticInteractive = new Set(dynamicStaticInteractiveRef.current);
+    for (const object of dynamicStaticInteractiveRef.current) {
+      clearInteractiveMeta(object);
+    }
+    dynamicStaticInteractiveRef.current = [];
+    dynamicInteractiveRef.current = dynamicInteractiveRef.current.filter((object) => !staleStaticInteractive.has(object));
+    staticInteractiveRef.current = [];
+    staticTileObjectsRef.current = new Map();
+    ultraAnimatedMaterialsRef.current = [];
+
+    if (staticBoardLayerRef.current) {
+      boardRoot.remove(staticBoardLayerRef.current);
+      disposeObjectTree(staticBoardLayerRef.current);
     }
 
     const group = new THREE.Group();
-    interactiveRef.current = [];
-    pulseObjectsRef.current = [];
-    ultraAnimatedMaterialsRef.current = [];
-    boardGroupRef.current = group;
-    scene.add(group);
+    staticBoardLayerRef.current = group;
+    boardRoot.add(group);
+
     const verticesById = new Map(props.snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
     const tilesById = new Map(props.snapshot.board.tiles.map((tile) => [tile.id, tile]));
     const edgesById = new Map(props.snapshot.board.edges.map((edge) => [edge.id, edge]));
-
-    const legalVertices = new Set(
-      props.snapshot.allowedMoves.initialSettlementVertexIds.length
-        ? props.snapshot.allowedMoves.initialSettlementVertexIds
-        : props.interactionMode === "settlement"
-          ? props.snapshot.allowedMoves.settlementVertexIds
-          : props.interactionMode === "city"
-            ? props.snapshot.allowedMoves.cityVertexIds
-            : []
-    );
-
-    const legalEdges = new Set(
-      props.snapshot.allowedMoves.initialRoadEdgeIds.length
-        ? props.snapshot.allowedMoves.initialRoadEdgeIds
-        : props.interactionMode === "road" || props.interactionMode === "road_building"
-          ? props.snapshot.allowedMoves.roadEdgeIds
-          : []
-    );
-
-    const robberTileIds = new Set(
-      props.interactionMode === "robber"
-        ? props.snapshot.allowedMoves.robberMoveOptions.map((option) => option.tileId)
-        : []
-    );
     const texturedTerrainBundles = new Map<Resource | "desert", UltraTerrainTextureBundle>();
 
     for (const tile of props.snapshot.board.tiles) {
-      const active = robberTileIds.has(tile.id);
       if (props.visualProfile !== "modern" && !texturedTerrainBundles.has(tile.resource)) {
         texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
       }
       const base =
         props.visualProfile === "modern"
-          ? createModernTileMesh(tile, verticesById, active)
+          ? createModernTileMesh(tile, verticesById, false)
           : props.visualProfile === "ultra"
             ? createUltraTileMesh(
                 tile,
                 verticesById,
-                active,
+                false,
                 texturedTerrainBundles.get(tile.resource)!,
                 ultraAnimatedMaterialsRef.current,
                 reducedMotionRef.current,
@@ -745,35 +763,18 @@ export function BoardScene(props: BoardSceneProps) {
             : createTexturedTileMesh(
                 tile,
                 verticesById,
-                active,
+                false,
                 texturedTerrainBundles.get(tile.resource)!,
                 props.visualProfile === "fancy"
               );
       base.position.set(tile.x, 0, tile.y);
-      base.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.castShadow = object.userData.castTileShadow === true;
-          object.receiveShadow = true;
-        }
-      });
+      applyTileMeshShadowState(base);
       group.add(base);
+      staticTileObjectsRef.current.set(tile.id, base);
 
       const outline = createTileOutline(tile, verticesById);
       outline.position.set(tile.x, TILE_HEIGHT + 0.04, tile.y);
       group.add(outline);
-
-      const tokenSprite = createTokenSprite(tile.resource, tile.token, tile.robber);
-      tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
-      group.add(tokenSprite);
-
-      if (active) {
-        const marker = createTileFocusMarker(tile, verticesById, false);
-        marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
-        registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
-        group.add(marker);
-        attachInteractiveMeta(base, "tile", tile.id, 1.06, marker);
-        interactiveRef.current.push(base);
-      }
     }
 
     for (const port of props.snapshot.board.ports) {
@@ -795,8 +796,88 @@ export function BoardScene(props: BoardSceneProps) {
       const marker = createPortMarker(port, edge, tile, verticesById);
       attachInteractiveMeta(marker, "port", port.id, 1.04);
       marker.userData.tooltip = getPortTooltip(port.type);
-      interactiveRef.current.push(marker);
+      staticInteractiveRef.current.push(marker);
       group.add(marker);
+    }
+
+    interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
+  }, [boardStructureKey, props.visualProfile]);
+
+  useEffect(() => {
+    const boardRoot = boardGroupRef.current;
+    if (!boardRoot) {
+      return;
+    }
+
+    setBoardTooltip(null);
+    setInteractiveHoverState(hoveredInteractiveRef.current, false);
+    hoveredInteractiveRef.current = null;
+    if (rendererRef.current && !userInteractingRef.current) {
+      rendererRef.current.domElement.style.cursor = "";
+    }
+
+    for (const object of dynamicStaticInteractiveRef.current) {
+      clearInteractiveMeta(object);
+    }
+    dynamicStaticInteractiveRef.current = [];
+    dynamicInteractiveRef.current = [];
+    pulseObjectsRef.current = [];
+
+    if (dynamicBoardLayerRef.current) {
+      boardRoot.remove(dynamicBoardLayerRef.current);
+      disposeObjectTree(dynamicBoardLayerRef.current);
+    }
+
+    const group = new THREE.Group();
+    dynamicBoardLayerRef.current = group;
+    boardRoot.add(group);
+
+    const verticesById = new Map(props.snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
+    const legalVertices = new Set(
+      props.snapshot.allowedMoves.initialSettlementVertexIds.length
+        ? props.snapshot.allowedMoves.initialSettlementVertexIds
+        : props.interactionMode === "settlement"
+          ? props.snapshot.allowedMoves.settlementVertexIds
+          : props.interactionMode === "city"
+            ? props.snapshot.allowedMoves.cityVertexIds
+            : []
+    );
+    const legalEdges = new Set(
+      props.snapshot.allowedMoves.initialRoadEdgeIds.length
+        ? props.snapshot.allowedMoves.initialRoadEdgeIds
+        : props.interactionMode === "road" || props.interactionMode === "road_building"
+          ? props.snapshot.allowedMoves.roadEdgeIds
+          : []
+    );
+    const selectedRoadEdges = new Set(props.selectedRoadEdges);
+    const robberTileIds = new Set(
+      props.interactionMode === "robber"
+        ? props.snapshot.allowedMoves.robberMoveOptions.map((option) => option.tileId)
+        : []
+    );
+
+    for (const tile of props.snapshot.board.tiles) {
+      const tokenSprite = createTokenSprite(tile.resource, tile.token, tile.robber);
+      tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
+      group.add(tokenSprite);
+
+      if (!robberTileIds.has(tile.id)) {
+        continue;
+      }
+
+      const marker = createTileFocusMarker(tile, verticesById, false);
+      marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
+      registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
+      group.add(marker);
+
+      const base = staticTileObjectsRef.current.get(tile.id);
+      if (!base) {
+        continue;
+      }
+
+      attachInteractiveMeta(base, "tile", tile.id, 1.06, marker);
+      dynamicStaticInteractiveRef.current.push(base);
+      dynamicInteractiveRef.current.push(base);
     }
 
     for (const edge of props.snapshot.board.edges) {
@@ -810,7 +891,7 @@ export function BoardScene(props: BoardSceneProps) {
       const centerZ = (left.y + right.y) / 2;
 
       const active = legalEdges.has(edge.id);
-      const selected = props.selectedRoadEdges.includes(edge.id);
+      const selected = selectedRoadEdges.has(edge.id);
       if (!edge.ownerId && !active && !selected) {
         continue;
       }
@@ -827,6 +908,7 @@ export function BoardScene(props: BoardSceneProps) {
       );
       road.position.y = 0;
       road.castShadow = !!edge.ownerId;
+      road.receiveShadow = false;
       roadObject.add(road);
 
       if (active) {
@@ -840,7 +922,7 @@ export function BoardScene(props: BoardSceneProps) {
       if (active) {
         registerPulseVisual(roadObject, pulseObjectsRef.current, selected ? "strong" : "soft", selected ? 1.24 : 1.18);
         attachInteractiveMeta(roadObject, "edge", edge.id, selected ? 1.18 : 1.14);
-        interactiveRef.current.push(roadObject);
+        dynamicInteractiveRef.current.push(roadObject);
       }
     }
 
@@ -853,12 +935,17 @@ export function BoardScene(props: BoardSceneProps) {
 
       const mesh = building ? createBuildingMesh(building.type, building.color) : createVertexMarker();
       mesh.position.set(vertex.x, building ? TILE_HEIGHT + 0.02 : TILE_HEIGHT + 0.08, vertex.y);
-      mesh.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.castShadow = true;
-          object.receiveShadow = true;
-        }
-      });
+      if (building) {
+        mesh.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
+          }
+        });
+      } else if (mesh instanceof THREE.Mesh) {
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+      }
       group.add(mesh);
 
       if (active) {
@@ -872,14 +959,16 @@ export function BoardScene(props: BoardSceneProps) {
         }
 
         attachInteractiveMeta(mesh, "vertex", vertex.id, building ? 1.1 : 1.18, marker);
-        interactiveRef.current.push(mesh);
+        dynamicInteractiveRef.current.push(mesh);
       }
     }
 
     if (props.focusCue) {
       appendFocusMarkers(group, props.snapshot, verticesById, props.focusCue, pulseObjectsRef.current);
     }
-  }, [props.focusCue, props.interactionMode, props.selectedRoadEdges, props.snapshot, props.visualProfile]);
+
+    interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
+  }, [boardStructureKey, props.focusCue, props.interactionMode, props.selectedRoadEdges, props.snapshot, props.visualProfile]);
 
   useEffect(() => {
     const camera = cameraRef.current;
@@ -1086,11 +1175,11 @@ function createModernTileMesh(
   });
   insetGeometry.rotateX(-Math.PI / 2);
 
-  const outerMesh = new THREE.Mesh(
+  const outerMesh = markTileShadowReceiver(new THREE.Mesh(
     outerGeometry,
-      [
-        new THREE.MeshStandardMaterial({
-          color: tileTopColor,
+    [
+      new THREE.MeshStandardMaterial({
+        color: tileTopColor,
           roughness: 0.92,
           metalness: 0.01
         }),
@@ -1100,13 +1189,13 @@ function createModernTileMesh(
           metalness: 0.01
         })
     ]
-  );
+  ));
 
-  const insetMesh = new THREE.Mesh(
+  const insetMesh = markTileShadowReceiver(new THREE.Mesh(
     insetGeometry,
-      [
-        new THREE.MeshStandardMaterial({
-          color: tileInsetTopColor,
+    [
+      new THREE.MeshStandardMaterial({
+        color: tileInsetTopColor,
           roughness: 0.86,
           metalness: 0.02,
           emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
@@ -1118,7 +1207,7 @@ function createModernTileMesh(
           metalness: 0.01
         })
     ]
-  );
+  ));
   insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
 
   const tileGroup = new THREE.Group();
@@ -1161,7 +1250,7 @@ function createTexturedTileMesh(
   insetGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(insetGeometry);
 
-  const outerMesh = new THREE.Mesh(outerGeometry, [
+  const outerMesh = markTileShadowReceiver(new THREE.Mesh(outerGeometry, [
     new THREE.MeshPhysicalMaterial({
       color: terrainBundle.appearance.topTint,
       map: terrainBundle.colorMap,
@@ -1180,9 +1269,9 @@ function createTexturedTileMesh(
       roughness: 0.96,
       metalness: 0.02
     })
-  ]);
+  ]));
 
-  const insetMesh = new THREE.Mesh(insetGeometry, [
+  const insetMesh = markTileShadowReceiver(new THREE.Mesh(insetGeometry, [
     new THREE.MeshPhysicalMaterial({
       color: terrainBundle.appearance.insetTint,
       map: terrainBundle.colorMap,
@@ -1201,7 +1290,7 @@ function createTexturedTileMesh(
       roughness: 0.94,
       metalness: 0.01
     })
-  ]);
+  ]));
   insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
 
   const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
@@ -1269,7 +1358,7 @@ function createUltraTileMesh(
   insetGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(insetGeometry);
 
-  const outerMesh = new THREE.Mesh(outerGeometry, [
+  const outerMesh = markTileShadowReceiver(new THREE.Mesh(outerGeometry, [
     new THREE.MeshPhysicalMaterial({
       color: terrainBundle.appearance.topTint,
       map: terrainBundle.colorMap,
@@ -1288,9 +1377,9 @@ function createUltraTileMesh(
       roughness: 0.96,
       metalness: 0.02
     })
-  ]);
+  ]));
 
-  const insetMesh = new THREE.Mesh(insetGeometry, [
+  const insetMesh = markTileShadowReceiver(new THREE.Mesh(insetGeometry, [
     new THREE.MeshPhysicalMaterial({
       color: terrainBundle.appearance.insetTint,
       map: terrainBundle.colorMap,
@@ -1309,7 +1398,7 @@ function createUltraTileMesh(
       roughness: 0.92,
       metalness: 0.02
     })
-  ]);
+  ]));
   insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
 
   const overlayShape = createTileShape(tile, verticesById, 0.928);
@@ -3778,6 +3867,21 @@ function markTileShadow<T extends THREE.Object3D>(object: T): T {
   return object;
 }
 
+function markTileShadowReceiver<T extends THREE.Object3D>(object: T): T {
+  object.userData.receiveTileShadow = true;
+  return object;
+}
+
+function applyTileMeshShadowState(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) {
+      return;
+    }
+    object.castShadow = object.userData.castTileShadow === true;
+    object.receiveShadow = object.userData.receiveTileShadow === true;
+  });
+}
+
 function createTileRandom(seed: string): () => number {
   let state = hashTileSeed(seed);
   return () => {
@@ -4479,6 +4583,19 @@ function attachInteractiveMeta(
     materialStates: collectMaterialStates(object),
     ...(marker ? { marker } : {})
   } satisfies InteractiveMeta;
+}
+
+function clearInteractiveMeta(object: THREE.Object3D): void {
+  const meta = object.userData.interactiveMeta as InteractiveMeta | undefined;
+  if (!meta) {
+    return;
+  }
+
+  object.scale.copy(meta.baseScale);
+  delete object.userData.interactiveMeta;
+  delete object.userData.kind;
+  delete object.userData.id;
+  delete object.userData.hovered;
 }
 
 function registerPulseVisual(
