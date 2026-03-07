@@ -2069,8 +2069,9 @@ select:hover {
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-inline-end: 0.2rem;
-  scrollbar-gutter: stable;
+  padding-inline-start: 0.05rem;
+  padding-inline-end: 0.82rem;
+  scrollbar-gutter: stable both-edges;
 }
 
 @keyframes dice-widget-pop {
@@ -2309,10 +2310,6 @@ select:hover {
   align-items: center;
 }
 
-.trade-builder.maritime-builder {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-}
-
 .trade-side-card,
 .trade-target-card {
   padding: var(--pad-card-block) var(--pad-card-inline);
@@ -2351,6 +2348,8 @@ select:hover {
   grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
   gap: 0.58rem;
   min-inline-size: 0;
+  padding-inline: 0.06rem 0.22rem;
+  align-content: start;
 }
 
 .trade-resource-card {
@@ -2704,7 +2703,8 @@ select:hover {
 .scroll-list {
   overflow: auto;
   overscroll-behavior: contain;
-  padding-inline-end: 0.2rem;
+  padding-inline-end: 0.6rem;
+  scrollbar-gutter: stable;
 }
 
 .action-placeholder {
@@ -3765,6 +3765,7 @@ select:hover {
 
   .triple-select,
   .trade-builder,
+  .trade-builder.maritime-builder,
   .admin-form-grid,
   .sheet-quick-actions .quick-action-grid {
     grid-template-columns: 1fr;
