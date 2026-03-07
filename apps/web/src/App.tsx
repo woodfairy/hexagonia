@@ -105,6 +105,8 @@ export function App() {
   const [socketEpoch, setSocketEpoch] = useState(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [soundMuted, setSoundMuted] = useState(() => uiSoundManager.isMuted());
+  const [selectedMusicTrackId, setSelectedMusicTrackId] = useState(() => uiSoundManager.getSelectedMusicTrackId());
+  const [musicPaused, setMusicPaused] = useState(() => uiSoundManager.isMusicPaused());
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState({
     username: "",
@@ -138,6 +140,7 @@ export function App() {
   const [pendingRobberTargetSelection, setPendingRobberTargetSelection] = useState<PendingRobberTargetSelection | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
   const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
+  const musicTracks = useMemo(() => uiSoundManager.getMusicTracks(), []);
   const [robberUiBlockedByDiceAnimation, setRobberUiBlockedByDiceAnimation] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -1128,6 +1131,24 @@ export function App() {
     });
   }, []);
 
+  const syncMusicPlayerState = useCallback(() => {
+    setSelectedMusicTrackId(uiSoundManager.getSelectedMusicTrackId());
+    setMusicPaused(uiSoundManager.isMusicPaused());
+  }, []);
+
+  const handleSelectMusicTrack = useCallback(
+    (trackId: string) => {
+      void uiSoundManager.setMusicTrack(trackId);
+      syncMusicPlayerState();
+    },
+    [syncMusicPlayerState]
+  );
+
+  const handleToggleMusicPaused = useCallback(() => {
+    void uiSoundManager.toggleMusicPaused();
+    syncMusicPlayerState();
+  }, [syncMusicPlayerState]);
+
   const handleAuthSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -1722,12 +1743,17 @@ export function App() {
         connectionStatusText={status}
         eyebrow={displayEyebrow}
         meta={displayMeta}
+        musicPaused={musicPaused}
+        musicTracks={musicTracks}
+        selectedMusicTrackId={selectedMusicTrackId}
         session={session}
         soundMuted={soundMuted}
         title={headerContext.title}
         onLogout={handleLogout}
         onNavigateHome={() => navigateTo({ kind: "home" })}
+        onSelectMusicTrack={handleSelectMusicTrack}
         onToggleSoundMuted={handleToggleSoundMuted}
+        onToggleMusicPaused={handleToggleMusicPaused}
         {...headerAdminProps}
         {...headerRoomProps}
       />

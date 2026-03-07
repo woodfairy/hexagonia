@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@hexagonia/shared";
-import { uiSoundManager } from "../../audio/uiSoundManager";
+import { uiSoundManager, type MusicTrack } from "../../audio/uiSoundManager";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
 
@@ -8,17 +8,24 @@ export function ProfileMenu(props: {
   session: AuthUser;
   connectionState: ConnectionState;
   soundMuted: boolean;
+  musicTracks: ReadonlyArray<MusicTrack>;
+  selectedMusicTrackId: string | null;
+  musicPaused: boolean;
   roomCode?: string;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onCopyInviteLink?: () => void | Promise<void>;
   onCopyRoomCode?: () => void | Promise<void>;
+  onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
+  onToggleMusicPaused: () => void;
   onLogout: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const hasOpenStateChangedRef = useRef(false);
+  const selectedMusicTrack =
+    props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
 
   useEffect(() => {
     if (!hasOpenStateChangedRef.current) {
@@ -96,6 +103,43 @@ export function ProfileMenu(props: {
               </span>
               <span className={`status-pill ${props.soundMuted ? "muted" : ""}`}>{props.soundMuted ? "Aus" : "An"}</span>
             </button>
+            <div className="profile-music-panel">
+              <div className="profile-music-copy">
+                <strong>Musikplayer</strong>
+                <span>{selectedMusicTrack ? `${selectedMusicTrack.name} in Dauerschleife` : "Keine Songs in assets/songs gefunden"}</span>
+              </div>
+              <label className="profile-music-select-shell">
+                <span>Song</span>
+                <select
+                  value={props.selectedMusicTrackId ?? ""}
+                  onChange={(event) => props.onSelectMusicTrack(event.target.value)}
+                  disabled={props.musicTracks.length === 0}
+                >
+                  {props.musicTracks.length === 0 ? (
+                    <option value="">Keine Songs gefunden</option>
+                  ) : (
+                    props.musicTracks.map((track) => (
+                      <option key={track.id} value={track.id}>
+                        {track.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+              <button
+                type="button"
+                className={`menu-action menu-toggle-action profile-music-toggle ${props.musicPaused ? "is-muted" : "is-active"}`}
+                aria-pressed={!props.musicPaused}
+                onClick={() => props.onToggleMusicPaused()}
+                disabled={props.musicTracks.length === 0}
+              >
+                <span className="menu-toggle-copy">
+                  <strong>{props.musicPaused ? "Musik starten" : "Musik pausieren"}</strong>
+                  <span>{selectedMusicTrack ? selectedMusicTrack.name : "Keine Songs verfuegbar"}</span>
+                </span>
+                <span className={`status-pill ${props.musicPaused ? "muted" : ""}`}>{props.musicPaused ? "Pausiert" : "Loop"}</span>
+              </button>
+            </div>
             <button
               type="button"
               className="menu-action"
