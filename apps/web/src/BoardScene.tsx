@@ -39,10 +39,15 @@ interface BoardSceneProps {
   onTileSelect: (tileId: string) => void;
 }
 
-const TILE_HEIGHT = 1.18;
+const TILE_HEIGHT = 0.82;
 const BUILT_ROAD_RADIUS = 0.24;
 const GUIDE_ROAD_RADIUS = 0.14;
 const PORT_MARKER_DISTANCE = 1.9;
+const TILE_OUTER_BEVEL_SIZE = 0.18;
+const TILE_OUTER_BEVEL_THICKNESS = 0.09;
+const TILE_INSET_DEPTH = 0.18;
+const TILE_INSET_BEVEL_SIZE = 0.09;
+const TILE_INSET_BEVEL_THICKNESS = 0.04;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const INTERACTIVE_LAYER = 1;
@@ -452,7 +457,7 @@ export function BoardScene(props: BoardSceneProps) {
       })
     );
     table.position.y = -3.2;
-    table.receiveShadow = true;
+    table.receiveShadow = false;
     scene.add(table);
 
     const boardRoot = new THREE.Group();
@@ -1439,19 +1444,19 @@ function getSharedModernTileShell(
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.24,
-    bevelThickness: 0.12,
+    bevelSize: TILE_OUTER_BEVEL_SIZE,
+    bevelThickness: TILE_OUTER_BEVEL_THICKNESS,
     curveSegments: 6
   }));
   outerGeometry.rotateX(-Math.PI / 2);
 
   const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, 0.962), {
-    depth: 0.26,
+    depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.05,
+    bevelSize: TILE_INSET_BEVEL_SIZE,
+    bevelThickness: TILE_INSET_BEVEL_THICKNESS,
     curveSegments: 6
   }));
   insetGeometry.rotateX(-Math.PI / 2);
@@ -1503,20 +1508,20 @@ function getSharedTexturedTileShell(
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.24,
-    bevelThickness: 0.12,
+    bevelSize: TILE_OUTER_BEVEL_SIZE,
+    bevelThickness: TILE_OUTER_BEVEL_THICKNESS,
     curveSegments: 6
   }));
   outerGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(outerGeometry);
 
   const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, 0.962), {
-    depth: 0.26,
+    depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
     bevelSegments: 1,
     steps: 1,
-    bevelSize: 0.12,
-    bevelThickness: 0.05,
+    bevelSize: TILE_INSET_BEVEL_SIZE,
+    bevelThickness: TILE_INSET_BEVEL_THICKNESS,
     curveSegments: 6
   }));
   insetGeometry.rotateX(-Math.PI / 2);
@@ -1618,7 +1623,7 @@ function createModernTileMesh(
     insetTopMaterial,
     shell.insetSideMaterial
   ]));
-  insetMesh.position.y = TILE_HEIGHT - 0.26 + 0.015;
+  insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh, insetMesh);
@@ -1654,7 +1659,7 @@ function createTexturedTileMesh(
     insetTopMaterial,
     shell.insetSideMaterial
   ]));
-  insetMesh.position.y = TILE_HEIGHT - 0.26 + 0.015;
+  insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
   const overlay = new THREE.Mesh(shell.overlayGeometry, overlayMaterial);
   overlay.position.y = TILE_HEIGHT + 0.03;
