@@ -46,6 +46,39 @@ export function ResourceIcon(props: {
   );
 }
 
+export function HarborIcon(props: {
+  size?: number;
+  className?: string;
+  color?: string;
+  shell?: boolean;
+}) {
+  const { size = 18, className, color = "#f4edd8", shell = false } = props;
+  const style = {
+    "--resource-icon-size": `${size}px`,
+    "--resource-icon-color": color,
+    "--resource-icon-surface": "rgba(255, 255, 255, 0.08)"
+  } as CSSProperties;
+
+  return (
+    <span
+      className={["resource-icon", shell ? "is-shell" : "", "is-light", className ?? ""].filter(Boolean).join(" ")}
+      style={style}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="4.4" r="2.8" stroke="currentColor" strokeWidth="1.8" />
+        <path
+          d="M12 7.4V20.2M6.2 11h11.6M12 20.2c-4.4 0-7.4-2.2-7.7-6.2h2.8M12 20.2c4.4 0 7.4-2.2 7.7-6.2h-2.8"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
 export function drawResourceIcon(
   context: CanvasRenderingContext2D,
   resource: TerrainResource,

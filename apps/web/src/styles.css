@@ -1949,23 +1949,48 @@ select:hover {
 }
 
 .board-legend-harbor-swatch {
-  grid-auto-flow: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.22rem;
+  position: relative;
+  inline-size: 2.45rem;
+  block-size: 2.45rem;
+  border-radius: 999px;
+  clip-path: none;
   background:
     linear-gradient(180deg, rgba(12, 24, 35, 0.9), rgba(8, 18, 28, 0.94)),
     radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 58%);
 }
 
+.board-legend-harbor-icon {
+  z-index: 1;
+}
+
 .board-legend-harbor-badge {
+  position: absolute;
+  inset-block-start: -0.26rem;
+  inset-inline-end: -0.32rem;
+  z-index: 2;
   padding: 0.12rem 0.28rem;
   border-radius: 999px;
   border: 1px solid rgba(230, 208, 153, 0.38);
+  background: rgba(14, 25, 36, 0.94);
   color: #f0deae;
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+.board-legend-harbor-chip {
+  position: absolute;
+  inset-block-start: -0.26rem;
+  inset-inline-end: -0.48rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.14rem 0.26rem 0.14rem 0.18rem;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 208, 153, 0.32);
+  background: rgba(14, 25, 36, 0.94);
+  box-shadow: 0 0.35rem 0.8rem rgba(0, 0, 0, 0.24);
 }
 
 .board-legend-harbor-rate {
