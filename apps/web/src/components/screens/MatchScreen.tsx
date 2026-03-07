@@ -54,6 +54,14 @@ const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "overview", label: "Mehr" }
 ];
 
+const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
+  overview: 0,
+  actions: 1,
+  hand: 2,
+  trade: 3,
+  players: 4
+};
+
 const BUILD_COSTS: Record<BuildActionId, Partial<Record<Resource, number>>> = {
   road: { brick: 1, lumber: 1 },
   settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
@@ -153,6 +161,7 @@ export function MatchScreen(props: {
 
     return window.innerWidth <= 1023 ? "actions" : "overview";
   });
+  const [tabTransitionDirection, setTabTransitionDirection] = useState<"forward" | "backward">("forward");
   const [sheetState, setSheetState] = useState<SheetState>(() => {
     if (typeof window === "undefined") {
       return "half";
@@ -423,15 +432,27 @@ export function MatchScreen(props: {
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
   const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
   const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
+  const getTabTransitionOrder = (tab: MatchPanelTab) => {
+    const visibleIndex = visibleTabs.findIndex((entry) => entry.id === tab);
+    return visibleIndex === -1 ? MATCH_TAB_ORDER[tab] : visibleIndex;
+  };
+  const changeActiveTab = (nextTab: MatchPanelTab) => {
+    if (nextTab === activeTab) {
+      return;
+    }
+
+    setTabTransitionDirection(getTabTransitionOrder(nextTab) >= getTabTransitionOrder(activeTab) ? "forward" : "backward");
+    setActiveTab(nextTab);
+  };
   const openTradePanel = () => {
     setTradeSection("player");
-    setActiveTab("trade");
+    changeActiveTab("trade");
     if (effectiveSheetState === "peek") {
       setSheetState("half");
     }
   };
   const openHandPanel = () => {
-    setActiveTab("hand");
+    changeActiveTab("hand");
     if (effectiveSheetState === "peek") {
       setSheetState("half");
     }
@@ -605,6 +626,13 @@ export function MatchScreen(props: {
       </span>
     );
   };
+  const renderActiveTabPanel = (mobile = false) => (
+    <div className={`tab-panel-shell ${mobile ? "mobile" : ""}`.trim()}>
+      <div key={`${mobile ? "mobile" : "desktop"}-${activeTab}`} className={`tab-panel-view is-${tabTransitionDirection}`}>
+        {tabPanels[activeTab]}
+      </div>
+    </div>
+  );
   const primaryActions = [
     {
       id: "roll",
@@ -709,6 +737,7 @@ export function MatchScreen(props: {
 
   useEffect(() => {
     if (isMobileViewport && activeTab === "players") {
+      setTabTransitionDirection("backward");
       setActiveTab("overview");
     }
   }, [activeTab, isMobileViewport]);
@@ -1825,13 +1854,13 @@ export function MatchScreen(props: {
                 role="tab"
                 aria-selected={activeTab === tab.id}
                 className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => changeActiveTab(tab.id)}
               >
                 {renderTabLabel(tab)}
               </button>
             ))}
           </div>
-          <div className="tab-panel-shell">{tabPanels[activeTab]}</div>
+          {renderActiveTabPanel()}
         </aside>
 
         <section className={`surface match-sheet is-${effectiveSheetState}`}>
@@ -1859,16 +1888,14 @@ export function MatchScreen(props: {
                   role="tab"
                   aria-selected={activeTab === tab.id}
                   className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                  }}
+                  onClick={() => changeActiveTab(tab.id)}
                 >
                   {renderTabLabel(tab)}
                 </button>
               ))}
             </div>
           ) : null}
-          {effectiveSheetState !== "peek" ? <div className="tab-panel-shell mobile">{tabPanels[activeTab]}</div> : null}
+          {effectiveSheetState !== "peek" ? renderActiveTabPanel(true) : null}
         </section>
       </div>
     </section>
@@ -2184,16 +2211,22 @@ function PlayerStatCard(props: { label: string; value: ReactNode }) {
   );
 }
 
-function PlayerBadge(props: { match: MatchSnapshot; playerId: string; compact?: boolean }) {
+function PlayerBadge(props: { match: MatchSnapshot; playerId: string; compact?: boolean; hideColorLabel?: boolean }) {
   const player = getPlayerById(props.match, props.playerId);
   if (!player) {
     return null;
   }
 
+  const label = props.hideColorLabel
+    ? player.id === props.match.you
+      ? "Du"
+      : player.username
+    : `${player.id === props.match.you ? "Du" : player.username} - ${renderPlayerColorLabel(player.color)}`;
+
   return (
     <PlayerColorBadge
       color={player.color}
-      label={`${player.id === props.match.you ? "Du" : player.username} - ${renderPlayerColorLabel(player.color)}`}
+      label={label}
       {...(props.compact !== undefined ? { compact: props.compact } : {})}
     />
   );
@@ -2219,7 +2252,14 @@ function MatchNotificationCard(props: {
     >
       <div className="match-notification-head">
         <span className="eyebrow">{props.notification.label}</span>
-        {props.notification.playerId ? <PlayerBadge match={props.match} playerId={props.notification.playerId} compact /> : null}
+        {props.notification.playerId ? (
+          <PlayerBadge
+            match={props.match}
+            playerId={props.notification.playerId}
+            compact
+            hideColorLabel={variant === "hero-mobile"}
+          />
+        ) : null}
       </div>
       <strong>{props.notification.title}</strong>
       {showDetail ? <span className="match-notification-detail">{props.notification.detail}</span> : null}

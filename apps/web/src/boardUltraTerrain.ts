@@ -117,12 +117,13 @@ function createTerrainMaps(resource: TerrainResource): CachedTerrainMaps {
 
 function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
   const base = TILE_COLORS[resource];
-  const topTint = base;
-  const insetTint = tint(base, 0.05);
-  const sideTint = tint(base, -0.1);
-  const insetSideTint = tint(base, -0.05);
-  const overlayBase = tint(base, 0.06);
-  const emissive = tint(base, -0.22);
+  const adjustedBase = resource === "lumber" ? tint(base, 0.03) : base;
+  const topTint = adjustedBase;
+  const insetTint = tint(adjustedBase, 0.05);
+  const sideTint = tint(adjustedBase, -0.1);
+  const insetSideTint = tint(adjustedBase, -0.05);
+  const overlayBase = tint(adjustedBase, 0.06);
+  const emissive = tint(adjustedBase, -0.22);
 
   switch (resource) {
     case "lumber":
@@ -520,7 +521,7 @@ function drawBaseGradients(
   bumpContext: CanvasRenderingContext2D,
   resource: TerrainResource
 ): void {
-  const base = TILE_COLORS[resource];
+  const base = resource === "lumber" ? tint(TILE_COLORS[resource], 0.03) : TILE_COLORS[resource];
   const colorGradient = colorContext.createLinearGradient(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
   colorGradient.addColorStop(0, tint(base, 0.08));
   colorGradient.addColorStop(0.52, base);

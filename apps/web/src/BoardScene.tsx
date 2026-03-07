@@ -948,7 +948,7 @@ export function BoardScene(props: BoardSceneProps) {
         proxy.position.copy(proxyPosition);
       }
       proxy.userData.tooltip = getPortTooltip(port.type);
-      attachInteractiveMeta(proxy, "port", port.id, 1.04, marker);
+      attachInteractiveMeta(proxy, "port", port.id, 1, marker);
       staticInteractiveRef.current.push(proxy);
       group.add(marker, proxy);
     }
@@ -4870,7 +4870,7 @@ function disposeObjectTree(root: THREE.Object3D): void {
 
 function colorToHex(color: string): string {
   const mapping: Record<string, string> = {
-    red: "#d75a4a",
+    red: "#cf3b35",
     blue: "#4f78d7",
     white: "#e8e8ea",
     orange: "#eb8e47"

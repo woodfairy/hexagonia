@@ -197,9 +197,6 @@ body.guest-landing-mode {
 .landing-nav-button:hover,
 .landing-nav-button:focus-visible {
   transform: translateY(-1px);
-  border-color: rgba(226, 180, 101, 0.26);
-  background: rgba(255, 255, 255, 0.07);
-  outline: none;
 }
 
 .landing-nav-button.is-ghost {
@@ -224,8 +221,6 @@ body.guest-landing-mode {
 .landing-button:hover,
 .landing-button:focus-visible {
   transform: translateY(-1px);
-  filter: saturate(1.04);
-  outline: none;
 }
 
 .landing-button.is-secondary {
