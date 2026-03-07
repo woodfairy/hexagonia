@@ -12,6 +12,7 @@ import type {
   ResourceMap,
   RoomDetails,
   SetupMode,
+  StartingPlayerMode,
   TileView,
   TradeOfferView,
   VertexView
@@ -80,6 +81,26 @@ interface BeginnerPlacement {
   firstRoadEdgeId: string;
   secondSettlementVertexId: string;
   secondRoadEdgeId: string;
+}
+
+export interface StartingPlayerRollRound {
+  contenderPlayerIds: string[];
+  leaderPlayerIds: string[];
+  highestTotal: number;
+  rolls: Array<{
+    playerId: string;
+    username: string;
+    seatIndex: number;
+    dice: [number, number];
+    total: number;
+  }>;
+}
+
+export interface StartingPlayerRollResult {
+  winnerPlayerId: string;
+  winnerSeatIndex: number;
+  rounds: StartingPlayerRollRound[];
+  summary: string;
 }
 
 export interface GameState {
@@ -172,7 +193,9 @@ export function createMatchState(input: {
   roomId: string;
   seed: string;
   setupMode: SetupMode;
+  startingPlayerMode?: StartingPlayerMode;
   startingSeatIndex: number;
+  startingPlayerRoll?: StartingPlayerRollResult;
   players: MatchPlayerInput[];
 }): GameState {
   const rng = new SeededRandom(input.seed);
@@ -245,6 +268,19 @@ export function createMatchState(input: {
     robberState: null
   };
 
+  if (input.startingPlayerRoll) {
+    appendEvent(state, {
+      type: "starting_player_rolled",
+      byPlayerId: input.startingPlayerRoll.winnerPlayerId,
+      payload: {
+        winnerPlayerId: input.startingPlayerRoll.winnerPlayerId,
+        winnerSeatIndex: input.startingPlayerRoll.winnerSeatIndex,
+        rounds: input.startingPlayerRoll.rounds,
+        summary: input.startingPlayerRoll.summary
+      }
+    });
+  }
+
   if (input.setupMode === "beginner") {
     applyBeginnerSetup(state);
     state.phase = "turn_roll";
@@ -261,6 +297,7 @@ export function createMatchState(input: {
         color: player.color
       })),
       setupMode: input.setupMode,
+      startingPlayerMode: input.startingPlayerMode ?? "manual",
       startingSeatIndex: input.startingSeatIndex,
       startingPlayerId: players[0]?.id ?? null
     }
@@ -390,6 +427,59 @@ export function roomToPlayers(room: RoomDetails): MatchPlayerInput[] {
       seatIndex: seat.index,
       connected: true
     }));
+}
+
+export function rollStartingPlayer(
+  players: MatchPlayerInput[],
+  seed: string
+): StartingPlayerRollResult {
+  const orderedPlayers = [...players].sort((left, right) => left.seatIndex - right.seatIndex);
+  const rng = new SeededRandom(`${seed}:starting-player`);
+  let contenders = orderedPlayers;
+  const rounds: StartingPlayerRollRound[] = [];
+
+  while (contenders.length > 1) {
+    let highestTotal = -1;
+    let leaders: MatchPlayerInput[] = [];
+    const rolls = contenders.map((player) => {
+      const dice: [number, number] = [rng.nextInt(1, 6), rng.nextInt(1, 6)];
+      const total = dice[0] + dice[1];
+      if (total > highestTotal) {
+        highestTotal = total;
+        leaders = [player];
+      } else if (total === highestTotal) {
+        leaders.push(player);
+      }
+
+      return {
+        playerId: player.id,
+        username: player.username,
+        seatIndex: player.seatIndex,
+        dice,
+        total
+      };
+    });
+
+    rounds.push({
+      contenderPlayerIds: contenders.map((player) => player.id),
+      leaderPlayerIds: leaders.map((player) => player.id),
+      highestTotal,
+      rolls
+    });
+    contenders = leaders;
+  }
+
+  const winner = contenders[0] ?? orderedPlayers[0];
+  if (!winner) {
+    throw new GameRuleError("Es konnte kein Startspieler ausgewürfelt werden.");
+  }
+
+  return {
+    winnerPlayerId: winner.id,
+    winnerSeatIndex: winner.seatIndex,
+    rounds,
+    summary: summarizeStartingPlayerRoll(rounds)
+  };
 }
 
 function handleInitialSettlement(state: GameState, playerId: string, vertexId: string): void {
@@ -1506,27 +1596,13 @@ function seatedPlayersColorKey(playerCount: number): 3 | 4 {
   return playerCount === 3 ? 3 : 4;
 }
 
-function determineStartingPlayerIndex(rng: SeededRandom, playerCount: number): number {
-  let contenders = Array.from({ length: playerCount }, (_, index) => index);
-
-  while (contenders.length > 1) {
-    let highest = -1;
-    let leaders: number[] = [];
-
-    for (const contender of contenders) {
-      const total = rng.nextInt(1, 6) + rng.nextInt(1, 6);
-      if (total > highest) {
-        highest = total;
-        leaders = [contender];
-      } else if (total === highest) {
-        leaders.push(contender);
-      }
-    }
-
-    contenders = leaders;
-  }
-
-  return contenders[0] ?? 0;
+function summarizeStartingPlayerRoll(rounds: StartingPlayerRollRound[]): string {
+  return rounds
+    .map((round, index) => {
+      const summary = round.rolls.map((roll) => `${roll.username} ${roll.total}`).join(" · ");
+      return index === 0 ? summary : `Stechen: ${summary}`;
+    })
+    .join(" / ");
 }
 
 function rotatePlayers<T>(players: readonly T[], startIndex: number): T[] {

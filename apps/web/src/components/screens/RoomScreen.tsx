@@ -1,4 +1,4 @@
-import type { AuthUser, RoomDetails, SetupMode } from "@hexagonia/shared";
+import type { AuthUser, RoomDetails, SetupMode, StartingPlayerMode } from "@hexagonia/shared";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { renderPlayerColorLabel } from "../../ui";
 
@@ -9,6 +9,7 @@ export function RoomScreen(props: {
   onJoinRoom: () => void;
   onKickUser: (userId: string) => void;
   onSetupModeChange: (setupMode: SetupMode) => void;
+  onStartingPlayerModeChange: (startingPlayerMode: StartingPlayerMode) => void;
   onStartingSeatChange: (startingSeatIndex: number) => void;
   onReady: (ready: boolean) => void;
   onStart: () => void;
@@ -26,6 +27,7 @@ export function RoomScreen(props: {
   const canStart = isOwner && seatedPlayers.length >= 3 && seatedPlayers.length <= 4 && readyPlayers === seatedPlayers.length;
   const canEditSettings = isOwner && props.room.status === "open";
   const startingSeat = props.room.seats.find((seat) => seat.index === props.room.startingSeatIndex && seat.userId) ?? null;
+  const usesRolledStart = props.room.startingPlayerMode === "rolled";
 
   return (
     <section className="screen-shell room-shell">
@@ -55,7 +57,13 @@ export function RoomScreen(props: {
             <span className={`status-pill ${readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"}`}>
               {readyPlayers} bereit
             </span>
-            <span className="status-pill">{isOwner ? "Du hostest" : "Host verwaltet den Start"}</span>
+            <span className="status-pill">
+              {usesRolledStart
+                ? "Start wird ausgewürfelt"
+                : isOwner
+                  ? "Du legst Start fest"
+                  : "Host legt Start fest"}
+            </span>
           </div>
 
           <div className="seat-grid">
@@ -64,7 +72,7 @@ export function RoomScreen(props: {
               const occupied = !!seat.userId;
               const mine = seat.userId === props.session.id;
               const canKick = isOwner && props.room.status === "open" && occupied && !mine && !!seat.userId;
-              const isStartingSeat = props.room.startingSeatIndex === seat.index && occupied;
+              const isStartingSeat = !usesRolledStart && props.room.startingSeatIndex === seat.index && occupied;
               const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfügbar";
               const detailLabel = occupied
                 ? isStartingSeat
@@ -72,10 +80,13 @@ export function RoomScreen(props: {
                   : online
                     ? "Online im Raum"
                     : "Nicht verbunden"
-                : "Jeder eingeladene Spieler kann beitreten";
+                : "Der nächste Beitritt erhält automatisch diesen Platz.";
 
               return (
-                <article key={seat.index} className={`seat-card player-surface player-accent-${seat.color} ${mine ? "is-mine" : ""}`}>
+                <article
+                  key={seat.index}
+                  className={`seat-card player-surface player-accent-${seat.color} ${mine ? "is-mine" : ""} ${occupied ? "is-occupied" : "is-open"}`}
+                >
                   <div className="seat-card-head">
                     <div className="seat-slot-meta">
                       <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
@@ -96,12 +107,10 @@ export function RoomScreen(props: {
                       />
                     ) : (
                       <div className="seat-open-copy">
-                        <span className="player-swatch seat-open-swatch-placeholder" aria-hidden="true" />
+                        <span className="player-swatch" aria-hidden="true" />
                         <div className="seat-identity-copy">
-                          <strong className="seat-open-label">Offen</strong>
-                          <span className="seat-identity-meta seat-identity-meta-placeholder" aria-hidden="true">
-                            Platz frei
-                          </span>
+                          <strong className="seat-open-label">Freier Platz</strong>
+                          <span className="seat-identity-meta">Reservierte Farbe: {renderPlayerColorLabel(seat.color)}</span>
                         </div>
                       </div>
                     )}
@@ -134,7 +143,7 @@ export function RoomScreen(props: {
             <div className="eyebrow">Steuerung</div>
             <h2>Startklar machen</h2>
             <p className="muted-copy room-action-hint">
-              Startet mit 3 bis 4 sitzenden Spielern, sobald alle bereit sind. Der Host legt den Startspieler vor dem Match fest.
+              Startet mit 3 bis 4 sitzenden Spielern, sobald alle bereit sind. Aufbau und Startmodus gelten für die nächste Partie.
             </p>
 
             <div className="mini-segmented room-setup-mode">
@@ -165,24 +174,46 @@ export function RoomScreen(props: {
             <div className="room-settings-block">
               <div className="room-setting-head">
                 <span className="eyebrow">Startspieler</span>
-                <strong>{startingSeat?.username ?? `Platz ${props.room.startingSeatIndex + 1}`}</strong>
+                <strong>{usesRolledStart ? "Wird ausgewürfelt" : startingSeat?.username ?? `Platz ${props.room.startingSeatIndex + 1}`}</strong>
+              </div>
+              <div className="mini-segmented room-starting-mode">
+                <button
+                  type="button"
+                  className={usesRolledStart ? "is-active" : ""}
+                  disabled={!canEditSettings}
+                  onClick={() => props.onStartingPlayerModeChange("rolled")}
+                >
+                  Auswürfeln
+                </button>
+                <button
+                  type="button"
+                  className={!usesRolledStart ? "is-active" : ""}
+                  disabled={!canEditSettings}
+                  onClick={() => props.onStartingPlayerModeChange("manual")}
+                >
+                  Manuell
+                </button>
               </div>
               <p className="muted-copy room-action-hint">
-                Nur besetzte Plätze können als Startspieler gewählt werden.
+                {usesRolledStart
+                  ? "Vor Spielstart würfeln alle sitzenden Spieler. Nur der erste Spieler wird so bestimmt, danach läuft die Reihenfolge normal ab diesem Sitz weiter."
+                  : "Nur besetzte Plätze können als erster Spieler gewählt werden."}
               </p>
-              <div className="mini-segmented room-starting-seat">
-                {seatedPlayers.map((seat) => (
-                  <button
-                    key={seat.index}
-                    type="button"
-                    className={props.room.startingSeatIndex === seat.index ? "is-active" : ""}
-                    disabled={!canEditSettings}
-                    onClick={() => props.onStartingSeatChange(seat.index)}
-                  >
-                    {seat.username ?? `Platz ${seat.index + 1}`}
-                  </button>
-                ))}
-              </div>
+              {!usesRolledStart ? (
+                <div className="mini-segmented room-starting-seat">
+                  {seatedPlayers.map((seat) => (
+                    <button
+                      key={seat.index}
+                      type="button"
+                      className={props.room.startingSeatIndex === seat.index ? "is-active" : ""}
+                      disabled={!canEditSettings}
+                      onClick={() => props.onStartingSeatChange(seat.index)}
+                    >
+                      {seat.username ?? `Platz ${seat.index + 1}`}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="room-action-stack">

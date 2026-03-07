@@ -9,6 +9,7 @@ import type {
   ResourceMap,
   RoomDetails,
   SetupMode,
+  StartingPlayerMode,
   ServerMessage,
   UserRole
 } from "@hexagonia/shared";
@@ -1026,8 +1027,29 @@ export function App() {
     }
   };
 
+  const handleRoomStartingPlayerModeChange = async (startingPlayerMode: StartingPlayerMode) => {
+    if (!room || room.startingPlayerMode === startingPlayerMode) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { startingPlayerMode });
+      setRoom(nextRoom);
+      await loadMyRooms();
+      pushToast(
+        "success",
+        "Startmodus aktualisiert",
+        startingPlayerMode === "rolled"
+          ? "Der erste Spieler wird vor Spielstart ausgewürfelt."
+          : "Der erste Spieler wird wieder manuell durch den Host festgelegt."
+      );
+    } catch (settingsError) {
+      pushToast("error", "Startmodus konnte nicht geändert werden", (settingsError as Error).message);
+    }
+  };
+
   const handleRoomStartingSeatChange = async (startingSeatIndex: number) => {
-    if (!room || room.startingSeatIndex === startingSeatIndex) {
+    if (!room || room.startingPlayerMode !== "manual" || room.startingSeatIndex === startingSeatIndex) {
       return;
     }
 
@@ -1547,6 +1569,7 @@ export function App() {
               onLeave={handleLeaveRoom}
               onReady={handleReadyToggle}
               onSetupModeChange={handleRoomSetupModeChange}
+              onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
               onStartingSeatChange={handleRoomStartingSeatChange}
               onStart={handleStartRoom}
             />
