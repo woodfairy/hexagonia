@@ -548,10 +548,10 @@ function createTileMesh(
 }
 
 function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
-  const tileTopColor = shadeColor(TILE_COLORS[tile.resource], -0.03);
+  const tileTopColor = TILE_COLORS[tile.resource];
   const tileSideColor = getTileOuterSideColor(tile.resource);
-  const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.026);
-  const tileInsetSideColor = shadeColor(TILE_COLORS[tile.resource], -0.03);
+  const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.04);
+  const tileInsetSideColor = shadeColor(TILE_COLORS[tile.resource], -0.04);
   const outerShape = createTileShape(tile, verticesById);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
     depth: TILE_HEIGHT,
@@ -942,24 +942,68 @@ function createShowcaseSheep(lead: boolean): THREE.Group {
     roughness: 0.92,
     metalness: 0.01
   });
+  const glowMaterial = new THREE.MeshStandardMaterial({
+    color: "#f7f4ec",
+    roughness: 0.74,
+    metalness: 0.01
+  });
+  const muzzleMaterial = new THREE.MeshStandardMaterial({
+    color: "#d8d1c3",
+    roughness: 0.76,
+    metalness: 0.01
+  });
+  const eyeMaterial = new THREE.MeshStandardMaterial({
+    color: "#111417",
+    roughness: 0.5,
+    metalness: 0.02
+  });
 
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), woolMaterial);
-  body.position.y = 0.26;
-  body.scale.set(1.3, 0.94, 1);
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.22, 4, 8), woolMaterial);
+  body.position.set(-0.02, 0.28, 0);
+  body.rotation.z = Math.PI / 2;
+  body.scale.set(1.12, 1, 0.94);
+  const puffA = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), glowMaterial);
+  puffA.position.set(-0.18, 0.3, 0.09);
+  const puffB = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), glowMaterial);
+  puffB.position.set(0.04, 0.34, -0.08);
+  const puffC = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), glowMaterial);
+  puffC.position.set(0.12, 0.3, 0.07);
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), glowMaterial);
+  tail.position.set(-0.3, 0.28, -0.02);
+  tail.scale.set(0.9, 0.72, 0.9);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.12, 6), faceMaterial);
+  neck.position.set(0.16, 0.29, 0.02);
+  neck.rotation.z = -0.9;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), faceMaterial);
-  head.position.set(0.24, 0.28, 0.02);
+  head.position.set(0.3, 0.33, 0.02);
+  head.scale.set(0.92, 0.84, 1.2);
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), muzzleMaterial);
+  muzzle.position.set(0.39, 0.28, 0.02);
+  muzzle.scale.set(1.06, 0.72, 0.84);
+  const earLeft = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), faceMaterial);
+  earLeft.position.set(0.3, 0.46, 0.1);
+  earLeft.scale.set(0.74, 0.26, 1.24);
+  earLeft.rotation.set(0.08, 0.14, -0.36);
+  const earRight = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), faceMaterial);
+  earRight.position.set(0.3, 0.44, -0.06);
+  earRight.scale.set(0.74, 0.26, 1.14);
+  earRight.rotation.set(-0.08, 0.1, -0.34);
+  const eyeLeft = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 6), eyeMaterial);
+  eyeLeft.position.set(0.37, 0.34, 0.06);
+  const eyeRight = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 6), eyeMaterial);
+  eyeRight.position.set(0.37, 0.34, -0.01);
   const legs = [
-    [-0.12, -0.08],
-    [0.02, -0.08],
-    [-0.08, 0.1],
-    [0.08, 0.1]
+    [-0.16, -0.08],
+    [-0.04, 0.1],
+    [0.1, -0.06],
+    [0.2, 0.08]
   ] as const;
   for (const [x, z] of legs) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.028, 0.2, 5), faceMaterial);
     leg.position.set(x, 0.1, z);
     group.add(leg);
   }
-  group.add(body, head);
+  group.add(body, puffA, puffB, puffC, tail, neck, head, muzzle, earLeft, earRight, eyeLeft, eyeRight);
   return group;
 }
 
@@ -1098,15 +1142,18 @@ function createShowcaseBrickStacks(): THREE.Group {
     metalness: 0.01
   });
   const stacks = [
-    { x: -0.12, z: 0.02, w: 0.34, h: 0.14, d: 0.22 },
-    { x: 0.22, z: -0.06, w: 0.42, h: 0.18, d: 0.24 },
-    { x: 0.12, z: 0.26, w: 0.26, h: 0.1, d: 0.18 }
+    { x: -0.16, z: 0.02, layers: 2 },
+    { x: 0.18, z: -0.06, layers: 3 },
+    { x: 0.1, z: 0.24, layers: 1 }
   ] as const;
 
   for (const entry of stacks) {
-    const stack = new THREE.Mesh(new THREE.BoxGeometry(entry.w, entry.h, entry.d), brickMaterial);
-    stack.position.set(entry.x, entry.h * 0.5, entry.z);
-    group.add(stack);
+    for (let layer = 0; layer < entry.layers; layer += 1) {
+      const brick = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.056, 0.11), brickMaterial);
+      brick.position.set(entry.x + (layer % 2 === 0 ? -0.04 : 0.04), 0.03 + layer * 0.06, entry.z + layer * 0.02);
+      brick.rotation.y = layer % 2 === 0 ? 0.18 : -0.12;
+      group.add(brick);
+    }
   }
 
   return group;
@@ -1125,15 +1172,17 @@ function createShowcaseLogCamp(): THREE.Group {
     metalness: 0.01
   });
   const logs = [
-    { x: -0.16, z: 0.02, l: 0.82, r: 0.08 },
-    { x: 0.04, z: -0.12, l: 0.72, r: 0.07 },
-    { x: 0.18, z: 0.14, l: 0.62, r: 0.064 }
+    { x: -0.18, z: 0.02, y: 0.08, l: 0.82, r: 0.08, angle: 0.12 },
+    { x: 0.08, z: -0.1, y: 0.07, l: 0.72, r: 0.07, angle: -0.18 },
+    { x: -0.02, z: 0.14, y: 0.18, l: 0.68, r: 0.068, angle: 0.28 },
+    { x: 0.2, z: 0.12, y: 0.18, l: 0.58, r: 0.06, angle: -0.1 }
   ] as const;
 
   for (const entry of logs) {
     const log = new THREE.Mesh(new THREE.CylinderGeometry(entry.r, entry.r, entry.l, 8), woodMaterial);
     log.rotation.z = Math.PI / 2;
-    log.position.set(entry.x, entry.r, entry.z);
+    log.rotation.y = entry.angle;
+    log.position.set(entry.x, entry.y, entry.z);
     group.add(log);
   }
 
@@ -1194,6 +1243,19 @@ function createShowcaseCrystalCamp(): THREE.Group {
     crystal.rotation.y = entry.x * 4.4;
     group.add(crystal);
   }
+  for (const entry of [
+    { x: -0.22, z: -0.16, s: 0.12 },
+    { x: 0.14, z: 0.24, s: 0.09 }
+  ] as const) {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(entry.s, 0), baseMaterial);
+    rock.position.set(entry.x, entry.s * 0.5, entry.z);
+    rock.rotation.set(0.14, entry.x * 2.8, -0.08);
+    group.add(rock);
+  }
+  const oreShard = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), crystalMaterial);
+  oreShard.position.set(0.04, 0.14, -0.22);
+  oreShard.scale.set(0.72, 1.28, 0.74);
+  group.add(oreShard);
   group.position.set(-0.46, 0, 0);
   group.rotation.y = -0.2;
   return group;
@@ -1206,6 +1268,13 @@ function createShowcaseRockScatter(): THREE.Group {
     roughness: 0.95,
     metalness: 0.02
   });
+  const oreMaterial = new THREE.MeshStandardMaterial({
+    color: "#bed8f5",
+    roughness: 0.42,
+    metalness: 0.08,
+    emissive: new THREE.Color("#dbe9ff"),
+    emissiveIntensity: 0.06
+  });
   for (const entry of [
     { x: -0.12, z: 0.04, s: 0.12 },
     { x: 0.1, z: -0.08, s: 0.16 },
@@ -1216,6 +1285,10 @@ function createShowcaseRockScatter(): THREE.Group {
     rock.rotation.set(0.12, entry.x * 3.2, -0.08);
     group.add(rock);
   }
+  const oreNugget = new THREE.Mesh(new THREE.OctahedronGeometry(0.07, 0), oreMaterial);
+  oreNugget.position.set(-0.02, 0.08, 0.16);
+  oreNugget.scale.set(0.78, 1.18, 0.72);
+  group.add(oreNugget);
   return group;
 }
 
@@ -1308,7 +1381,7 @@ function shadeColor(color: string, lightnessOffset: number): string {
 }
 
 function getTileOuterSideColor(resource: Resource | "desert"): string {
-  return shadeColor(TILE_COLORS[resource], resource === "lumber" ? -0.045 : -0.085);
+  return shadeColor(TILE_COLORS[resource], -0.06);
 }
 
 function round4(value: number): number {

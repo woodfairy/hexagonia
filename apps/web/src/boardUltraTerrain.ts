@@ -111,10 +111,13 @@ function createTerrainMaps(resource: TerrainResource): CachedTerrainMaps {
 
 function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
   const base = TILE_COLORS[resource];
-  const topTint = tint(base, 0.08);
-  const insetTint = tint(base, 0.16);
-  const sideTint = tint(base, -0.22);
-  const insetSideTint = tint(base, -0.12);
+  const topTint = base;
+  const insetTint = tint(base, 0.05);
+  const sideTint = tint(base, -0.1);
+  const insetSideTint = tint(base, -0.05);
+  const overlayBase = tint(base, 0.06);
+  const overlayAccent = tint(base, 0.16);
+  const emissive = tint(base, -0.22);
 
   switch (resource) {
     case "lumber":
@@ -123,9 +126,9 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#8fd67c",
-        overlayAccent: "#eef9c9",
-        emissive: "#0f3a1c",
+        overlayBase,
+        overlayAccent,
+        emissive,
         roughness: 0.86,
         metalness: 0.03,
         bumpScale: 0.18,
@@ -142,9 +145,9 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#9fd0ff",
-        overlayAccent: "#f6d7a8",
-        emissive: "#203348",
+        overlayBase,
+        overlayAccent,
+        emissive,
         roughness: 0.74,
         metalness: 0.08,
         bumpScale: 0.22,
@@ -161,9 +164,9 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#f3d36f",
-        overlayAccent: "#fff0b5",
-        emissive: "#5a4413",
+        overlayBase,
+        overlayAccent,
+        emissive,
         roughness: 0.72,
         metalness: 0.02,
         bumpScale: 0.14,
@@ -180,9 +183,9 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#e5a87d",
-        overlayAccent: "#f7d8b8",
-        emissive: "#4b2617",
+        overlayBase,
+        overlayAccent,
+        emissive,
         roughness: 0.9,
         metalness: 0.01,
         bumpScale: 0.16,
@@ -199,9 +202,9 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#a8c875",
-        overlayAccent: "#e6f1cd",
-        emissive: "#2c4a1f",
+        overlayBase,
+        overlayAccent,
+        emissive,
         roughness: 0.82,
         metalness: 0.02,
         bumpScale: 0.12,
@@ -218,9 +221,9 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetTint,
         sideTint,
         insetSideTint,
-        overlayBase: "#f0d39d",
-        overlayAccent: "#fff1cf",
-        emissive: "#684f2d",
+        overlayBase,
+        overlayAccent,
+        emissive,
         roughness: 0.94,
         metalness: 0,
         bumpScale: 0.11,
@@ -245,7 +248,7 @@ function paintLumberTerrain(
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const radius = 16 + random() * 38;
-    drawSoftBlob(colorContext, x, y, radius, pick(random, ["rgba(23,68,28,0.54)", "rgba(41,97,44,0.62)", "rgba(87,138,68,0.5)"]));
+    drawSoftBlob(colorContext, x, y, radius, pick(random, ["rgba(38,92,42,0.24)", "rgba(54,112,57,0.26)", "rgba(95,146,76,0.22)"]));
     drawSoftBlob(bumpContext, x, y, radius * 0.88, `rgba(${120 + Math.round(random() * 60)},${120 + Math.round(random() * 60)},${120 + Math.round(random() * 60)},0.34)`);
     drawSoftBlob(roughnessContext, x, y, radius * 0.92, "rgba(210,210,210,0.08)");
   }
@@ -254,11 +257,11 @@ function paintLumberTerrain(
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const radius = 8 + random() * 18;
-    drawSoftBlob(colorContext, x, y, radius, "rgba(169,214,124,0.18)");
+    drawSoftBlob(colorContext, x, y, radius, "rgba(173,216,132,0.12)");
     drawSoftBlob(overlayContext, x, y, radius * 1.35, "rgba(255,255,255,0.14)");
   }
 
-  drawSpeckles(colorContext, random, 3200, "rgba(8,24,12,0.06)", 0.8, 2.4);
+  drawSpeckles(colorContext, random, 3200, "rgba(18,42,20,0.03)", 0.8, 2.4);
 }
 
 function paintOreTerrain(
@@ -505,9 +508,9 @@ function drawBaseGradients(
 ): void {
   const base = TILE_COLORS[resource];
   const colorGradient = colorContext.createLinearGradient(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
-  colorGradient.addColorStop(0, tint(base, 0.18));
+  colorGradient.addColorStop(0, tint(base, 0.08));
   colorGradient.addColorStop(0.52, base);
-  colorGradient.addColorStop(1, tint(base, -0.18));
+  colorGradient.addColorStop(1, tint(base, -0.06));
   colorContext.fillStyle = colorGradient;
   colorContext.fillRect(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
 
