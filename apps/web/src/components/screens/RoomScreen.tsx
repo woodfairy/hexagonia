@@ -65,46 +65,64 @@ export function RoomScreen(props: {
               const mine = seat.userId === props.session.id;
               const canKick = isOwner && props.room.status === "open" && occupied && !mine && !!seat.userId;
               const isStartingSeat = props.room.startingSeatIndex === seat.index && occupied;
+              const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfügbar";
+              const detailLabel = occupied
+                ? isStartingSeat
+                  ? "Startspieler dieser Partie"
+                  : online
+                    ? "Online im Raum"
+                    : "Nicht verbunden"
+                : "Jeder eingeladene Spieler kann beitreten";
 
               return (
                 <article key={seat.index} className={`seat-card player-surface player-accent-${seat.color} ${mine ? "is-mine" : ""}`}>
-                  <div className="seat-card-top">
+                  <div className="seat-card-head">
                     <div className="seat-slot-meta">
                       <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
-                      {occupied ? (
-                        <div className="seat-status-meta">
-                          <PlayerColorBadge color={seat.color} compact />
-                          <span className={`online-indicator ${online ? "is-online" : "is-offline"}`} />
-                        </div>
-                      ) : null}
+                      <div className="seat-status-meta">
+                        <PlayerColorBadge color={seat.color} compact />
+                        <span className={`online-indicator ${occupied ? (online ? "is-online" : "is-offline") : "is-hidden"}`} />
+                      </div>
                     </div>
                   </div>
-                  {occupied && seat.username ? (
-                    <PlayerIdentity
-                      username={seat.username}
-                      color={seat.color}
-                      compact
-                      isSelf={mine}
-                      {...(mine ? { meta: `Deine Farbe: ${renderPlayerColorLabel(seat.color)}` } : {})}
-                    />
-                  ) : (
-                    <strong className="seat-open-label">Offen</strong>
-                  )}
-                  <span>{seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfügbar"}</span>
-                  <span className="muted-copy">
-                    {occupied
-                      ? isStartingSeat
-                        ? "Startspieler dieser Partie"
-                        : online
-                          ? "Online im Raum"
-                          : "Nicht verbunden"
-                      : "Jeder eingeladene Spieler kann beitreten"}
-                  </span>
-                  {canKick ? (
-                    <button className="ghost-button is-danger" type="button" onClick={() => props.onKickUser(seat.userId!)}>
-                      Spieler entfernen
-                    </button>
-                  ) : null}
+                  <div className="seat-card-identity">
+                    {occupied && seat.username ? (
+                      <PlayerIdentity
+                        username={seat.username}
+                        color={seat.color}
+                        compact
+                        isSelf={mine}
+                        {...(mine ? { meta: `Deine Farbe: ${renderPlayerColorLabel(seat.color)}` } : {})}
+                      />
+                    ) : (
+                      <div className="seat-open-copy">
+                        <span className="player-swatch seat-open-swatch-placeholder" aria-hidden="true" />
+                        <div className="seat-identity-copy">
+                          <strong className="seat-open-label">Offen</strong>
+                          <span className="seat-identity-meta seat-identity-meta-placeholder" aria-hidden="true">
+                            Platz frei
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="seat-card-state">
+                    <strong className="seat-card-state-label">{stateLabel}</strong>
+                  </div>
+                  <div className="seat-card-detail">
+                    <span className="muted-copy seat-card-detail-copy">{detailLabel}</span>
+                  </div>
+                  <div className="seat-card-action">
+                    {canKick ? (
+                      <button className="ghost-button is-danger" type="button" onClick={() => props.onKickUser(seat.userId!)}>
+                        Spieler entfernen
+                      </button>
+                    ) : (
+                      <span className="seat-card-action-spacer" aria-hidden="true">
+                        Spieler entfernen
+                      </span>
+                    )}
+                  </div>
                 </article>
               );
             })}

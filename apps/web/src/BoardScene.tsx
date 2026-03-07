@@ -5,12 +5,18 @@ import type { MatchSnapshot, Resource } from "@hexagonia/shared";
 import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
 
 export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
+export interface BoardFocusBadge {
+  label: string;
+  playerId?: string;
+  tone?: "neutral" | "player" | "warning";
+}
+
 export interface BoardFocusCue {
   key: string;
   mode: "event" | "action";
   title: string;
   detail: string;
-  badges?: string[];
+  badges?: BoardFocusBadge[];
   vertexIds: string[];
   edgeIds: string[];
   tileIds: string[];

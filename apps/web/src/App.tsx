@@ -66,7 +66,6 @@ const HEARTBEAT_INTERVAL_MS = 15000;
 const HEARTBEAT_TIMEOUT_MS = 40000;
 const RECONNECT_BASE_MS = 1200;
 const RECONNECT_MAX_MS = 12000;
-const DISCONNECT_TOAST_COOLDOWN_MS = 30000;
 const BUILD_COSTS = {
   road: { brick: 1, lumber: 1 },
   settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
@@ -138,7 +137,6 @@ export function App() {
   const reconnectTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
   const lastServerActivityRef = useRef(Date.now());
-  const lastDisconnectToastAtRef = useRef(0);
   const toastCounterRef = useRef(0);
 
   const selfPlayer = useMemo(
@@ -629,12 +627,6 @@ export function App() {
         setConnectionState("offline");
         setStatus("Bitte an- oder registrieren.");
         return;
-      }
-
-      const now = Date.now();
-      if (now - lastDisconnectToastAtRef.current > DISCONNECT_TOAST_COOLDOWN_MS) {
-        lastDisconnectToastAtRef.current = now;
-        pushToast("info", "Verbindung wird wiederhergestellt", "Hexagonia verbindet deine laufenden Räume und Partien automatisch neu.");
       }
 
       scheduleReconnect();

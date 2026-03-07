@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ClientMessage, MatchSnapshot, PlayerColor, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
-import { BoardScene, TILE_COLORS, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { BoardScene, TILE_COLORS, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { formatPhase, getPlayerAccentClass, renderEventLabel, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
@@ -75,9 +75,13 @@ interface DiceDisplayState {
   left: number | null;
   right: number | null;
   total: number | null;
-  rolling: boolean;
+  phase: "idle" | "expand" | "rolling" | "settle";
   actorName: string | null;
 }
+
+const DICE_EXPAND_MS = 140;
+const DICE_ROLL_MS = 620;
+const DICE_SETTLE_MS = 190;
 
 export function MatchScreen(props: {
   match: MatchSnapshot;
@@ -171,7 +175,7 @@ export function MatchScreen(props: {
     left: props.match.dice?.[0] ?? null,
     right: props.match.dice?.[1] ?? null,
     total: props.match.dice ? props.match.dice[0] + props.match.dice[1] : null,
-    rolling: false,
+    phase: "idle",
     actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
   }));
   const seenDiceEventIdRef = useRef<string | null>(latestDiceEvent?.id ?? null);
@@ -418,15 +422,15 @@ export function MatchScreen(props: {
     }
 
     seenDiceEventIdRef.current = latestDiceEvent?.id ?? null;
-    setDiceDisplay({
-      left: props.match.dice?.[0] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[0] ?? null,
-      right: props.match.dice?.[1] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[1] ?? null,
-      total:
-        getPayloadNumber(latestDiceEvent?.payload ?? {}, "total") ??
-        (props.match.dice ? props.match.dice[0] + props.match.dice[1] : null),
-      rolling: false,
-      actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
-    });
+      setDiceDisplay({
+        left: props.match.dice?.[0] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[0] ?? null,
+        right: props.match.dice?.[1] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[1] ?? null,
+        total:
+          getPayloadNumber(latestDiceEvent?.payload ?? {}, "total") ??
+          (props.match.dice ? props.match.dice[0] + props.match.dice[1] : null),
+        phase: "idle",
+        actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
+      });
   }, [props.match.matchId]);
 
   useEffect(() => {
@@ -451,7 +455,7 @@ export function MatchScreen(props: {
         left: actualDice?.[0] ?? null,
         right: actualDice?.[1] ?? null,
         total,
-        rolling: false,
+        phase: "idle",
         actorName
       });
       return;
@@ -480,33 +484,50 @@ export function MatchScreen(props: {
       left: rollPreviewValue(),
       right: rollPreviewValue(),
       total,
-      rolling: true,
+      phase: "expand",
       actorName
     });
 
-    diceAnimationTimerRef.current = window.setInterval(() => {
+    diceAnimationCompleteRef.current = window.setTimeout(() => {
       setDiceDisplay((current) => ({
         ...current,
+        phase: "rolling",
         left: rollPreviewValue(),
-        right: rollPreviewValue(),
-        rolling: true
+        right: rollPreviewValue()
       }));
-    }, 88);
 
-    diceAnimationCompleteRef.current = window.setTimeout(() => {
-      if (diceAnimationTimerRef.current !== null) {
-        window.clearInterval(diceAnimationTimerRef.current);
-        diceAnimationTimerRef.current = null;
-      }
-      setDiceDisplay({
-        left: actualDice?.[0] ?? null,
-        right: actualDice?.[1] ?? null,
-        total,
-        rolling: false,
-        actorName
-      });
-      diceAnimationCompleteRef.current = null;
-    }, 900);
+      diceAnimationTimerRef.current = window.setInterval(() => {
+        setDiceDisplay((current) => ({
+          ...current,
+          left: rollPreviewValue(),
+          right: rollPreviewValue(),
+          phase: "rolling"
+        }));
+      }, 74);
+
+      diceAnimationCompleteRef.current = window.setTimeout(() => {
+        if (diceAnimationTimerRef.current !== null) {
+          window.clearInterval(diceAnimationTimerRef.current);
+          diceAnimationTimerRef.current = null;
+        }
+
+        setDiceDisplay({
+          left: actualDice?.[0] ?? null,
+          right: actualDice?.[1] ?? null,
+          total,
+          phase: "settle",
+          actorName
+        });
+
+        diceAnimationCompleteRef.current = window.setTimeout(() => {
+          setDiceDisplay((current) => ({
+            ...current,
+            phase: "idle"
+          }));
+          diceAnimationCompleteRef.current = null;
+        }, DICE_SETTLE_MS);
+      }, DICE_ROLL_MS);
+    }, DICE_EXPAND_MS);
   }, [latestDiceEvent, props.match]);
 
   useEffect(() => {
@@ -572,8 +593,8 @@ export function MatchScreen(props: {
       </div>
     </div>
   );
-  const activePlayerCardClassName = [
-    "info-card-feature",
+  const activePlayerSummaryClassName = [
+    "match-overview-summary",
     activePlayer ? "player-surface" : "",
     activePlayer ? getPlayerAccentClass(activePlayer.color) : ""
   ]
@@ -583,26 +604,32 @@ export function MatchScreen(props: {
   const tabPanels: Record<MatchPanelTab, ReactNode> = {
     overview: (
       <div className={`panel-frame overview-frame ${isMobileViewport ? "is-mobile-overview" : ""}`}>
-        <div className="dock-card-grid match-overview-grid">
-          <InfoCard
-            label="Am Zug"
-            value={
-              activePlayer ? (
-                <PlayerIdentity
-                  username={activePlayer.username}
-                  color={activePlayer.color}
-                  compact
-                  isSelf={activePlayer.id === props.match.you}
-                />
-              ) : (
-                "-"
-              )
-            }
-            className={activePlayerCardClassName}
-          />
-          <InfoCard label="Phase" value={formatPhase(props.match.phase)} />
-          <InfoCard label="Würfel" value={boardDiceLabel} />
-        </div>
+        <section className={activePlayerSummaryClassName}>
+          <div className="match-overview-summary-head">
+            <span className="eyebrow">Am Zug</span>
+            {activePlayer ? (
+              <div className="match-overview-summary-player">
+                <span className="player-swatch" aria-hidden="true" />
+                <div className="match-overview-summary-player-copy">
+                  <strong className="player-name-text">{activePlayer.username}</strong>
+                  <span>{activePlayer.id === props.match.you ? `Du spielst ${renderPlayerColorLabel(activePlayer.color)}` : renderPlayerColorLabel(activePlayer.color)}</span>
+                </div>
+              </div>
+            ) : (
+              <strong className="match-overview-summary-empty">-</strong>
+            )}
+          </div>
+          <div className="match-overview-summary-meta">
+            <article className="match-overview-summary-metric">
+              <span>Phase</span>
+              <strong>{formatPhase(props.match.phase)}</strong>
+            </article>
+            <article className="match-overview-summary-metric">
+              <span>Würfel</span>
+              <strong>{boardDiceLabel}</strong>
+            </article>
+          </div>
+        </section>
         {props.match.phase === "robber_interrupt" && props.match.robberDiscardStatus.length > 0 ? (
           <section className="dock-section robber-discard-surface">
             <div className="dock-section-head">
@@ -622,10 +649,10 @@ export function MatchScreen(props: {
                 {robberDiscardGroups.pending.length ? (
                   <div className="robber-discard-list">
                     {robberDiscardGroups.pending.map(({ player, requiredCount }) => (
-                      <article key={player.id} className="robber-discard-row">
+                      <article key={player.id} className={`robber-discard-row player-accent-${player.color}`}>
                         <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
                         <div className="robber-discard-row-meta">
-                          <span className="status-pill is-warning">offen</span>
+                          <span className={`status-pill player-tone-pill player-accent-${player.color} is-warning`}>offen</span>
                           <span>{requiredCount} Karten</span>
                         </div>
                       </article>
@@ -643,10 +670,10 @@ export function MatchScreen(props: {
                 {robberDiscardGroups.done.length ? (
                   <div className="robber-discard-list">
                     {robberDiscardGroups.done.map(({ player }) => (
-                      <article key={player.id} className="robber-discard-row">
+                      <article key={player.id} className={`robber-discard-row player-accent-${player.color}`}>
                         <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
                         <div className="robber-discard-row-meta">
-                          <span className="status-pill">fertig</span>
+                          <span className={`status-pill player-tone-pill player-accent-${player.color} is-complete`}>fertig</span>
                         </div>
                       </article>
                     ))}
@@ -1289,19 +1316,35 @@ export function MatchScreen(props: {
               >
                 <span className="eyebrow">{spotlightCue.mode === "event" ? "Live-Geschehen" : "Deine Aktion"}</span>
                 <strong>{spotlightCue.title}</strong>
-                {!isCompactViewport ? <span>{spotlightCue.detail}</span> : null}
+                {!isCompactViewport ? <span className="board-spotlight-detail">{spotlightCue.detail}</span> : null}
                 {spotlightBadges?.length ? (
                   <div className="board-spotlight-badges">
-                    {spotlightBadges.map((badge) => (
-                      <span key={badge} className="board-spotlight-badge">
-                        {badge}
-                      </span>
-                    ))}
+                    {spotlightBadges.map((badge, index) => {
+                      const badgeColor = badge.playerId ? getPlayerColor(props.match, badge.playerId) : null;
+                      const badgeAccentClass = badgeColor ? getPlayerAccentClass(badgeColor) : "";
+                      return (
+                        <span
+                          key={`${badge.playerId ?? badge.tone ?? "neutral"}-${badge.label}-${index}`}
+                          className={`board-spotlight-badge ${
+                            badge.tone === "player" && badgeAccentClass ? `is-player ${badgeAccentClass}` : ""
+                          } ${badge.tone === "warning" ? "is-warning" : ""}`}
+                        >
+                          {badge.tone === "player" && badgeAccentClass ? (
+                            <span className={`board-spotlight-badge-swatch ${badgeAccentClass}`} aria-hidden="true" />
+                          ) : null}
+                          <span>{badge.label}</span>
+                        </span>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
             ) : null}
-            <div className={`board-dice-widget ${diceDisplay.rolling ? "is-rolling" : ""} ${isMobileViewport ? "is-mobile" : ""}`}>
+            <div
+              className={`board-dice-widget ${diceDisplay.phase === "expand" ? "is-expanding" : ""} ${
+                diceDisplay.phase === "rolling" ? "is-rolling" : ""
+              } ${diceDisplay.phase === "settle" ? "is-settling" : ""} ${isMobileViewport ? "is-mobile" : ""}`}
+            >
               <div className="board-dice-head">
                 <span className="eyebrow">Wurf</span>
                 <strong>{diceDisplay.total !== null ? diceDisplay.total : "Offen"}</strong>
@@ -1312,7 +1355,7 @@ export function MatchScreen(props: {
               </div>
               <span className="board-dice-copy">
                 {diceDisplay.actorName
-                  ? diceDisplay.rolling
+                  ? diceDisplay.phase === "expand" || diceDisplay.phase === "rolling"
                     ? `${diceDisplay.actorName} würfelt...`
                     : `${diceDisplay.actorName} hat ${diceDisplay.total ?? "-"} gewürfelt`
                   : "Warte auf den nächsten Wurf."}
@@ -2027,8 +2070,8 @@ function createEventCue(
         title: `${actorName} würfelt ${total}`,
         detail: "Die Räuberphase startet. Betroffene Spieler müssen jetzt abwerfen und der Räuber wird anschließend bewegt.",
         badges: [
-          dice ? `Wurf: ${dice[0]} + ${dice[1]} = ${total}` : `Wurf: ${total}`,
-          "Räuber aktiv"
+          { label: dice ? `Wurf: ${dice[0]} + ${dice[1]} = ${total}` : `Wurf: ${total}` },
+          { label: "Räuber aktiv", tone: "warning" }
         ],
         vertexIds: [],
         edgeIds: [],
@@ -2050,13 +2093,18 @@ function createEventCue(
       }
 
       const badges = [
-        dice ? `Wurf: ${dice[0]} + ${dice[1]} = ${roll}` : `Wurf: ${roll}`,
-        tileLine,
+        { label: dice ? `Wurf: ${dice[0]} + ${dice[1]} = ${roll}` : `Wurf: ${roll}` },
+        { label: tileLine },
         ...grantLines,
         ...(blockedResources.length
-          ? [`Bank blockiert: ${blockedResources.map((resource) => renderResourceLabel(resource)).join(", ")}`]
+          ? [
+              {
+                label: `Bank blockiert: ${blockedResources.map((resource) => renderResourceLabel(resource)).join(", ")}`,
+                tone: "warning" as const
+              }
+            ]
           : [])
-      ].filter(Boolean);
+      ].filter((badge) => badge.label);
 
       return {
         key: `event-${event.id}-distribution-${roll}-${tileIds.join(",")}`,
@@ -2222,14 +2270,20 @@ function summarizeTileLines(match: MatchSnapshot, tileIds: string[], roll: numbe
 function summarizeGrantLines(
   match: MatchSnapshot,
   grantsByPlayerId: Record<string, ResourceMap>
-): string[] {
+): BoardFocusBadge[] {
   return Object.entries(grantsByPlayerId)
     .map(([playerId, resourceMap]) => {
       const playerName = playerId === match.you ? "Du" : getPlayerName(match, playerId);
       const resources = renderResourceMap(resourceMap);
-      return resources ? `${playerName}: +${resources}` : "";
+      return resources
+        ? {
+            label: `${playerName}: +${resources}`,
+            playerId,
+            tone: "player" as const
+          }
+        : null;
     })
-    .filter((entry): entry is string => !!entry);
+    .filter((entry): entry is BoardFocusBadge => !!entry);
 }
 
 function getTurnStatus(
