@@ -2308,8 +2308,6 @@ select:hover {
 .trade-builder {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  column-gap: 0.92rem;
-  row-gap: var(--gap-stack-tight);
 }
 
 .trade-side-card,
@@ -2348,7 +2346,7 @@ select:hover {
 
 .trade-resource-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(6.35rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
   gap: 0.58rem;
   min-inline-size: 0;
   align-content: start;
@@ -3778,7 +3776,6 @@ select:hover {
 
   .trade-resource-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding-inline-end: 0;
   }
 
   .trade-target-picker {
