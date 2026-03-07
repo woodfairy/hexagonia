@@ -453,7 +453,12 @@ export function BoardScene(props: BoardSceneProps) {
         continue;
       }
 
-      const tile = tilesById.get(edge.tileIds[0]);
+      const [tileId] = edge.tileIds;
+      if (!tileId) {
+        continue;
+      }
+
+      const tile = tilesById.get(tileId);
       if (!tile) {
         continue;
       }

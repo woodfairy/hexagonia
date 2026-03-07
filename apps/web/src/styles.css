@@ -1585,7 +1585,8 @@ select:hover {
   inset-inline-start: 0.95rem;
   inset-block-end: 0.95rem;
   z-index: 2;
-  inline-size: min(21rem, calc(100% - 2rem));
+  inline-size: min(18.5rem, calc(100% - 2rem));
+  max-block-size: calc(100% - 1.9rem);
   pointer-events: auto;
   display: grid;
   gap: var(--gap-inline);
@@ -1802,6 +1803,10 @@ select:hover {
   gap: var(--gap-stack);
   padding: 0.82rem 0.85rem;
   border-radius: var(--radius-control);
+  max-block-size: min(35rem, calc(100% - 3rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .board-legend-section,
@@ -3690,7 +3695,8 @@ select:hover {
   .board-legend {
     inset-inline-start: 0.75rem;
     inset-block-end: 0.75rem;
-    inline-size: min(18rem, calc(100% - 1.5rem));
+    inline-size: min(16.75rem, calc(100% - 1.5rem));
+    max-block-size: calc(100% - 1.5rem);
   }
 
   .board-dice-widget {
@@ -3762,6 +3768,7 @@ select:hover {
   .board-legend-panel {
     gap: 0.7rem;
     padding: 0.72rem 0.75rem;
+    max-block-size: min(27rem, calc(100svh - 10.5rem));
   }
 
   .match-sheet.is-peek {
