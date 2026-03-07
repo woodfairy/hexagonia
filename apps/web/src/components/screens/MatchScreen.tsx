@@ -607,11 +607,11 @@ export function MatchScreen(props: {
     <div className="board-legend-notes">
       <div className="board-legend-note">
         <span className="legend-signal is-gold" aria-hidden="true" />
-        <span>Goldene Hinweise markieren die aktuelle Aktion oder das Live-Geschehen.</span>
+        <span>Goldene Hinweise markieren das Live-Geschehen und wichtige Ereignisse auf dem Brett.</span>
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-pulse" aria-hidden="true" />
-        <span>Pulsierende Marker zeigen dir, was du gerade anklicken kannst.</span>
+        <span>Blaue pulsierende Marker zeigen dir, was du gerade anklicken oder bauen kannst.</span>
       </div>
     </div>
   );

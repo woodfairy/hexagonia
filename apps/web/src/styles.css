@@ -1643,9 +1643,9 @@ select:hover {
 }
 
 .dice-face {
-  --dice-face-rest-scale: 0.84;
-  --dice-face-peak-scale: 1;
-  --dice-face-roll-scale: 0.95;
+  --dice-face-rest-scale: 0.72;
+  --dice-face-peak-scale: 1.12;
+  --dice-face-roll-scale: 1.02;
   position: relative;
   display: grid;
   inline-size: 100%;
@@ -1672,6 +1672,7 @@ select:hover {
   box-shadow:
     inset 0 -0.42rem 0 rgba(0, 0, 0, 0.18),
     0 0.88rem 1.4rem rgba(0, 0, 0, 0.2);
+  z-index: 1;
 }
 
 .board-dice-widget.is-rolling .dice-face:nth-child(2) {
@@ -1872,8 +1873,8 @@ select:hover {
 }
 
 .legend-signal.is-gold {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  box-shadow: 0 0 0 0.2rem rgba(var(--accent-rgb), 0.16);
+  background: linear-gradient(135deg, #f2c56b, #ffe0a1);
+  box-shadow: 0 0 0 0.2rem rgba(242, 197, 107, 0.16);
 }
 
 .legend-signal.is-pulse {
@@ -2071,6 +2072,32 @@ select:hover {
   -webkit-overflow-scrolling: touch;
   padding-inline: 0.2rem;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(210, 197, 255, 0.34) rgba(255, 255, 255, 0.04);
+}
+
+.tab-panel-shell::-webkit-scrollbar,
+.panel-frame::-webkit-scrollbar {
+  inline-size: 0.55rem;
+  block-size: 0.55rem;
+}
+
+.tab-panel-shell::-webkit-scrollbar-track,
+.panel-frame::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 999px;
+}
+
+.tab-panel-shell::-webkit-scrollbar-thumb,
+.panel-frame::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(210, 197, 255, 0.46), rgba(170, 146, 238, 0.44));
+  border-radius: 999px;
+  border: 1px solid rgba(12, 22, 31, 0.18);
+}
+
+.tab-panel-shell::-webkit-scrollbar-thumb:hover,
+.panel-frame::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(224, 213, 255, 0.56), rgba(182, 160, 244, 0.52));
 }
 
 @keyframes dice-widget-pop {
@@ -2114,19 +2141,19 @@ select:hover {
     transform: translateY(0.03rem) rotate(0deg) scale(var(--dice-face-rest-scale));
   }
   100% {
-    transform: translateY(-0.03rem) rotate(-3deg) scale(var(--dice-face-peak-scale));
+    transform: translateY(-0.05rem) rotate(-4deg) scale(var(--dice-face-peak-scale));
   }
 }
 
 @keyframes dice-roll {
   0% {
-    transform: translateY(-0.03rem) rotate(-6deg) scale(calc(var(--dice-face-roll-scale) + 0.05));
+    transform: translateY(-0.04rem) rotate(-7deg) scale(calc(var(--dice-face-roll-scale) + 0.07));
   }
   50% {
-    transform: translateY(-0.08rem) rotate(6deg) scale(var(--dice-face-peak-scale));
+    transform: translateY(-0.1rem) rotate(7deg) scale(var(--dice-face-peak-scale));
   }
   100% {
-    transform: translateY(0.02rem) rotate(-4deg) scale(calc(var(--dice-face-roll-scale) + 0.02));
+    transform: translateY(0.03rem) rotate(-4deg) scale(calc(var(--dice-face-roll-scale) + 0.04));
   }
 }
 
@@ -2135,7 +2162,7 @@ select:hover {
     transform: translateY(-0.02rem) rotate(-2deg) scale(var(--dice-face-roll-scale));
   }
   60% {
-    transform: translateY(0.02rem) rotate(1deg) scale(calc(var(--dice-face-rest-scale) + 0.04));
+    transform: translateY(0.02rem) rotate(1deg) scale(calc(var(--dice-face-rest-scale) + 0.08));
   }
   100% {
     transform: translateY(0) rotate(0deg) scale(var(--dice-face-rest-scale));
@@ -2433,9 +2460,9 @@ select:hover {
   font-size: 0.94rem;
   line-height: 1.15;
   min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .trade-resource-card .trade-resource-card-count {

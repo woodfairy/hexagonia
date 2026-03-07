@@ -682,8 +682,8 @@ function createTileMesh(
   });
   outerGeometry.rotateX(-Math.PI / 2);
 
-  const insetDepth = 0.34;
-  const insetShape = createTileShape(tile, verticesById, 0.945);
+  const insetDepth = 0.26;
+  const insetShape = createTileShape(tile, verticesById, 0.962);
   const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
     depth: insetDepth,
     bevelEnabled: true,
@@ -699,12 +699,12 @@ function createTileMesh(
     outerGeometry,
     [
       new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], -0.24),
-        roughness: 0.96,
+        color: shadeColor(TILE_COLORS[tile.resource], -0.08),
+        roughness: 0.92,
         metalness: 0.01
       }),
       new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], -0.34),
+        color: shadeColor(TILE_COLORS[tile.resource], -0.2),
         roughness: 0.98,
         metalness: 0.01
       })
@@ -715,20 +715,20 @@ function createTileMesh(
     insetGeometry,
     [
       new THREE.MeshStandardMaterial({
-        color: TILE_COLORS[tile.resource],
-        roughness: 0.88,
+        color: shadeColor(TILE_COLORS[tile.resource], 0.025),
+        roughness: 0.86,
         metalness: 0.02,
         emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
         emissiveIntensity: active ? 0.16 : 0
       }),
       new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], -0.12),
+        color: shadeColor(TILE_COLORS[tile.resource], -0.06),
         roughness: 0.94,
         metalness: 0.01
       })
     ]
   );
-  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.01;
+  insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
 
   const tileGroup = new THREE.Group();
   tileGroup.add(outerMesh);
