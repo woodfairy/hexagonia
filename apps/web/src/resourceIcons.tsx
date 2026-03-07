@@ -4,12 +4,12 @@ import type { Resource } from "@hexagonia/shared";
 export type TerrainResource = Resource | "desert";
 
 const RESOURCE_ICON_PALETTE: Record<TerrainResource, { color: string; surface: string }> = {
-  brick: { color: "#d97b5b", surface: "rgba(217, 123, 91, 0.16)" },
-  lumber: { color: "#72c587", surface: "rgba(114, 197, 135, 0.16)" },
-  ore: { color: "#d9e1ee", surface: "rgba(108, 123, 152, 0.34)" },
-  grain: { color: "#f0cb62", surface: "rgba(240, 203, 98, 0.16)" },
-  wool: { color: "#cde7bf", surface: "rgba(184, 226, 163, 0.18)" },
-  desert: { color: "#edd28e", surface: "rgba(237, 210, 142, 0.16)" }
+  brick: { color: "#e39a79", surface: "rgba(180, 93, 67, 0.24)" },
+  lumber: { color: "#84d07d", surface: "rgba(47, 109, 53, 0.26)" },
+  ore: { color: "#dfe7f0", surface: "rgba(120, 131, 149, 0.42)" },
+  grain: { color: "#f0cb69", surface: "rgba(196, 160, 56, 0.24)" },
+  wool: { color: "#eef9db", surface: "rgba(169, 203, 132, 0.28)" },
+  desert: { color: "#f0d79c", surface: "rgba(200, 177, 120, 0.24)" }
 };
 
 export function getResourceIconColor(resource: TerrainResource): string {

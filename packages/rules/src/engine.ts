@@ -84,6 +84,12 @@ interface BeginnerPlacement {
   secondRoadEdgeId: string;
 }
 
+interface AwardUpdateResult {
+  previousHolderId: string | null;
+  nextHolderId: string | null;
+  valuesByPlayerId: Record<string, number>;
+}
+
 export interface StartingPlayerRollRound {
   contenderPlayerIds: string[];
   leaderPlayerIds: string[];
@@ -1179,78 +1185,191 @@ function distributeResourcesForRoll(
 }
 
 function updateAwards(state: GameState): void {
-  updateLargestArmy(state);
-  updateLongestRoad(state);
+  const largestArmy = updateLargestArmy(state);
+  const longestRoad = updateLongestRoad(state);
+
+  appendLargestArmyEvents(state, largestArmy);
+  appendLongestRoadEvents(state, longestRoad);
 }
 
-function updateLargestArmy(state: GameState): void {
+function updateLargestArmy(state: GameState): AwardUpdateResult {
   const counts = state.players.map((player) => ({
     playerId: player.id,
     count: player.playedKnightCount
   }));
+  const valuesByPlayerId = Object.fromEntries(counts.map((entry) => [entry.playerId, entry.count]));
   counts.sort((left, right) => right.count - left.count);
   const leader = counts[0];
+  const currentHolder = state.players.find((player) => player.hasLargestArmy) ?? null;
+
   if (!leader || leader.count < 3) {
     state.players.forEach((player) => {
       player.hasLargestArmy = false;
     });
-    return;
+
+    return {
+      previousHolderId: currentHolder?.id ?? null,
+      nextHolderId: null,
+      valuesByPlayerId
+    };
   }
 
-  const currentHolder = state.players.find((player) => player.hasLargestArmy) ?? null;
   const leaders = counts.filter((entry) => entry.count === leader.count);
   if (leaders.length === 1) {
     state.players.forEach((player) => {
       player.hasLargestArmy = player.id === leader.playerId;
     });
-    return;
+
+    return {
+      previousHolderId: currentHolder?.id ?? null,
+      nextHolderId: leader.playerId,
+      valuesByPlayerId
+    };
   }
 
   if (currentHolder && leaders.some((entry) => entry.playerId === currentHolder.id)) {
     state.players.forEach((player) => {
       player.hasLargestArmy = player.id === currentHolder.id;
     });
-    return;
+
+    return {
+      previousHolderId: currentHolder.id,
+      nextHolderId: currentHolder.id,
+      valuesByPlayerId
+    };
   }
 
   state.players.forEach((player) => {
     player.hasLargestArmy = false;
   });
+
+  return {
+    previousHolderId: currentHolder?.id ?? null,
+    nextHolderId: null,
+    valuesByPlayerId
+  };
 }
 
-function updateLongestRoad(state: GameState): void {
+function updateLongestRoad(state: GameState): AwardUpdateResult {
   const lengths = state.players.map((player) => ({
     playerId: player.id,
     length: calculateLongestRoad(state, player.id)
   }));
+  const valuesByPlayerId = Object.fromEntries(lengths.map((entry) => [entry.playerId, entry.length]));
   lengths.sort((left, right) => right.length - left.length);
   const leader = lengths[0];
+  const currentHolder = state.players.find((player) => player.hasLongestRoad) ?? null;
+
   if (!leader || leader.length < 5) {
     state.players.forEach((player) => {
       player.hasLongestRoad = false;
     });
-    return;
+
+    return {
+      previousHolderId: currentHolder?.id ?? null,
+      nextHolderId: null,
+      valuesByPlayerId
+    };
   }
 
-  const currentHolder = state.players.find((player) => player.hasLongestRoad) ?? null;
   const leaders = lengths.filter((entry) => entry.length === leader.length);
   if (leaders.length === 1) {
     state.players.forEach((player) => {
       player.hasLongestRoad = player.id === leader.playerId;
     });
-    return;
+
+    return {
+      previousHolderId: currentHolder?.id ?? null,
+      nextHolderId: leader.playerId,
+      valuesByPlayerId
+    };
   }
 
   if (currentHolder && leaders.some((entry) => entry.playerId === currentHolder.id)) {
     state.players.forEach((player) => {
       player.hasLongestRoad = player.id === currentHolder.id;
     });
-    return;
+
+    return {
+      previousHolderId: currentHolder.id,
+      nextHolderId: currentHolder.id,
+      valuesByPlayerId
+    };
   }
 
   state.players.forEach((player) => {
     player.hasLongestRoad = false;
   });
+
+  return {
+    previousHolderId: currentHolder?.id ?? null,
+    nextHolderId: null,
+    valuesByPlayerId
+  };
+}
+
+function appendLargestArmyEvents(state: GameState, update: AwardUpdateResult): void {
+  if (update.previousHolderId === update.nextHolderId) {
+    return;
+  }
+
+  if (update.previousHolderId) {
+    appendEvent(state, {
+      type: "largest_army_lost",
+      byPlayerId: update.previousHolderId,
+      payload: {
+        nextPlayerId: update.nextHolderId,
+        knightCount: update.valuesByPlayerId[update.previousHolderId] ?? 0,
+        publicVictoryPoints: getPublicVictoryPoints(state, update.previousHolderId)
+      }
+    });
+  }
+
+  if (update.nextHolderId) {
+    const player = getPlayer(state, update.nextHolderId);
+    appendEvent(state, {
+      type: "largest_army_awarded",
+      byPlayerId: update.nextHolderId,
+      payload: {
+        previousPlayerId: update.previousHolderId,
+        knightCount: update.valuesByPlayerId[update.nextHolderId] ?? 0,
+        publicVictoryPoints: getPublicVictoryPoints(state, update.nextHolderId),
+        vertexIds: [...player.settlements, ...player.cities]
+      }
+    });
+  }
+}
+
+function appendLongestRoadEvents(state: GameState, update: AwardUpdateResult): void {
+  if (update.previousHolderId === update.nextHolderId) {
+    return;
+  }
+
+  if (update.previousHolderId) {
+    appendEvent(state, {
+      type: "longest_road_lost",
+      byPlayerId: update.previousHolderId,
+      payload: {
+        nextPlayerId: update.nextHolderId,
+        length: update.valuesByPlayerId[update.previousHolderId] ?? 0,
+        publicVictoryPoints: getPublicVictoryPoints(state, update.previousHolderId)
+      }
+    });
+  }
+
+  if (update.nextHolderId) {
+    const player = getPlayer(state, update.nextHolderId);
+    appendEvent(state, {
+      type: "longest_road_awarded",
+      byPlayerId: update.nextHolderId,
+      payload: {
+        previousPlayerId: update.previousHolderId,
+        length: update.valuesByPlayerId[update.nextHolderId] ?? 0,
+        publicVictoryPoints: getPublicVictoryPoints(state, update.nextHolderId),
+        edgeIds: [...player.roads]
+      }
+    });
+  }
 }
 
 function maybeDeclareWinner(state: GameState): void {

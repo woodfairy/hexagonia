@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { MatchSnapshot, Resource } from "@hexagonia/shared";
+import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { drawResourceIcon, getResourceIconColor } from "./resourceIcons";
 
 export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
@@ -35,17 +35,18 @@ interface BoardSceneProps {
 }
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
-  brick: "#b6644c",
-  lumber: "#4c7d46",
-  ore: "#8e98aa",
-  grain: "#caa13b",
-  wool: "#a8c98e",
-  desert: "#c8b07a"
+  brick: "#b86146",
+  lumber: "#2f6f37",
+  ore: "#79869a",
+  grain: "#c7a13a",
+  wool: "#a8cc79",
+  desert: "#ccb07b"
 };
 
 const TILE_HEIGHT = 1.18;
 const BUILT_ROAD_RADIUS = 0.24;
 const GUIDE_ROAD_RADIUS = 0.14;
+const PORT_MARKER_DISTANCE = 1.9;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 
@@ -389,6 +390,8 @@ export function BoardScene(props: BoardSceneProps) {
     boardGroupRef.current = group;
     scene.add(group);
     const verticesById = new Map(props.snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
+    const tilesById = new Map(props.snapshot.board.tiles.map((tile) => [tile.id, tile]));
+    const edgesById = new Map(props.snapshot.board.edges.map((edge) => [edge.id, edge]));
 
     const legalVertices = new Set(
       props.snapshot.allowedMoves.initialSettlementVertexIds.length
@@ -442,6 +445,21 @@ export function BoardScene(props: BoardSceneProps) {
         attachInteractiveMeta(base, "tile", tile.id, 1.06, marker);
         interactiveRef.current.push(base);
       }
+    }
+
+    for (const port of props.snapshot.board.ports) {
+      const edge = edgesById.get(port.edgeId);
+      if (!edge || edge.tileIds.length !== 1) {
+        continue;
+      }
+
+      const tile = tilesById.get(edge.tileIds[0]);
+      if (!tile) {
+        continue;
+      }
+
+      const marker = createPortMarker(port, edge, tile, verticesById);
+      group.add(marker);
     }
 
     for (const edge of props.snapshot.board.edges) {
@@ -697,35 +715,35 @@ function createTileMesh(
 
   const outerMesh = new THREE.Mesh(
     outerGeometry,
-    [
-      new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], -0.08),
-        roughness: 0.92,
-        metalness: 0.01
-      }),
-      new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], -0.2),
-        roughness: 0.98,
-        metalness: 0.01
-      })
+      [
+        new THREE.MeshStandardMaterial({
+          color: shadeColor(TILE_COLORS[tile.resource], -0.03),
+          roughness: 0.92,
+          metalness: 0.01
+        }),
+        new THREE.MeshStandardMaterial({
+          color: shadeColor(TILE_COLORS[tile.resource], -0.11),
+          roughness: 0.98,
+          metalness: 0.01
+        })
     ]
   );
 
   const insetMesh = new THREE.Mesh(
     insetGeometry,
-    [
-      new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], 0.008),
-        roughness: 0.86,
-        metalness: 0.02,
-        emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
-        emissiveIntensity: active ? 0.16 : 0
-      }),
-      new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], -0.06),
-        roughness: 0.94,
-        metalness: 0.01
-      })
+      [
+        new THREE.MeshStandardMaterial({
+          color: shadeColor(TILE_COLORS[tile.resource], 0.026),
+          roughness: 0.86,
+          metalness: 0.02,
+          emissive: active ? new THREE.Color("#f2c56b") : new THREE.Color("#000000"),
+          emissiveIntensity: active ? 0.16 : 0
+        }),
+        new THREE.MeshStandardMaterial({
+          color: shadeColor(TILE_COLORS[tile.resource], -0.03),
+          roughness: 0.94,
+          metalness: 0.01
+        })
     ]
   );
   insetMesh.position.y = TILE_HEIGHT - insetDepth + 0.015;
@@ -734,6 +752,149 @@ function createTileMesh(
   tileGroup.add(outerMesh);
   tileGroup.add(insetMesh);
   return tileGroup;
+}
+
+function createPortMarker(
+  port: MatchSnapshot["board"]["ports"][number],
+  edge: MatchSnapshot["board"]["edges"][number],
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Group {
+  const [leftId, rightId] = edge.vertexIds;
+  const left = verticesById.get(leftId)!;
+  const right = verticesById.get(rightId)!;
+  const edgeCenter = new THREE.Vector3((left.x + right.x) / 2, TILE_HEIGHT + 0.12, (left.y + right.y) / 2);
+  const outward = new THREE.Vector3(edgeCenter.x - tile.x, 0, edgeCenter.z - tile.y).normalize();
+  const sideways = new THREE.Vector3(-outward.z, 0, outward.x).normalize();
+  const markerPosition = edgeCenter.clone().add(outward.clone().multiplyScalar(PORT_MARKER_DISTANCE));
+  const bridgePosition = edgeCenter.clone().add(outward.clone().multiplyScalar(PORT_MARKER_DISTANCE * 0.42));
+  const bridgeLength = PORT_MARKER_DISTANCE * 0.6;
+
+  const marker = new THREE.Group();
+
+  const bridge = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.11, Math.max(bridgeLength, 0.34), 4, 8),
+    new THREE.MeshStandardMaterial({
+        color: "#ecdcae",
+      roughness: 0.52,
+      metalness: 0.06,
+      transparent: true,
+        opacity: 0.98,
+      emissive: new THREE.Color("#b98f42"),
+      emissiveIntensity: 0.08
+    })
+  );
+  bridge.position.copy(bridgePosition);
+  bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward.clone());
+  bridge.castShadow = false;
+  bridge.receiveShadow = true;
+
+  const dockBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.02, 1.12, 0.18, 6),
+    new THREE.MeshStandardMaterial({
+        color: "#173246",
+      roughness: 0.78,
+      metalness: 0.04,
+        emissive: new THREE.Color("#21455c"),
+        emissiveIntensity: 0.12
+    })
+  );
+  dockBase.position.set(markerPosition.x, TILE_HEIGHT + 0.12, markerPosition.z);
+  dockBase.rotation.y = Math.atan2(outward.x, outward.z) + Math.PI / 6;
+
+  const dockTop = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.84, 0.92, 0.1, 6),
+    new THREE.MeshStandardMaterial({
+        color: "#f2e4bc",
+      roughness: 0.42,
+      metalness: 0.04
+    })
+  );
+  dockTop.position.set(markerPosition.x, TILE_HEIGHT + 0.24, markerPosition.z);
+  dockTop.rotation.y = dockBase.rotation.y;
+
+  const createBollard = (offset: number) => {
+    const bollard = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.075, 0.28, 10),
+      new THREE.MeshStandardMaterial({
+        color: "#38556a",
+        roughness: 0.72,
+        metalness: 0.08
+      })
+    );
+    const position = markerPosition
+      .clone()
+      .add(sideways.clone().multiplyScalar(offset))
+      .add(outward.clone().multiplyScalar(-0.14));
+    bollard.position.set(position.x, TILE_HEIGHT + 0.34, position.z);
+    return bollard;
+  };
+
+  const badge = createPortSprite(port.type);
+  badge.position.set(markerPosition.x, TILE_HEIGHT + 0.96, markerPosition.z);
+
+  marker.add(bridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), badge);
+  return marker;
+}
+
+function createPortSprite(type: PortType): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 152;
+  canvas.height = 152;
+  const context = canvas.getContext("2d")!;
+
+  const gradient = context.createRadialGradient(76, 50, 18, 76, 76, 74);
+  gradient.addColorStop(0, "rgba(19, 36, 49, 0.98)");
+  gradient.addColorStop(1, "rgba(9, 18, 27, 0.98)");
+  context.fillStyle = gradient;
+  context.beginPath();
+  context.arc(76, 76, 66, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = "rgba(232, 210, 158, 0.82)";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.arc(76, 76, 64, 0, Math.PI * 2);
+  context.stroke();
+
+  context.strokeStyle = "rgba(255, 255, 255, 0.08)";
+  context.lineWidth = 1.5;
+  context.beginPath();
+  context.arc(76, 76, 54, 0, Math.PI * 2);
+  context.stroke();
+
+  if (type === "generic") {
+    context.fillStyle = "#f0deae";
+    context.font = "700 34px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("3:1", 76, 78);
+  } else {
+    context.beginPath();
+    context.fillStyle = "rgba(255, 255, 255, 0.06)";
+    context.arc(76, 54, 24, 0, Math.PI * 2);
+    context.fill();
+    drawResourceIcon(context, type, 76, 54, 30, getResourceIconColor(type));
+
+    context.fillStyle = "#f0deae";
+    context.font = "700 28px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("2:1", 76, 102);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    })
+  );
+  sprite.scale.set(2.92, 2.92, 1);
+  sprite.renderOrder = 9;
+  return sprite;
 }
 
 function createTileOutline(
@@ -750,7 +911,7 @@ function createTileOutline(
     new THREE.LineBasicMaterial({
       color: "#172838",
       transparent: true,
-      opacity: 0.14
+      opacity: 0.1
     })
   );
 }
@@ -1021,6 +1182,23 @@ function shadeColor(color: string, lightnessOffset: number): string {
   const shaded = new THREE.Color(color);
   shaded.offsetHSL(0, 0, lightnessOffset);
   return `#${shaded.getHexString()}`;
+}
+
+function roundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + width, y, x + width, y + height, radius);
+  context.arcTo(x + width, y + height, x, y + height, radius);
+  context.arcTo(x, y + height, x, y, radius);
+  context.arcTo(x, y, x + width, y, radius);
+  context.closePath();
 }
 
 function disposeObjectTree(root: THREE.Object3D): void {

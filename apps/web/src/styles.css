@@ -1839,6 +1839,33 @@ select:hover {
     0 0.6rem 1rem rgba(0, 0, 0, 0.18);
 }
 
+.board-legend-harbor-swatch {
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  background:
+    linear-gradient(180deg, rgba(12, 24, 35, 0.9), rgba(8, 18, 28, 0.94)),
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 58%);
+}
+
+.board-legend-harbor-badge {
+  padding: 0.14rem 0.32rem;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 208, 153, 0.38);
+  color: #f0deae;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.board-legend-harbor-rate {
+  color: #f0deae;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .board-legend-resource-copy {
   display: grid;
   gap: var(--gap-copy-tight);
@@ -1875,6 +1902,16 @@ select:hover {
 .legend-signal.is-gold {
   background: linear-gradient(135deg, #f2c56b, #ffe0a1);
   box-shadow: 0 0 0 0.2rem rgba(242, 197, 107, 0.16);
+}
+
+.legend-signal.is-port {
+  display: grid;
+  place-items: center;
+  background: rgba(12, 24, 35, 0.95);
+  color: #f0deae;
+  border: 1px solid rgba(230, 208, 153, 0.32);
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
 .legend-signal.is-pulse {
@@ -2636,6 +2673,33 @@ select:hover {
   align-content: start;
 }
 
+.trade-rate-row {
+  display: flex;
+  align-items: center;
+  gap: 0.52rem;
+  flex-wrap: wrap;
+}
+
+.trade-rate-pill {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 1.82rem;
+  padding: 0.22rem 0.58rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(var(--accent-rgb), 0.26);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.trade-rate-copy {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
 .trade-target-placeholder-copy {
   min-block-size: 3.5rem;
   padding: 0.72rem 0.8rem;
@@ -2898,6 +2962,24 @@ select:hover {
   align-items: center;
   gap: 0.45rem;
   flex-wrap: wrap;
+}
+
+.award-pill {
+  border-color: rgba(var(--accent-rgb), 0.24);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--text);
+}
+
+.award-pill.is-longest-road {
+  border-color: rgba(221, 183, 106, 0.32);
+  background: rgba(221, 183, 106, 0.12);
+  color: #f6e0a7;
+}
+
+.award-pill.is-largest-army {
+  border-color: rgba(132, 166, 238, 0.32);
+  background: rgba(132, 166, 238, 0.12);
+  color: #cfddff;
 }
 
 .resource-grid {
@@ -3736,8 +3818,25 @@ select:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 0.38rem 0.6rem;
-    color: var(--muted);
     font-size: 0.8rem;
+  }
+
+  .mobile-player-row-meta .player-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 1.72rem;
+    padding: 0.18rem 0.52rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--muted);
+    line-height: 1.1;
+  }
+
+  .mobile-player-row-meta .player-meta-pill.is-award {
+    border-color: rgba(var(--accent-rgb), 0.24);
+    background: rgba(var(--accent-rgb), 0.08);
+    color: var(--text);
   }
 
   .mobile-legend-stack {
@@ -4297,8 +4396,25 @@ select:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem 0.55rem;
-    color: var(--muted);
     font-size: 0.77rem;
+  }
+
+  .mobile-player-row-meta .player-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 1.65rem;
+    padding: 0.16rem 0.48rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--muted);
+    line-height: 1.08;
+  }
+
+  .mobile-player-row-meta .player-meta-pill.is-award {
+    border-color: rgba(var(--accent-rgb), 0.24);
+    background: rgba(var(--accent-rgb), 0.08);
+    color: var(--text);
   }
 
   .mobile-legend-stack {
