@@ -3167,7 +3167,7 @@ select:hover {
 
 @media (min-width: 1024px) {
   .trade-resource-card-grid {
-    padding-inline-end: 0.68rem;
+    padding-inline: 0.52rem;
   }
 }
 
