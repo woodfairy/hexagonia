@@ -14,7 +14,7 @@ import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../Boar
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
-import { ProfileMenu } from "../shell/ProfileMenu";
+import { ProfileMenu, ProfileMenuPanel } from "../shell/ProfileMenu";
 import { formatPhase, getPlayerAccentClass, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 import {
   createEmptyMatchNotificationPrivateCache,
@@ -34,7 +34,7 @@ export interface MaritimeFormState {
 }
 
 type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
-type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players";
+type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players" | "profile";
 type SheetState = "peek" | "half" | "full";
 type TradeSection = "player" | "maritime";
 type BuildActionId = "road" | "settlement" | "city" | "development";
@@ -51,7 +51,8 @@ const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "actions", label: "Aktionen" },
   { id: "hand", label: "Hand" },
   { id: "trade", label: "Handel" },
-  { id: "overview", label: "Mehr" }
+  { id: "overview", label: "Mehr" },
+  { id: "profile", label: "Profil" }
 ];
 
 const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
@@ -59,7 +60,8 @@ const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
   actions: 1,
   hand: 2,
   trade: 3,
-  players: 4
+  players: 4,
+  profile: 5
 };
 
 const BUILD_COSTS: Record<BuildActionId, Partial<Record<Resource, number>>> = {
@@ -773,11 +775,11 @@ export function MatchScreen(props: {
   }, [isDenseLegendViewportState, isMobileViewport]);
 
   useEffect(() => {
-    if (isMobileViewport && activeTab === "players") {
+    if (!visibleTabs.some((tab) => tab.id === activeTab)) {
       setTabTransitionDirection("backward");
       setActiveTab("overview");
     }
-  }, [activeTab, isMobileViewport]);
+  }, [activeTab, visibleTabs]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1670,6 +1672,11 @@ export function MatchScreen(props: {
           })}
         </div>
       </div>
+    ),
+    profile: (
+      <div className="panel-frame profile-frame">
+        <ProfileMenuPanel {...props.profileMenuProps} inline />
+      </div>
     )
   };
 
@@ -1914,7 +1921,11 @@ export function MatchScreen(props: {
           </div>
           {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
           {effectiveSheetState !== "peek" ? (
-            <div className="tab-strip mobile" role="tablist" aria-label="Mobile Match Navigation">
+            <div
+              className={`tab-strip mobile ${visibleTabs.length > 4 ? "has-five-tabs" : ""}`.trim()}
+              role="tablist"
+              aria-label="Mobile Match Navigation"
+            >
               {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -1927,11 +1938,6 @@ export function MatchScreen(props: {
                   {renderTabLabel(tab)}
                 </button>
               ))}
-            </div>
-          ) : null}
-          {isMobileViewport ? (
-            <div className="match-sheet-mobile-profile">
-              <ProfileMenu {...props.profileMenuProps} />
             </div>
           ) : null}
           {effectiveSheetState !== "peek" ? renderActiveTabPanel(true) : null}

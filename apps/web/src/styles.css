@@ -1614,51 +1614,17 @@ select {
   inline-size: min(22rem, calc(100vw - 1.5rem));
 }
 
-.match-sheet-mobile-profile {
-  display: flex;
-  justify-content: flex-end;
+.profile-dropdown.profile-dropdown-inline {
+  position: static;
+  inset: auto;
+  inline-size: 100%;
+  max-inline-size: none;
+  z-index: auto;
 }
 
-.match-sheet-mobile-profile .profile-menu {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.match-sheet-mobile-profile .profile-trigger {
-  min-inline-size: min(100%, 10.5rem);
-  min-block-size: 2.65rem;
-  padding: 0.36rem 0.72rem 0.36rem 0.42rem;
-  border-color: rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022)),
-    rgba(8, 16, 24, 0.92);
-  box-shadow: var(--shadow-md);
-}
-
-.match-sheet-mobile-profile .profile-trigger-copy {
-  display: grid;
-  min-inline-size: 0;
-}
-
-.match-sheet-mobile-profile .profile-trigger-copy strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.match-sheet-mobile-profile .profile-trigger-copy span {
-  display: none;
-}
-
-.match-sheet-mobile-profile .profile-avatar {
-  inline-size: 2rem;
-  block-size: 2rem;
-}
-
-.match-sheet-mobile-profile .profile-dropdown {
-  inset-block-start: calc(100% + 0.55rem);
-  inline-size: min(22rem, calc(100vw - 1.4rem));
+.profile-dropdown.profile-dropdown-inline .profile-dropdown-actions {
+  max-block-size: none;
+  overflow: visible;
 }
 
 .board-toggle,
@@ -2760,6 +2726,10 @@ select {
 
 .tab-strip.mobile button {
   flex: 1 1 calc(50% - 0.5rem);
+}
+
+.tab-strip.mobile.has-five-tabs button {
+  flex-basis: calc(33.333% - 0.5rem);
 }
 
 .tab-panel-shell {
