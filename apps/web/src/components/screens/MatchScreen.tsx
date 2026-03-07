@@ -633,6 +633,31 @@ export function MatchScreen(props: {
       </div>
     </div>
   );
+  const renderQuickActionIcon = (actionId: string) => {
+    switch (actionId) {
+      case "roll":
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3.5" y="4" width="8" height="8" rx="2.1" />
+            <rect x="12.5" y="12" width="8" height="8" rx="2.1" />
+            <circle cx="7.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="16.5" cy="16" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="16.5" cy="12.7" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="13.2" cy="16" r="0.9" fill="currentColor" stroke="none" />
+          </svg>
+        );
+      case "end-turn":
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12h10" />
+            <path d="M11 8l4 4-4 4" />
+            <path d="M18.5 5v14" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
   const primaryActions = [
     {
       id: "roll",
@@ -669,7 +694,8 @@ export function MatchScreen(props: {
       }
     }
   ];
-  const hasQuickActions = primaryActions.some((action) => !action.disabled);
+  const visiblePrimaryActions = primaryActions.filter((action) => action.id !== "cancel-mode" || !action.disabled);
+  const hasQuickActions = visiblePrimaryActions.some((action) => !action.disabled);
   const hasDisconnectCountdown = props.match.players.some(
     (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
   );
@@ -677,9 +703,20 @@ export function MatchScreen(props: {
   const renderQuickActions = (showPlaceholder = true) =>
     hasQuickActions ? (
       <div className="quick-action-grid">
-        {primaryActions.map((action) => (
-          <button key={action.id} type="button" className={action.className} disabled={action.disabled} onClick={action.onClick}>
-            {action.label}
+        {visiblePrimaryActions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            className={`${action.className} match-quick-action-button is-${action.id}`.trim()}
+            disabled={action.disabled}
+            onClick={action.onClick}
+          >
+            {renderQuickActionIcon(action.id) ? (
+              <span className="match-quick-action-icon" aria-hidden="true">
+                {renderQuickActionIcon(action.id)}
+              </span>
+            ) : null}
+            <span className="match-quick-action-label">{action.label}</span>
           </button>
         ))}
       </div>
