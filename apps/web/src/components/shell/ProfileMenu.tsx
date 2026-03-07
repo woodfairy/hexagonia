@@ -117,17 +117,9 @@ export function ProfileMenu(props: {
             <div className="profile-board-panel">
               <div className="profile-music-copy">
                 <strong>Feldstil</strong>
-                <span>Fast fuer Klarheit, Modern fuer Texturen ohne 3D-Objekte, Ultra mit Texturen, Animation und 3D-Terrain.</span>
+                <span>Modern ist der schnelle Flat-Look, Classic bringt Texturen, Fancy schaltet Props wie Schafe, Kakteen und Vogelscheuchen zu, Ultra aktiviert das volle 3D-Terrain.</span>
               </div>
               <div className="segmented-control profile-board-segmented" role="group" aria-label="Feldstil">
-                <button
-                  type="button"
-                  className={props.boardVisualProfile === "fast" ? "is-active" : ""}
-                  aria-pressed={props.boardVisualProfile === "fast"}
-                  onClick={() => props.onBoardVisualProfileChange("fast")}
-                >
-                  Fast
-                </button>
                 <button
                   type="button"
                   className={props.boardVisualProfile === "modern" ? "is-active" : ""}
@@ -135,6 +127,22 @@ export function ProfileMenu(props: {
                   onClick={() => props.onBoardVisualProfileChange("modern")}
                 >
                   Modern
+                </button>
+                <button
+                  type="button"
+                  className={props.boardVisualProfile === "classic" ? "is-active" : ""}
+                  aria-pressed={props.boardVisualProfile === "classic"}
+                  onClick={() => props.onBoardVisualProfileChange("classic")}
+                >
+                  Classic
+                </button>
+                <button
+                  type="button"
+                  className={props.boardVisualProfile === "fancy" ? "is-active" : ""}
+                  aria-pressed={props.boardVisualProfile === "fancy"}
+                  onClick={() => props.onBoardVisualProfileChange("fancy")}
+                >
+                  Fancy
                 </button>
                 <button
                   type="button"
