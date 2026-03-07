@@ -955,21 +955,23 @@ export function MatchScreen(props: {
                     <strong>{tradeGiveMax > 0 ? `${props.tradeForm.giveCount}x ${renderResourceLabel(props.tradeForm.give)}` : "Wähle einen Rohstoff aus"}</strong>
                     <span>Aus deiner Hand. Nur vorhandene Rohstoffe sind wählbar.</span>
                   </div>
-                  <TradeResourceCardGrid
-                    value={props.tradeForm.give}
-                    resources={RESOURCES.map((resource) => ({
-                      resource,
-                      count: props.selfPlayer?.resources?.[resource] ?? 0,
-                      disabled: (props.selfPlayer?.resources?.[resource] ?? 0) <= 0
-                    }))}
-                    onChange={(resource) =>
-                      props.setTradeForm((current) => ({
-                        ...current,
-                        give: resource,
-                        giveCount: clampTradeCount(current.giveCount, props.selfPlayer?.resources?.[resource] ?? 0)
-                      }))
-                    }
-                  />
+                  <div className="trade-resource-grid-shell">
+                    <TradeResourceCardGrid
+                      value={props.tradeForm.give}
+                      resources={RESOURCES.map((resource) => ({
+                        resource,
+                        count: props.selfPlayer?.resources?.[resource] ?? 0,
+                        disabled: (props.selfPlayer?.resources?.[resource] ?? 0) <= 0
+                      }))}
+                      onChange={(resource) =>
+                        props.setTradeForm((current) => ({
+                          ...current,
+                          give: resource,
+                          giveCount: clampTradeCount(current.giveCount, props.selfPlayer?.resources?.[resource] ?? 0)
+                        }))
+                      }
+                    />
+                  </div>
                   <TradeQuantityControl
                     label="Abgeben"
                     resource={props.tradeForm.give}
@@ -995,15 +997,17 @@ export function MatchScreen(props: {
                     <strong>{props.tradeForm.wantCount}x {renderResourceLabel(props.tradeForm.want)}</strong>
                     <span>Wähle den Rohstoff, den du dafür erhalten möchtest.</span>
                   </div>
-                  <TradeResourceCardGrid
-                    value={props.tradeForm.want}
-                    resources={RESOURCES.map((resource) => ({
-                      resource,
-                      count: 0,
-                      meta: resource === props.tradeForm.want ? `${props.tradeForm.wantCount} angefragt` : "Anfragen"
-                    }))}
-                    onChange={(resource) => props.setTradeForm((current) => ({ ...current, want: resource }))}
-                  />
+                  <div className="trade-resource-grid-shell">
+                    <TradeResourceCardGrid
+                      value={props.tradeForm.want}
+                      resources={RESOURCES.map((resource) => ({
+                        resource,
+                        count: 0,
+                        meta: resource === props.tradeForm.want ? `${props.tradeForm.wantCount} angefragt` : "Anfragen"
+                      }))}
+                      onChange={(resource) => props.setTradeForm((current) => ({ ...current, want: resource }))}
+                    />
+                  </div>
                   <TradeQuantityControl
                     label="Erhalten"
                     resource={props.tradeForm.want}
@@ -1071,20 +1075,22 @@ export function MatchScreen(props: {
                   <strong>{maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)}</strong>
                   <span>Nur handelbare Rohstoffe mit passender Hafenrate sind wählbar.</span>
                 </div>
-                <TradeResourceCardGrid
-                  value={props.maritimeForm.give}
-                  resources={RESOURCES.map((resource) => {
-                    const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
-                    const count = props.selfPlayer?.resources?.[resource] ?? 0;
-                    return {
-                      resource,
-                      count,
-                      disabled: count < ratio,
-                      meta: `${ratio}:1`
-                    };
-                  })}
-                  onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
-                />
+                <div className="trade-resource-grid-shell">
+                  <TradeResourceCardGrid
+                    value={props.maritimeForm.give}
+                    resources={RESOURCES.map((resource) => {
+                      const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
+                      const count = props.selfPlayer?.resources?.[resource] ?? 0;
+                      return {
+                        resource,
+                        count,
+                        disabled: count < ratio,
+                        meta: `${ratio}:1`
+                      };
+                    })}
+                    onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
+                  />
+                </div>
                 <TradeQuantityControl
                   label="Abgeben"
                   resource={props.maritimeForm.give}
@@ -1105,15 +1111,17 @@ export function MatchScreen(props: {
                   <strong>1x {renderResourceLabel(props.maritimeForm.receive)}</strong>
                   <span>Wähle den Zielrohstoff für den Seehandel.</span>
                 </div>
-                <TradeResourceCardGrid
-                  value={props.maritimeForm.receive}
-                  resources={RESOURCES.map((resource) => ({
-                    resource,
-                    count: resource === props.maritimeForm.receive ? 1 : 0,
-                    meta: resource === props.maritimeForm.receive ? "Ausgewählt" : "Tauschen"
-                  }))}
-                  onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, receive: resource }))}
-                />
+                <div className="trade-resource-grid-shell">
+                  <TradeResourceCardGrid
+                    value={props.maritimeForm.receive}
+                    resources={RESOURCES.map((resource) => ({
+                      resource,
+                      count: resource === props.maritimeForm.receive ? 1 : 0,
+                      meta: resource === props.maritimeForm.receive ? "Ausgewählt" : "Tauschen"
+                    }))}
+                    onChange={(resource) => props.setMaritimeForm((current) => ({ ...current, receive: resource }))}
+                  />
+                </div>
                 <TradeQuantityControl
                   label="Erhalten"
                   resource={props.maritimeForm.receive}

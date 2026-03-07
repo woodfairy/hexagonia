@@ -2353,6 +2353,10 @@ select:hover {
   align-content: start;
 }
 
+.trade-resource-grid-shell {
+  min-inline-size: 0;
+}
+
 .trade-resource-card {
   display: grid;
   inline-size: 100%;
@@ -3187,11 +3191,11 @@ select:hover {
 
   .trade-side-card,
   .trade-target-card {
-    padding-inline: 1.6rem;
+    padding-inline: 1rem;
   }
 
-  .trade-resource-card-grid {
-    padding-inline: 0;
+  .trade-resource-grid-shell {
+    padding-inline: 0.28rem;
   }
 }
 
