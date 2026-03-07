@@ -1771,7 +1771,7 @@ function TradeQuantityControl(props: {
 function TradeResourceStepperGrid(props: {
   draft: ResourceMap;
   mode: "give" | "want";
-  limits?: Partial<Record<Resource, number>>;
+  limits?: Partial<Record<Resource, number>> | undefined;
   onAdjust: (resource: Resource, delta: -1 | 1) => void;
 }) {
   return (
