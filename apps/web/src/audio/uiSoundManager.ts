@@ -333,8 +333,19 @@ class UiSoundManager {
   }
 
   async enableMusicByDefault(): Promise<boolean> {
-    if (this.hasStoredMusicPlaybackPreference || !resolveMusicTrack(this.selectedMusicTrackId)) {
-      return !this.musicPaused;
+    if (!resolveMusicTrack(this.selectedMusicTrackId)) {
+      return false;
+    }
+
+    if (this.hasStoredMusicPlaybackPreference) {
+      if (this.musicPaused) {
+        return false;
+      }
+
+      this.musicResumePending = true;
+      this.notifyMusicStateListeners();
+      await this.playSelectedMusic();
+      return true;
     }
 
     this.musicPaused = false;
