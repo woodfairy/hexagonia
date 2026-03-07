@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ClientMessage, MatchSnapshot, PlayerColor, PortType, Resource, ResourceMap, RoomDetails } from "@hexagonia/shared";
-import { RESOURCES } from "@hexagonia/shared";
+import { createEmptyResourceMap, equalResourceMaps, hasResources, isEmptyResourceMap, RESOURCES, totalResources } from "@hexagonia/shared";
 import { BoardScene, TILE_COLORS, type BoardFocusBadge, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { formatPhase, getPlayerAccentClass, renderEventLabel, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 
 export interface TradeFormState {
-  give: Resource;
-  giveCount: number;
-  want: Resource;
-  wantCount: number;
+  give: ResourceMap;
+  want: ResourceMap;
   targetPlayerId: string;
 }
 
@@ -261,15 +259,15 @@ export function MatchScreen(props: {
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)
     : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
-  const selectedTradeTargetPlayer =
-    tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId) ??
-    (!isCurrentPlayer ? activePlayer : null);
   const maritimeRatio =
     props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
   const maritimeRateOriginLabel = getMaritimeRateOriginLabel(props.match, props.match.you, props.maritimeForm.give, maritimeRatio);
   const maritimeRatePillLabel = `${maritimeRatio}:1`;
-  const ownedGiveResources = RESOURCES.filter((resource) => (props.selfPlayer?.resources?.[resource] ?? 0) > 0);
-  const tradeGiveMax = props.selfPlayer?.resources?.[props.tradeForm.give] ?? 0;
+  const tradeGiveTotal = totalResources(props.tradeForm.give);
+  const tradeWantTotal = totalResources(props.tradeForm.want);
+  const tradeGiveSummary = renderResourceMap(props.tradeForm.give) || "Noch nichts im Angebot";
+  const tradeWantSummary = renderResourceMap(props.tradeForm.want) || "Noch nichts angefragt";
+  const effectiveTradeTargetPlayer = !isCurrentPlayer ? activePlayer : null;
   const affordableMaritimeGiveResources = RESOURCES.filter((resource) => {
     const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
     return (props.selfPlayer?.resources?.[resource] ?? 0) >= ratio;
@@ -329,9 +327,9 @@ export function MatchScreen(props: {
   ];
   const canSubmitTradeOffer =
     props.match.allowedMoves.canCreateTradeOffer &&
-    props.tradeForm.giveCount > 0 &&
-    props.tradeForm.wantCount > 0 &&
-    canAffordOffer(props.selfPlayer?.resources, props.tradeForm.give, props.tradeForm.giveCount);
+    !isEmptyResourceMap(props.tradeForm.give) &&
+    !isEmptyResourceMap(props.tradeForm.want) &&
+    hasResources(props.selfPlayer?.resources ?? createEmptyResourceMap(), props.tradeForm.give);
   const canSubmitMaritimeTrade = (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const mobileHudSummary = props.selfPlayer
@@ -630,21 +628,30 @@ export function MatchScreen(props: {
   }, [latestDiceEvent, props.match]);
 
   useEffect(() => {
-    const normalizedGive =
-      ownedGiveResources.length > 0 && !ownedGiveResources.includes(props.tradeForm.give)
-        ? ownedGiveResources[0]!
-        : props.tradeForm.give;
-    const normalizedGiveCount = clampTradeCount(props.tradeForm.giveCount, props.selfPlayer?.resources?.[normalizedGive] ?? 0);
-    if (normalizedGive === props.tradeForm.give && normalizedGiveCount === props.tradeForm.giveCount) {
+    const normalizedGive = createEmptyResourceMap();
+    const normalizedWant = createEmptyResourceMap();
+
+    for (const resource of RESOURCES) {
+      normalizedGive[resource] = clampTradeDraftCount(
+        props.tradeForm.give[resource] ?? 0,
+        props.selfPlayer?.resources?.[resource] ?? 0
+      );
+      normalizedWant[resource] = clampTradeDraftCount(props.tradeForm.want[resource] ?? 0, 99);
+    }
+
+    if (
+      equalResourceMaps(normalizedGive, props.tradeForm.give) &&
+      equalResourceMaps(normalizedWant, props.tradeForm.want)
+    ) {
       return;
     }
 
     props.setTradeForm((current) => ({
       ...current,
       give: normalizedGive,
-      giveCount: clampTradeCount(current.give === normalizedGive ? current.giveCount : normalizedGiveCount, props.selfPlayer?.resources?.[normalizedGive] ?? 0)
+      want: normalizedWant
     }));
-  }, [ownedGiveResources, props.selfPlayer?.resources, props.setTradeForm, props.tradeForm.give, props.tradeForm.giveCount]);
+  }, [props.selfPlayer?.resources, props.setTradeForm, props.tradeForm.give, props.tradeForm.want]);
 
   useEffect(() => {
     const normalizedGive =
@@ -1107,41 +1114,42 @@ export function MatchScreen(props: {
                 <article className="trade-side-card trade-side-give">
                   <div className="trade-side-head">
                     <span className="eyebrow">Du gibst</span>
-                    <strong>{tradeGiveMax > 0 ? `${props.tradeForm.giveCount}x ${renderResourceLabel(props.tradeForm.give)}` : "Wähle einen Rohstoff aus"}</strong>
-                    <span>Aus deiner Hand. Nur vorhandene Rohstoffe sind wählbar.</span>
+                    <strong>{tradeGiveSummary}</strong>
+                    <span>Stelle dein Angebot aus beliebigen Rohstoffen deiner Hand zusammen.</span>
                   </div>
-                  <div className="trade-resource-grid-shell">
-                    <TradeResourceCardGrid
-                      value={props.tradeForm.give}
-                      resources={RESOURCES.map((resource) => ({
-                        resource,
-                        count: props.selfPlayer?.resources?.[resource] ?? 0,
-                        disabled: (props.selfPlayer?.resources?.[resource] ?? 0) <= 0
-                      }))}
-                      onChange={(resource) =>
-                        props.setTradeForm((current) => ({
-                          ...current,
-                          give: resource,
-                          giveCount: clampTradeCount(current.giveCount, props.selfPlayer?.resources?.[resource] ?? 0)
-                        }))
-                      }
-                    />
-                  </div>
-                  <TradeQuantityControl
-                    label="Abgeben"
-                    resource={props.tradeForm.give}
-                    value={props.tradeForm.giveCount}
-                    min={tradeGiveMax > 0 ? 1 : 0}
-                    max={Math.max(0, tradeGiveMax)}
-                    disabled={tradeGiveMax <= 0}
-                    helper={tradeGiveMax > 0 ? `Maximal ${tradeGiveMax} Karten aus deiner Hand.` : "Von diesem Rohstoff hast du aktuell nichts."}
-                    onChange={(value) =>
+                  <TradeResourceStepperGrid
+                    draft={props.tradeForm.give}
+                    mode="give"
+                    limits={props.selfPlayer?.resources}
+                    onAdjust={(resource, delta) =>
                       props.setTradeForm((current) => ({
                         ...current,
-                        giveCount: clampTradeCount(value, props.selfPlayer?.resources?.[current.give] ?? 0)
+                        give: adjustTradeDraftCount(
+                          current.give,
+                          resource,
+                          delta,
+                          props.selfPlayer?.resources?.[resource] ?? 0
+                        )
                       }))
                     }
                   />
+                  <div className="trade-draft-footer">
+                    <span className={`status-pill ${tradeGiveTotal === 0 ? "muted" : ""}`}>{tradeGiveTotal} Karten</span>
+                    <span className="trade-draft-footer-copy">{tradeGiveSummary}</span>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={tradeGiveTotal === 0}
+                      onClick={() =>
+                        props.setTradeForm((current) => ({
+                          ...current,
+                          give: createEmptyResourceMap()
+                        }))
+                      }
+                    >
+                      Leeren
+                    </button>
+                  </div>
                 </article>
 
                 <div className="trade-direction-chip">gegen</div>
@@ -1149,67 +1157,78 @@ export function MatchScreen(props: {
                 <article className="trade-side-card trade-side-receive">
                   <div className="trade-side-head">
                     <span className="eyebrow">Du erhältst</span>
-                    <strong>{props.tradeForm.wantCount}x {renderResourceLabel(props.tradeForm.want)}</strong>
-                    <span>Wähle den Rohstoff, den du dafür erhalten möchtest.</span>
+                    <strong>{tradeWantSummary}</strong>
+                    <span>Fordere eine beliebige Kombination von Rohstoffen an.</span>
                   </div>
-                  <div className="trade-resource-grid-shell">
-                    <TradeResourceCardGrid
-                      value={props.tradeForm.want}
-                      resources={RESOURCES.map((resource) => ({
-                        resource,
-                        count: 0,
-                        meta: resource === props.tradeForm.want ? `${props.tradeForm.wantCount} angefragt` : "Anfragen"
-                      }))}
-                      onChange={(resource) => props.setTradeForm((current) => ({ ...current, want: resource }))}
-                    />
-                  </div>
-                  <TradeQuantityControl
-                    label="Erhalten"
-                    resource={props.tradeForm.want}
-                    value={props.tradeForm.wantCount}
-                    min={1}
-                    helper="Lege die gewünschte Kartenanzahl fest."
-                    onChange={(value) =>
+                  <TradeResourceStepperGrid
+                    draft={props.tradeForm.want}
+                    mode="want"
+                    onAdjust={(resource, delta) =>
                       props.setTradeForm((current) => ({
                         ...current,
-                        wantCount: sanitizeRequestedTradeCount(value)
+                        want: adjustTradeDraftCount(current.want, resource, delta, 99)
                       }))
                     }
                   />
+                  <div className="trade-draft-footer">
+                    <span className={`status-pill ${tradeWantTotal === 0 ? "muted" : ""}`}>{tradeWantTotal} Karten</span>
+                    <span className="trade-draft-footer-copy">{tradeWantSummary}</span>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={tradeWantTotal === 0}
+                      onClick={() =>
+                        props.setTradeForm((current) => ({
+                          ...current,
+                          want: createEmptyResourceMap()
+                        }))
+                      }
+                    >
+                      Leeren
+                    </button>
+                  </div>
                 </article>
 
                 <article className="trade-target-card">
                   <div className="trade-side-head">
                     <span className="eyebrow">Angebot an</span>
                     <strong>
-                      {props.tradeForm.targetPlayerId
-                        ? tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId)?.username ?? "Zielspieler"
-                        : "Offen für alle"}
+                      {isCurrentPlayer
+                        ? props.tradeForm.targetPlayerId
+                          ? tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId)?.username ?? "Zielspieler"
+                          : "Offen für alle"
+                        : effectiveTradeTargetPlayer?.username ?? "Aktiver Spieler"}
                     </strong>
                   </div>
-                  <div className="trade-target-picker">
-                    <button
-                      type="button"
-                      className={`trade-target-option ${props.tradeForm.targetPlayerId === "" ? "is-active" : ""}`}
-                      onClick={() => props.setTradeForm((current) => ({ ...current, targetPlayerId: "" }))}
-                    >
-                      <span className="trade-target-title">Offen für alle</span>
-                      <span className="trade-target-copy">Jeder Mitspieler kann annehmen.</span>
-                    </button>
-                    {tradeTargetPlayers.map((player) => (
+                  {isCurrentPlayer ? (
+                    <div className="trade-target-picker">
                       <button
-                        key={player.id}
                         type="button"
-                        className={`trade-target-option ${getPlayerAccentClass(player.color)} ${props.tradeForm.targetPlayerId === player.id ? "is-active" : ""}`}
-                        onClick={() =>
-                          props.setTradeForm((current) => ({ ...current, targetPlayerId: player.id }))
-                        }
+                        className={`trade-target-option ${props.tradeForm.targetPlayerId === "" ? "is-active" : ""}`}
+                        onClick={() => props.setTradeForm((current) => ({ ...current, targetPlayerId: "" }))}
                       >
-                        <PlayerIdentity username={player.username} color={player.color} compact />
-                        <span className="trade-target-copy">Nur dieser Spieler kann annehmen.</span>
+                        <span className="trade-target-title">Offen für alle</span>
+                        <span className="trade-target-copy">Jeder Mitspieler kann annehmen.</span>
                       </button>
-                    ))}
-                  </div>
+                      {tradeTargetPlayers.map((player) => (
+                        <button
+                          key={player.id}
+                          type="button"
+                          className={`trade-target-option ${getPlayerAccentClass(player.color)} ${props.tradeForm.targetPlayerId === player.id ? "is-active" : ""}`}
+                          onClick={() =>
+                            props.setTradeForm((current) => ({ ...current, targetPlayerId: player.id }))
+                          }
+                        >
+                          <PlayerIdentity username={player.username} color={player.color} compact />
+                          <span className="trade-target-copy">Nur dieser Spieler kann annehmen.</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="trade-target-placeholder-copy">
+                      Gegenangebote gehen immer direkt an den aktiven Spieler.
+                    </div>
+                  )}
                 </article>
 
                 <button
@@ -1749,6 +1768,55 @@ function TradeQuantityControl(props: {
   );
 }
 
+function TradeResourceStepperGrid(props: {
+  draft: ResourceMap;
+  mode: "give" | "want";
+  limits?: Partial<Record<Resource, number>>;
+  onAdjust: (resource: Resource, delta: -1 | 1) => void;
+}) {
+  return (
+    <div className="discard-resource-grid trade-draft-grid">
+      {RESOURCES.map((resource) => {
+        const selected = props.draft[resource] ?? 0;
+        const limit = props.mode === "give" ? (props.limits?.[resource] ?? 0) : (props.limits?.[resource] ?? 99);
+        const canDecrement = selected > 0;
+        const canIncrement = selected < limit;
+        const helper =
+          props.mode === "give"
+            ? `${limit} auf der Hand`
+            : selected > 0
+              ? `${selected} angefragt`
+              : "Noch nicht angefragt";
+
+        return (
+          <article key={resource} className={`discard-resource-card trade-draft-card ${selected > 0 ? "is-selected" : ""}`}>
+            <div className="discard-resource-head">
+              <span className="discard-resource-icon" aria-hidden="true">
+                <ResourceIcon resource={resource} tone="light" size={20} />
+              </span>
+              <div className="discard-resource-copy">
+                <strong>{renderResourceLabel(resource)}</strong>
+                <span>{helper}</span>
+              </div>
+            </div>
+            <div className="discard-stepper trade-draft-stepper">
+              <button type="button" className="ghost-button" onClick={() => props.onAdjust(resource, -1)} disabled={!canDecrement}>
+                -
+              </button>
+              <div className="discard-stepper-count" aria-label={`${selected} ${renderResourceLabel(resource)}`}>
+                {selected}
+              </div>
+              <button type="button" className="ghost-button" onClick={() => props.onAdjust(resource, 1)} disabled={!canIncrement}>
+                +
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function DiceFace(props: { value: number | null }) {
   const positions = getDicePipPositions(props.value);
   return (
@@ -1764,21 +1832,32 @@ function DiceFace(props: { value: number | null }) {
   );
 }
 
-function clampTradeCount(value: number | string, maxAvailable: number): number {
+function clampTradeDraftCount(value: number | string, maxAvailable: number): number {
   const numeric = typeof value === "number" ? value : Number(value);
-  const sanitized = Number.isFinite(numeric) ? Math.floor(numeric) : 1;
+  const sanitized = Number.isFinite(numeric) ? Math.floor(numeric) : 0;
   if (maxAvailable <= 0) {
     return 0;
   }
 
-  const upperBound = Math.max(1, maxAvailable);
-  return Math.min(Math.max(sanitized, 1), upperBound);
+  return Math.min(Math.max(sanitized, 0), maxAvailable);
 }
 
-function sanitizeRequestedTradeCount(value: number | string): number {
-  const numeric = typeof value === "number" ? value : Number(value);
-  const sanitized = Number.isFinite(numeric) ? Math.floor(numeric) : 1;
-  return Math.min(Math.max(sanitized, 1), 99);
+function adjustTradeDraftCount(
+  draft: ResourceMap,
+  resource: Resource,
+  delta: -1 | 1,
+  maxAvailable: number
+): ResourceMap {
+  const next = createEmptyResourceMap();
+
+  for (const currentResource of RESOURCES) {
+    next[currentResource] =
+      currentResource === resource
+        ? clampTradeDraftCount((draft[currentResource] ?? 0) + delta, maxAvailable)
+        : draft[currentResource] ?? 0;
+  }
+
+  return next;
 }
 
 function TradeBanner(props: {
@@ -2940,10 +3019,6 @@ function canAffordCost(
   cost: Partial<Record<Resource, number>>
 ): boolean {
   return getMissingCost(resources, cost).length === 0;
-}
-
-function canAffordOffer(resources: Partial<Record<Resource, number>> | undefined, resource: Resource, count: number): boolean {
-  return (resources?.[resource] ?? 0) >= count;
 }
 
 function canBankPayYearOfPlenty(bank: Partial<Record<Resource, number>>, resources: [Resource, Resource]): boolean {

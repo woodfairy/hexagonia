@@ -1,12 +1,11 @@
 import clickUrl from "../../../../assets/sounds/ui-click.wav";
 import closeUrl from "../../../../assets/sounds/ui-close.wav";
 import errorUrl from "../../../../assets/sounds/ui-error.wav";
-import hoverUrl from "../../../../assets/sounds/ui-hover.wav";
 import notifyUrl from "../../../../assets/sounds/ui-notify.wav";
 import openUrl from "../../../../assets/sounds/ui-open.wav";
 import successUrl from "../../../../assets/sounds/ui-success.wav";
 
-export type UiSoundId = "hover" | "click" | "open" | "close" | "success" | "notify" | "error";
+export type UiSoundId = "click" | "open" | "close" | "success" | "notify" | "error";
 
 type UiSoundDirective = UiSoundId | "off";
 
@@ -34,7 +33,6 @@ const INTERACTIVE_SELECTOR = [
 ].join(", ");
 
 const SOUND_LIBRARY: Record<UiSoundId, UiSoundDefinition> = {
-  hover: { url: hoverUrl, volume: 0.34, playbackRate: 1.02 },
   click: { url: clickUrl, volume: 0.72 },
   open: { url: openUrl, volume: 0.58 },
   close: { url: closeUrl, volume: 0.5 },
@@ -244,9 +242,6 @@ export function bindGlobalUiSounds(): () => void {
     return () => undefined;
   }
 
-  let lastHovered: HTMLElement | null = null;
-  let lastPointerDownAt = 0;
-
   const playInteractiveClick = (element: HTMLElement) => {
     const directive = readDirective(element);
     if (directive === "off") {
@@ -257,7 +252,6 @@ export function bindGlobalUiSounds(): () => void {
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    lastPointerDownAt = Date.now();
     void uiSoundManager.unlock();
     const element = resolveInteractiveElement(event.target);
     if (!element) {
@@ -265,59 +259,6 @@ export function bindGlobalUiSounds(): () => void {
     }
 
     playInteractiveClick(element);
-  };
-
-  const onPointerOver = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse") {
-      return;
-    }
-
-    const element = resolveInteractiveElement(event.target);
-    if (!element) {
-      return;
-    }
-
-    if (element === lastHovered) {
-      return;
-    }
-
-    lastHovered = element;
-    const directive = readDirective(element);
-    if (directive === "off") {
-      return;
-    }
-
-    void uiSoundManager.play("hover", { volume: 0.92 });
-  };
-
-  const onPointerOut = (event: PointerEvent) => {
-    const element = resolveInteractiveElement(event.target);
-    if (!element || element !== lastHovered) {
-      return;
-    }
-
-    const nextElement = resolveInteractiveElement(event.relatedTarget);
-    if (nextElement !== element) {
-      lastHovered = null;
-    }
-  };
-
-  const onFocusIn = (event: FocusEvent) => {
-    if (Date.now() - lastPointerDownAt < 150) {
-      return;
-    }
-
-    const element = resolveInteractiveElement(event.target);
-    if (!element) {
-      return;
-    }
-
-    const directive = readDirective(element);
-    if (directive === "off") {
-      return;
-    }
-
-    void uiSoundManager.play("hover", { volume: 0.78 });
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -338,16 +279,10 @@ export function bindGlobalUiSounds(): () => void {
   };
 
   window.addEventListener("pointerdown", onPointerDown, true);
-  window.addEventListener("pointerover", onPointerOver, true);
-  window.addEventListener("pointerout", onPointerOut, true);
-  window.addEventListener("focusin", onFocusIn, true);
   window.addEventListener("keydown", onKeyDown, true);
 
   return () => {
     window.removeEventListener("pointerdown", onPointerDown, true);
-    window.removeEventListener("pointerover", onPointerOver, true);
-    window.removeEventListener("pointerout", onPointerOut, true);
-    window.removeEventListener("focusin", onFocusIn, true);
     window.removeEventListener("keydown", onKeyDown, true);
   };
 }

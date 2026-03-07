@@ -786,6 +786,9 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
   canvas.width = spriteResolution;
   canvas.height = spriteResolution;
   const context = canvas.getContext("2d")!;
+  const resourceBadgeFill = robber ? "#0f1a24" : "#162633";
+  const resourceBadgeStroke = robber ? "#f3cf83" : "rgba(240, 226, 190, 0.34)";
+  const resourceIconColor = robber ? "#f3cf83" : getResourceIconColor(resource);
 
   context.fillStyle = robber ? "#17212b" : "#f4edd8";
   context.beginPath();
@@ -797,13 +800,19 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
   context.stroke();
 
   context.beginPath();
-  context.fillStyle = robber ? "rgba(243, 207, 131, 0.22)" : "rgba(255, 255, 255, 0.92)";
+  context.fillStyle = resourceBadgeFill;
   context.arc(center, 69, 36, 0, Math.PI * 2);
+  context.shadowColor = "rgba(5, 10, 15, 0.34)";
+  context.shadowBlur = 12;
+  context.shadowOffsetY = 2;
   context.fill();
+  context.shadowColor = "transparent";
+  context.shadowBlur = 0;
+  context.shadowOffsetY = 0;
   context.lineWidth = 5;
-  context.strokeStyle = robber ? "#f3cf83" : "rgba(32, 50, 64, 0.3)";
+  context.strokeStyle = resourceBadgeStroke;
   context.stroke();
-  drawResourceIcon(context, resource, center, 69, 42, robber ? "#f3cf83" : getResourceIconColor(resource));
+  drawResourceIcon(context, resource, center, 69, 42, resourceIconColor);
 
   if (token !== null) {
     context.fillStyle = token === 6 || token === 8 ? "#b83e2f" : "#203240";
