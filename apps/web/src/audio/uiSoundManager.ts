@@ -26,6 +26,8 @@ export interface MusicTrack {
   url: string;
 }
 
+export type MusicPlaybackMode = "single" | "cycle";
+
 interface UiSoundPlayOptions {
   volume?: number;
   playbackRate?: number;
@@ -34,6 +36,7 @@ interface UiSoundPlayOptions {
 const UI_SOUND_STORAGE_KEY = "hexagonia:ui-sound-muted";
 const MUSIC_TRACK_STORAGE_KEY = "hexagonia:music-track";
 const MUSIC_PLAYBACK_STORAGE_KEY = "hexagonia:music-playback";
+const MUSIC_MODE_STORAGE_KEY = "hexagonia:music-mode";
 const MUSIC_VOLUME = 0.68;
 const INTERACTIVE_SELECTOR = [
   "[data-ui-sound]",
@@ -66,6 +69,7 @@ const MUSIC_LIBRARY: MusicTrack[] = Object.entries(MUSIC_TRACK_IMPORTS)
   .sort((left, right) => left.name.localeCompare(right.name, "de", { sensitivity: "base" }));
 
 type AudioContextConstructor = typeof AudioContext;
+type MusicStateListener = () => void;
 
 function getAudioContextConstructor(): AudioContextConstructor | null {
   if (typeof window === "undefined") {
@@ -146,17 +150,29 @@ function resolveInitialMusicPaused(): boolean {
   return window.localStorage.getItem(MUSIC_PLAYBACK_STORAGE_KEY) !== "playing";
 }
 
+function resolveInitialMusicPlaybackMode(): MusicPlaybackMode {
+  if (typeof window === "undefined") {
+    return "single";
+  }
+
+  return window.localStorage.getItem(MUSIC_MODE_STORAGE_KEY) === "cycle" ? "cycle" : "single";
+}
+
 class UiSoundManager {
   private context: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private buffers = new Map<UiSoundId, AudioBuffer>();
   private loading = new Map<UiSoundId, Promise<AudioBuffer | null>>();
+  private musicStateListeners = new Set<MusicStateListener>();
   private musicElement: HTMLAudioElement | null = null;
   private currentMusicTrackId: string | null = null;
   private muted =
     typeof window !== "undefined" && window.localStorage.getItem(UI_SOUND_STORAGE_KEY) === "muted";
+  private hasStoredMusicPlaybackPreference =
+    typeof window !== "undefined" && window.localStorage.getItem(MUSIC_PLAYBACK_STORAGE_KEY) !== null;
   private selectedMusicTrackId = resolveInitialMusicTrackId();
   private musicPaused = resolveInitialMusicPaused();
+  private musicPlaybackMode = resolveInitialMusicPlaybackMode();
   private musicResumePending = false;
 
   isMuted(): boolean {
@@ -173,6 +189,17 @@ class UiSoundManager {
 
   isMusicPaused(): boolean {
     return this.musicPaused;
+  }
+
+  getMusicPlaybackMode(): MusicPlaybackMode {
+    return this.musicPlaybackMode;
+  }
+
+  subscribeToMusicState(listener: MusicStateListener): () => void {
+    this.musicStateListeners.add(listener);
+    return () => {
+      this.musicStateListeners.delete(listener);
+    };
   }
 
   setMuted(nextMuted: boolean): void {
@@ -264,6 +291,7 @@ class UiSoundManager {
     this.musicPaused = false;
     this.persistMusicPlaybackState();
     this.musicResumePending = true;
+    this.notifyMusicStateListeners();
     await this.playSelectedMusic();
   }
 
@@ -279,16 +307,42 @@ class UiSoundManager {
     if (nextPaused) {
       this.musicResumePending = false;
       this.musicElement?.pause();
+      this.notifyMusicStateListeners();
       return this.musicPaused;
     }
 
     this.musicResumePending = true;
+    this.notifyMusicStateListeners();
     await this.playSelectedMusic();
     return this.musicPaused;
   }
 
   async toggleMusicPaused(): Promise<boolean> {
     return this.setMusicPaused(!this.musicPaused);
+  }
+
+  async setMusicPlaybackMode(nextMode: MusicPlaybackMode): Promise<void> {
+    this.musicPlaybackMode = nextMode;
+    this.persistMusicPlaybackMode();
+    this.updateMusicElementLoop();
+    this.notifyMusicStateListeners();
+
+    if (!this.musicPaused) {
+      await this.playSelectedMusic();
+    }
+  }
+
+  async enableMusicByDefault(): Promise<boolean> {
+    if (this.hasStoredMusicPlaybackPreference || !resolveMusicTrack(this.selectedMusicTrackId)) {
+      return !this.musicPaused;
+    }
+
+    this.musicPaused = false;
+    this.persistMusicPlaybackState();
+    this.musicResumePending = true;
+    this.notifyMusicStateListeners();
+    await this.playSelectedMusic();
+    return true;
   }
 
   private ensureContext(): AudioContext | null {
@@ -315,12 +369,14 @@ class UiSoundManager {
 
     if (!this.musicElement) {
       this.musicElement = new Audio();
-      this.musicElement.loop = true;
       this.musicElement.preload = "auto";
+      this.musicElement.onended = () => {
+        void this.handleMusicEnded();
+      };
     }
 
     this.musicElement.volume = MUSIC_VOLUME;
-    this.musicElement.loop = true;
+    this.musicElement.loop = this.shouldLoopMusic();
     if (this.currentMusicTrackId !== track.id) {
       this.musicElement.pause();
       this.musicElement.src = track.url;
@@ -346,11 +402,20 @@ class UiSoundManager {
   }
 
   private persistMusicPlaybackState(): void {
+    this.hasStoredMusicPlaybackPreference = true;
     if (typeof window === "undefined") {
       return;
     }
 
     window.localStorage.setItem(MUSIC_PLAYBACK_STORAGE_KEY, this.musicPaused ? "paused" : "playing");
+  }
+
+  private persistMusicPlaybackMode(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(MUSIC_MODE_STORAGE_KEY, this.musicPlaybackMode);
   }
 
   private async playSelectedMusic(): Promise<void> {
@@ -369,6 +434,54 @@ class UiSoundManager {
       this.musicResumePending = false;
     } catch {
       this.musicResumePending = true;
+    }
+  }
+
+  private async handleMusicEnded(): Promise<void> {
+    if (this.musicPaused || this.shouldLoopMusic()) {
+      return;
+    }
+
+    const nextTrack = this.resolveNextMusicTrack();
+    if (!nextTrack) {
+      return;
+    }
+
+    this.selectedMusicTrackId = nextTrack.id;
+    this.persistMusicTrack();
+    this.notifyMusicStateListeners();
+    await this.playSelectedMusic();
+  }
+
+  private resolveNextMusicTrack(): MusicTrack | null {
+    if (!MUSIC_LIBRARY.length) {
+      return null;
+    }
+
+    const currentId = this.currentMusicTrackId ?? this.selectedMusicTrackId;
+    const currentIndex = MUSIC_LIBRARY.findIndex((track) => track.id === currentId);
+    if (currentIndex < 0) {
+      return MUSIC_LIBRARY[0] ?? null;
+    }
+
+    return MUSIC_LIBRARY[(currentIndex + 1) % MUSIC_LIBRARY.length] ?? MUSIC_LIBRARY[0] ?? null;
+  }
+
+  private shouldLoopMusic(): boolean {
+    return this.musicPlaybackMode === "single" || MUSIC_LIBRARY.length <= 1;
+  }
+
+  private updateMusicElementLoop(): void {
+    if (!this.musicElement) {
+      return;
+    }
+
+    this.musicElement.loop = this.shouldLoopMusic();
+  }
+
+  private notifyMusicStateListeners(): void {
+    for (const listener of this.musicStateListeners) {
+      listener();
     }
   }
 
