@@ -349,11 +349,12 @@ export function MatchScreen(props: {
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
   const spotlightBadges = isCompactViewport ? spotlightCue?.badges?.slice(0, 1) : spotlightCue?.badges;
-  const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || sheetState === "peek");
+  const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
+  const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
   const openTradePanel = () => {
     setTradeSection("player");
     setActiveTab("trade");
-    if (sheetState === "peek") {
+    if (effectiveSheetState === "peek") {
       setSheetState("half");
     }
   };
@@ -1688,26 +1689,15 @@ export function MatchScreen(props: {
           <div className="tab-panel-shell">{tabPanels[activeTab]}</div>
         </aside>
 
-        <section className={`surface match-sheet is-${sheetState}`}>
-          <div className="match-sheet-handle-row">
-            <button type="button" className="sheet-size-button" onClick={() => setSheetState("peek")}>
-              Kompakt
-            </button>
-            <button type="button" className="sheet-size-button" onClick={() => setSheetState("half")}>
-              Fokus
-            </button>
-            <button type="button" className="sheet-size-button" onClick={() => setSheetState("full")}>
-              Voll
-            </button>
-          </div>
+        <section className={`surface match-sheet is-${effectiveSheetState}`}>
           <div className={`match-sheet-summary ${isMobileViewport ? "is-mobile" : ""}`}>
             {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
             <strong>{turnStatus.title}</strong>
             <span>{`${formatPhase(props.match.phase)} · Zug ${props.match.turn}`}</span>
-            {sheetState !== "peek" ? <span>{turnStatus.detail}</span> : null}
+            {effectiveSheetState !== "peek" ? <span>{turnStatus.detail}</span> : null}
           </div>
-          {sheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
-          {sheetState !== "peek" ? (
+          {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
+          {effectiveSheetState !== "peek" ? (
             <div className="tab-strip mobile" role="tablist" aria-label="Mobile Match Navigation">
               {visibleTabs.map((tab) => (
                 <button
@@ -1723,7 +1713,7 @@ export function MatchScreen(props: {
               ))}
             </div>
           ) : null}
-          {sheetState !== "peek" ? <div className="tab-panel-shell mobile">{tabPanels[activeTab]}</div> : null}
+          {effectiveSheetState !== "peek" ? <div className="tab-panel-shell mobile">{tabPanels[activeTab]}</div> : null}
         </section>
       </div>
     </section>
