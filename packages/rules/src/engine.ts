@@ -43,6 +43,7 @@ interface InternalPlayer {
   color: PlayerColor;
   seatIndex: number;
   connected: boolean;
+  disconnectDeadlineAt: number | null;
   resources: ResourceMap;
   developmentCards: InternalDevelopmentCard[];
   roads: string[];
@@ -221,6 +222,7 @@ export function createMatchState(input: {
       color: player.color,
       seatIndex: player.seatIndex,
       connected: player.connected ?? true,
+      disconnectDeadlineAt: null,
       resources: createEmptyResourceMap(),
       developmentCards: [],
       roads: [],
@@ -413,7 +415,23 @@ export function updatePlayerConnection(
   connected: boolean
 ): GameState {
   const next = cloneState(state);
-  getPlayer(next, playerId).connected = connected;
+  const player = getPlayer(next, playerId);
+  player.connected = connected;
+  if (connected) {
+    player.disconnectDeadlineAt = null;
+  } else {
+    player.disconnectDeadlineAt ??= null;
+  }
+  return next;
+}
+
+export function setPlayerDisconnectDeadline(
+  state: GameState,
+  playerId: string,
+  disconnectDeadlineAt: number | null
+): GameState {
+  const next = cloneState(state);
+  getPlayer(next, playerId).disconnectDeadlineAt = disconnectDeadlineAt;
   return next;
 }
 
@@ -1260,6 +1278,7 @@ function createPlayerView(state: GameState, playerId: string, viewerId: string):
     color: player.color,
     seatIndex: player.seatIndex,
     connected: player.connected,
+    disconnectDeadlineAt: player.disconnectDeadlineAt ?? null,
     resourceCount: totalResources(player.resources),
     developmentCardCount: player.developmentCards.length,
     publicVictoryPoints: getPublicVictoryPoints(state, player.id),

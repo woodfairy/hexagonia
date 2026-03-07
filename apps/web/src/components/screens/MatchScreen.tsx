@@ -79,9 +79,9 @@ interface DiceDisplayState {
   actorName: string | null;
 }
 
-const DICE_EXPAND_MS = 140;
-const DICE_ROLL_MS = 620;
-const DICE_SETTLE_MS = 190;
+const DICE_EXPAND_MS = 150;
+const DICE_ROLL_MS = 560;
+const DICE_SETTLE_MS = 260;
 
 export function MatchScreen(props: {
   match: MatchSnapshot;
@@ -178,6 +178,7 @@ export function MatchScreen(props: {
     phase: "idle",
     actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
   }));
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const seenDiceEventIdRef = useRef<string | null>(latestDiceEvent?.id ?? null);
   const diceAnimationTimerRef = useRef<number | null>(null);
   const diceAnimationCompleteRef = useRef<number | null>(null);
@@ -284,6 +285,7 @@ export function MatchScreen(props: {
       ? "Du bist am Zug"
       : `${activePlayer.username} ist am Zug`
     : "Warte auf Spieler";
+  const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
   const spotlightBadges = isCompactViewport ? spotlightCue?.badges?.slice(0, 1) : spotlightCue?.badges;
   const primaryActions = [
@@ -323,6 +325,9 @@ export function MatchScreen(props: {
     }
   ];
   const hasQuickActions = primaryActions.some((action) => !action.disabled);
+  const hasDisconnectCountdown = props.match.players.some(
+    (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
+  );
 
   const renderQuickActions = (showPlaceholder = true) =>
     hasQuickActions ? (
@@ -412,6 +417,19 @@ export function MatchScreen(props: {
   }, []);
 
   useEffect(() => {
+    if (!hasDisconnectCountdown) {
+      return;
+    }
+
+    setCountdownNow(Date.now());
+    const timer = window.setInterval(() => {
+      setCountdownNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [hasDisconnectCountdown]);
+
+  useEffect(() => {
     if (diceAnimationTimerRef.current !== null) {
       window.clearInterval(diceAnimationTimerRef.current);
       diceAnimationTimerRef.current = null;
@@ -464,9 +482,9 @@ export function MatchScreen(props: {
     if (seenDiceEventIdRef.current === latestDiceEvent.id) {
       setDiceDisplay((current) => ({
         ...current,
-        left: actualDice?.[0] ?? current.left,
-        right: actualDice?.[1] ?? current.right,
-        total: total ?? current.total,
+        left: current.phase === "idle" ? (actualDice?.[0] ?? current.left) : current.left,
+        right: current.phase === "idle" ? (actualDice?.[1] ?? current.right) : current.right,
+        total: current.phase === "idle" ? (total ?? current.total) : current.total,
         actorName
       }));
       return;
@@ -483,27 +501,29 @@ export function MatchScreen(props: {
     setDiceDisplay({
       left: rollPreviewValue(),
       right: rollPreviewValue(),
-      total,
+      total: null,
       phase: "expand",
       actorName
     });
 
     diceAnimationCompleteRef.current = window.setTimeout(() => {
-      setDiceDisplay((current) => ({
-        ...current,
-        phase: "rolling",
-        left: rollPreviewValue(),
-        right: rollPreviewValue()
-      }));
-
-      diceAnimationTimerRef.current = window.setInterval(() => {
         setDiceDisplay((current) => ({
           ...current,
+          phase: "rolling",
           left: rollPreviewValue(),
           right: rollPreviewValue(),
-          phase: "rolling"
+          total: null
         }));
-      }, 74);
+
+      diceAnimationTimerRef.current = window.setInterval(() => {
+          setDiceDisplay((current) => ({
+            ...current,
+            left: rollPreviewValue(),
+            right: rollPreviewValue(),
+            phase: "rolling",
+            total: null
+          }));
+        }, 92);
 
       diceAnimationCompleteRef.current = window.setTimeout(() => {
         if (diceAnimationTimerRef.current !== null) {
@@ -511,19 +531,21 @@ export function MatchScreen(props: {
           diceAnimationTimerRef.current = null;
         }
 
-        setDiceDisplay({
-          left: actualDice?.[0] ?? null,
-          right: actualDice?.[1] ?? null,
-          total,
+        setDiceDisplay((current) => ({
+          ...current,
           phase: "settle",
+          total: null,
           actorName
-        });
+        }));
 
         diceAnimationCompleteRef.current = window.setTimeout(() => {
-          setDiceDisplay((current) => ({
-            ...current,
-            phase: "idle"
-          }));
+          setDiceDisplay({
+            left: actualDice?.[0] ?? null,
+            right: actualDice?.[1] ?? null,
+            total,
+            phase: "idle",
+            actorName
+          });
           diceAnimationCompleteRef.current = null;
         }, DICE_SETTLE_MS);
       }, DICE_ROLL_MS);
@@ -755,7 +777,10 @@ export function MatchScreen(props: {
             <h3>Jetzt möglich</h3>
             <span>{turnStatus.title}</span>
           </div>
-          {renderQuickActions()}
+          <div className="action-placeholder">
+            <strong>{turnStatus.title}</strong>
+            <span>{turnStatus.detail}</span>
+          </div>
         </section>
         <section className="dock-section">
           <div className="dock-section-head">
@@ -1171,38 +1196,52 @@ export function MatchScreen(props: {
     players: (
       <div className="panel-frame players-frame">
         <div className="scroll-list player-card-list">
-          {props.match.players.map((player) => (
-            <article
-              key={player.id}
-              className={`player-card player-surface player-accent-${player.color} ${player.id === props.match.currentPlayerId ? "is-active-turn" : ""}`}
-            >
-              <div className="player-card-head">
-                <PlayerIdentity
-                  username={player.username}
-                  color={player.color}
-                  isSelf={player.id === props.match.you}
-                  compact
-                />
-                <PlayerColorBadge color={player.color} label={renderPlayerColorLabel(player.color)} compact />
-              </div>
-              <div className="player-stat-grid">
-                <InfoCard label="VP" value={String(player.publicVictoryPoints)} />
-                <InfoCard label="Karten" value={String(player.resourceCount)} />
-                <InfoCard label="Straßen" value={String(player.roadsBuilt)} />
-                <InfoCard label="Ritter" value={String(player.playedKnightCount)} />
-              </div>
-              <div className="status-strip">
-                {player.id === props.match.currentPlayerId ? (
-                  <span className={`status-pill player-badge player-accent-${player.color}`}>Am Zug</span>
-                ) : null}
-                {player.hasLongestRoad ? <span className="status-pill">Längste Straße</span> : null}
-                {player.hasLargestArmy ? <span className="status-pill">Größte Rittermacht</span> : null}
-                {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
-                  <span className="status-pill muted">Keine Auszeichnung</span>
-                ) : null}
-              </div>
-            </article>
-          ))}
+          {props.match.players.map((player) => {
+            const presence = getPlayerPresenceState(player, countdownNow);
+            return (
+              <article
+                key={player.id}
+                className={`player-card player-surface player-accent-${player.color} ${player.id === props.match.currentPlayerId ? "is-active-turn" : ""}`}
+              >
+                <div className="player-card-head">
+                  <div className="player-card-identity-block">
+                    <PlayerIdentity
+                      username={player.username}
+                      color={player.color}
+                      isSelf={player.id === props.match.you}
+                      compact
+                    />
+                    <div className="player-card-presence">
+                      <span className={`status-pill player-connection-pill ${presence.toneClass}`}>
+                        <span className={`online-indicator ${presence.indicatorClass}`} aria-hidden="true" />
+                        {presence.label}
+                      </span>
+                      <span className="player-connection-detail">{presence.detail}</span>
+                    </div>
+                  </div>
+                  <div className="player-card-head-side">
+                    <PlayerColorBadge color={player.color} label={renderPlayerColorLabel(player.color)} compact />
+                  </div>
+                </div>
+                <div className="player-stat-grid player-stat-grid-compact">
+                  <PlayerStatCard label="VP" value={String(player.publicVictoryPoints)} />
+                  <PlayerStatCard label="Karten" value={String(player.resourceCount)} />
+                  <PlayerStatCard label="Straßen" value={String(player.roadsBuilt)} />
+                  <PlayerStatCard label="Ritter" value={String(player.playedKnightCount)} />
+                </div>
+                <div className="status-strip player-award-strip">
+                  {player.id === props.match.currentPlayerId ? (
+                    <span className={`status-pill player-badge player-accent-${player.color}`}>Am Zug</span>
+                  ) : null}
+                  {player.hasLongestRoad ? <span className="status-pill">Längste Straße</span> : null}
+                  {player.hasLargestArmy ? <span className="status-pill">Größte Rittermacht</span> : null}
+                  {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
+                    <span className="status-pill muted">Keine Auszeichnung</span>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     )
@@ -1382,7 +1421,7 @@ export function MatchScreen(props: {
             >
               <div className="board-dice-head">
                 <span className="eyebrow">Wurf</span>
-                <strong>{diceDisplay.total !== null ? diceDisplay.total : "Offen"}</strong>
+                <strong>{hasRevealedDiceResult ? diceDisplay.total : "?"}</strong>
               </div>
               <div className="board-dice-row" aria-live="polite">
                 <DiceFace value={diceDisplay.left} />
@@ -1390,7 +1429,7 @@ export function MatchScreen(props: {
               </div>
               <span className="board-dice-copy">
                 {diceDisplay.actorName
-                  ? diceDisplay.phase === "expand" || diceDisplay.phase === "rolling"
+                  ? diceDisplay.phase !== "idle"
                     ? `${diceDisplay.actorName} würfelt...`
                     : `${diceDisplay.actorName} hat ${diceDisplay.total ?? "-"} gewürfelt`
                   : "Warte auf den nächsten Wurf."}
@@ -1758,6 +1797,15 @@ function InfoCard(props: { label: string; value: ReactNode; className?: string }
       <span>{props.label}</span>
       <div className="info-card-value">{props.value}</div>
     </article>
+  );
+}
+
+function PlayerStatCard(props: { label: string; value: ReactNode }) {
+  return (
+    <div className="player-stat-card">
+      <span className="player-stat-card-label">{props.label}</span>
+      <strong>{props.value}</strong>
+    </div>
   );
 }
 
@@ -2206,6 +2254,40 @@ function getPlayerById(match: MatchSnapshot, playerId?: string) {
 
 function getPlayerColor(match: MatchSnapshot, playerId?: string): PlayerColor | null {
   return getPlayerById(match, playerId)?.color ?? null;
+}
+
+function getPlayerPresenceState(player: MatchSnapshot["players"][number], now: number) {
+  if (player.connected) {
+    return {
+      label: "Online",
+      detail: "Im Raum verbunden",
+      toneClass: "is-online",
+      indicatorClass: "is-online"
+    };
+  }
+
+  if (typeof player.disconnectDeadlineAt === "number" && player.disconnectDeadlineAt > now) {
+    return {
+      label: "Getrennt",
+      detail: `Entfernt in ${formatCountdown(player.disconnectDeadlineAt - now)}`,
+      toneClass: "is-offline",
+      indicatorClass: "is-offline"
+    };
+  }
+
+  return {
+    label: "Getrennt",
+    detail: "Wartet auf Entfernen",
+    toneClass: "is-offline",
+    indicatorClass: "is-offline"
+  };
+}
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function getPayloadString(payload: Record<string, unknown>, key: string): string | null {

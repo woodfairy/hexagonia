@@ -98,6 +98,7 @@ export interface PlayerSummary {
 export interface PlayerView extends PlayerSummary {
   seatIndex: number;
   connected: boolean;
+  disconnectDeadlineAt: number | null;
   resourceCount: number;
   resources?: ResourceMap;
   developmentCardCount: number;

@@ -1,6 +1,12 @@
 import type { FastifyBaseLogger } from "fastify";
 import type WebSocket from "ws";
-import { applyAction, createSnapshot, updatePlayerConnection, type GameState } from "@hexagonia/rules";
+import {
+  applyAction,
+  createSnapshot,
+  setPlayerDisconnectDeadline,
+  updatePlayerConnection,
+  type GameState
+} from "@hexagonia/rules";
 import type { ActionIntent, AuthUser, RoomDetails, ServerMessage } from "@hexagonia/shared";
 import { Database } from "./db.js";
 
@@ -104,7 +110,12 @@ export class RealtimeHub {
       }
 
       nextState = updatePlayerConnection(nextState, player.id, false);
-      this.scheduleMatchEviction(state.matchId, player.id);
+      nextState = setPlayerDisconnectDeadline(
+        nextState,
+        player.id,
+        Date.now() + RealtimeHub.PLAYER_EVICTION_GRACE_MS
+      );
+      this.startMatchEvictionTimer(state.matchId, player.id);
     }
 
     this.activeMatches.set(state.matchId, nextState);
@@ -208,7 +219,7 @@ export class RealtimeHub {
 
     if (!this.hasActiveMatchSubscription(matchId, context.user.id)) {
       this.scheduleMatchDisconnect(matchId, context.user.id);
-      this.scheduleMatchEviction(matchId, context.user.id);
+      await this.scheduleMatchEviction(matchId, context.user.id);
     }
 
     this.broadcastMatchPresence(matchId);
@@ -352,10 +363,10 @@ export class RealtimeHub {
     this.pendingRoomEvictions.set(key, timeout);
   }
 
-  private scheduleMatchEviction(matchId: string, userId: string): void {
+  private startMatchEvictionTimer(matchId: string, userId: string): boolean {
     const key = this.getMatchEvictionKey(matchId, userId);
     if (this.pendingMatchEvictions.has(key) || this.hasActiveMatchSubscription(matchId, userId)) {
-      return;
+      return false;
     }
 
     const timeout = setTimeout(() => {
@@ -365,6 +376,36 @@ export class RealtimeHub {
     }, RealtimeHub.PLAYER_EVICTION_GRACE_MS);
 
     this.pendingMatchEvictions.set(key, timeout);
+    return true;
+  }
+
+  private async scheduleMatchEviction(matchId: string, userId: string): Promise<void> {
+    const started = this.startMatchEvictionTimer(matchId, userId);
+    if (!started) {
+      return;
+    }
+
+    let state: GameState | null = null;
+    try {
+      state = await this.getMatchState(matchId);
+    } catch {
+      this.clearPendingMatchEviction(matchId, userId);
+      return;
+    }
+
+    if (!state.players.some((player) => player.id === userId) || this.hasActiveMatchSubscription(matchId, userId)) {
+      this.clearPendingMatchEviction(matchId, userId);
+      return;
+    }
+
+    const nextState = setPlayerDisconnectDeadline(
+      state,
+      userId,
+      Date.now() + RealtimeHub.PLAYER_EVICTION_GRACE_MS
+    );
+    this.activeMatches.set(matchId, nextState);
+    await this.db.saveMatchState(nextState);
+    this.broadcastMatchState(nextState);
   }
 
   private clearPendingMatchDisconnect(matchId: string, userId: string): void {
