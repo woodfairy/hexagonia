@@ -6,7 +6,6 @@ export function LoadingButtonContent(props: {
   return props.loading ? (
     <span className="button-loading-content">
       <span className="button-loading-spinner" aria-hidden="true" />
-      <span>{props.loadingLabel}</span>
     </span>
   ) : (
     <span>{props.idleLabel}</span>
