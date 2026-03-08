@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { createTileTerrainSurface, type TileTerrainSurfaceBundle } from "./boardTerrainRelief";
 import { isFirefoxBrowser } from "./browserPerformance";
 import {
   BUILT_ROAD_ELEVATION,
@@ -259,11 +260,22 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
   const vertexKey = board.vertices.map((vertex) => `${vertex.id}:${vertex.x.toFixed(3)}:${vertex.y.toFixed(3)}`).join("|");
   const edgeKey = board.edges.map((edge) => `${edge.id}:${edge.vertexIds.join(",")}:${edge.tileIds.join(",")}`).join("|");
   const portKey = board.ports.map((port) => `${port.id}:${port.type}:${port.edgeId}`).join("|");
+  const structureKey = visualSettings.terrainRelief
+    ? [
+        board.edges.map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}`).join("|"),
+        board.vertices
+          .map((vertex) =>
+            `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}`
+          )
+          .join("|")
+      ].join("~")
+    : "";
   return [
     tileKey,
     vertexKey,
     edgeKey,
     portKey,
+    structureKey,
     visualSettings.textures,
     visualSettings.props,
     visualSettings.terrainRelief,
@@ -385,6 +397,9 @@ export function BoardScene(props: BoardSceneProps) {
   const staticInteractiveRef = useRef<THREE.Object3D[]>([]);
   const dynamicInteractiveRef = useRef<THREE.Object3D[]>([]);
   const staticTokenSpritesRef = useRef<Map<string, THREE.Sprite>>(new Map());
+  const terrainSurfaceByTileRef = useRef<Map<string, TileTerrainSurfaceBundle>>(new Map());
+  const tilesByIdRef = useRef<Map<string, BoardTile>>(new Map());
+  const tileIdsByVertexRef = useRef<Map<string, string[]>>(new Map());
   const pulseObjectsRef = useRef<THREE.Object3D[]>([]);
   const focusTargetRef = useRef(DEFAULT_CAMERA_TARGET.clone());
   const focusCameraPositionRef = useRef(DEFAULT_CAMERA_POSITION.clone());
@@ -995,7 +1010,21 @@ export function BoardScene(props: BoardSceneProps) {
     const verticesById = new Map(props.snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
     const tilesById = new Map(props.snapshot.board.tiles.map((tile) => [tile.id, tile]));
     const edgesById = new Map(props.snapshot.board.edges.map((edge) => [edge.id, edge]));
+    const tileIdsByVertex = new Map<string, string[]>();
+    for (const tile of props.snapshot.board.tiles) {
+      for (const vertexId of tile.vertexIds) {
+        const current = tileIdsByVertex.get(vertexId);
+        if (current) {
+          current.push(tile.id);
+        } else {
+          tileIdsByVertex.set(vertexId, [tile.id]);
+        }
+      }
+    }
+    tilesByIdRef.current = tilesById;
+    tileIdsByVertexRef.current = tileIdsByVertex;
     const texturedTerrainBundles = new Map<Resource | "desert", UltraTerrainTextureBundle>();
+    const terrainSurfaceByTile = new Map<string, TileTerrainSurfaceBundle>();
     const useTexturedTiles = props.visualSettings.textures;
     const includeProps = props.visualSettings.props;
     const includeTerrainRelief = props.visualSettings.terrainRelief;
@@ -1007,13 +1036,29 @@ export function BoardScene(props: BoardSceneProps) {
       if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
         texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource, "board"));
       }
+      const terrainSurface = includeTerrainRelief
+        ? createTileTerrainSurface({
+            tile,
+            verticesById,
+            boardEdges: props.snapshot.board.edges,
+            boardVertices: props.snapshot.board.vertices,
+            active: false,
+            textured: useTexturedTiles,
+            ...(useTexturedTiles ? { terrainBundle: texturedTerrainBundles.get(tile.resource)! } : {}),
+            tileScale: TILE_OUTER_RENDER_SCALE,
+            baseY: TILE_HEIGHT + 0.012
+          })
+        : null;
+      if (terrainSurface) {
+        terrainSurfaceByTile.set(tile.id, terrainSurface);
+      }
       const base =
         useTexturedTiles
-          ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, {
+          ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, terrainSurface, {
               includeProps,
               includeTerrainRelief
             })
-          : createModernTileMesh(tile, verticesById, false, {
+          : createModernTileMesh(tile, verticesById, false, terrainSurface, {
               includeProps,
               includeTerrainRelief
             });
@@ -1022,17 +1067,18 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(base);
 
       const outline = createTileOutline(tile, verticesById);
-      outline.position.set(tile.x, TILE_HEIGHT + 0.04, tile.y);
+      outline.position.set(tile.x, (terrainSurface?.maxHeight ?? TILE_HEIGHT) + 0.06, tile.y);
       group.add(outline);
 
       if (tile.token !== null) {
         const tokenSprite = createTokenSprite(tile.resource, tile.token, false, props.visualSettings.resourceIcons);
-        tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
+        tokenSprite.position.set(tile.x, (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.72, tile.y);
         tokenSprite.visible = !tile.robber;
         staticTokenSpritesRef.current.set(tile.id, tokenSprite);
         group.add(tokenSprite);
       }
     }
+    terrainSurfaceByTileRef.current = terrainSurfaceByTile;
 
     for (const port of props.snapshot.board.ports) {
       const edge = edgesById.get(port.edgeId);
@@ -1050,7 +1096,7 @@ export function BoardScene(props: BoardSceneProps) {
         continue;
       }
 
-      const marker = createPortMarker(port, edge, tile, verticesById);
+      const marker = createPortMarker(port, edge, tile, verticesById, terrainSurfaceByTile);
       const proxy = createPortInteractiveProxy();
       const proxyPosition = marker.userData.proxyPosition as THREE.Vector3 | undefined;
       if (proxyPosition) {
@@ -1096,6 +1142,9 @@ export function BoardScene(props: BoardSceneProps) {
     boardRoot.add(group);
 
     const verticesById = new Map(props.snapshot.board.vertices.map((vertex) => [vertex.id, vertex]));
+    const terrainSurfaceByTile = terrainSurfaceByTileRef.current;
+    const tilesById = tilesByIdRef.current;
+    const tileIdsByVertex = tileIdsByVertexRef.current;
     const legalVertices = new Set(
       props.snapshot.allowedMoves.initialSettlementVertexIds.length
         ? props.snapshot.allowedMoves.initialSettlementVertexIds
@@ -1122,6 +1171,7 @@ export function BoardScene(props: BoardSceneProps) {
     );
 
     for (const tile of props.snapshot.board.tiles) {
+      const tileHeight = sampleTileTerrainHeight(terrainSurfaceByTile, tile, tile.x, tile.y);
       if (tile.robber) {
         const baseTokenSprite = staticTokenSpritesRef.current.get(tile.id);
         if (baseTokenSprite) {
@@ -1129,7 +1179,7 @@ export function BoardScene(props: BoardSceneProps) {
         }
 
         const robberSprite = createTokenSprite(tile.resource, tile.token, true, props.visualSettings.resourceIcons);
-        robberSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
+        robberSprite.position.set(tile.x, tileHeight + 0.72, tile.y);
         group.add(robberSprite);
       }
 
@@ -1138,11 +1188,11 @@ export function BoardScene(props: BoardSceneProps) {
       }
 
       const marker = createTileFocusMarker(tile, verticesById, false);
-      marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
+      marker.position.set(tile.x, tileHeight + 0.52, tile.y);
       registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
       group.add(marker);
       const proxy = createTileInteractiveProxy(tile, verticesById);
-      proxy.position.set(tile.x, TILE_HEIGHT + 0.56, tile.y);
+      proxy.position.set(tile.x, tileHeight + 0.56, tile.y);
       attachInteractiveMeta(proxy, "tile", tile.id, 1.06, marker, marker);
       dynamicInteractiveRef.current.push(proxy);
       group.add(proxy);
@@ -1167,7 +1217,8 @@ export function BoardScene(props: BoardSceneProps) {
       const road = edge.ownerId
         ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected, props.visualSettings.pieceStyle)
         : createRoadGuide(length, selected, props.visualSettings.pieceStyle);
-      const roadHeight = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_ELEVATION : TILE_HEIGHT + GUIDE_ROAD_ELEVATION;
+      const edgeHeight = sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById);
+      const roadHeight = edge.ownerId ? edgeHeight + BUILT_ROAD_ELEVATION : edgeHeight + GUIDE_ROAD_ELEVATION;
       const roadObject = new THREE.Group();
       roadObject.position.set(centerX, roadHeight, centerZ);
       roadObject.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx, 0, dz).normalize());
@@ -1200,10 +1251,12 @@ export function BoardScene(props: BoardSceneProps) {
         continue;
       }
 
+      const vertexHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
+
       const mesh = building
         ? createBuildingMesh(building.type, building.color, props.visualSettings.pieceStyle)
         : createVertexMarker();
-      mesh.position.set(vertex.x, building ? TILE_HEIGHT + 0.02 : TILE_HEIGHT + 0.08, vertex.y);
+      mesh.position.set(vertex.x, vertexHeight + (building ? 0.02 : 0.08), vertex.y);
       if (building) {
         mesh.traverse((object) => {
           if (object instanceof THREE.Mesh) {
@@ -1220,7 +1273,7 @@ export function BoardScene(props: BoardSceneProps) {
       if (active) {
         const marker = building ? createVertexFocusMarker(false) : null;
         if (marker) {
-          marker.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
+          marker.position.set(vertex.x, vertexHeight + 0.42, vertex.y);
           registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.1);
           group.add(marker);
         } else {
@@ -1228,7 +1281,7 @@ export function BoardScene(props: BoardSceneProps) {
         }
 
         const proxy = createVertexInteractiveProxy();
-        proxy.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
+        proxy.position.set(vertex.x, vertexHeight + 0.42, vertex.y);
         attachInteractiveMeta(proxy, "vertex", vertex.id, building ? 1.1 : 1.18, marker ?? mesh, marker);
         dynamicInteractiveRef.current.push(proxy);
         group.add(proxy);
@@ -1236,7 +1289,16 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     if (props.focusCue) {
-      appendFocusMarkers(group, props.snapshot, verticesById, props.focusCue, pulseObjectsRef.current);
+      appendFocusMarkers(
+        group,
+        props.snapshot,
+        verticesById,
+        props.focusCue,
+        pulseObjectsRef.current,
+        terrainSurfaceByTile,
+        tilesById,
+        tileIdsByVertex
+      );
     }
 
     interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
@@ -1784,6 +1846,7 @@ function createModernTileMesh(
   tile: BoardTile,
   verticesById: BoardVerticesById,
   active: boolean,
+  terrainSurface: TileTerrainSurfaceBundle | null,
   options: TileDecorationOptions = {
     includeProps: false,
     includeTerrainRelief: false
@@ -1812,7 +1875,7 @@ function createModernTileMesh(
 
   const tileGroup = new THREE.Group();
   tileGroup.add(sandUnderlay, outerMesh, insetMesh);
-  appendTileDecorations(tileGroup, tile, verticesById, active, options);
+  appendTileDecorations(tileGroup, tile, verticesById, active, options, terrainSurface);
   return tileGroup;
 }
 
@@ -1821,6 +1884,7 @@ function createTexturedTileMesh(
   verticesById: BoardVerticesById,
   active: boolean,
   terrainBundle: UltraTerrainTextureBundle,
+  terrainSurface: TileTerrainSurfaceBundle | null,
   options: TexturedTileOptions
 ): THREE.Group {
   const shell = getSharedTexturedTileShell(tile, verticesById, terrainBundle);
@@ -1852,8 +1916,11 @@ function createTexturedTileMesh(
   overlay.renderOrder = 4;
 
   const tileGroup = new THREE.Group();
-  tileGroup.add(sandUnderlay, outerMesh, insetMesh, overlay);
-  appendTileDecorations(tileGroup, tile, verticesById, active, options);
+  tileGroup.add(sandUnderlay, outerMesh, insetMesh);
+  if (!options.includeTerrainRelief) {
+    tileGroup.add(overlay);
+  }
+  appendTileDecorations(tileGroup, tile, verticesById, active, options, terrainSurface);
   return tileGroup;
 }
 
@@ -1862,21 +1929,14 @@ function appendTileDecorations(
   tile: BoardTile,
   verticesById: BoardVerticesById,
   active: boolean,
-  options: TileDecorationOptions
+  options: TileDecorationOptions,
+  terrainSurface: TileTerrainSurfaceBundle | null
 ): void {
-  if (options.includeTerrainRelief) {
-    const reliefMode: Exclude<UltraTileReliefMode, "none"> = options.includeProps ? "full" : "terrain";
-    const reliefGroup = createUltraTerrainRelief(tile, verticesById, active, reliefMode);
-    reliefGroup.position.y = TILE_HEIGHT + 0.006;
-    reliefGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
-    tileGroup.add(reliefGroup);
+  if (options.includeTerrainRelief && terrainSurface) {
+    tileGroup.add(terrainSurface.object);
   }
 
   if (!options.includeProps) {
-    return;
-  }
-
-  if (options.includeTerrainRelief) {
     return;
   }
 
@@ -4692,17 +4752,99 @@ function hashTileSeed(input: string): number {
   return hash >>> 0;
 }
 
+function sampleTileTerrainHeight(
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tile: BoardTile | undefined,
+  worldX: number,
+  worldZ: number
+): number {
+  if (!tile) {
+    return TILE_HEIGHT;
+  }
+
+  const terrainSurface = terrainSurfaceByTile.get(tile.id);
+  if (!terrainSurface) {
+    return TILE_HEIGHT;
+  }
+
+  return terrainSurface.sampleHeight(worldX - tile.x, worldZ - tile.y);
+}
+
+function sampleAverageTerrainHeight(
+  tileIds: readonly string[],
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, BoardTile>,
+  worldX: number,
+  worldZ: number
+): number {
+  const heights: number[] = [];
+
+  for (const tileId of tileIds) {
+    const tile = tilesById.get(tileId);
+    if (!tile) {
+      continue;
+    }
+
+    const terrainSurface = terrainSurfaceByTile.get(tile.id);
+    if (!terrainSurface) {
+      continue;
+    }
+
+    heights.push(terrainSurface.sampleHeight(worldX - tile.x, worldZ - tile.y));
+  }
+
+  if (!heights.length) {
+    return TILE_HEIGHT;
+  }
+
+  return heights.reduce((sum, height) => sum + height, 0) / heights.length;
+}
+
+function sampleVertexTerrainHeight(
+  vertex: BoardVertex,
+  tileIdsByVertex: Map<string, string[]>,
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, BoardTile>
+): number {
+  return sampleAverageTerrainHeight(tileIdsByVertex.get(vertex.id) ?? [], terrainSurfaceByTile, tilesById, vertex.x, vertex.y);
+}
+
+function sampleEdgeTerrainHeight(
+  edge: MatchSnapshot["board"]["edges"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, BoardTile>
+): number {
+  const [leftId, rightId] = edge.vertexIds;
+  const left = verticesById.get(leftId);
+  const right = verticesById.get(rightId);
+  if (!left || !right) {
+    return TILE_HEIGHT;
+  }
+
+  return sampleAverageTerrainHeight(edge.tileIds, terrainSurfaceByTile, tilesById, (left.x + right.x) / 2, (left.y + right.y) / 2);
+}
+
 function createPortMarker(
   port: MatchSnapshot["board"]["ports"][number],
   edge: MatchSnapshot["board"]["edges"][number],
   tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  terrainSurfaceByTile?: Map<string, TileTerrainSurfaceBundle>
 ): THREE.Group {
   const palette = getPortMarkerPalette(port.type);
   const [leftId, rightId] = port.vertexIds;
   const left = verticesById.get(leftId)!;
   const right = verticesById.get(rightId)!;
-  const edgeCenter = new THREE.Vector3((left.x + right.x) / 2, TILE_HEIGHT + 0.12, (left.y + right.y) / 2);
+  const terrainHeight =
+    terrainSurfaceByTile && terrainSurfaceByTile.size
+      ? sampleTileTerrainHeight(terrainSurfaceByTile, tile, (left.x + right.x) / 2, (left.y + right.y) / 2)
+      : TILE_HEIGHT;
+  const leftSurfaceHeight =
+    terrainSurfaceByTile && terrainSurfaceByTile.size ? sampleTileTerrainHeight(terrainSurfaceByTile, tile, left.x, left.y) : TILE_HEIGHT;
+  const rightSurfaceHeight =
+    terrainSurfaceByTile && terrainSurfaceByTile.size ? sampleTileTerrainHeight(terrainSurfaceByTile, tile, right.x, right.y) : TILE_HEIGHT;
+  const edgeCenter = new THREE.Vector3((left.x + right.x) / 2, terrainHeight + 0.12, (left.y + right.y) / 2);
   const fallbackOutward = new THREE.Vector3(edgeCenter.x - tile.x, 0, edgeCenter.z - tile.y).normalize();
   const outward = new THREE.Vector3(left.x - tile.x, 0, left.y - tile.y)
     .normalize()
@@ -4714,12 +4856,12 @@ function createPortMarker(
   }
   const sideways = new THREE.Vector3(-outward.z, 0, outward.x).normalize();
   const markerPosition = edgeCenter.clone().add(outward.clone().multiplyScalar(PORT_MARKER_DISTANCE));
-  const bridgeHeight = TILE_HEIGHT + 0.14;
+  const bridgeHeight = Math.max(leftSurfaceHeight, rightSurfaceHeight, terrainHeight) + 0.14;
   const bridgeStartInset = 0.18;
   const dockAttachDepth = 0.54;
   const dockAttachSpread = 0.56;
-  const leftBridgeStart = new THREE.Vector3(left.x, bridgeHeight, left.y).add(outward.clone().multiplyScalar(bridgeStartInset));
-  const rightBridgeStart = new THREE.Vector3(right.x, bridgeHeight, right.y).add(outward.clone().multiplyScalar(bridgeStartInset));
+  const leftBridgeStart = new THREE.Vector3(left.x, leftSurfaceHeight + 0.14, left.y).add(outward.clone().multiplyScalar(bridgeStartInset));
+  const rightBridgeStart = new THREE.Vector3(right.x, rightSurfaceHeight + 0.14, right.y).add(outward.clone().multiplyScalar(bridgeStartInset));
   const leftBridgeEnd = markerPosition
     .clone()
     .add(sideways.clone().multiplyScalar(-dockAttachSpread))
@@ -5128,7 +5270,10 @@ function appendFocusMarkers(
   snapshot: MatchSnapshot,
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
   cue: BoardFocusCue,
-  pulseObjects: THREE.Object3D[]
+  pulseObjects: THREE.Object3D[],
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, BoardTile>,
+  tileIdsByVertex: Map<string, string[]>
 ): void {
   const focusGroup = new THREE.Group();
   const tileSet = new Set(cue.tileIds);
@@ -5142,7 +5287,7 @@ function appendFocusMarkers(
     }
 
     const marker = createTileFocusMarker(tile, verticesById, cue.mode === "event");
-    marker.position.set(tile.x, TILE_HEIGHT + 0.52, tile.y);
+    marker.position.set(tile.x, sampleTileTerrainHeight(terrainSurfaceByTile, tile, tile.x, tile.y) + 0.52, tile.y);
     focusGroup.add(marker);
     registerPulseVisual(marker, pulseObjects, cue.mode === "event" ? "strong" : "soft", 1.12);
   }
@@ -5161,6 +5306,8 @@ function appendFocusMarkers(
     }
 
     const marker = createEdgeFocusMarker(left, right, cue.mode === "event");
+    const markerHeight = sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById) + 0.34;
+    marker.position.y = markerHeight;
     focusGroup.add(marker);
     registerPulseVisual(marker, pulseObjects, cue.mode === "event" ? "strong" : "soft", 1.12);
   }
@@ -5172,7 +5319,11 @@ function appendFocusMarkers(
     }
 
     const marker = createVertexFocusMarker(cue.mode === "event");
-    marker.position.set(vertex.x, TILE_HEIGHT + 0.42, vertex.y);
+    marker.position.set(
+      vertex.x,
+      sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById) + 0.42,
+      vertex.y
+    );
     focusGroup.add(marker);
     registerPulseVisual(marker, pulseObjects, cue.mode === "event" ? "strong" : "soft", 1.12);
   }
