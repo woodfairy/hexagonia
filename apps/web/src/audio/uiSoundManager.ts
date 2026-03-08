@@ -33,6 +33,7 @@ const MUSIC_TRACK_STORAGE_KEY = "hexagonia:music-track";
 const MUSIC_PLAYBACK_STORAGE_KEY = "hexagonia:music-playback";
 const MUSIC_MODE_STORAGE_KEY = "hexagonia:music-mode";
 const MUSIC_VOLUME = 0.68;
+const DEFAULT_LANDING_MUSIC_TRACK_NAME = "Wir bauen eine Welt";
 const INTERACTIVE_SELECTOR = [
   "[data-ui-sound]",
   "button",
@@ -57,6 +58,10 @@ const MUSIC_LIBRARY: MusicTrack[] = Object.entries(MUSIC_TRACK_IMPORTS)
     };
   })
   .sort((left, right) => left.name.localeCompare(right.name, "de", { sensitivity: "base" }));
+
+function getDefaultMusicTrack(): MusicTrack | null {
+  return MUSIC_LIBRARY.find((track) => track.name === DEFAULT_LANDING_MUSIC_TRACK_NAME) ?? MUSIC_LIBRARY[0] ?? null;
+}
 
 type AudioContextConstructor = typeof AudioContext;
 type MusicStateListener = () => void;
@@ -113,15 +118,15 @@ function readDirective(element: HTMLElement): UiSoundDirective | null {
 
 function resolveMusicTrack(trackId: string | null): MusicTrack | null {
   if (!trackId) {
-    return MUSIC_LIBRARY[0] ?? null;
+    return getDefaultMusicTrack();
   }
 
-  return MUSIC_LIBRARY.find((track) => track.id === trackId) ?? MUSIC_LIBRARY[0] ?? null;
+  return MUSIC_LIBRARY.find((track) => track.id === trackId) ?? getDefaultMusicTrack();
 }
 
 function resolveInitialMusicTrackId(): string | null {
   if (typeof window === "undefined") {
-    return MUSIC_LIBRARY[0]?.id ?? null;
+    return getDefaultMusicTrack()?.id ?? null;
   }
 
   const stored = window.localStorage.getItem(MUSIC_TRACK_STORAGE_KEY);
