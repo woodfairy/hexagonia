@@ -257,6 +257,9 @@ body.guest-landing-mode {
 
 .landing-music-copy {
   min-inline-size: 0;
+  align-items: center;
+  justify-items: center;
+  text-align: center;
 }
 
 .landing-music-copy strong {
@@ -974,18 +977,36 @@ body.guest-landing-mode .toast-stack {
     inline-size: 100%;
   }
 
-  .landing-music-panel,
-  .landing-music-controls {
+  .landing-music-panel {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.8rem;
+    border-radius: 1.5rem;
   }
 
-  .landing-music-copy span {
-    white-space: normal;
+  .landing-music-copy {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .landing-music-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.55rem;
   }
 
   .landing-music-track-shell {
+    grid-column: 1 / -1;
     min-inline-size: 0;
+  }
+
+  .landing-music-chip {
+    inline-size: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .landing-music-menu {

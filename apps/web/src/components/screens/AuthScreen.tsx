@@ -79,7 +79,7 @@ export function AuthScreen(props: {
           </label>
 
           <button className="primary-button auth-submit" type="submit">
-            {props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen"}
+            {props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen und loslegen"}
           </button>
         </form>
       </article>

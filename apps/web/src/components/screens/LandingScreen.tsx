@@ -5,13 +5,6 @@ import { LandingBoardScene } from "../../LandingBoardScene";
 import type { AuthMode } from "../../ui";
 import hexaLogo from "../../../../../assets/img/hexa.png";
 
-const NAV_ITEMS = [
-  { id: "ablauf", label: "Ablauf" },
-  { id: "build", label: "Highlights" },
-  { id: "features", label: "Mechaniken" },
-  { id: "zugang", label: "Zugang" }
-] as const;
-
 const HERO_STATS = [
   { value: "3-4", label: "Plätze pro Tisch" },
   { value: "Privat", label: "Räume per Code oder Link" },
@@ -65,7 +58,7 @@ const BUILD_FEATURES = [
     icon: "robber",
     title: "Räuber, Entwicklung und Wertungen",
     body: "Räuberphase, Entwicklungskarten, längste Straße und größte Rittermacht sorgen schon jetzt für echte Wendepunkte in der Partie.",
-    detail: "Klassische Spannung, direkt spielbar"
+    detail: "Klassische Spannung, sofort im Browser"
   }
 ] as const;
 
@@ -207,7 +200,7 @@ export function LandingScreen(props: {
     });
   };
 
-  const authSubmitLabel = props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen";
+  const authSubmitLabel = props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen und loslegen";
   const hasMusicTracks = props.musicTracks.length > 0;
   const selectedTrack = props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
   const landingModeLabel = props.musicPlaybackMode === "cycle" ? "Playlist" : "Loop";
@@ -225,19 +218,10 @@ export function LandingScreen(props: {
           </span>
         </button>
 
-        <nav className="landing-nav" aria-label="Sektionen">
-          {NAV_ITEMS.map((item) => (
-            <button key={item.id} type="button" className="landing-nav-button" onClick={() => scrollToSection(item.id)}>
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
         <div className="landing-header-tools">
           <div className="landing-music-panel">
             <div className="landing-music-copy">
               <strong>Musik</strong>
-              <span>Startet automatisch erst nach Login</span>
             </div>
             <div className="landing-music-controls">
               <div className="landing-music-track-shell" ref={trackMenuRef}>
@@ -333,10 +317,7 @@ export function LandingScreen(props: {
 
             <div className="landing-hero-actions">
               <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-                {props.inviteCode ? "Zur Einladung anmelden" : "Konto anlegen"}
-              </button>
-              <button type="button" className="landing-button is-secondary" onClick={() => scrollToSection("build")}>
-                Highlights ansehen
+                {props.inviteCode ? "Zur Einladung anmelden" : "Konto anlegen und loslegen"}
               </button>
             </div>
 
