@@ -1,15 +1,25 @@
 import type { PlayerColor } from "@hexagonia/shared";
+import type { ReactNode } from "react";
 import { getPlayerAccentClass, renderPlayerColorLabel } from "../../ui";
+import { PlayerMention } from "./PlayerText";
 
 export function PlayerIdentity(props: {
   username: string;
   color: PlayerColor;
   isSelf?: boolean;
   compact?: boolean;
-  meta?: string;
+  meta?: ReactNode;
 }) {
   const accentClass = getPlayerAccentClass(props.color);
-  const meta = props.meta ?? (props.isSelf ? `Du spielst ${renderPlayerColorLabel(props.color)}` : renderPlayerColorLabel(props.color));
+  const meta =
+    props.meta ??
+    (props.isSelf ? (
+      <>
+        <PlayerMention color={props.color}>Du</PlayerMention> spielst {renderPlayerColorLabel(props.color)}
+      </>
+    ) : (
+      renderPlayerColorLabel(props.color)
+    ));
 
   return (
     <span className={`player-identity ${accentClass} ${props.compact ? "is-compact" : ""}`}>
@@ -24,7 +34,7 @@ export function PlayerIdentity(props: {
 
 export function PlayerColorBadge(props: {
   color: PlayerColor;
-  label?: string;
+  label?: ReactNode;
   compact?: boolean;
 }) {
   const accentClass = getPlayerAccentClass(props.color);

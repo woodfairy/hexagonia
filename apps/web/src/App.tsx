@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
   AdminMatchSummary,
   AdminUserRecord,
@@ -56,6 +56,7 @@ import { LobbyScreen } from "./components/screens/LobbyScreen";
 import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
 import { RoomScreen } from "./components/screens/RoomScreen";
 import { PlayerIdentity } from "./components/shared/PlayerIdentity";
+import { PlayerMention, renderMatchPlayerText } from "./components/shared/PlayerText";
 import { ResourceIcon } from "./resourceIcons";
 import {
   type AuthMode,
@@ -1832,6 +1833,7 @@ export function App() {
   const headerAdminProps = session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {};
 
   const displayEyebrow = !session ? "Mit Freunden spielen" : headerContext.eyebrow;
+  const currentMatchPlayer = match?.players.find((player) => player.id === match.currentPlayerId) ?? null;
   const displayMeta =
     !session
       ? TEXT.subtitle
@@ -1840,7 +1842,16 @@ export function App() {
         : activeScreen === "room" && room
           ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/4 Spieler`
           : activeScreen === "match" && match
-            ? `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+            ? currentMatchPlayer
+              ? (
+                  <>
+                    Am Zug:{" "}
+                    <PlayerMention color={currentMatchPlayer.color}>
+                      {currentMatchPlayer.id === match.you ? "Du" : currentMatchPlayer.username}
+                    </PlayerMention>
+                  </>
+                )
+              : "Am Zug: -"
             : headerContext.meta;
 
   return (
@@ -1983,7 +1994,7 @@ export function App() {
       {pendingMatchConfirmation ? (
         <ConfirmActionDialog
           confirmLabel={pendingMatchConfirmation.confirmLabel}
-          detail={pendingMatchConfirmation.detail}
+          detail={match ? renderMatchPlayerText(match, pendingMatchConfirmation.detail) : pendingMatchConfirmation.detail}
           title={pendingMatchConfirmation.title}
           onCancel={handleCancelPendingAction}
           onConfirm={handleConfirmPendingAction}
@@ -2090,7 +2101,7 @@ function StatusSurface(props: { title: string; text: string }) {
 
 function ConfirmActionDialog(props: {
   title: string;
-  detail: string;
+  detail: ReactNode;
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -2377,7 +2388,12 @@ function RobberWaitDialog(props: {
             {pendingPlayers.length > 0
               ? "Betroffene Spieler müssen jetzt Karten abwerfen. Danach wird der Räuber versetzt."
               : props.currentPlayer
-                ? `${props.currentPlayer.username} versetzt jetzt den Räuber.`
+                ? (
+                    <>
+                      <PlayerMention color={props.currentPlayer.color}>{props.currentPlayer.username}</PlayerMention> versetzt jetzt
+                      den Räuber.
+                    </>
+                  )
                 : "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt."}
           </p>
         </div>

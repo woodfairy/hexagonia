@@ -1170,6 +1170,16 @@ select {
   text-shadow: 0 0 0.7rem var(--player-accent-soft, rgba(255, 255, 255, 0.06));
 }
 
+.player-inline-text {
+  display: inline;
+  color: var(--player-text, var(--text));
+  text-shadow: 0 0 0.45rem var(--player-accent-soft, rgba(255, 255, 255, 0.06));
+}
+
+.player-inline-text[class*="player-accent-"] {
+  color: var(--player-text, var(--text));
+}
+
 .player-swatch {
   inline-size: 0.82rem;
   block-size: 0.82rem;

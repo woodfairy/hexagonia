@@ -1,4 +1,5 @@
 import type { AuthUser } from "@hexagonia/shared";
+import type { ReactNode } from "react";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
 import type { ConnectionState } from "../../ui";
@@ -13,7 +14,7 @@ export function AppHeader(props: {
   connectionStatusText: string;
   eyebrow: string;
   title: string;
-  meta?: string;
+  meta?: ReactNode;
   soundMuted: boolean;
   hapticsMuted: boolean;
   hapticsSupported: boolean;

@@ -14,6 +14,7 @@ import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../Boar
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
+import { PlayerMention, renderMatchPlayerText } from "../shared/PlayerText";
 import { ProfileMenu, ProfileMenuPanel } from "../shell/ProfileMenu";
 import { formatPhase, getPlayerAccentClass, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 import {
@@ -753,8 +754,8 @@ export function MatchScreen(props: {
       </div>
     ) : showPlaceholder ? (
       <div className="action-placeholder">
-        <strong>{turnStatus.title}</strong>
-        <span>{turnStatus.detail}</span>
+        <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
+        <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
       </div>
     ) : null;
 
@@ -1108,7 +1109,15 @@ export function MatchScreen(props: {
                 <span className="player-swatch" aria-hidden="true" />
                 <div className="match-overview-summary-player-copy">
                   <strong className="player-name-text">{activePlayer.username}</strong>
-                  <span>{activePlayer.id === props.match.you ? `Du spielst ${renderPlayerColorLabel(activePlayer.color)}` : renderPlayerColorLabel(activePlayer.color)}</span>
+                  <span>
+                    {activePlayer.id === props.match.you ? (
+                      <>
+                        <PlayerMention color={activePlayer.color}>Du</PlayerMention> spielst {renderPlayerColorLabel(activePlayer.color)}
+                      </>
+                    ) : (
+                      renderPlayerColorLabel(activePlayer.color)
+                    )}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -1249,11 +1258,11 @@ export function MatchScreen(props: {
         <section className="dock-section">
           <div className="dock-section-head">
             <h3>Jetzt möglich</h3>
-            <span>{turnStatus.title}</span>
+            <span>{renderMatchPlayerText(props.match, turnStatus.title)}</span>
           </div>
           <div className="action-placeholder">
-            <strong>{turnStatus.title}</strong>
-            <span>{turnStatus.detail}</span>
+            <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
+            <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
           </div>
         </section>
         <section className="dock-section">
@@ -1497,11 +1506,14 @@ export function MatchScreen(props: {
                   <div className="trade-side-head">
                     <span className="eyebrow">Angebot an</span>
                     <strong>
-                      {isCurrentPlayer
-                        ? props.tradeForm.targetPlayerId
-                          ? tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId)?.username ?? "Zielspieler"
-                          : "Offen für alle"
-                        : effectiveTradeTargetPlayer?.username ?? "Aktiver Spieler"}
+                      {renderMatchPlayerText(
+                        props.match,
+                        isCurrentPlayer
+                          ? props.tradeForm.targetPlayerId
+                            ? tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId)?.username ?? "Zielspieler"
+                            : "Offen für alle"
+                          : effectiveTradeTargetPlayer?.username ?? "Aktiver Spieler"
+                      )}
                     </strong>
                   </div>
                   {isCurrentPlayer ? (
@@ -1742,7 +1754,18 @@ export function MatchScreen(props: {
                 <span className="board-chip">Zug {props.match.turn}</span>
                 <span className="board-chip">{formatPhase(props.match.phase)}</span>
                 {activePlayer ? (
-                  <PlayerColorBadge color={activePlayer.color} label={`Am Zug: ${activePlayer.username}`} compact />
+                  <PlayerColorBadge
+                    color={activePlayer.color}
+                    label={
+                      <>
+                        Am Zug:{" "}
+                        <PlayerMention color={activePlayer.color}>
+                          {activePlayer.id === props.match.you ? "Du" : activePlayer.username}
+                        </PlayerMention>
+                      </>
+                    }
+                    compact
+                  />
                 ) : (
                   <span className="board-chip">Aktiv: -</span>
                 )}
@@ -1795,7 +1818,13 @@ export function MatchScreen(props: {
                     <div className="board-hud-row">
                       <PlayerColorBadge
                         color={props.selfPlayer.color}
-                        label={`Du: ${props.selfPlayer.username} - ${renderPlayerColorLabel(props.selfPlayer.color)}`}
+                        label={
+                          <>
+                            <PlayerMention color={props.selfPlayer.color}>Du</PlayerMention>:{" "}
+                            <PlayerMention color={props.selfPlayer.color}>{props.selfPlayer.username}</PlayerMention> -{" "}
+                            {renderPlayerColorLabel(props.selfPlayer.color)}
+                          </>
+                        }
                       />
                     </div>
                   ) : null}
@@ -1896,8 +1925,8 @@ export function MatchScreen(props: {
               <span className="board-dice-copy">
                 {diceDisplay.actorName
                   ? diceDisplay.phase !== "idle"
-                    ? `${diceDisplay.actorName} würfelt...`
-                    : `${diceDisplay.actorName} hat ${diceDisplay.total ?? "-"} gewürfelt`
+                    ? renderMatchPlayerText(props.match, `${diceDisplay.actorName} würfelt...`)
+                    : renderMatchPlayerText(props.match, `${diceDisplay.actorName} hat ${diceDisplay.total ?? "-"} gewürfelt`)
                   : "Warte auf den nächsten Wurf."}
               </span>
             </div>
@@ -1944,8 +1973,10 @@ export function MatchScreen(props: {
               <span className="match-sheet-summary-meta">{`${formatPhase(props.match.phase)} · Zug ${props.match.turn}`}</span>
             </div>
             <div className="match-sheet-summary-copy">
-              <strong>{turnStatus.title}</strong>
-              {effectiveSheetState !== "peek" ? <span className="match-sheet-summary-detail">{turnStatus.detail}</span> : null}
+              <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
+              {effectiveSheetState !== "peek" ? (
+                <span className="match-sheet-summary-detail">{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
+              ) : null}
             </div>
           </div>
           {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
@@ -2133,14 +2164,14 @@ function TradeBanner(props: {
   return (
     <div className={`trade-banner ${props.className ?? ""}`.trim()}>
       <div className="trade-banner-copy">
-        <strong>{trade.fromPlayerId === props.currentUserId ? "Dein Angebot" : `Angebot von ${proposerName}`}</strong>
-        <span>{targetLabel}</span>
+        <strong>{renderMatchPlayerText(props.match, trade.fromPlayerId === props.currentUserId ? "Dein Angebot" : `Angebot von ${proposerName}`)}</strong>
+        <span>{renderMatchPlayerText(props.match, targetLabel)}</span>
         <div className="trade-banner-summary">
           {summary.map((entry) => (
             <article key={entry.label} className="trade-banner-lane">
-              <span className="eyebrow">{entry.label}</span>
+              <span className="eyebrow">{renderMatchPlayerText(props.match, entry.label)}</span>
               <strong>{entry.value}</strong>
-              <span>{entry.helper}</span>
+              <span>{renderMatchPlayerText(props.match, entry.helper)}</span>
             </article>
           ))}
         </div>
@@ -2335,8 +2366,10 @@ function MatchNotificationCard(props: {
           />
         ) : null}
       </div>
-      <strong>{props.notification.title}</strong>
-      {showDetail ? <span className="match-notification-detail">{props.notification.detail}</span> : null}
+      <strong>{renderMatchPlayerText(props.match, props.notification.title)}</strong>
+      {showDetail ? (
+        <span className="match-notification-detail">{renderMatchPlayerText(props.match, props.notification.detail)}</span>
+      ) : null}
       {showBadges && badges.length ? (
         <div className="match-notification-badges">
           {badges.map((badge, index) => {
