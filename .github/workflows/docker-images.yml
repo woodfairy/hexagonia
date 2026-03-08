@@ -86,15 +86,15 @@ jobs:
               file === "turbo.json" ||
               file.startsWith(".github/workflows/") ||
               file.startsWith("packages/shared/") ||
-              file.startsWith("packages/rules/") ||
-              file === "apps/server/Dockerfile" ||
-              file === "apps/web/Dockerfile";
+              file.startsWith("packages/rules/");
 
             const hitsWeb = (file) =>
+              file === "apps/web/Dockerfile" ||
               file.startsWith("apps/web/") ||
               file.startsWith("assets/");
 
             const hitsServer = (file) =>
+              file === "apps/server/Dockerfile" ||
               file.startsWith("apps/server/");
 
             let docsOnly = files.length > 0 && files.every((file) => isDoc(file));
