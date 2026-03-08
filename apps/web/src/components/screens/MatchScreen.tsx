@@ -1893,16 +1893,12 @@ export function MatchScreen(props: {
                   </div>
                   <div className="board-hud-row board-hud-stats">
                     <span className="board-hud-pill">
-                      <strong>Öff. VP</strong>
-                      <span>{props.selfPlayer?.publicVictoryPoints ?? 0}</span>
-                    </span>
-                    <span className="board-hud-pill">
-                      <strong>Geheim</strong>
-                      <span>{hiddenVictoryPoints}</span>
-                    </span>
-                    <span className="board-hud-pill">
-                      <strong>Gesamt</strong>
+                      <strong>VP</strong>
                       <span>{totalVictoryPoints}</span>
+                    </span>
+                    <span className="board-hud-pill">
+                      <strong>Hand</strong>
+                      <span>{totalResources(props.selfPlayer?.resources ?? createEmptyResourceMap())}</span>
                     </span>
                     <span className="board-hud-pill">
                       <strong>Entwicklung</strong>
