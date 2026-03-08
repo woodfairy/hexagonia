@@ -357,9 +357,23 @@ export function LandingScreen(props: {
             </div>
 
             <article className="landing-free-promise" data-reveal style={revealStyle(120)}>
-              <span className="landing-kicker">Fair Play</span>
-              <strong>Hexagonia ist 100 % kostenlos und wird es bleiben.</strong>
-              <span>Kein Abo. Keine Paywalls. Keine bezahlten Vorteile. Nie.</span>
+              <div className="landing-free-promise-mark" aria-hidden="true">
+                <span>100%</span>
+                <span>gratis</span>
+              </div>
+              <div className="landing-free-promise-copy">
+                <div className="landing-free-promise-head">
+                  <span className="landing-kicker">Fair Play</span>
+                  <span className="landing-free-promise-pill">Ohne Pay-to-Win</span>
+                </div>
+                <strong>Hexagonia ist 100 % kostenlos und wird es bleiben.</strong>
+                <p>Kein Abo. Keine Paywalls. Keine bezahlten Vorteile. Nie.</p>
+                <div className="landing-free-promise-points" aria-label="Fair-Play-Versprechen">
+                  <span className="landing-free-promise-point">Kein Abo</span>
+                  <span className="landing-free-promise-point">Keine Paywalls</span>
+                  <span className="landing-free-promise-point">Keine bezahlten Vorteile</span>
+                </div>
+              </div>
             </article>
           </div>
 
