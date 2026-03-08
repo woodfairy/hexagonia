@@ -2,7 +2,7 @@ import type { MatchEvent } from "./events.js";
 import type { GameConfig } from "./gameConfig.js";
 
 export const RESOURCES = ["brick", "lumber", "ore", "grain", "wool"] as const;
-export const PLAYER_COLORS = ["red", "blue", "white", "orange"] as const;
+export const PLAYER_COLORS = ["red", "blue", "white", "orange", "green", "purple"] as const;
 export const DEVELOPMENT_CARD_TYPES = [
   "knight",
   "victory_point",
@@ -24,6 +24,8 @@ export type MatchPhase =
   | "setup_reverse"
   | "turn_roll"
   | "turn_action"
+  | "special_build"
+  | "paired_player_action"
   | "robber_interrupt"
   | "game_over";
 
@@ -150,6 +152,7 @@ export interface AllowedMoves {
   canBuyDevelopmentCard: boolean;
   canEndTurn: boolean;
   canCreateTradeOffer: boolean;
+  canMaritimeTrade: boolean;
   initialSettlementVertexIds: string[];
   initialRoadEdgeIds: string[];
   settlementVertexIds: string[];

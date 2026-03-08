@@ -1,4 +1,11 @@
-import type { AuthUser, RoomDetails, SetupMode, StartingPlayerMode } from "@hexagonia/shared";
+import type {
+  AuthUser,
+  BoardSize,
+  RoomDetails,
+  SetupMode,
+  StartingPlayerMode,
+  TurnRule
+} from "@hexagonia/shared";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import { renderPlayerColorLabel } from "../../ui";
@@ -12,12 +19,14 @@ export function RoomScreen(props: {
   startPending: boolean;
   leavePending: boolean;
   onJoinRoom: () => void;
+  onBoardSizeChange: (boardSize: BoardSize) => void;
   onKickUser: (userId: string) => void;
   onSetupModeChange: (setupMode: SetupMode) => void;
   onStartingPlayerModeChange: (startingPlayerMode: StartingPlayerMode) => void;
   onStartingSeatChange: (startingSeatIndex: number) => void;
   onReady: (ready: boolean) => void;
   onStart: () => void;
+  onTurnRuleChange: (turnRule: TurnRule) => void;
   onLeave: () => void;
   onCopyCode: () => void;
   onCopyInviteLink: () => void;
@@ -28,9 +37,20 @@ export function RoomScreen(props: {
   const isOwner = props.room.ownerUserId === props.session.id;
   const hasFreeSeat = props.room.seats.some((seat) => !seat.userId);
   const canJoinRoom = !currentSeat && props.room.status === "open" && hasFreeSeat;
-  const joinUnavailableLabel = props.room.status !== "open" ? "Partie läuft bereits" : hasFreeSeat ? "Nicht verfügbar" : "Raum ist voll";
-  const canStart = isOwner && seatedPlayers.length >= 3 && seatedPlayers.length <= 4 && readyPlayers === seatedPlayers.length;
+  const joinUnavailableLabel =
+    props.room.status !== "open"
+      ? "Partie laeuft bereits"
+      : hasFreeSeat
+        ? "Nicht verfuegbar"
+        : "Raum ist voll";
+  const canStart =
+    isOwner &&
+    seatedPlayers.length >= 3 &&
+    seatedPlayers.length <= 6 &&
+    readyPlayers === seatedPlayers.length;
   const canEditSettings = isOwner && props.room.status === "open";
+  const extendedBoardRequired = seatedPlayers.length >= 5;
+  const beginnerAvailable = props.room.gameConfig.boardSize === "standard";
   const startingSeat =
     props.room.seats.find(
       (seat) => seat.index === props.room.gameConfig.startingPlayer.seatIndex && seat.userId
@@ -48,7 +68,7 @@ export function RoomScreen(props: {
                 <h1>{props.room.code}</h1>
                 <span className="status-pill">{props.room.status === "open" ? "Offen" : "Laufend"}</span>
               </div>
-              <p className="muted-copy room-subline">Private Einladung für bis zu vier Spieler.</p>
+              <p className="muted-copy room-subline">Private Einladung fuer bis zu sechs Spieler.</p>
             </div>
             <div className="room-share-actions">
               <button type="button" className="ghost-button" onClick={props.onCopyInviteLink}>
@@ -61,13 +81,20 @@ export function RoomScreen(props: {
           </div>
 
           <div className="room-meta-strip">
-            <span className="status-pill">{seatedPlayers.length}/4 besetzt</span>
-            <span className={`status-pill ${readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"}`}>
+            <span className="status-pill">{seatedPlayers.length}/6 besetzt</span>
+            <span
+              className={`status-pill ${
+                readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"
+              }`}
+            >
               {readyPlayers} bereit
             </span>
             <span className="status-pill">
+              {props.room.gameConfig.boardSize === "extended" ? "Erweitertes Brett" : "Standardbrett"}
+            </span>
+            <span className="status-pill">
               {usesRolledStart
-                ? "Start wird ausgewürfelt"
+                ? "Start wird ausgewuerfelt"
                 : isOwner
                   ? "Du legst Start fest"
                   : "Host legt Start fest"}
@@ -84,26 +111,32 @@ export function RoomScreen(props: {
                 !usesRolledStart &&
                 props.room.gameConfig.startingPlayer.seatIndex === seat.index &&
                 occupied;
-              const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfügbar";
+              const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfuegbar";
               const detailLabel = occupied
                 ? isStartingSeat
                   ? "Startspieler dieser Partie"
                   : online
                     ? "Online im Raum"
                     : "Nicht verbunden"
-                : "Der nächste Beitritt erhält automatisch diesen Platz.";
+                : "Der naechste Beitritt erhaelt automatisch diesen Platz.";
 
               return (
                 <article
                   key={seat.index}
-                  className={`seat-card player-surface player-accent-${seat.color} ${mine ? "is-mine" : ""} ${occupied ? "is-occupied" : "is-open"}`}
+                  className={`seat-card player-surface player-accent-${seat.color} ${
+                    mine ? "is-mine" : ""
+                  } ${occupied ? "is-occupied" : "is-open"}`}
                 >
                   <div className="seat-card-head">
                     <div className="seat-slot-meta">
                       <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
                       <div className="seat-status-meta">
                         <PlayerColorBadge color={seat.color} compact />
-                        <span className={`online-indicator ${occupied ? (online ? "is-online" : "is-offline") : "is-hidden"}`} />
+                        <span
+                          className={`online-indicator ${
+                            occupied ? (online ? "is-online" : "is-offline") : "is-hidden"
+                          }`}
+                        />
                       </div>
                     </div>
                   </div>
@@ -121,7 +154,9 @@ export function RoomScreen(props: {
                         <span className="player-swatch" aria-hidden="true" />
                         <div className="seat-identity-copy">
                           <strong className="seat-open-label">Freier Platz</strong>
-                          <span className="seat-identity-meta">Reservierte Farbe: {renderPlayerColorLabel(seat.color)}</span>
+                          <span className="seat-identity-meta">
+                            Reservierte Farbe: {renderPlayerColorLabel(seat.color)}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -134,7 +169,11 @@ export function RoomScreen(props: {
                   </div>
                   <div className="seat-card-action">
                     {canKick ? (
-                      <button className="ghost-button is-danger" type="button" onClick={() => props.onKickUser(seat.userId!)}>
+                      <button
+                        className="ghost-button is-danger"
+                        type="button"
+                        onClick={() => props.onKickUser(seat.userId!)}
+                      >
                         Spieler entfernen
                       </button>
                     ) : (
@@ -154,8 +193,39 @@ export function RoomScreen(props: {
             <div className="eyebrow">Steuerung</div>
             <h2>Startklar machen</h2>
             <p className="muted-copy room-action-hint">
-              Startet mit 3 bis 4 sitzenden Spielern, sobald alle bereit sind. Aufbau und Startmodus gelten für die nächste Partie.
+              Startet mit 3 bis 6 sitzenden Spielern, sobald alle bereit sind. Brett,
+              Aufbau und Zugregel gelten fuer die naechste Partie.
             </p>
+
+            <div className="room-settings-block">
+              <div className="room-setting-head">
+                <span className="eyebrow">Spielfeldgroesse</span>
+                <strong>{props.room.gameConfig.boardSize === "extended" ? "Erweitert" : "Standard"}</strong>
+              </div>
+              <div className="mini-segmented room-setup-mode">
+                <button
+                  type="button"
+                  className={props.room.gameConfig.boardSize === "standard" ? "is-active" : ""}
+                  disabled={!canEditSettings || extendedBoardRequired}
+                  onClick={() => props.onBoardSizeChange("standard")}
+                >
+                  Standard
+                </button>
+                <button
+                  type="button"
+                  className={props.room.gameConfig.boardSize === "extended" ? "is-active" : ""}
+                  disabled={!canEditSettings}
+                  onClick={() => props.onBoardSizeChange("extended")}
+                >
+                  Erweitert
+                </button>
+              </div>
+              <p className="muted-copy room-action-hint">
+                {extendedBoardRequired
+                  ? "Mit 5 oder 6 Spielern ist das erweiterte Brett verpflichtend."
+                  : "Bei 3 oder 4 Spielern kann der Host zwischen Standard und erweitertem Brett wechseln."}
+              </p>
+            </div>
 
             <div className="mini-segmented room-setup-mode">
               <button
@@ -169,25 +239,66 @@ export function RoomScreen(props: {
               <button
                 type="button"
                 className={props.room.gameConfig.setupMode === "beginner" ? "is-active" : ""}
-                disabled={!canEditSettings}
+                disabled={!canEditSettings || !beginnerAvailable}
                 onClick={() => props.onSetupModeChange("beginner")}
               >
-                Anfängeraufbau
+                Anfaengeraufbau
               </button>
             </div>
 
             {props.room.gameConfig.setupMode === "beginner" && seatedPlayers.length === 3 ? (
               <p className="muted-copy room-action-hint">
-                Im Anfängeraufbau mit 3 Spielern werden die Match-Farben auf die offiziellen Einsteigerfarben umgelegt.
+                Im Anfaengeraufbau mit 3 Spielern werden die Match-Farben auf die offiziellen
+                Einsteigerfarben umgelegt.
               </p>
             ) : null}
+
+            {!beginnerAvailable ? (
+              <p className="muted-copy room-action-hint">
+                Der Anfaengeraufbau ist nur auf dem Standardbrett verfuegbar.
+              </p>
+            ) : null}
+
+            <div className="room-settings-block">
+              <div className="room-setting-head">
+                <span className="eyebrow">Zugregel</span>
+                <strong>
+                  {props.room.gameConfig.turnRule === "paired_players"
+                    ? "Paired Players"
+                    : "Sonderbauphase"}
+                </strong>
+              </div>
+              <div className="mini-segmented room-starting-mode">
+                <button
+                  type="button"
+                  className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
+                  disabled={!canEditSettings}
+                  onClick={() => props.onTurnRuleChange("paired_players")}
+                >
+                  Paired Players
+                </button>
+                <button
+                  type="button"
+                  className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
+                  disabled={!canEditSettings}
+                  onClick={() => props.onTurnRuleChange("special_build_phase")}
+                >
+                  Sonderbauphase
+                </button>
+              </div>
+              <p className="muted-copy room-action-hint">
+                {seatedPlayers.length >= 5
+                  ? "Die gewaehlte Zugregel wird fuer diese 5-6-Spieler-Partie aktiv."
+                  : "Die Zugregel ist bereits vorkonfigurierbar und greift automatisch ab 5 Spielern."}
+              </p>
+            </div>
 
             <div className="room-settings-block">
               <div className="room-setting-head">
                 <span className="eyebrow">Startspieler</span>
                 <strong>
                   {usesRolledStart
-                    ? "Wird ausgewürfelt"
+                    ? "Wird ausgewuerfelt"
                     : startingSeat?.username ??
                       `Platz ${props.room.gameConfig.startingPlayer.seatIndex + 1}`}
                 </strong>
@@ -199,7 +310,7 @@ export function RoomScreen(props: {
                   disabled={!canEditSettings}
                   onClick={() => props.onStartingPlayerModeChange("rolled")}
                 >
-                  Auswürfeln
+                  Auswuerfeln
                 </button>
                 <button
                   type="button"
@@ -212,8 +323,8 @@ export function RoomScreen(props: {
               </div>
               <p className="muted-copy room-action-hint">
                 {usesRolledStart
-                  ? "Vor Spielstart würfeln alle sitzenden Spieler. Nur der erste Spieler wird so bestimmt, danach läuft die Reihenfolge normal ab diesem Sitz weiter."
-                  : "Nur besetzte Plätze können als erster Spieler gewählt werden."}
+                  ? "Vor Spielstart wuerfeln alle sitzenden Spieler. Nur der erste Spieler wird so bestimmt."
+                  : "Nur besetzte Plaetze koennen als erster Spieler gewaehlt werden."}
               </p>
               {!usesRolledStart ? (
                 <div className="mini-segmented room-starting-seat">
@@ -240,9 +351,20 @@ export function RoomScreen(props: {
               {!currentSeat ? (
                 canJoinRoom ? (
                   <>
-                    <p className="muted-copy room-action-hint">Beim Beitritt bekommst du automatisch den nächsten freien Platz.</p>
-                    <button className="primary-button" type="button" onClick={props.onJoinRoom} disabled={props.joinRoomPending}>
-                      <LoadingButtonContent loading={props.joinRoomPending} idleLabel="Beitreten" loadingLabel="Beitritt läuft..." />
+                    <p className="muted-copy room-action-hint">
+                      Beim Beitritt bekommst du automatisch den naechsten freien Platz.
+                    </p>
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={props.onJoinRoom}
+                      disabled={props.joinRoomPending}
+                    >
+                      <LoadingButtonContent
+                        loading={props.joinRoomPending}
+                        idleLabel="Beitreten"
+                        loadingLabel="Beitritt laeuft..."
+                      />
                     </button>
                   </>
                 ) : (
@@ -266,12 +388,30 @@ export function RoomScreen(props: {
                 </button>
               ) : null}
               {canStart ? (
-                <button className="primary-button" type="button" onClick={props.onStart} disabled={props.startPending}>
-                  <LoadingButtonContent loading={props.startPending} idleLabel="Partie starten" loadingLabel="Partie startet..." />
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={props.onStart}
+                  disabled={props.startPending}
+                >
+                  <LoadingButtonContent
+                    loading={props.startPending}
+                    idleLabel="Partie starten"
+                    loadingLabel="Partie startet..."
+                  />
                 </button>
               ) : null}
-              <button className="ghost-button" type="button" onClick={props.onLeave} disabled={props.leavePending}>
-                <LoadingButtonContent loading={props.leavePending} idleLabel="Raum verlassen" loadingLabel="Raum wird verlassen..." />
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={props.onLeave}
+                disabled={props.leavePending}
+              >
+                <LoadingButtonContent
+                  loading={props.leavePending}
+                  idleLabel="Raum verlassen"
+                  loadingLabel="Raum wird verlassen..."
+                />
               </button>
             </div>
           </article>

@@ -415,8 +415,8 @@ export function BoardScene(props: BoardSceneProps) {
     controls.zoomSpeed = 1.05;
     controls.screenSpacePanning = true;
     controls.target.copy(DEFAULT_CAMERA_TARGET);
-    controls.minDistance = 28;
-    controls.maxDistance = 88;
+    controls.minDistance = 26;
+    controls.maxDistance = 112;
     controls.maxPolarAngle = Math.PI / 2.12;
     const applyControlScheme = (tiltMode: boolean) => {
       controls.mouseButtons.LEFT = tiltMode ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
@@ -5139,7 +5139,9 @@ function colorToHex(color: string): string {
     red: "#cf3b35",
     blue: "#4f78d7",
     white: "#e8e8ea",
-    orange: "#eb8e47"
+    orange: "#eb8e47",
+    green: "#2f9b53",
+    purple: "#8b5ad6"
   };
   return mapping[color] ?? color;
 }

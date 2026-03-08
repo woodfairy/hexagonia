@@ -1123,7 +1123,7 @@ select {
 
 .seat-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   align-items: stretch;
 }
 
@@ -1185,6 +1185,14 @@ select {
   background: #efab65;
 }
 
+.seat-green {
+  background: #46a55c;
+}
+
+.seat-purple {
+  background: #9d74e8;
+}
+
 .player-accent-red {
   --player-accent: #cf3b35;
   --player-accent-soft: rgba(207, 59, 53, 0.22);
@@ -1211,6 +1219,20 @@ select {
   --player-accent-soft: rgba(239, 171, 101, 0.22);
   --player-accent-border: rgba(239, 171, 101, 0.52);
   --player-text: #ffdcb5;
+}
+
+.player-accent-green {
+  --player-accent: #46a55c;
+  --player-accent-soft: rgba(70, 165, 92, 0.22);
+  --player-accent-border: rgba(70, 165, 92, 0.52);
+  --player-text: #ddffe4;
+}
+
+.player-accent-purple {
+  --player-accent: #9d74e8;
+  --player-accent-soft: rgba(157, 116, 232, 0.24);
+  --player-accent-border: rgba(157, 116, 232, 0.54);
+  --player-text: #f1e7ff;
 }
 
 .player-surface {

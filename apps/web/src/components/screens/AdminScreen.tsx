@@ -138,7 +138,7 @@ export function AdminScreen(props: {
                     <strong>Code {room.code}</strong>
                     <span>
                       {room.status === "in_match" ? "Laufende Partie" : room.status === "open" ? "Offen" : "Geschlossen"} -{" "}
-                      {room.seats.filter((seat) => seat.userId).length}/4 Spieler
+                      {room.seats.filter((seat) => seat.userId).length}/6 Spieler
                     </span>
                   </div>
                   <span className="status-pill">{room.status}</span>

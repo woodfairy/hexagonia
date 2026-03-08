@@ -5,6 +5,7 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
+  BoardSize,
   GameConfig,
   MatchEvent,
   RoomDetails,
@@ -668,17 +669,24 @@ interface StoredRoomRow {
 }
 
 function normalizeRoom(row: StoredRoomRow): RoomDetails {
-  const seats = typeof row.seats === "string" ? (JSON.parse(row.seats) as SeatState[]) : row.seats;
-  return {
-    id: row.id,
-    code: row.code,
-    ownerUserId: row.ownerUserId,
-    gameConfig: resolveGameConfigFromLegacy({
+  const seats = normalizeSeats(
+    typeof row.seats === "string" ? (JSON.parse(row.seats) as SeatState[]) : row.seats
+  );
+  const gameConfig = normalizeRoomGameConfig(
+    resolveGameConfigFromLegacy({
       gameConfig: typeof row.gameConfig === "string" ? JSON.parse(row.gameConfig) : row.gameConfig,
       setupMode: row.legacySetupMode,
       startingPlayerMode: row.legacyStartingPlayerMode,
       startingSeatIndex: row.legacyStartingSeatIndex
     }),
+    seats
+  );
+
+  return {
+    id: row.id,
+    code: row.code,
+    ownerUserId: row.ownerUserId,
+    gameConfig,
     status: row.status,
     matchId: row.matchId,
     seats,
@@ -725,22 +733,57 @@ function normalizeAdminMatch(row: AdminMatchSummaryRow): AdminMatchSummary {
 }
 
 function normalizeRoomBeforeSave(room: RoomDetails): RoomDetails {
-  const occupiedSeats = room.seats.filter((seat) => !!seat.userId);
-  const startingSeatStillOccupied = occupiedSeats.some(
-    (seat) => seat.index === room.gameConfig.startingPlayer.seatIndex
-  );
-  const nextStartingSeatIndex = startingSeatStillOccupied
-    ? room.gameConfig.startingPlayer.seatIndex
-    : (occupiedSeats[0]?.index ?? room.gameConfig.startingPlayer.seatIndex);
+  const seats = normalizeSeats(room.seats);
 
   return {
     ...room,
-    gameConfig: {
-      ...room.gameConfig,
-      startingPlayer: {
-        ...room.gameConfig.startingPlayer,
-        seatIndex: nextStartingSeatIndex
-      }
+    seats,
+    gameConfig: normalizeRoomGameConfig(room.gameConfig, seats)
+  };
+}
+
+function normalizeSeats(seats: SeatState[]): SeatState[] {
+  const seatByIndex = new Map(seats.map((seat) => [seat.index, seat] as const));
+  return PLAYER_COLORS.map((color, index) => {
+    const existingSeat = seatByIndex.get(index);
+    return existingSeat
+      ? {
+          ...existingSeat,
+          index,
+          color
+        }
+      : {
+          index,
+          userId: null,
+          username: null,
+          color,
+          ready: false
+        };
+  });
+}
+
+function normalizeRoomGameConfig(gameConfig: GameConfig, seats: SeatState[]): GameConfig {
+  const occupiedSeats = seats.filter((seat) => !!seat.userId);
+  const startingSeatStillOccupied = occupiedSeats.some(
+    (seat) => seat.index === gameConfig.startingPlayer.seatIndex
+  );
+  const nextStartingSeatIndex = startingSeatStillOccupied
+    ? gameConfig.startingPlayer.seatIndex
+    : (occupiedSeats[0]?.index ?? gameConfig.startingPlayer.seatIndex);
+  const boardSize: BoardSize =
+    occupiedSeats.length >= 5 ? "extended" : gameConfig.boardSize;
+  const setupMode =
+    boardSize === "extended" && gameConfig.setupMode === "beginner"
+      ? "official_variable"
+      : gameConfig.setupMode;
+
+  return {
+    ...gameConfig,
+    boardSize,
+    setupMode,
+    startingPlayer: {
+      ...gameConfig.startingPlayer,
+      seatIndex: nextStartingSeatIndex
     }
   };
 }

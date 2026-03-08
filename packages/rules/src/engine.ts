@@ -93,7 +93,12 @@ interface RobberState {
 interface PendingRoadBuildingEffect {
   type: "road_building";
   remainingRoads: 1 | 2;
-  resumePhase: "turn_roll" | "turn_action";
+  resumePhase: "turn_roll" | "turn_action" | "paired_player_action";
+}
+
+interface TurnContext {
+  primaryPlayerIndex: number;
+  specialBuildQueue: number[];
 }
 
 interface BeginnerPlacement {
@@ -133,6 +138,7 @@ export interface GameState {
   setupState: SetupState | null;
   robberState: RobberState | null;
   pendingDevelopmentEffect: PendingRoadBuildingEffect | null;
+  turnContext: TurnContext;
 }
 
 export interface MatchPlayerInput {
@@ -143,7 +149,10 @@ export interface MatchPlayerInput {
   connected?: boolean;
 }
 
-const RESOURCE_BANK_START = 19;
+const RESOURCE_BANK_START_BY_BOARD_SIZE: Record<GameConfig["boardSize"], number> = {
+  standard: 19,
+  extended: 24
+};
 const BEGINNER_PLAYER_COLORS: Record<3 | 4, PlayerColor[]> = {
   3: ["red", "blue", "orange"],
   4: ["red", "blue", "white", "orange"]
@@ -178,12 +187,24 @@ const BEGINNER_PLACEMENTS: BeginnerPlacement[] = [
     secondRoadEdgeId: "edge-42"
   }
 ];
-const DEVELOPMENT_DECK_COUNTS: Record<DevelopmentCardType, number> = {
-  knight: 14,
-  victory_point: 5,
-  road_building: 2,
-  year_of_plenty: 2,
-  monopoly: 2
+const DEVELOPMENT_DECK_COUNTS_BY_BOARD_SIZE: Record<
+  GameConfig["boardSize"],
+  Record<DevelopmentCardType, number>
+> = {
+  standard: {
+    knight: 14,
+    victory_point: 5,
+    road_building: 2,
+    year_of_plenty: 2,
+    monopoly: 2
+  },
+  extended: {
+    knight: 20,
+    victory_point: 5,
+    road_building: 3,
+    year_of_plenty: 3,
+    monopoly: 3
+  }
 };
 
 export class GameRuleError extends Error {}
@@ -222,7 +243,8 @@ export function createMatchState(input: {
 }): GameState {
   const rng = new SeededRandom(input.seed);
   const board = generateBaseBoard(input.seed, input.gameConfig);
-  const developmentDeck = createDevelopmentDeck(rng);
+  const developmentDeck = createDevelopmentDeck(rng, input.gameConfig.boardSize);
+  const resourceBankStart = RESOURCE_BANK_START_BY_BOARD_SIZE[input.gameConfig.boardSize];
 
   const seatedPlayers = [...input.players]
     .sort((left, right) => left.seatIndex - right.seatIndex)
@@ -271,11 +293,11 @@ export function createMatchState(input: {
     board,
     players,
     bank: {
-      brick: RESOURCE_BANK_START,
-      lumber: RESOURCE_BANK_START,
-      ore: RESOURCE_BANK_START,
-      grain: RESOURCE_BANK_START,
-      wool: RESOURCE_BANK_START
+      brick: resourceBankStart,
+      lumber: resourceBankStart,
+      ore: resourceBankStart,
+      grain: resourceBankStart,
+      wool: resourceBankStart
     },
     developmentDeck,
     dice: null,
@@ -290,7 +312,11 @@ export function createMatchState(input: {
       pendingSettlementVertexId: null
     },
     robberState: null,
-    pendingDevelopmentEffect: null
+    pendingDevelopmentEffect: null,
+    turnContext: {
+      primaryPlayerIndex: 0,
+      specialBuildQueue: []
+    }
   };
 
   if (input.startingPlayerRoll) {
@@ -311,6 +337,7 @@ export function createMatchState(input: {
     state.phase = "turn_roll";
     state.turn = 1;
     state.setupState = null;
+    state.turnContext.primaryPlayerIndex = 0;
   }
 
   appendEvent(state, {
@@ -554,6 +581,7 @@ function handleInitialRoad(state: GameState, playerId: string, edgeId: string): 
   state.currentPlayerIndex = 0;
   state.turn = 1;
   state.previousPhase = null;
+  state.turnContext.primaryPlayerIndex = 0;
 }
 
 function handleDiscardResources(state: GameState, playerId: string, resources: ResourceMap): void {
@@ -627,7 +655,7 @@ function handleBuildRoad(
   edgeId: string,
   freeBuild: boolean
 ): void {
-  ensurePhase(state.phase === "turn_action");
+  ensurePhase(isBuildActionPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   ensureRoadPlacement(state, playerId, edgeId);
 
@@ -644,7 +672,7 @@ function handleBuildRoad(
 }
 
 function handleBuildSettlement(state: GameState, playerId: string, vertexId: string): void {
-  ensurePhase(state.phase === "turn_action");
+  ensurePhase(isBuildActionPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   ensureSettlementPlacement(state, playerId, vertexId);
   payCost(state, playerId, BUILD_COSTS.settlement);
@@ -658,7 +686,7 @@ function handleBuildSettlement(state: GameState, playerId: string, vertexId: str
 }
 
 function handleBuildCity(state: GameState, playerId: string, vertexId: string): void {
-  ensurePhase(state.phase === "turn_action");
+  ensurePhase(isBuildActionPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   const player = getPlayer(state, playerId);
   if (player.cities.length >= 4) {
@@ -687,7 +715,7 @@ function handleBuildCity(state: GameState, playerId: string, vertexId: string): 
 }
 
 function handleBuyDevelopmentCard(state: GameState, playerId: string): void {
-  ensurePhase(state.phase === "turn_action");
+  ensurePhase(isBuildActionPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   if (!state.developmentDeck.length) {
     throw new GameRuleError("Der Entwicklungskartenstapel ist leer.");
@@ -706,14 +734,15 @@ function handleBuyDevelopmentCard(state: GameState, playerId: string): void {
 }
 
 function handlePlayKnight(state: GameState, playerId: string): void {
-  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   playDevelopmentCard(state, playerId, "knight");
 
+  const resumePhase = state.dice ? state.phase : "turn_roll";
   state.phase = "robber_interrupt";
-  state.previousPhase = state.dice ? "turn_action" : "turn_roll";
+  state.previousPhase = resumePhase;
   state.robberState = {
-    resumePhase: state.dice ? "turn_action" : "turn_roll",
+    resumePhase,
     pendingDiscardByPlayerId: {}
   };
 
@@ -726,7 +755,7 @@ function handlePlayKnight(state: GameState, playerId: string): void {
 }
 
 function handlePlayRoadBuilding(state: GameState, playerId: string): void {
-  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   if (!getLegalRoadEdges(state, playerId).length) {
     throw new GameRuleError("Aktuell kann keine kostenlose Straße gesetzt werden.");
@@ -737,7 +766,7 @@ function handlePlayRoadBuilding(state: GameState, playerId: string): void {
   state.pendingDevelopmentEffect = {
     type: "road_building",
     remainingRoads: 2,
-    resumePhase: state.phase === "turn_roll" ? "turn_roll" : "turn_action"
+    resumePhase: state.phase === "turn_roll" ? "turn_roll" : state.phase
   };
 
   appendEvent(state, {
@@ -748,7 +777,7 @@ function handlePlayRoadBuilding(state: GameState, playerId: string): void {
 }
 
 function handlePlaceFreeRoad(state: GameState, playerId: string, edgeId: string): void {
-  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   const effect = getPendingRoadBuildingEffect(state);
   if (!getLegalRoadEdges(state, playerId).includes(edgeId)) {
@@ -774,7 +803,7 @@ function handlePlaceFreeRoad(state: GameState, playerId: string, edgeId: string)
 }
 
 function handleFinishRoadBuilding(state: GameState, playerId: string): void {
-  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   const effect = getPendingRoadBuildingEffect(state);
   if (effect.remainingRoads === 2) {
@@ -791,7 +820,7 @@ function handlePlayYearOfPlenty(
   playerId: string,
   resources: [Resource, Resource]
 ): void {
-  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   playDevelopmentCard(state, playerId, "year_of_plenty");
 
@@ -813,7 +842,7 @@ function handlePlayYearOfPlenty(
 }
 
 function handlePlayMonopoly(state: GameState, playerId: string, resource: Resource): void {
-  ensurePhase(state.phase === "turn_action" || state.phase === "turn_roll");
+  ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   playDevelopmentCard(state, playerId, "monopoly");
 
@@ -1012,7 +1041,7 @@ function handleMaritimeTrade(
   receive: Resource,
   giveCount: number
 ): void {
-  ensurePhase(state.phase === "turn_action");
+  ensurePhase(state.phase === "turn_action" || state.phase === "paired_player_action");
   ensureCurrentPlayer(state, playerId);
   if (give === receive) {
     throw new GameRuleError("Es müssen unterschiedliche Rohstoffe gehandelt werden.");
@@ -1046,26 +1075,102 @@ function handleMaritimeTrade(
 }
 
 function handleEndTurn(state: GameState, playerId: string): void {
-  ensurePhase(state.phase === "turn_action");
+  ensurePhase(state.phase === "turn_action" || state.phase === "special_build" || state.phase === "paired_player_action");
   ensureCurrentPlayer(state, playerId);
   clearTradeOffers(state);
 
-  state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
-  state.turn += 1;
-  state.phase = "turn_roll";
-  state.previousPhase = null;
-  state.dice = null;
-  for (const player of state.players) {
-    player.hasPlayedDevelopmentCardThisTurn = false;
+  if (state.phase === "special_build") {
+    continueOrFinishSpecialBuildPhase(state, playerId);
+    return;
   }
 
+  if (state.phase === "paired_player_action") {
+    finishRegularTurn(state, playerId, getNextPlayerIndex(state, state.turnContext.primaryPlayerIndex));
+    return;
+  }
+
+  if (usesSpecialBuildTurnRule(state)) {
+    startSpecialBuildPhase(state);
+    return;
+  }
+
+  if (usesPairedPlayersTurnRule(state)) {
+    startPairedPlayerAction(state);
+    return;
+  }
+
+  finishRegularTurn(state, playerId, getNextPlayerIndex(state, state.currentPlayerIndex));
+}
+
+function startPairedPlayerAction(state: GameState): void {
+  const secondaryPlayerIndex = getPairedPlayerIndex(state);
+  if (secondaryPlayerIndex === state.currentPlayerIndex) {
+    finishRegularTurn(state, getCurrentPlayer(state).id, getNextPlayerIndex(state, state.currentPlayerIndex));
+    return;
+  }
+
+  state.turnContext.primaryPlayerIndex = state.currentPlayerIndex;
+  state.currentPlayerIndex = secondaryPlayerIndex;
+  state.phase = "paired_player_action";
+  state.previousPhase = "turn_action";
+}
+
+function startSpecialBuildPhase(state: GameState): void {
+  const primaryPlayerIndex = state.currentPlayerIndex;
+  const queue = state.players
+    .map((_, index) => index)
+    .filter((index) => index !== primaryPlayerIndex)
+    .map((_, offset) => getNextPlayerIndex(state, primaryPlayerIndex, offset + 1));
+
+  resetTurnFlags(state);
+  state.dice = null;
+  state.turnContext.primaryPlayerIndex = primaryPlayerIndex;
+  state.turnContext.specialBuildQueue = queue.slice(1);
+  state.currentPlayerIndex = queue[0] ?? getNextPlayerIndex(state, primaryPlayerIndex);
+  state.phase = "special_build";
+  state.previousPhase = "turn_action";
+}
+
+function continueOrFinishSpecialBuildPhase(state: GameState, playerId: string): void {
+  const nextBuilderIndex = state.turnContext.specialBuildQueue.shift();
+  if (nextBuilderIndex !== undefined) {
+    state.currentPlayerIndex = nextBuilderIndex;
+    state.previousPhase = "special_build";
+    return;
+  }
+
+  finishRegularTurn(
+    state,
+    playerId,
+    getNextPlayerIndex(state, state.turnContext.primaryPlayerIndex)
+  );
+}
+
+function finishRegularTurn(state: GameState, playerId: string, nextPlayerIndex: number): void {
+  beginRegularTurn(state, nextPlayerIndex);
   appendEvent(state, {
     type: "turn_ended",
     byPlayerId: playerId,
     payload: { nextPlayerId: getCurrentPlayer(state).id, turn: state.turn }
   });
-
   maybeDeclareWinner(state);
+}
+
+function beginRegularTurn(state: GameState, nextPlayerIndex: number): void {
+  state.currentPlayerIndex = nextPlayerIndex;
+  state.turn += 1;
+  state.phase = "turn_roll";
+  state.previousPhase = null;
+  state.dice = null;
+  state.turnContext.primaryPlayerIndex = nextPlayerIndex;
+  state.turnContext.specialBuildQueue = [];
+  resetTurnFlags(state);
+}
+
+function resetTurnFlags(state: GameState): void {
+  for (const player of state.players) {
+    player.hasPlayedDevelopmentCardThisTurn = false;
+  }
 }
 
 function placeRoad(state: GameState, playerId: string, edgeId: string): void {
@@ -1398,6 +1503,9 @@ function maybeDeclareWinner(state: GameState): void {
   if (state.winnerId) {
     return;
   }
+  if (state.phase === "special_build") {
+    return;
+  }
 
   const currentPlayer = getCurrentPlayer(state);
   if (getVictoryPoints(state, currentPlayer.id) < 10) {
@@ -1475,6 +1583,8 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
   const pendingDiscardCount = state.robberState?.pendingDiscardByPlayerId[playerId] ?? 0;
   const hasActivePendingDevelopmentEffect = !!state.pendingDevelopmentEffect;
   const hasPendingDevelopmentEffect = isCurrentPlayer && hasActivePendingDevelopmentEffect;
+  const isBuildPhase = isBuildActionPhase(state.phase);
+  const isDevelopmentPhase = isDevelopmentCardPhase(state.phase);
   const freeRoadEdgeIds =
     hasPendingDevelopmentEffect && state.pendingDevelopmentEffect?.type === "road_building"
       ? getLegalRoadEdges(state, playerId)
@@ -1483,13 +1593,14 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
   return {
     canRoll: state.phase === "turn_roll" && isCurrentPlayer && !hasActivePendingDevelopmentEffect,
     canBuyDevelopmentCard:
-      state.phase === "turn_action" &&
+      isBuildPhase &&
       isCurrentPlayer &&
       !hasActivePendingDevelopmentEffect &&
       state.developmentDeck.length > 0 &&
       hasResources(getPlayer(state, playerId).resources, BUILD_COSTS.development),
-    canEndTurn: state.phase === "turn_action" && isCurrentPlayer && !hasActivePendingDevelopmentEffect,
+    canEndTurn: isBuildPhase && isCurrentPlayer && !hasActivePendingDevelopmentEffect,
     canCreateTradeOffer: state.phase === "turn_action" && !hasActivePendingDevelopmentEffect,
+    canMaritimeTrade: isCurrentPlayer && !hasActivePendingDevelopmentEffect && canUseMaritimeTrade(state),
     initialSettlementVertexIds:
       isCurrentPlayer &&
       !!state.setupState &&
@@ -1505,15 +1616,15 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
         ? getInitialRoadEdges(state, state.setupState.pendingSettlementVertexId)
         : [],
     settlementVertexIds:
-      isCurrentPlayer && state.phase === "turn_action" && !hasPendingDevelopmentEffect
+      isCurrentPlayer && isBuildPhase && !hasPendingDevelopmentEffect
         ? getLegalSettlementVertices(state, playerId)
         : [],
     cityVertexIds:
-      isCurrentPlayer && state.phase === "turn_action" && !hasPendingDevelopmentEffect
+      isCurrentPlayer && isBuildPhase && !hasPendingDevelopmentEffect
         ? getUpgradeableCityVertices(state, playerId)
         : [],
     roadEdgeIds:
-      isCurrentPlayer && state.phase === "turn_action" && !hasPendingDevelopmentEffect ? getLegalRoadEdges(state, playerId) : [],
+      isCurrentPlayer && isBuildPhase && !hasPendingDevelopmentEffect ? getLegalRoadEdges(state, playerId) : [],
     freeRoadEdgeIds,
     robberMoveOptions:
       isCurrentPlayer &&
@@ -1525,7 +1636,7 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
         : [],
     pendingDiscardCount,
     playableDevelopmentCards:
-      isCurrentPlayer && (state.phase === "turn_action" || state.phase === "turn_roll")
+      isCurrentPlayer && isDevelopmentPhase
         ? getPlayableDevelopmentCards(state, playerId)
         : [],
     maritimeRates: RESOURCES.map((resource) => ({
@@ -1662,6 +1773,34 @@ function getMaritimeRate(state: GameState, playerId: string, resource: Resource)
   return ratio;
 }
 
+function isBuildActionPhase(phase: MatchPhase): phase is "turn_action" | "special_build" | "paired_player_action" {
+  return phase === "turn_action" || phase === "special_build" || phase === "paired_player_action";
+}
+
+function isDevelopmentCardPhase(phase: MatchPhase): phase is "turn_roll" | "turn_action" | "paired_player_action" {
+  return phase === "turn_roll" || phase === "turn_action" || phase === "paired_player_action";
+}
+
+function canUseMaritimeTrade(state: GameState): boolean {
+  return state.phase === "turn_action" || state.phase === "paired_player_action";
+}
+
+function usesPairedPlayersTurnRule(state: GameState): boolean {
+  return state.players.length >= 5 && state.gameConfig.turnRule === "paired_players";
+}
+
+function usesSpecialBuildTurnRule(state: GameState): boolean {
+  return state.players.length >= 5 && state.gameConfig.turnRule === "special_build_phase";
+}
+
+function getNextPlayerIndex(state: GameState, playerIndex: number, offset = 1): number {
+  return (playerIndex + offset) % state.players.length;
+}
+
+function getPairedPlayerIndex(state: GameState): number {
+  return getNextPlayerIndex(state, state.turnContext.primaryPlayerIndex, 3);
+}
+
 function ensureRoadPlacement(state: GameState, playerId: string, edgeId: string): void {
   const edge = getEdge(state, edgeId);
   if (edge.ownerId) {
@@ -1772,11 +1911,15 @@ function getRobberStealTargets(state: GameState, playerId: string, tileId: strin
   return [...targets];
 }
 
-function createDevelopmentDeck(rng: SeededRandom): InternalDevelopmentCard[] {
+function createDevelopmentDeck(
+  rng: SeededRandom,
+  boardSize: GameConfig["boardSize"]
+): InternalDevelopmentCard[] {
   const deck: InternalDevelopmentCard[] = [];
   let index = 0;
+  const deckCounts = DEVELOPMENT_DECK_COUNTS_BY_BOARD_SIZE[boardSize];
   for (const type of DEVELOPMENT_CARD_TYPES) {
-    for (let count = 0; count < DEVELOPMENT_DECK_COUNTS[type]; count += 1) {
+    for (let count = 0; count < deckCounts[type]; count += 1) {
       deck.push({
         id: `dev-${index}`,
         type,
@@ -2111,7 +2254,11 @@ function cloneState(state: GameState): GameState {
           pendingDiscardByPlayerId: { ...state.robberState.pendingDiscardByPlayerId }
         }
       : null,
-    pendingDevelopmentEffect: state.pendingDevelopmentEffect ? { ...state.pendingDevelopmentEffect } : null
+    pendingDevelopmentEffect: state.pendingDevelopmentEffect ? { ...state.pendingDevelopmentEffect } : null,
+    turnContext: {
+      primaryPlayerIndex: state.turnContext.primaryPlayerIndex,
+      specialBuildQueue: [...state.turnContext.specialBuildQueue]
+    }
   };
 }
 

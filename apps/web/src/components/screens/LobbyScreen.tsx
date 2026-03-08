@@ -42,7 +42,7 @@ export function LobbyScreen(props: {
                 const canResumeMatch = room.status === "in_match" && !!room.matchId;
                 const meta = [
                   room.status === "in_match" ? "Laufende Partie" : "Raum offen",
-                  `${occupiedSeats}/4 Spieler`,
+                  `${occupiedSeats}/6 Spieler`,
                   mySeat ? `Du auf Platz ${mySeat.index + 1}` : "Teilnahme gespeichert"
                 ].join(" - ");
 

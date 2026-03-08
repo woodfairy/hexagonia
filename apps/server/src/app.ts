@@ -11,6 +11,8 @@ import {
   roomToPlayers
 } from "@hexagonia/rules";
 import {
+  BOARD_SIZES,
+  TURN_RULES,
   mergeGameConfig,
   type ActionIntent,
   type AuthUser,
@@ -39,7 +41,7 @@ const loginSchema = z.object({
 });
 
 const joinRoomSchema = z.object({
-  seatIndex: z.number().int().min(0).max(3).optional()
+  seatIndex: z.number().int().min(0).max(5).optional()
 });
 
 const readySchema = z.object({
@@ -48,18 +50,22 @@ const readySchema = z.object({
 
 const roomSettingsSchema = z
   .object({
+    boardSize: z.enum(BOARD_SIZES).optional(),
     setupMode: z.enum(["official_variable", "beginner"]).optional(),
+    turnRule: z.enum(TURN_RULES).optional(),
     startingPlayer: z
       .object({
         mode: z.enum(["rolled", "manual"]).optional(),
-        seatIndex: z.number().int().min(0).max(3).optional()
+        seatIndex: z.number().int().min(0).max(5).optional()
       })
       .optional(),
     enabledExpansions: z.array(z.enum(["seafarers"])).optional()
   })
   .refine(
     (body) =>
+      body.boardSize !== undefined ||
       body.setupMode !== undefined ||
+      body.turnRule !== undefined ||
       body.startingPlayer !== undefined ||
       body.enabledExpansions !== undefined,
     {
@@ -628,8 +634,8 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     const seatedPlayers = room.seats.filter((seat) => seat.userId);
-    if (seatedPlayers.length < 3 || seatedPlayers.length > 4) {
-      return reply.code(409).send({ error: "Für das Basisspiel werden 3 bis 4 Spieler benötigt." });
+    if (seatedPlayers.length < 3 || seatedPlayers.length > 6) {
+      return reply.code(409).send({ error: "Für diese Partie werden 3 bis 6 Spieler benötigt." });
     }
     if (seatedPlayers.some((seat) => !seat.ready)) {
       return reply.code(409).send({ error: "Alle sitzenden Spieler müssen bereit sein." });
@@ -969,7 +975,9 @@ function resolveManualStartingSeatIndex(room: RoomDetails): number {
 
 function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>) {
   return {
+    ...(body.boardSize !== undefined ? { boardSize: body.boardSize } : {}),
     ...(body.setupMode !== undefined ? { setupMode: body.setupMode } : {}),
+    ...(body.turnRule !== undefined ? { turnRule: body.turnRule } : {}),
     ...(body.startingPlayer
       ? {
           startingPlayer: {

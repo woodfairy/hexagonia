@@ -1,9 +1,11 @@
 import type {
   AuthUser,
+  BoardSize,
   MatchEventType,
   MatchPhase,
   PlayerColor,
-  ResourceMap
+  ResourceMap,
+  TurnRule
 } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
 
@@ -94,6 +96,8 @@ export function formatPhase(phase: MatchPhase): string {
     setup_reverse: "Startaufbau rückwärts",
     turn_roll: "Würfeln",
     turn_action: "Aktionsphase",
+    special_build: "Sonderbauphase",
+    paired_player_action: "Paired Players",
     robber_interrupt: "Räuber",
     game_over: "Spiel beendet"
   };
@@ -126,10 +130,30 @@ export function renderPlayerColorLabel(color: PlayerColor): string {
     red: "Rot",
     blue: "Blau",
     white: "Weiß",
-    orange: "Orange"
+    orange: "Orange",
+    green: "Grün",
+    purple: "Lila"
   };
 
   return labels[color];
+}
+
+export function renderBoardSizeLabel(boardSize: BoardSize): string {
+  const labels: Record<BoardSize, string> = {
+    standard: "Standard",
+    extended: "Erweitert"
+  };
+
+  return labels[boardSize];
+}
+
+export function renderTurnRuleLabel(turnRule: TurnRule): string {
+  const labels: Record<TurnRule, string> = {
+    paired_players: "Paired Players",
+    special_build_phase: "Sonderbauphase"
+  };
+
+  return labels[turnRule];
 }
 
 export function getPlayerAccentClass(color: PlayerColor | null | undefined): string {

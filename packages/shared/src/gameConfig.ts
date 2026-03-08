@@ -1,10 +1,14 @@
 export const SETUP_MODES = ["official_variable", "beginner"] as const;
 export const STARTING_PLAYER_MODES = ["rolled", "manual"] as const;
 export const EXPANSION_IDS = ["seafarers"] as const;
+export const BOARD_SIZES = ["standard", "extended"] as const;
+export const TURN_RULES = ["paired_players", "special_build_phase"] as const;
 
 export type SetupMode = (typeof SETUP_MODES)[number];
 export type StartingPlayerMode = (typeof STARTING_PLAYER_MODES)[number];
 export type ExpansionId = (typeof EXPANSION_IDS)[number];
+export type BoardSize = (typeof BOARD_SIZES)[number];
+export type TurnRule = (typeof TURN_RULES)[number];
 
 export interface StartingPlayerConfig {
   mode: StartingPlayerMode;
@@ -12,19 +16,25 @@ export interface StartingPlayerConfig {
 }
 
 export interface GameConfig {
+  boardSize: BoardSize;
   setupMode: SetupMode;
+  turnRule: TurnRule;
   startingPlayer: StartingPlayerConfig;
   enabledExpansions: ExpansionId[];
 }
 
 export interface GameConfigPatch {
+  boardSize?: BoardSize;
   setupMode?: SetupMode;
+  turnRule?: TurnRule;
   startingPlayer?: Partial<StartingPlayerConfig>;
   enabledExpansions?: ExpansionId[];
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
+  boardSize: "standard",
   setupMode: "official_variable",
+  turnRule: "paired_players",
   startingPlayer: {
     mode: "rolled",
     seatIndex: 0
@@ -36,8 +46,16 @@ function isSetupMode(value: unknown): value is SetupMode {
   return typeof value === "string" && SETUP_MODES.includes(value as SetupMode);
 }
 
+function isBoardSize(value: unknown): value is BoardSize {
+  return typeof value === "string" && BOARD_SIZES.includes(value as BoardSize);
+}
+
 function isStartingPlayerMode(value: unknown): value is StartingPlayerMode {
   return typeof value === "string" && STARTING_PLAYER_MODES.includes(value as StartingPlayerMode);
+}
+
+function isTurnRule(value: unknown): value is TurnRule {
+  return typeof value === "string" && TURN_RULES.includes(value as TurnRule);
 }
 
 function isExpansionId(value: unknown): value is ExpansionId {
@@ -62,7 +80,9 @@ export function normalizeGameConfig(value: unknown): GameConfig {
   }
 
   const candidate = value as {
+    boardSize?: unknown;
     setupMode?: unknown;
+    turnRule?: unknown;
     startingPlayer?: {
       mode?: unknown;
       seatIndex?: unknown;
@@ -71,9 +91,15 @@ export function normalizeGameConfig(value: unknown): GameConfig {
   };
 
   return {
+    boardSize: isBoardSize(candidate.boardSize)
+      ? candidate.boardSize
+      : DEFAULT_GAME_CONFIG.boardSize,
     setupMode: isSetupMode(candidate.setupMode)
       ? candidate.setupMode
       : DEFAULT_GAME_CONFIG.setupMode,
+    turnRule: isTurnRule(candidate.turnRule)
+      ? candidate.turnRule
+      : DEFAULT_GAME_CONFIG.turnRule,
     startingPlayer: {
       mode: isStartingPlayerMode(candidate.startingPlayer?.mode)
         ? candidate.startingPlayer.mode
@@ -105,7 +131,9 @@ export function mergeGameConfig(base: GameConfig, patch: Partial<GameConfigPatch
 
 export function resolveGameConfigFromLegacy(input: {
   gameConfig?: unknown;
+  boardSize?: unknown;
   setupMode?: unknown;
+  turnRule?: unknown;
   startingPlayerMode?: unknown;
   startingSeatIndex?: unknown;
 }): GameConfig {
@@ -114,7 +142,9 @@ export function resolveGameConfigFromLegacy(input: {
   }
 
   return normalizeGameConfig({
+    boardSize: input.boardSize,
     setupMode: input.setupMode,
+    turnRule: input.turnRule,
     startingPlayer: {
       mode: input.startingPlayerMode,
       seatIndex: input.startingSeatIndex

@@ -3,6 +3,7 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
+  BoardSize,
   ClientMessage,
   MatchSnapshot,
   Resource,
@@ -11,6 +12,7 @@ import type {
   SetupMode,
   StartingPlayerMode,
   ServerMessage,
+  TurnRule,
   UserRole
 } from "@hexagonia/shared";
 import {
@@ -339,7 +341,7 @@ export function App() {
       return {
         eyebrow: "Privater Raum",
         title: room ? "Raumlobby" : "Raum wird geladen",
-        meta: room ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/4 Spieler` : "Synchronisation läuft"
+        meta: room ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/6 Spieler` : "Synchronisation läuft"
       };
     }
 
@@ -1492,6 +1494,48 @@ export function App() {
     }
   };
 
+  const handleRoomBoardSizeChange = async (boardSize: BoardSize) => {
+    if (!room || room.gameConfig.boardSize === boardSize) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { boardSize });
+      setRoom(nextRoom);
+      await loadMyRooms();
+      pushToast(
+        "success",
+        "Spielfeld aktualisiert",
+        boardSize === "extended"
+          ? "Das erweiterte 5-6-Spieler-Brett ist für den nächsten Start aktiv."
+          : "Das Standardbrett ist für den nächsten Start aktiv."
+      );
+    } catch (settingsError) {
+      pushToast("error", "Spielfeld konnte nicht geändert werden", (settingsError as Error).message);
+    }
+  };
+
+  const handleRoomTurnRuleChange = async (turnRule: TurnRule) => {
+    if (!room || room.gameConfig.turnRule === turnRule) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { turnRule });
+      setRoom(nextRoom);
+      await loadMyRooms();
+      pushToast(
+        "success",
+        "Zugregel aktualisiert",
+        turnRule === "paired_players"
+          ? "Paired Players ist für 5-6 Spieler vorgemerkt."
+          : "Sonderbauphase ist für 5-6 Spieler vorgemerkt."
+      );
+    } catch (settingsError) {
+      pushToast("error", "Zugregel konnte nicht geändert werden", (settingsError as Error).message);
+    }
+  };
+
   const handleRoomStartingPlayerModeChange = async (startingPlayerMode: StartingPlayerMode) => {
     if (!room || room.gameConfig.startingPlayer.mode === startingPlayerMode) {
       return;
@@ -2010,7 +2054,7 @@ export function App() {
       : activeScreen === "lobby"
         ? ""
         : activeScreen === "room" && room
-          ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/4 Spieler`
+          ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/6 Spieler`
           : activeScreen === "match" && match
             ? currentMatchPlayer
               ? (
@@ -2101,6 +2145,7 @@ export function App() {
               onCopyCode={handleCopyRoomCode}
               onCopyInviteLink={handleCopyInviteLink}
               onJoinRoom={handleJoinRoom}
+              onBoardSizeChange={handleRoomBoardSizeChange}
               onKickUser={handleKickRoomUser}
               onLeave={handleLeaveRoom}
               onReady={handleReadyToggle}
@@ -2108,6 +2153,7 @@ export function App() {
               onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
               onStartingSeatChange={handleRoomStartingSeatChange}
               onStart={handleStartRoom}
+              onTurnRuleChange={handleRoomTurnRuleChange}
             />
           ) : (
             <StatusSurface title="Raum wird geladen" text="Hexagonia verbindet den privaten Raum mit deiner Sitzung." />

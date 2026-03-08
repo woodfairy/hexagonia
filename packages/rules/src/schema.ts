@@ -1,4 +1,4 @@
-export const CURRENT_MATCH_SCHEMA_VERSION = 4;
+export const CURRENT_MATCH_SCHEMA_VERSION = 5;
 
 export function isMatchStateSchemaCompatible(state: {
   schemaVersion?: number | null;

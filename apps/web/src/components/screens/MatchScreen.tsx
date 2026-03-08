@@ -415,7 +415,9 @@ export function MatchScreen(props: {
     props.match.allowedMoves.canCreateTradeOffer &&
     !isEmptyResourceMap(props.tradeForm.want) &&
     hasResources(props.selfPlayer?.resources ?? createEmptyResourceMap(), props.tradeForm.give);
-  const canSubmitMaritimeTrade = (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
+  const canSubmitMaritimeTrade =
+    props.match.allowedMoves.canMaritimeTrade &&
+    (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const developmentCards = props.selfPlayer?.developmentCards ?? [];
   const hiddenVictoryPoints = props.selfPlayer?.hiddenVictoryPoints ?? 0;
@@ -423,7 +425,11 @@ export function MatchScreen(props: {
   const pendingRoadBuilding =
     props.match.pendingDevelopmentEffect?.type === "road_building" ? props.match.pendingDevelopmentEffect : null;
   const playableDevelopmentCardCount =
-    isCurrentPlayer && !pendingRoadBuilding && (props.match.phase === "turn_roll" || props.match.phase === "turn_action")
+    isCurrentPlayer &&
+    !pendingRoadBuilding &&
+    (props.match.phase === "turn_roll" ||
+      props.match.phase === "turn_action" ||
+      props.match.phase === "paired_player_action")
       ? developmentCards.filter((card) => card.playable).length
       : 0;
   const mobileHudSummary = props.selfPlayer
@@ -1815,7 +1821,7 @@ export function MatchScreen(props: {
               <button
                 type="button"
                 className="secondary-button trade-submit-button"
-                disabled={!isCurrentPlayer || props.match.phase !== "turn_action" || !canSubmitMaritimeTrade}
+                disabled={!isCurrentPlayer || !canSubmitMaritimeTrade}
                 onClick={() =>
                   props.onAction({
                     type: "match.action",

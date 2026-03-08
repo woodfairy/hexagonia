@@ -57,7 +57,9 @@ export function describeDevelopmentCardStatus(
 ): { label: string; detail: string; toneClass: string } {
   const isOwnActionWindow =
     match.currentPlayerId === match.you &&
-    (match.phase === "turn_roll" || match.phase === "turn_action") &&
+    (match.phase === "turn_roll" ||
+      match.phase === "turn_action" ||
+      match.phase === "paired_player_action") &&
     !match.pendingDevelopmentEffect;
 
   if (card.type === "victory_point") {
@@ -152,7 +154,10 @@ export function createBuildActionState(
   const resources = props.resources;
   const missing = getMissingCost(resources, props.cost);
   const enoughResources = missing.length === 0;
-  const isBuildPhase = props.phase === "turn_action";
+  const isBuildPhase =
+    props.phase === "turn_action" ||
+    props.phase === "special_build" ||
+    props.phase === "paired_player_action";
   const hasLegalTarget = props.legalTargetCount === undefined ? true : props.legalTargetCount > 0;
   const active = props.activeMode ? props.interactionMode === props.activeMode : false;
   const actionable = props.enabled && props.isCurrentPlayer && isBuildPhase && enoughResources && hasLegalTarget;
@@ -724,6 +729,34 @@ export function getTurnStatus(
         );
   }
 
+  if (match.phase === "special_build") {
+    return isCurrentPlayer
+      ? withPlayer(
+          "Aktion von dir",
+          "Sonderbauphase: Baue oder kaufe eine Entwicklung. Kein Handel, kein Hafenhandel, keine Entwicklungskarte spielen.",
+          selfId
+        )
+      : withPlayer(
+          `Warte auf ${activePlayerName}`,
+          `${activePlayerName} nutzt gerade die Sonderbauphase.`,
+          activePlayer?.id
+        );
+  }
+
+  if (match.phase === "paired_player_action") {
+    return isCurrentPlayer
+      ? withPlayer(
+          "Aktion von dir",
+          "Paired Players: Du bist Spieler 2. Bauen, Hafenhandel und Entwicklungskarten sind erlaubt, Handel mit Mitspielern nicht.",
+          selfId
+        )
+      : withPlayer(
+          `Warte auf ${activePlayerName}`,
+          `${activePlayerName} ist gerade als Spieler 2 in Paired Players am Zug.`,
+          activePlayer?.id
+        );
+  }
+
   if (isCurrentPlayer && match.phase === "turn_action") {
     return withPlayer("Aktion von dir", "Baue, handle oder beende deinen Zug.", selfId);
   }
@@ -794,13 +827,28 @@ function describeBuildActionTooltip(
     };
   }
 
-  if (props.phase !== "turn_action") {
+  const isBuildPhase =
+    props.phase === "turn_action" ||
+    props.phase === "special_build" ||
+    props.phase === "paired_player_action";
+
+  if (!isBuildPhase) {
     return {
       title: props.phase === "turn_roll" ? "Erst würfeln" : "Gerade nicht verfügbar",
       lines: [
         props.phase === "turn_roll"
           ? "Du musst den Zug zuerst mit dem Würfelwurf starten."
           : "Diese Aktion ist in der aktuellen Phase gesperrt."
+        ]
+    };
+  }
+
+  if (props.phase === "special_build") {
+    return {
+      title: "Sonderbauphase",
+      lines: [
+        "Hier sind nur Bauen und Entwicklung kaufen erlaubt.",
+        "Handel, Hafenhandel und Entwicklungskarten ausspielen sind gesperrt."
       ]
     };
   }
