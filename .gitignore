@@ -10,3 +10,4 @@ coverage/
 .env.local
 apps/server/uploads/
 postgres-data/
+./AGENTS.md
