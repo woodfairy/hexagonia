@@ -373,6 +373,9 @@ function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): THREE.Buffe
       geometry.translate(0, 0.06, 0);
       return geometry;
   }
+
+  const unsupportedKind: never = kind;
+  throw new Error(`Unsupported terrain cover geometry: ${unsupportedKind}`);
 }
 
 function createCoverMaterial(recipe: TerrainBiomeRecipe, active: boolean): THREE.MeshStandardMaterial {

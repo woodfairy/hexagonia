@@ -12,7 +12,6 @@ import {
   createRoadGuideModel,
   createRoadPieceModel
 } from "./boardPieceModels";
-import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
@@ -1940,26 +1939,12 @@ function appendTileDecorations(
     return;
   }
 
-  const propGroup = createLandingFancyTileProps(tile.resource);
-  settleFancyPropsIntoTerrain(propGroup);
-  propGroup.position.y = TILE_HEIGHT + 0.018;
-  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.84);
+  const propGroup = createUltraTerrainRelief(tile, verticesById, active, "props");
+  propGroup.position.y = (terrainSurface?.maxHeight ?? TILE_HEIGHT) + 0.024;
   propGroup.traverse((entry) => {
     entry.userData.castTileShadow = true;
   });
   tileGroup.add(propGroup);
-}
-
-function settleFancyPropsIntoTerrain(group: THREE.Group): void {
-  for (const child of group.children) {
-    const length = Math.hypot(child.position.x, child.position.z);
-    if (length >= 0.04) {
-      const nextLength = THREE.MathUtils.clamp(length * 0.8 + 0.08, 0.5, 1.64);
-      child.position.x = (child.position.x / length) * nextLength;
-      child.position.z = (child.position.z / length) * nextLength;
-    }
-    child.scale.multiplyScalar(0.88);
-  }
 }
 
 function createUltraTerrainRelief(
