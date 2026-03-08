@@ -320,7 +320,7 @@ export function LandingScreen(props: {
               Login
             </button>
             <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-              Jetzt kostenlos spielen
+              Jetzt spielen
             </button>
           </div>
         </div>
@@ -350,12 +350,6 @@ export function LandingScreen(props: {
               den Browser.
             </p>
 
-            <div className="landing-hero-actions">
-              <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-                {props.inviteCode ? "Zur Einladung anmelden" : "Konto anlegen und loslegen"}
-              </button>
-            </div>
-
             <article className="landing-free-promise" data-reveal style={revealStyle(120)}>
               <div className="landing-free-promise-mark" aria-hidden="true">
                 <span>100%</span>
@@ -367,6 +361,11 @@ export function LandingScreen(props: {
                 </div>
                 <strong>Hexagonia ist 100 % kostenlos und wird es bleiben.</strong>
                 <p>Kein Abo. Keine Paywalls. Keine bezahlten Vorteile. Nie.</p>
+                <div className="landing-free-promise-actions">
+                  <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
+                    {props.inviteCode ? "Zur Einladung anmelden" : "Jetzt kostenlos spielen"}
+                  </button>
+                </div>
               </div>
             </article>
           </div>

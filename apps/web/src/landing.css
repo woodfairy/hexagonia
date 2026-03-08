@@ -590,6 +590,16 @@ body.guest-landing-mode {
   line-height: 1.45;
 }
 
+.landing-free-promise-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 0.2rem;
+}
+
+.landing-free-promise-actions .landing-button {
+  inline-size: fit-content;
+}
+
 .landing-stat-card,
 .landing-flow-card,
 .landing-build-card,
