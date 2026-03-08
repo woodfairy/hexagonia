@@ -295,9 +295,10 @@ export function App() {
     if (route.kind === "room") {
       return "room" as const;
     }
-    return "lobby" as const;
+      return "lobby" as const;
   }, [route.kind, session]);
-  const isGuestLanding = activeScreen === "auth";
+  const isBootingDeepLink = session === undefined && route.kind !== "home";
+  const isGuestLanding = activeScreen === "auth" && !isBootingDeepLink;
 
   const playUiFeedback = useCallback(
     ({ sound, haptic }: UiFeedbackRequest) => {
@@ -1975,6 +1976,36 @@ export function App() {
       document.body.classList.remove(guestClassName);
     };
   }, [isGuestLanding]);
+
+  if (isBootingDeepLink) {
+    const statusTitle =
+      route.kind === "match"
+        ? "Partie wird verbunden"
+        : route.kind === "admin"
+          ? "Adminbereich wird geladen"
+          : route.kind === "invite"
+            ? "Einladung wird geprueft"
+            : "Raum wird geladen";
+    const statusText =
+      route.kind === "match"
+        ? "Hexagonia verbindet die laufende Partie mit deiner Sitzung."
+        : route.kind === "admin"
+          ? "Hexagonia prueft deine Sitzung fuer den Adminbereich."
+          : route.kind === "invite"
+            ? "Hexagonia prueft die Einladung und verbindet sie mit deiner Sitzung."
+            : "Hexagonia verbindet den privaten Raum mit deiner Sitzung.";
+
+    return (
+      <>
+        <main className="app-shell">
+          <div className="app-stage">
+            <StatusSurface title={statusTitle} text={statusText} />
+          </div>
+        </main>
+        <ToastStack onDismiss={removeToast} toasts={toasts} />
+      </>
+    );
+  }
 
   if (isGuestLanding) {
     return (
