@@ -11,13 +11,11 @@ export interface BoardVisualSettings {
 }
 
 export const BOARD_VISUAL_SETTINGS_STORAGE_KEY = "hexagonia:board-visual-profile";
-const BOARD_VISUAL_SETTINGS_STORAGE_VERSION_KEY = "hexagonia:board-visual-profile-version";
-const BOARD_VISUAL_SETTINGS_STORAGE_VERSION = "2";
 const LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
 export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
   textures: true,
   props: true,
-  terrainRelief: true,
+  terrainRelief: false,
   resourceIcons: false,
   pieceStyle: "minimal"
 };
@@ -49,21 +47,18 @@ function resolveLegacyBoardVisualSettings(storedProfile: string | null): BoardVi
     case "fancy":
       return createBoardVisualSettings({
         textures: true,
-        props: true,
-        terrainRelief: true
+        props: true
       });
     case "classic":
     case LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE:
       return createBoardVisualSettings({
-        textures: true,
-        terrainRelief: true
+        textures: true
       });
     case "modern":
     case "fast":
       return createBoardVisualSettings({
         textures: false,
-        props: false,
-        terrainRelief: false
+        props: false
       });
     default:
       return null;
@@ -85,42 +80,6 @@ function normalizeBoardVisualSettings(value: unknown): BoardVisualSettings {
       ? { pieceStyle: candidate.pieceStyle }
       : {})
   });
-}
-
-function shouldUpgradeStoredTerrainRelief(
-  serializedSettings: string | null,
-  serializedVersion: string | null,
-  resolvedSettings: BoardVisualSettings
-): boolean {
-  if (serializedVersion === BOARD_VISUAL_SETTINGS_STORAGE_VERSION) {
-    return false;
-  }
-
-  if (!resolvedSettings.textures || resolvedSettings.terrainRelief) {
-    return false;
-  }
-
-  const legacySettings = resolveLegacyBoardVisualSettings(serializedSettings);
-  if (legacySettings) {
-    return legacySettings.textures && !legacySettings.terrainRelief;
-  }
-
-  if (!serializedSettings) {
-    return false;
-  }
-
-  try {
-    const candidate = JSON.parse(serializedSettings) as Partial<Record<keyof BoardVisualSettings, unknown>>;
-    return (
-      candidate.textures === true &&
-      candidate.props === true &&
-      candidate.terrainRelief === false &&
-      (candidate.resourceIcons === undefined || candidate.resourceIcons === false) &&
-      (candidate.pieceStyle === undefined || candidate.pieceStyle === "minimal")
-    );
-  } catch {
-    return false;
-  }
 }
 
 export function deserializeBoardVisualSettings(serializedSettings: string | null): BoardVisualSettings {
@@ -146,14 +105,10 @@ export function resolveInitialBoardVisualSettings(): BoardVisualSettings {
   }
 
   const storedSettings = window.localStorage.getItem(BOARD_VISUAL_SETTINGS_STORAGE_KEY);
-  const storedVersion = window.localStorage.getItem(BOARD_VISUAL_SETTINGS_STORAGE_VERSION_KEY);
-  const deserializedSettings = deserializeBoardVisualSettings(storedSettings);
-  const resolvedSettings = shouldUpgradeStoredTerrainRelief(storedSettings, storedVersion, deserializedSettings)
-    ? { ...deserializedSettings, terrainRelief: true }
-    : deserializedSettings;
+  const resolvedSettings = deserializeBoardVisualSettings(storedSettings);
   const normalizedSettings = serializeBoardVisualSettings(resolvedSettings);
 
-  if (storedSettings !== normalizedSettings || storedVersion !== BOARD_VISUAL_SETTINGS_STORAGE_VERSION) {
+  if (storedSettings !== normalizedSettings) {
     persistBoardVisualSettings(resolvedSettings);
   }
 
@@ -173,5 +128,4 @@ export function persistBoardVisualSettings(settings: BoardVisualSettings): void 
     BOARD_VISUAL_SETTINGS_STORAGE_KEY,
     serializeBoardVisualSettings(settings)
   );
-  window.localStorage.setItem(BOARD_VISUAL_SETTINGS_STORAGE_VERSION_KEY, BOARD_VISUAL_SETTINGS_STORAGE_VERSION);
 }

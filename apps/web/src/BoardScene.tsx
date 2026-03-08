@@ -1876,6 +1876,10 @@ function appendTileDecorations(
     return;
   }
 
+  if (options.includeTerrainRelief) {
+    return;
+  }
+
   const propGroup = createLandingFancyTileProps(tile.resource);
   settleFancyPropsIntoTerrain(propGroup);
   propGroup.position.y = TILE_HEIGHT + 0.018;
@@ -4492,11 +4496,11 @@ function createReliefAnchors(
   const stretchZ = options.stretchZ ?? 0.9;
   const candidatesPerAnchor = options.candidatesPerAnchor ?? 12;
   const radialWeight = options.radialWeight ?? 0.1;
-  const softenedMinRadius = minRadius * (0.34 + radialBias * 0.3);
-  const candidateBudget = Math.max(Math.round(candidatesPerAnchor * (1.4 + radialBias * 0.6)), candidatesPerAnchor);
+  const softenedMinRadius = minRadius * (0.14 + radialBias * 0.18);
+  const candidateBudget = Math.max(Math.round(candidatesPerAnchor * (1.7 + radialBias * 0.35)), candidatesPerAnchor);
 
   for (let index = 0; index < count; index += 1) {
-    let bestAnchor: (ReliefAnchor & { footprint: number; clearance: number; score: number }) | null = null;
+    const validCandidates: Array<ReliefAnchor & { footprint: number; score: number }> = [];
 
     for (let candidateIndex = 0; candidateIndex < candidateBudget; candidateIndex += 1) {
       const scale = minScale + random() * (maxScale - minScale);
@@ -4530,36 +4534,43 @@ function createReliefAnchors(
       const radiusOvershoot = Math.abs(effectiveRadius - preferredRadius);
       const radiusAffinity =
         1 - THREE.MathUtils.clamp(radiusOvershoot / Math.max(maxRadius - softenedMinRadius, 0.001), 0, 1);
-      const score = nearestClearance * 1.25 + edgeClearance * 0.75 + radiusAffinity * radialWeight;
+      const cappedClearance = Math.min(nearestClearance, footprint * (1.18 + radialBias * 0.42));
+      const cappedEdgeClearance = Math.min(edgeClearance, footprint * 0.92);
+      const organicJitter = random() * (0.9 + (1 - radialBias) * 0.32);
+      const score = cappedClearance * 0.58 + cappedEdgeClearance * 0.22 + radiusAffinity * radialWeight + organicJitter;
 
-      if (!bestAnchor || score > bestAnchor.score) {
-        bestAnchor = {
-          x,
-          z,
-          scale,
-          angle: random() * Math.PI * 2 + (random() - 0.5) * 0.36,
-          footprint,
-          clearance: nearestClearance,
-          score
-        };
-      }
+      validCandidates.push({
+        x,
+        z,
+        scale,
+        angle: random() * Math.PI * 2 + (random() - 0.5) * 0.36,
+        footprint,
+        score
+      });
     }
 
-    if (!bestAnchor) {
+    if (validCandidates.length === 0) {
       continue;
     }
 
+    validCandidates.sort((left, right) => right.score - left.score);
+    const choiceWindow = Math.min(
+      validCandidates.length,
+      Math.max(3, Math.ceil(validCandidates.length * (0.34 + (1 - radialBias) * 0.26)))
+    );
+    const chosen = validCandidates[Math.floor(random() * choiceWindow)]!;
+
     anchors.push({
-      x: bestAnchor.x,
-      z: bestAnchor.z,
-      scale: bestAnchor.scale,
-      angle: bestAnchor.angle
+      x: chosen.x,
+      z: chosen.z,
+      scale: chosen.scale,
+      angle: chosen.angle
     });
     if (options.occupied) {
       occupied.push({
-        x: bestAnchor.x,
-        z: bestAnchor.z,
-        radius: bestAnchor.footprint + Math.max(minGap * 0.12, 0.04)
+        x: chosen.x,
+        z: chosen.z,
+        radius: chosen.footprint + Math.max(minGap * 0.08, 0.03)
       });
     }
   }
