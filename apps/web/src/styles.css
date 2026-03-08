@@ -2059,7 +2059,7 @@ select {
 
 .floating-build-action-tooltip {
   position: fixed;
-  z-index: 80;
+  z-index: 120;
   display: grid;
   gap: 0.22rem;
   inline-size: min(17rem, calc(100vw - 1.5rem));

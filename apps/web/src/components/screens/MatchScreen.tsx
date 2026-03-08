@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import type {
   ClientMessage,
   DevelopmentCardView,
@@ -1364,6 +1365,21 @@ export function MatchScreen(props: {
                 type="button"
                 className={`build-action-card ${action.active ? "is-active" : ""}`}
                 aria-disabled={action.disabled}
+                onPointerEnter={(event) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                }}
+                onPointerMove={(event) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                }}
+                onPointerLeave={closeBuildActionTooltip}
                 onMouseEnter={(event) => {
                   if (!action.disabled) {
                     return;
@@ -1395,19 +1411,22 @@ export function MatchScreen(props: {
               </button>
             ))}
           </div>
-          {buildActionTooltip ? (
-            <span
-              className="floating-build-action-tooltip"
-              role="tooltip"
-              data-placement={buildActionTooltip.placement}
-              style={{ left: buildActionTooltip.left, top: buildActionTooltip.top }}
-            >
-              <strong>{buildActionTooltip.title}</strong>
-              {buildActionTooltip.lines.map((line) => (
-                <span key={line}>{line}</span>
-              ))}
-            </span>
-          ) : null}
+          {buildActionTooltip && typeof document !== "undefined"
+            ? createPortal(
+                <div
+                  className="floating-build-action-tooltip"
+                  role="tooltip"
+                  data-placement={buildActionTooltip.placement}
+                  style={{ left: buildActionTooltip.left, top: buildActionTooltip.top }}
+                >
+                  <strong>{buildActionTooltip.title}</strong>
+                  {buildActionTooltip.lines.map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </div>,
+                document.body
+              )
+            : null}
         </section>
         {developmentCards.length || pendingRoadBuilding ? (
           <section className="dock-section">
