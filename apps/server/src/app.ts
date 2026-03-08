@@ -4,13 +4,25 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import argon2 from "argon2";
-import { createMatchState, rollStartingPlayer, roomToPlayers } from "@hexagonia/rules";
-import type { ActionIntent, AuthUser, ClientMessage, RoomDetails } from "@hexagonia/shared";
+import {
+  createMatchState,
+  isMatchStateSchemaCompatible,
+  rollStartingPlayer,
+  roomToPlayers
+} from "@hexagonia/rules";
+import {
+  mergeGameConfig,
+  type ActionIntent,
+  type AuthUser,
+  type ClientMessage,
+  type RoomDetails
+} from "@hexagonia/shared";
 import type { RawData } from "ws";
 import { z } from "zod";
 import type { AppConfig } from "./config.js";
 import { Database } from "./db.js";
 import { RealtimeHub } from "./realtime.js";
+import { RoomLifecycleService } from "./roomLifecycleService.js";
 
 const SESSION_COOKIE_NAME = "hexagonia_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
@@ -37,12 +49,32 @@ const readySchema = z.object({
 const roomSettingsSchema = z
   .object({
     setupMode: z.enum(["official_variable", "beginner"]).optional(),
-    startingPlayerMode: z.enum(["rolled", "manual"]).optional(),
-    startingSeatIndex: z.number().int().min(0).max(3).optional()
+    startingPlayer: z
+      .object({
+        mode: z.enum(["rolled", "manual"]).optional(),
+        seatIndex: z.number().int().min(0).max(3).optional()
+      })
+      .optional(),
+    enabledExpansions: z.array(z.enum(["seafarers"])).optional()
   })
-  .refine((body) => body.setupMode !== undefined || body.startingPlayerMode !== undefined || body.startingSeatIndex !== undefined, {
-    message: "Mindestens eine Spieleinstellung muss gesetzt werden."
-  });
+  .refine(
+    (body) =>
+      body.setupMode !== undefined ||
+      body.startingPlayer !== undefined ||
+      body.enabledExpansions !== undefined,
+    {
+      message: "Mindestens eine Spieleinstellung muss gesetzt werden."
+    }
+  )
+  .refine(
+    (body) =>
+      body.startingPlayer === undefined ||
+      body.startingPlayer.mode !== undefined ||
+      body.startingPlayer.seatIndex !== undefined,
+    {
+      message: "Mindestens eine Startspieler-Einstellung muss gesetzt werden."
+    }
+  );
 
 const kickRoomSchema = z.object({
   userId: z.string().uuid()
@@ -76,7 +108,9 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
   }
   await ensureBootstrapAdmin(db, config);
   const hub = new RealtimeHub(db, app.log);
-  await resetLegacyMatches(db, hub, app);
+  const lifecycle = new RoomLifecycleService(db, hub);
+  hub.setRoomLifecycleService(lifecycle);
+  await resetLegacyMatches(db, lifecycle, app);
 
   app.addHook("onClose", async () => {
     await db.close();
