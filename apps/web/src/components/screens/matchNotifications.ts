@@ -261,7 +261,7 @@ function createSettlementNotification(
       ? getPlayerPredicate(match, viewerId, event.byPlayerId, "setzt eine Start-Siedlung")
       : getPlayerPredicate(match, viewerId, event.byPlayerId, "baut eine Siedlung", "baust eine Siedlung"),
     detail: followUp?.detail ?? (initial ? "Der neue Startplatz ist auf dem Brett markiert." : "Der neue Siedlungsplatz ist auf dem Brett markiert."),
-    badges: followUp?.badges,
+    ...(followUp ? { badges: followUp.badges } : {}),
     ...(followUp?.accentPlayerId ? { accentPlayerId: followUp.accentPlayerId } : {}),
     cue: {
       key: `event-${event.id}-${vertexId}`,
@@ -307,7 +307,7 @@ function createRoadNotification(
     label: initial ? "Startaufbau" : "Bau",
     title,
     detail: detailText,
-    badges: followUp?.badges,
+    ...(followUp ? { badges: followUp.badges } : {}),
     ...(followUp?.accentPlayerId ? { accentPlayerId: followUp.accentPlayerId } : {}),
     cue: {
       key: `event-${event.id}-${edgeId}`,
