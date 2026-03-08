@@ -295,7 +295,6 @@ jobs:
       contents: read
       packages: write
     env:
-      BUILD_OUTPUT: ${{ github.event_name != 'pull_request' && 'type=image,push-by-digest=true,name-canonical=true,push=true' || 'type=cacheonly' }}
       DOCKER_BUILD_RECORD_UPLOAD: "false"
       DOCKER_BUILD_SUMMARY: "false"
     steps:
@@ -323,41 +322,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata (web)
-        if: needs.changes.outputs.web == 'true'
-        id: meta-web
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/hexagonia-web
-          bake-target: web
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
-
-      - name: Docker metadata (server)
-        if: needs.changes.outputs.server == 'true'
-        id: meta-server
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/hexagonia-server
-          bake-target: server
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
-
       - name: Build web image (amd64)
         if: needs.changes.outputs.web == 'true'
         id: bake-web
         uses: docker/bake-action@v5
         with:
-          files: |
-            ./docker-bake.hcl
-            cwd://${{ steps.meta-web.outputs.bake-file-tags }}
-            cwd://${{ steps.meta-web.outputs.bake-file-labels }}
+          files: ./docker-bake.hcl
           targets: web
           set: |
             web.context=${{ runner.temp }}/pruned/web
@@ -365,17 +335,14 @@ jobs:
             web.platform=linux/amd64
             web.cache-from=type=gha,scope=hexagonia-linux-amd64
             web.cache-to=type=gha,mode=max,scope=hexagonia-linux-amd64
-            web.output=${{ env.BUILD_OUTPUT }}
+            web.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Build server image (amd64)
         if: needs.changes.outputs.server == 'true'
         id: bake-server
         uses: docker/bake-action@v5
         with:
-          files: |
-            ./docker-bake.hcl
-            cwd://${{ steps.meta-server.outputs.bake-file-tags }}
-            cwd://${{ steps.meta-server.outputs.bake-file-labels }}
+          files: ./docker-bake.hcl
           targets: server
           set: |
             server.context=${{ runner.temp }}/pruned/server
@@ -383,7 +350,7 @@ jobs:
             server.platform=linux/amd64
             server.cache-from=type=gha,scope=hexagonia-linux-amd64
             server.cache-to=type=gha,mode=max,scope=hexagonia-linux-amd64
-            server.output=${{ env.BUILD_OUTPUT }}
+            server.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-server,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Record pushed digests
         if: github.event_name != 'pull_request'
@@ -423,7 +390,6 @@ jobs:
       contents: read
       packages: write
     env:
-      BUILD_OUTPUT: ${{ github.event_name != 'pull_request' && 'type=image,push-by-digest=true,name-canonical=true,push=true' || 'type=cacheonly' }}
       DOCKER_BUILD_RECORD_UPLOAD: "false"
       DOCKER_BUILD_SUMMARY: "false"
     steps:
@@ -457,41 +423,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata (web)
-        if: needs.changes.outputs.web == 'true'
-        id: meta-web
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/hexagonia-web
-          bake-target: web
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
-
-      - name: Docker metadata (server)
-        if: needs.changes.outputs.server == 'true'
-        id: meta-server
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/hexagonia-server
-          bake-target: server
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
-
       - name: Build web image (arm64)
         if: needs.changes.outputs.web == 'true'
         id: bake-web
         uses: docker/bake-action@v5
         with:
-          files: |
-            ./docker-bake.hcl
-            cwd://${{ steps.meta-web.outputs.bake-file-tags }}
-            cwd://${{ steps.meta-web.outputs.bake-file-labels }}
+          files: ./docker-bake.hcl
           targets: web
           set: |
             web.context=${{ runner.temp }}/pruned/web
@@ -499,17 +436,14 @@ jobs:
             web.platform=linux/arm64
             web.cache-from=type=gha,scope=hexagonia-linux-arm64
             web.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
-            web.output=${{ env.BUILD_OUTPUT }}
+            web.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Build server image (arm64)
         if: needs.changes.outputs.server == 'true'
         id: bake-server
         uses: docker/bake-action@v5
         with:
-          files: |
-            ./docker-bake.hcl
-            cwd://${{ steps.meta-server.outputs.bake-file-tags }}
-            cwd://${{ steps.meta-server.outputs.bake-file-labels }}
+          files: ./docker-bake.hcl
           targets: server
           set: |
             server.context=${{ runner.temp }}/pruned/server
@@ -517,7 +451,7 @@ jobs:
             server.platform=linux/arm64
             server.cache-from=type=gha,scope=hexagonia-linux-arm64
             server.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
-            server.output=${{ env.BUILD_OUTPUT }}
+            server.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-server,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Record pushed digests
         if: github.event_name != 'pull_request'
