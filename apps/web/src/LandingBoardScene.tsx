@@ -231,6 +231,9 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     boardGroup.add(haloRing);
     glowMarkers.push({ material: haloRingMaterial, speed: 0.9, baseOpacity: 0.15 });
 
+    const stars = createStarField();
+    scene.add(stars);
+
     const verticesById = new Map(showcaseBoard.vertices.map((vertex) => [vertex.id, vertex]));
     const edgesById = new Map(showcaseBoard.edges.map((edge) => [edge.id, edge]));
 
