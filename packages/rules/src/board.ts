@@ -51,6 +51,15 @@ interface MutableVertex extends Omit<VertexView, "building" | "portType"> {
 
 interface MutableEdge extends Omit<EdgeView, "ownerId" | "color"> {}
 
+const COUNTERCLOCKWISE_RING_DIRECTIONS = [
+  { q: -1, r: 0 },
+  { q: -1, r: 1 },
+  { q: 0, r: 1 },
+  { q: 1, r: 0 },
+  { q: 1, r: -1 },
+  { q: 0, r: -1 }
+] as const;
+
 const STANDARD_TILES: LayoutTile[] = createStandardCoords();
 const EXTENDED_TILES: LayoutTile[] = createExtendedCoords();
 
@@ -230,14 +239,6 @@ const CORNER_OFFSETS = [
   [Math.cos((5 * Math.PI) / 6), Math.sin((5 * Math.PI) / 6)],
   [Math.cos((7 * Math.PI) / 6), Math.sin((7 * Math.PI) / 6)],
   [Math.cos((3 * Math.PI) / 2), Math.sin((3 * Math.PI) / 2)]
-] as const;
-const COUNTERCLOCKWISE_RING_DIRECTIONS = [
-  { q: -1, r: 0 },
-  { q: -1, r: 1 },
-  { q: 0, r: 1 },
-  { q: 1, r: 0 },
-  { q: 1, r: -1 },
-  { q: 0, r: -1 }
 ] as const;
 
 export function createBoardGenerationInput(gameConfig: GameConfig): BoardGenerationInput {
