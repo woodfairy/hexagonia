@@ -320,7 +320,7 @@ export function LandingScreen(props: {
               Login
             </button>
             <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-              Jetzt spielen
+              Jetzt kostenlos spielen
             </button>
           </div>
         </div>
@@ -364,15 +364,9 @@ export function LandingScreen(props: {
               <div className="landing-free-promise-copy">
                 <div className="landing-free-promise-head">
                   <span className="landing-kicker">Fair Play</span>
-                  <span className="landing-free-promise-pill">Ohne Pay-to-Win</span>
                 </div>
                 <strong>Hexagonia ist 100 % kostenlos und wird es bleiben.</strong>
                 <p>Kein Abo. Keine Paywalls. Keine bezahlten Vorteile. Nie.</p>
-                <div className="landing-free-promise-points" aria-label="Fair-Play-Versprechen">
-                  <span className="landing-free-promise-point">Kein Abo</span>
-                  <span className="landing-free-promise-point">Keine Paywalls</span>
-                  <span className="landing-free-promise-point">Keine bezahlten Vorteile</span>
-                </div>
               </div>
             </article>
           </div>

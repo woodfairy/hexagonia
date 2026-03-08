@@ -381,7 +381,7 @@ export function App() {
   }, [isGuestLanding]);
 
   useEffect(() => {
-    if (!session) {
+    if (session === undefined) {
       return;
     }
 
@@ -389,11 +389,11 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    if (session !== null) {
+    if (!session) {
       return;
     }
 
-    void uiSoundManager.setMusicPlaybackBlocked(true);
+    void uiSoundManager.applyAuthenticatedMusicDefault();
   }, [session]);
 
   useEffect(() => {

@@ -34,6 +34,7 @@ const MUSIC_PLAYBACK_STORAGE_KEY = "hexagonia:music-playback";
 const MUSIC_MODE_STORAGE_KEY = "hexagonia:music-mode";
 const MUSIC_VOLUME = 0.68;
 const DEFAULT_LANDING_MUSIC_TRACK_NAME = "Wir bauen eine Welt";
+const DEFAULT_AUTHENTICATED_MUSIC_TRACK_NAME = "Hexagonia";
 const INTERACTIVE_SELECTOR = [
   "[data-ui-sound]",
   "button",
@@ -61,6 +62,10 @@ const MUSIC_LIBRARY: MusicTrack[] = Object.entries(MUSIC_TRACK_IMPORTS)
 
 function getDefaultMusicTrack(): MusicTrack | null {
   return MUSIC_LIBRARY.find((track) => track.name === DEFAULT_LANDING_MUSIC_TRACK_NAME) ?? MUSIC_LIBRARY[0] ?? null;
+}
+
+function getAuthenticatedDefaultMusicTrack(): MusicTrack | null {
+  return MUSIC_LIBRARY.find((track) => track.name === DEFAULT_AUTHENTICATED_MUSIC_TRACK_NAME) ?? getDefaultMusicTrack();
 }
 
 type AudioContextConstructor = typeof AudioContext;
@@ -166,6 +171,8 @@ class UiSoundManager {
     typeof window !== "undefined" && window.localStorage.getItem(UI_SOUND_STORAGE_KEY) === "muted";
   private hasStoredMusicPlaybackPreference =
     typeof window !== "undefined" && window.localStorage.getItem(MUSIC_PLAYBACK_STORAGE_KEY) !== null;
+  private hasStoredMusicTrackPreference =
+    typeof window !== "undefined" && window.localStorage.getItem(MUSIC_TRACK_STORAGE_KEY) !== null;
   private selectedMusicTrackId = resolveInitialMusicTrackId();
   private musicPaused = resolveInitialMusicPaused();
   private musicPlaybackMode = resolveInitialMusicPlaybackMode();
@@ -366,6 +373,25 @@ class UiSoundManager {
     return true;
   }
 
+  async applyAuthenticatedMusicDefault(): Promise<boolean> {
+    if (this.hasStoredMusicTrackPreference) {
+      return false;
+    }
+
+    const track = getAuthenticatedDefaultMusicTrack();
+    if (!track || this.selectedMusicTrackId === track.id) {
+      return false;
+    }
+
+    this.selectedMusicTrackId = track.id;
+    this.notifyMusicStateListeners();
+    if (!this.musicPaused) {
+      await this.playSelectedMusic();
+    }
+
+    return true;
+  }
+
   async setMusicPlaybackBlocked(nextBlocked: boolean): Promise<void> {
     if (this.musicPlaybackBlocked === nextBlocked) {
       return;
@@ -429,6 +455,7 @@ class UiSoundManager {
   }
 
   private persistMusicTrack(): void {
+    this.hasStoredMusicTrackPreference = !!this.selectedMusicTrackId;
     if (typeof window === "undefined") {
       return;
     }
