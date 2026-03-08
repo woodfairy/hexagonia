@@ -12,11 +12,16 @@ import {
 } from "@hexagonia/rules";
 import {
   BOARD_SIZES,
+  RULES_PRESETS,
   TURN_RULES,
   mergeGameConfig,
+  mergeRoomGameConfig,
+  resolveRoomGameConfig,
   type ActionIntent,
   type AuthUser,
   type ClientMessage,
+  type GameConfig,
+  type RoomGameConfigPatch,
   type RoomDetails
 } from "@hexagonia/shared";
 import type { RawData } from "ws";
@@ -50,6 +55,7 @@ const readySchema = z.object({
 
 const roomSettingsSchema = z
   .object({
+    rulesPreset: z.enum(RULES_PRESETS).optional(),
     boardSize: z.enum(BOARD_SIZES).optional(),
     setupMode: z.enum(["official_variable", "beginner"]).optional(),
     turnRule: z.enum(TURN_RULES).optional(),
@@ -63,6 +69,7 @@ const roomSettingsSchema = z
   })
   .refine(
     (body) =>
+      body.rulesPreset !== undefined ||
       body.boardSize !== undefined ||
       body.setupMode !== undefined ||
       body.turnRule !== undefined ||
@@ -595,9 +602,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     const body = roomSettingsSchema.parse(request.body ?? {});
-    const nextGameConfig = mergeGameConfig(room.gameConfig, toGameConfigPatch(body));
+    const nextGameConfig = mergeRoomGameConfig(room.gameConfig, toGameConfigPatch(body));
+    const effectiveNextGameConfig = resolveRoomGameConfig(nextGameConfig, room.seats);
     if (body.startingPlayer?.seatIndex !== undefined) {
-      if (nextGameConfig.startingPlayer.mode !== "manual") {
+      if (effectiveNextGameConfig.startingPlayer.mode !== "manual") {
         return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
       }
       const seat = room.seats.find((entry) => entry.index === body.startingPlayer?.seatIndex);
@@ -605,8 +613,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
         return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
       }
     } else if (
-      nextGameConfig.startingPlayer.mode === "manual" &&
-      !room.seats.some((entry) => entry.index === nextGameConfig.startingPlayer.seatIndex && !!entry.userId)
+      effectiveNextGameConfig.startingPlayer.mode === "manual" &&
+      !room.seats.some(
+        (entry) => entry.index === effectiveNextGameConfig.startingPlayer.seatIndex && !!entry.userId
+      )
     ) {
       return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
     }
@@ -641,9 +651,11 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply.code(409).send({ error: "Alle sitzenden Spieler müssen bereit sein." });
     }
 
-    if (room.gameConfig.startingPlayer.mode === "manual") {
+    const effectiveRoomGameConfig = resolveRoomGameConfig(room.gameConfig, room.seats);
+
+    if (effectiveRoomGameConfig.startingPlayer.mode === "manual") {
       const configuredStartSeat = room.seats.find(
-        (seat) => seat.index === room.gameConfig.startingPlayer.seatIndex
+        (seat) => seat.index === effectiveRoomGameConfig.startingPlayer.seatIndex
       );
       if (!configuredStartSeat?.userId) {
         return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
@@ -653,14 +665,14 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const matchSeed = randomBytes(32).toString("hex");
     const matchPlayers = roomToPlayers(room);
     const rolledStart =
-      room.gameConfig.startingPlayer.mode === "rolled"
+      effectiveRoomGameConfig.startingPlayer.mode === "rolled"
         ? rollStartingPlayer(matchPlayers, matchSeed)
         : null;
     const startingSeatIndex =
-      room.gameConfig.startingPlayer.mode === "manual"
-        ? resolveManualStartingSeatIndex(room)
-        : rolledStart?.winnerSeatIndex ?? room.gameConfig.startingPlayer.seatIndex;
-    const matchGameConfig = mergeGameConfig(room.gameConfig, {
+      effectiveRoomGameConfig.startingPlayer.mode === "manual"
+        ? resolveManualStartingSeatIndex(room, effectiveRoomGameConfig)
+        : rolledStart?.winnerSeatIndex ?? effectiveRoomGameConfig.startingPlayer.seatIndex;
+    const matchGameConfig = mergeGameConfig(effectiveRoomGameConfig, {
       startingPlayer: {
         seatIndex: startingSeatIndex
       }
@@ -675,7 +687,6 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       players: matchPlayers
     });
 
-    room.gameConfig = matchGameConfig;
     room.status = "in_match";
     room.matchId = state.matchId;
 
@@ -962,9 +973,9 @@ function generateRoomCode(): string {
   return randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
 }
 
-function resolveManualStartingSeatIndex(room: RoomDetails): number {
+function resolveManualStartingSeatIndex(room: RoomDetails, gameConfig: GameConfig): number {
   const seat = room.seats.find(
-    (entry) => entry.index === room.gameConfig.startingPlayer.seatIndex
+    (entry) => entry.index === gameConfig.startingPlayer.seatIndex
   );
   if (!seat?.userId) {
     throw new Error("Der gewählte Startspieler sitzt nicht im Raum.");
@@ -973,8 +984,9 @@ function resolveManualStartingSeatIndex(room: RoomDetails): number {
   return seat.index;
 }
 
-function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>) {
+function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>): RoomGameConfigPatch {
   return {
+    ...(body.rulesPreset !== undefined ? { rulesPreset: body.rulesPreset } : {}),
     ...(body.boardSize !== undefined ? { boardSize: body.boardSize } : {}),
     ...(body.setupMode !== undefined ? { setupMode: body.setupMode } : {}),
     ...(body.turnRule !== undefined ? { turnRule: body.turnRule } : {}),

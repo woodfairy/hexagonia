@@ -5,14 +5,19 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
-  BoardSize,
-  GameConfig,
   MatchEvent,
   RoomDetails,
+  RoomGameConfig,
   SeatState,
   UserRole
 } from "@hexagonia/shared";
-import { PLAYER_COLORS, createGameConfig, resolveGameConfigFromLegacy } from "@hexagonia/shared";
+import {
+  PLAYER_COLORS,
+  createRoomGameConfig,
+  isOfficialRoomGameConfig,
+  resolveRoomGameConfigFromLegacy,
+  sanitizeRoomGameConfig
+} from "@hexagonia/shared";
 
 interface StoredUser extends AuthUser {
   email: string;
@@ -399,7 +404,7 @@ export class Database {
       color,
       ready: false
     }));
-    const gameConfig = createGameConfig();
+    const gameConfig = createRoomGameConfig();
 
     const result = await this.pool.query(
       `
@@ -658,7 +663,7 @@ interface StoredRoomRow {
   id: string;
   code: string;
   ownerUserId: string;
-  gameConfig: GameConfig | string | null;
+  gameConfig: RoomGameConfig | string | null;
   legacySetupMode?: string | null;
   legacyStartingPlayerMode?: string | null;
   legacyStartingSeatIndex?: number | null;
@@ -672,15 +677,26 @@ function normalizeRoom(row: StoredRoomRow): RoomDetails {
   const seats = normalizeSeats(
     typeof row.seats === "string" ? (JSON.parse(row.seats) as SeatState[]) : row.seats
   );
-  const gameConfig = normalizeRoomGameConfig(
-    resolveGameConfigFromLegacy({
-      gameConfig: typeof row.gameConfig === "string" ? JSON.parse(row.gameConfig) : row.gameConfig,
+  const parsedGameConfig =
+    typeof row.gameConfig === "string" ? JSON.parse(row.gameConfig) : row.gameConfig;
+  const hasExplicitRulesPreset = hasStoredRulesPreset(parsedGameConfig);
+  const sanitizedGameConfig = sanitizeRoomGameConfig(
+    resolveRoomGameConfigFromLegacy({
+      gameConfig: parsedGameConfig,
       setupMode: row.legacySetupMode,
       startingPlayerMode: row.legacyStartingPlayerMode,
       startingSeatIndex: row.legacyStartingSeatIndex
     }),
     seats
   );
+  const gameConfig = hasExplicitRulesPreset
+    ? sanitizedGameConfig
+    : {
+        ...sanitizedGameConfig,
+        rulesPreset: isOfficialRoomGameConfig(sanitizedGameConfig, seats)
+          ? "standard"
+          : "custom"
+      };
 
   return {
     id: row.id,
@@ -738,7 +754,7 @@ function normalizeRoomBeforeSave(room: RoomDetails): RoomDetails {
   return {
     ...room,
     seats,
-    gameConfig: normalizeRoomGameConfig(room.gameConfig, seats)
+    gameConfig: sanitizeRoomGameConfig(room.gameConfig, seats)
   };
 }
 
@@ -762,28 +778,10 @@ function normalizeSeats(seats: SeatState[]): SeatState[] {
   });
 }
 
-function normalizeRoomGameConfig(gameConfig: GameConfig, seats: SeatState[]): GameConfig {
-  const occupiedSeats = seats.filter((seat) => !!seat.userId);
-  const startingSeatStillOccupied = occupiedSeats.some(
-    (seat) => seat.index === gameConfig.startingPlayer.seatIndex
-  );
-  const nextStartingSeatIndex = startingSeatStillOccupied
-    ? gameConfig.startingPlayer.seatIndex
-    : (occupiedSeats[0]?.index ?? gameConfig.startingPlayer.seatIndex);
-  const boardSize: BoardSize =
-    occupiedSeats.length >= 5 ? "extended" : gameConfig.boardSize;
-  const setupMode =
-    boardSize === "extended" && gameConfig.setupMode === "beginner"
-      ? "official_variable"
-      : gameConfig.setupMode;
+function hasStoredRulesPreset(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
 
-  return {
-    ...gameConfig,
-    boardSize,
-    setupMode,
-    startingPlayer: {
-      ...gameConfig.startingPlayer,
-      seatIndex: nextStartingSeatIndex
-    }
-  };
+  return "rulesPreset" in value;
 }

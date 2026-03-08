@@ -3,6 +3,9 @@ import {
   PLAYER_COLORS,
   createEmptyResourceMap,
   createGameConfig,
+  createRoomGameConfig,
+  mergeRoomGameConfig,
+  resolveRoomGameConfig,
   type SetupMode,
   type StartingPlayerMode
 } from "@hexagonia/shared";
@@ -45,6 +48,13 @@ function createMatchState(input: Parameters<typeof createBaseMatchState>[0] | Le
       }
     })
   });
+}
+
+function createRoomSeats(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    index,
+    userId: `player-${index + 1}`
+  }));
 }
 
 describe("rules engine", () => {
@@ -133,6 +143,72 @@ describe("rules engine", () => {
     expect(rolledStart.rounds[1]!.contenderPlayerIds).toEqual(rolledStart.rounds[0]!.leaderPlayerIds);
     expect(rolledStart.rounds.at(-1)?.leaderPlayerIds).toHaveLength(1);
     expect(rolledStart.rounds.at(-1)?.leaderPlayerIds[0]).toBe(rolledStart.winnerPlayerId);
+  });
+
+  it("resolves the standard room preset to the official 3-player defaults", () => {
+    const resolvedConfig = resolveRoomGameConfig(createRoomGameConfig(), createRoomSeats(3));
+
+    expect(resolvedConfig.boardSize).toBe("standard");
+    expect(resolvedConfig.setupMode).toBe("official_variable");
+    expect(resolvedConfig.turnRule).toBe("standard");
+    expect(resolvedConfig.startingPlayer.mode).toBe("rolled");
+    expect(resolvedConfig.enabledExpansions).toEqual([]);
+  });
+
+  it("resolves the standard room preset to the official extended board for 5 players", () => {
+    const resolvedConfig = resolveRoomGameConfig(createRoomGameConfig(), createRoomSeats(5));
+
+    expect(resolvedConfig.boardSize).toBe("extended");
+    expect(resolvedConfig.setupMode).toBe("official_variable");
+    expect(resolvedConfig.turnRule).toBe("standard");
+    expect(resolvedConfig.startingPlayer.mode).toBe("rolled");
+  });
+
+  it("uses custom room rules unchanged when the preset is custom", () => {
+    const roomGameConfig = mergeRoomGameConfig(createRoomGameConfig(), {
+      rulesPreset: "custom",
+      boardSize: "extended",
+      setupMode: "official_variable",
+      turnRule: "paired_players",
+      startingPlayer: {
+        mode: "manual",
+        seatIndex: 2
+      }
+    });
+    const resolvedConfig = resolveRoomGameConfig(roomGameConfig, createRoomSeats(4));
+
+    expect(resolvedConfig.boardSize).toBe("extended");
+    expect(resolvedConfig.setupMode).toBe("official_variable");
+    expect(resolvedConfig.turnRule).toBe("paired_players");
+    expect(resolvedConfig.startingPlayer.mode).toBe("manual");
+    expect(resolvedConfig.startingPlayer.seatIndex).toBe(2);
+  });
+
+  it("keeps hidden custom values when switching between custom and standard presets", () => {
+    const customConfig = mergeRoomGameConfig(createRoomGameConfig(), {
+      rulesPreset: "custom",
+      turnRule: "special_build_phase",
+      startingPlayer: {
+        mode: "manual",
+        seatIndex: 1
+      }
+    });
+    const standardConfig = mergeRoomGameConfig(customConfig, {
+      rulesPreset: "standard"
+    });
+    const restoredCustomConfig = mergeRoomGameConfig(standardConfig, {
+      rulesPreset: "custom"
+    });
+
+    expect(standardConfig.turnRule).toBe("special_build_phase");
+    expect(standardConfig.startingPlayer.mode).toBe("manual");
+    expect(resolveRoomGameConfig(standardConfig, createRoomSeats(4)).turnRule).toBe("standard");
+    expect(resolveRoomGameConfig(standardConfig, createRoomSeats(4)).startingPlayer.mode).toBe("rolled");
+    expect(restoredCustomConfig.turnRule).toBe("special_build_phase");
+    expect(restoredCustomConfig.startingPlayer.mode).toBe("manual");
+    expect(resolveRoomGameConfig(restoredCustomConfig, createRoomSeats(4)).turnRule).toBe(
+      "special_build_phase"
+    );
   });
 
   it("generates the standard base-board topology", () => {

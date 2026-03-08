@@ -2,8 +2,8 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
-  GameConfigPatch,
   RoomDetails,
+  RoomGameConfigPatch,
   UserRole
 } from "@hexagonia/shared";
 import { getRuntimeApiBaseUrl, getRuntimeWebSocketUrl } from "./runtimeConfig";
@@ -213,7 +213,7 @@ export async function setReady(roomId: string, ready: boolean): Promise<RoomDeta
 
 export async function updateRoomSettings(
   roomId: string,
-  payload: GameConfigPatch
+  payload: RoomGameConfigPatch
 ): Promise<RoomDetails> {
   const response = await request<{ room: RoomDetails }>(`/api/rooms/${roomId}/settings`, {
     method: "PATCH",

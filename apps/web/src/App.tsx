@@ -9,6 +9,7 @@ import type {
   Resource,
   ResourceMap,
   RoomDetails,
+  RulesPreset,
   SetupMode,
   StartingPlayerMode,
   ServerMessage,
@@ -1495,6 +1496,20 @@ export function App() {
     }
   };
 
+  const handleRoomRulesPresetChange = async (rulesPreset: RulesPreset) => {
+    if (!room || room.gameConfig.rulesPreset === rulesPreset) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { rulesPreset });
+      setRoom(nextRoom);
+      await loadMyRooms();
+    } catch (settingsError) {
+      pushToast("error", "Regelprofil konnte nicht geändert werden", (settingsError as Error).message);
+    }
+  };
+
   const handleRoomBoardSizeChange = async (boardSize: BoardSize) => {
     if (!room || room.gameConfig.boardSize === boardSize) {
       return;
@@ -2142,6 +2157,7 @@ export function App() {
               onLeave={handleLeaveRoom}
               onReady={handleReadyToggle}
               onSetupModeChange={handleRoomSetupModeChange}
+              onRulesPresetChange={handleRoomRulesPresetChange}
               onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
               onStartingSeatChange={handleRoomStartingSeatChange}
               onStart={handleStartRoom}

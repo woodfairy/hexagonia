@@ -1,5 +1,5 @@
 import type { MatchEvent } from "./events.js";
-import type { GameConfig } from "./gameConfig.js";
+import type { GameConfig, RoomGameConfig } from "./gameConfig.js";
 
 export const RESOURCES = ["brick", "lumber", "ore", "grain", "wool"] as const;
 export const PLAYER_COLORS = ["red", "blue", "white", "orange", "green", "purple"] as const;
@@ -204,7 +204,7 @@ export interface RoomSummary {
   id: string;
   code: string;
   ownerUserId: string;
-  gameConfig: GameConfig;
+  gameConfig: RoomGameConfig;
   status: "open" | "in_match" | "closed";
   matchId: string | null;
   createdAt: string;

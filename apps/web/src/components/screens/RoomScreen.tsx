@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import type {
+import {
   AuthUser,
   BoardSize,
   RoomDetails,
+  RulesPreset,
   SetupMode,
   StartingPlayerMode,
-  TurnRule
+  TurnRule,
+  resolveRoomGameConfig
 } from "@hexagonia/shared";
 import { PlayerColorBadge } from "../shared/PlayerIdentity";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
@@ -22,6 +24,7 @@ export function RoomScreen(props: {
   onJoinRoom: () => void;
   onBoardSizeChange: (boardSize: BoardSize) => void;
   onKickUser: (userId: string) => void;
+  onRulesPresetChange: (rulesPreset: RulesPreset) => void;
   onSetupModeChange: (setupMode: SetupMode) => void;
   onStartingPlayerModeChange: (startingPlayerMode: StartingPlayerMode) => void;
   onStartingSeatChange: (startingSeatIndex: number) => void;
@@ -51,23 +54,34 @@ export function RoomScreen(props: {
     readyPlayers === seatedPlayers.length;
   const canEditSettings = isOwner && props.room.status === "open";
   const extendedBoardRequired = seatedPlayers.length >= 5;
+  const effectiveGameConfig = resolveRoomGameConfig(props.room.gameConfig, props.room.seats);
+  const usesCustomRules = props.room.gameConfig.rulesPreset === "custom";
   const beginnerAvailable = props.room.gameConfig.boardSize === "standard";
-  const startingSeat =
+  const effectiveStartingSeat =
+    props.room.seats.find(
+      (seat) => seat.index === effectiveGameConfig.startingPlayer.seatIndex && seat.userId
+    ) ?? null;
+  const customStartingSeat =
     props.room.seats.find(
       (seat) => seat.index === props.room.gameConfig.startingPlayer.seatIndex && seat.userId
     ) ?? null;
-  const usesRolledStart = props.room.gameConfig.startingPlayer.mode === "rolled";
+  const usesRolledStart = effectiveGameConfig.startingPlayer.mode === "rolled";
+  const usesCustomRolledStart = props.room.gameConfig.startingPlayer.mode === "rolled";
   const [showGameSettings, setShowGameSettings] = useState(isOwner);
   const setupModeLabel =
-    props.room.gameConfig.setupMode === "beginner" ? "Anfaengeraufbau" : "Variabler Aufbau";
+    effectiveGameConfig.setupMode === "beginner" ? "Anfängeraufbau" : "Variabler Aufbau";
   const startingPlayerLabel = usesRolledStart
-    ? "Start per Wuerfel"
-    : startingSeat?.username ?? `Start: Platz ${props.room.gameConfig.startingPlayer.seatIndex + 1}`;
-  const settingsSummary = [
-    renderBoardSizeLabel(props.room.gameConfig.boardSize),
+    ? "Start per Würfel"
+    : effectiveStartingSeat?.username ?? `Start: Platz ${effectiveGameConfig.startingPlayer.seatIndex + 1}`;
+  const effectiveRulesSummary = [
+    renderBoardSizeLabel(effectiveGameConfig.boardSize),
     setupModeLabel,
-    renderTurnRuleLabel(props.room.gameConfig.turnRule),
+    renderTurnRuleLabel(effectiveGameConfig.turnRule),
     startingPlayerLabel
+  ].join(" / ");
+  const settingsSummary = [
+    usesCustomRules ? "Benutzerdefiniert" : "Standardregeln",
+    effectiveRulesSummary
   ].join(" / ");
   const settingsExpanded = isOwner || showGameSettings;
 
@@ -108,11 +122,11 @@ export function RoomScreen(props: {
               {readyPlayers} bereit
             </span>
             <span className="status-pill">
-              {props.room.gameConfig.boardSize === "extended" ? "Erweitertes Brett" : "Standardbrett"}
+              {effectiveGameConfig.boardSize === "extended" ? "Erweitertes Brett" : "Standardbrett"}
             </span>
             <span className="status-pill">
               {usesRolledStart
-                ? "Start wird ausgewuerfelt"
+                ? "Start wird ausgewürfelt"
                 : isOwner
                   ? "Du legst Start fest"
                   : "Host legt Start fest"}
@@ -127,7 +141,7 @@ export function RoomScreen(props: {
               const canKick = isOwner && props.room.status === "open" && occupied && !mine && !!seat.userId;
               const isStartingSeat =
                 !usesRolledStart &&
-                props.room.gameConfig.startingPlayer.seatIndex === seat.index &&
+                effectiveGameConfig.startingPlayer.seatIndex === seat.index &&
                 occupied;
               const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Frei";
               const seatTitle = occupied ? seat.username ?? `Spieler ${seat.index + 1}` : "Freier Platz";
@@ -249,8 +263,8 @@ export function RoomScreen(props: {
               </button>
             </div>
             <p className="muted-copy room-action-hint">
-              Startet mit 3 bis 6 sitzenden Spielern, sobald alle bereit sind. Brett,
-              Aufbau und Zugregel gelten fuer die naechste Partie.
+              Startet mit 3 bis 6 sitzenden Spielern, sobald alle bereit sind. Regeln und
+              Startspieler gelten für die nächste Partie.
             </p>
             {!isOwner ? (
               <button
@@ -274,152 +288,194 @@ export function RoomScreen(props: {
               <>
                 <div className="room-settings-block">
                   <div className="room-setting-head">
-                    <span className="eyebrow">Spielfeldgroesse</span>
-                    <strong>{props.room.gameConfig.boardSize === "extended" ? "Erweitert" : "Standard"}</strong>
+                    <span className="eyebrow">Regeln</span>
+                    <strong>{usesCustomRules ? "Benutzerdefiniert" : "Standard"}</strong>
                   </div>
-                  <div className="mini-segmented room-setup-mode">
+                  <div className="mini-segmented room-starting-mode">
                     <button
                       type="button"
-                      className={props.room.gameConfig.boardSize === "standard" ? "is-active" : ""}
-                      disabled={!canEditSettings || extendedBoardRequired}
-                      onClick={() => props.onBoardSizeChange("standard")}
+                      className={!usesCustomRules ? "is-active" : ""}
+                      disabled={!canEditSettings}
+                      onClick={() => props.onRulesPresetChange("standard")}
                     >
                       Standard
                     </button>
                     <button
                       type="button"
-                      className={props.room.gameConfig.boardSize === "extended" ? "is-active" : ""}
+                      className={usesCustomRules ? "is-active" : ""}
                       disabled={!canEditSettings}
-                      onClick={() => props.onBoardSizeChange("extended")}
+                      onClick={() => props.onRulesPresetChange("custom")}
                     >
-                      Erweitert
+                      Benutzerdefiniert
                     </button>
                   </div>
                   <p className="muted-copy room-action-hint">
-                    {extendedBoardRequired
-                      ? "Mit 5 oder 6 Spielern ist das erweiterte Brett verpflichtend."
-                      : "Bei 3 oder 4 Spielern kann der Host zwischen Standard und erweitertem Brett wechseln."}
+                    {usesCustomRules
+                      ? "Benutzerdefinierte Regeln blenden alle Detail-Einstellungen für Brett, Aufbau, Zugregel und Startspieler auf."
+                      : `Es gelten immer die aktuellsten offiziellen Regeln: ${effectiveRulesSummary}.`}
                   </p>
                 </div>
 
-                <div className="mini-segmented room-setup-mode">
-                  <button
-                    type="button"
-                    className={props.room.gameConfig.setupMode === "official_variable" ? "is-active" : ""}
-                    disabled={!canEditSettings}
-                    onClick={() => props.onSetupModeChange("official_variable")}
-                  >
-                    Variabler Aufbau
-                  </button>
-                  <button
-                    type="button"
-                    className={props.room.gameConfig.setupMode === "beginner" ? "is-active" : ""}
-                    disabled={!canEditSettings || !beginnerAvailable}
-                    onClick={() => props.onSetupModeChange("beginner")}
-                  >
-                    Anfaengeraufbau
-                  </button>
-                </div>
-
-                {props.room.gameConfig.setupMode === "beginner" && seatedPlayers.length === 3 ? (
-                  <p className="muted-copy room-action-hint">
-                    Im Anfaengeraufbau mit 3 Spielern werden die Match-Farben auf die offiziellen
-                    Einsteigerfarben umgelegt.
-                  </p>
-                ) : null}
-
-                {!beginnerAvailable ? (
-                  <p className="muted-copy room-action-hint">
-                    Der Anfaengeraufbau ist nur auf dem Standardbrett verfuegbar.
-                  </p>
-                ) : null}
-
-                <div className="room-settings-block">
-                  <div className="room-setting-head">
-                    <span className="eyebrow">Zugregel</span>
-                    <strong>{renderTurnRuleLabel(props.room.gameConfig.turnRule)}</strong>
-                  </div>
-                  <div className="mini-segmented room-starting-mode">
-                    <button
-                      type="button"
-                      className={props.room.gameConfig.turnRule === "standard" ? "is-active" : ""}
-                      disabled={!canEditSettings}
-                      onClick={() => props.onTurnRuleChange("standard")}
-                    >
-                      Standard
-                    </button>
-                    <button
-                      type="button"
-                      className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
-                      disabled={!canEditSettings}
-                      onClick={() => props.onTurnRuleChange("paired_players")}
-                    >
-                      Paired Players
-                    </button>
-                    <button
-                      type="button"
-                      className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
-                      disabled={!canEditSettings}
-                      onClick={() => props.onTurnRuleChange("special_build_phase")}
-                    >
-                      Sonderbauphase
-                    </button>
-                  </div>
-                </div>
-
-                <div className="room-settings-block">
-                  <div className="room-setting-head">
-                    <span className="eyebrow">Startspieler</span>
-                    <strong>
-                      {usesRolledStart
-                        ? "Wird ausgewuerfelt"
-                        : startingSeat?.username ??
-                          `Platz ${props.room.gameConfig.startingPlayer.seatIndex + 1}`}
-                    </strong>
-                  </div>
-                  <div className="mini-segmented room-starting-mode">
-                    <button
-                      type="button"
-                      className={usesRolledStart ? "is-active" : ""}
-                      disabled={!canEditSettings}
-                      onClick={() => props.onStartingPlayerModeChange("rolled")}
-                    >
-                      Auswuerfeln
-                    </button>
-                    <button
-                      type="button"
-                      className={!usesRolledStart ? "is-active" : ""}
-                      disabled={!canEditSettings}
-                      onClick={() => props.onStartingPlayerModeChange("manual")}
-                    >
-                      Manuell
-                    </button>
-                  </div>
-                  <p className="muted-copy room-action-hint">
-                    {usesRolledStart
-                      ? "Vor Spielstart wuerfeln alle sitzenden Spieler. Nur der erste Spieler wird so bestimmt."
-                      : "Nur besetzte Plaetze koennen als erster Spieler gewaehlt werden."}
-                  </p>
-                  {!usesRolledStart ? (
-                    <div className="mini-segmented room-starting-seat">
-                      {seatedPlayers.map((seat) => (
+                {usesCustomRules ? (
+                  <>
+                    <div className="room-settings-block">
+                      <div className="room-setting-head">
+                        <span className="eyebrow">Spielfeldgröße</span>
+                        <strong>{props.room.gameConfig.boardSize === "extended" ? "Erweitert" : "Standard"}</strong>
+                      </div>
+                      <div className="mini-segmented room-setup-mode">
                         <button
-                          key={seat.index}
                           type="button"
-                          className={
-                            props.room.gameConfig.startingPlayer.seatIndex === seat.index
-                              ? "is-active"
-                              : ""
-                          }
-                          disabled={!canEditSettings}
-                          onClick={() => props.onStartingSeatChange(seat.index)}
+                          className={props.room.gameConfig.boardSize === "standard" ? "is-active" : ""}
+                          disabled={!canEditSettings || extendedBoardRequired}
+                          onClick={() => props.onBoardSizeChange("standard")}
                         >
-                          {seat.username ?? `Platz ${seat.index + 1}`}
+                          Standard
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          className={props.room.gameConfig.boardSize === "extended" ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onBoardSizeChange("extended")}
+                        >
+                          Erweitert
+                        </button>
+                      </div>
+                      <p className="muted-copy room-action-hint">
+                        {extendedBoardRequired
+                          ? "Mit 5 oder 6 Spielern ist das erweiterte Brett verpflichtend."
+                          : "Bei 3 oder 4 Spielern kann der Host zwischen Standard und erweitertem Brett wechseln."}
+                      </p>
                     </div>
-                  ) : null}
-                </div>
+
+                    <div className="room-settings-block">
+                      <div className="room-setting-head">
+                        <span className="eyebrow">Aufbau</span>
+                        <strong>
+                          {props.room.gameConfig.setupMode === "beginner"
+                            ? "Anfängeraufbau"
+                            : "Variabler Aufbau"}
+                        </strong>
+                      </div>
+                      <div className="mini-segmented room-setup-mode">
+                        <button
+                          type="button"
+                          className={props.room.gameConfig.setupMode === "official_variable" ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onSetupModeChange("official_variable")}
+                        >
+                          Variabler Aufbau
+                        </button>
+                        <button
+                          type="button"
+                          className={props.room.gameConfig.setupMode === "beginner" ? "is-active" : ""}
+                          disabled={!canEditSettings || !beginnerAvailable}
+                          onClick={() => props.onSetupModeChange("beginner")}
+                        >
+                          Anfängeraufbau
+                        </button>
+                      </div>
+                      {props.room.gameConfig.setupMode === "beginner" && seatedPlayers.length === 3 ? (
+                        <p className="muted-copy room-action-hint">
+                          Im Anfängeraufbau mit 3 Spielern werden die Match-Farben auf die offiziellen
+                          Einsteigerfarben umgelegt.
+                        </p>
+                      ) : null}
+                      {!beginnerAvailable ? (
+                        <p className="muted-copy room-action-hint">
+                          Der Anfängeraufbau ist nur auf dem Standardbrett verfügbar.
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="room-settings-block">
+                      <div className="room-setting-head">
+                        <span className="eyebrow">Zugregel</span>
+                        <strong>{renderTurnRuleLabel(props.room.gameConfig.turnRule)}</strong>
+                      </div>
+                      <div className="mini-segmented room-starting-mode">
+                        <button
+                          type="button"
+                          className={props.room.gameConfig.turnRule === "standard" ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onTurnRuleChange("standard")}
+                        >
+                          Standard
+                        </button>
+                        <button
+                          type="button"
+                          className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onTurnRuleChange("paired_players")}
+                        >
+                          Paired Players
+                        </button>
+                        <button
+                          type="button"
+                          className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onTurnRuleChange("special_build_phase")}
+                        >
+                          Sonderbauphase
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="room-settings-block">
+                      <div className="room-setting-head">
+                        <span className="eyebrow">Startspieler</span>
+                        <strong>
+                          {usesCustomRolledStart
+                            ? "Wird ausgewürfelt"
+                            : customStartingSeat?.username ??
+                              `Platz ${props.room.gameConfig.startingPlayer.seatIndex + 1}`}
+                        </strong>
+                      </div>
+                      <div className="mini-segmented room-starting-mode">
+                        <button
+                          type="button"
+                          className={usesCustomRolledStart ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onStartingPlayerModeChange("rolled")}
+                        >
+                          Auswürfeln
+                        </button>
+                        <button
+                          type="button"
+                          className={!usesCustomRolledStart ? "is-active" : ""}
+                          disabled={!canEditSettings}
+                          onClick={() => props.onStartingPlayerModeChange("manual")}
+                        >
+                          Manuell
+                        </button>
+                      </div>
+                      <p className="muted-copy room-action-hint">
+                        {usesCustomRolledStart
+                          ? "Vor Spielstart würfeln alle sitzenden Spieler. Nur der erste Spieler wird so bestimmt."
+                          : "Nur besetzte Plätze können als erster Spieler gewählt werden."}
+                      </p>
+                      {!usesCustomRolledStart ? (
+                        <div className="mini-segmented room-starting-seat">
+                          {seatedPlayers.map((seat) => (
+                            <button
+                              key={seat.index}
+                              type="button"
+                              className={
+                                props.room.gameConfig.startingPlayer.seatIndex === seat.index
+                                  ? "is-active"
+                                  : ""
+                              }
+                              disabled={!canEditSettings}
+                              onClick={() => props.onStartingSeatChange(seat.index)}
+                            >
+                              {seat.username ?? `Platz ${seat.index + 1}`}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
               </>
             ) : null}
 
