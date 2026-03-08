@@ -8,8 +8,12 @@ RUN corepack enable
 
 FROM base AS deps
 COPY json/ ./
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --frozen-lockfile
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --offline --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    if [ -f pnpm-lock.yaml ]; then \
+      pnpm fetch --frozen-lockfile && pnpm install --offline --frozen-lockfile; \
+    else \
+      pnpm install --no-frozen-lockfile; \
+    fi
 
 FROM deps AS builder
 COPY full/ ./

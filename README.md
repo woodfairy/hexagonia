@@ -18,8 +18,8 @@ Monorepo for a browser-based, real-time, Catan-like strategy game with:
 
 ## CI
 
-- Commit a real `pnpm-lock.yaml`; the GitHub Actions pipeline uses frozen installs and cache keys derived from it.
-- Set the optional repository variable `CI_ARM64_RUNNER` to a native arm64 runner label if you want to avoid the QEMU fallback for `linux/arm64` image builds.
+- If `pnpm-lock.yaml` is missing, GitHub Actions generates it, uses it for the current run, and commits it back automatically on non-PR branch runs.
+- Set the optional repository variable `CI_ARM64_RUNNER` to a native arm64 runner label if you want the single `linux/arm64` packaging job to run natively; otherwise it uses a QEMU fallback on `ubuntu-24.04`.
 
 ## Docker
 
