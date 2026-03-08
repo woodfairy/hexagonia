@@ -589,7 +589,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     const body = roomSettingsSchema.parse(request.body ?? {});
-    const nextGameConfig = mergeGameConfig(room.gameConfig, body);
+    const nextGameConfig = mergeGameConfig(room.gameConfig, toGameConfigPatch(body));
     if (body.startingPlayer?.seatIndex !== undefined) {
       if (nextGameConfig.startingPlayer.mode !== "manual") {
         return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
@@ -965,6 +965,27 @@ function resolveManualStartingSeatIndex(room: RoomDetails): number {
   }
 
   return seat.index;
+}
+
+function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>) {
+  return {
+    ...(body.setupMode !== undefined ? { setupMode: body.setupMode } : {}),
+    ...(body.startingPlayer
+      ? {
+          startingPlayer: {
+            ...(body.startingPlayer.mode !== undefined
+              ? { mode: body.startingPlayer.mode }
+              : {}),
+            ...(body.startingPlayer.seatIndex !== undefined
+              ? { seatIndex: body.startingPlayer.seatIndex }
+              : {})
+          }
+        }
+      : {}),
+    ...(body.enabledExpansions !== undefined
+      ? { enabledExpansions: body.enabledExpansions }
+      : {})
+  };
 }
 
 
