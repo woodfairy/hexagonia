@@ -1106,6 +1106,8 @@ select {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding-inline-end: 0.35rem;
 }
 
 .room-main-grid {
@@ -1380,12 +1382,6 @@ select {
 }
 
 .room-control-card {
-  display: grid;
-  gap: var(--gap-stack);
-  align-content: start;
-}
-
-.room-action-card {
   display: grid;
   gap: var(--gap-stack);
   align-content: start;

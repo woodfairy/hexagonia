@@ -189,9 +189,9 @@ export function RoomScreen(props: {
         </article>
 
         <div className="room-side-stack">
-          <article className="surface room-action-card">
-            <div className="eyebrow">Aktionen</div>
-            <h2>Spielerstatus</h2>
+          <article className="surface room-control-card">
+            <div className="eyebrow">Steuerung</div>
+            <h2>Startklar machen</h2>
             <div className="room-action-stack">
               {!currentSeat ? (
                 canJoinRoom ? (
@@ -259,11 +259,6 @@ export function RoomScreen(props: {
                 />
               </button>
             </div>
-          </article>
-
-          <article className="surface room-control-card">
-            <div className="eyebrow">Steuerung</div>
-            <h2>Startklar machen</h2>
             <p className="muted-copy room-action-hint">
               Startet mit 3 bis 6 sitzenden Spielern, sobald alle bereit sind. Brett,
               Aufbau und Zugregel gelten fuer die naechste Partie.
