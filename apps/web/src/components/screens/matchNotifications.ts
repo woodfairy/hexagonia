@@ -764,7 +764,7 @@ function createTurnEndedNotification(match: MatchSnapshot, event: MatchEvent, vi
       detail: "Die Kamera zeigt wieder das gesamte Spielfeld.",
       vertexIds: [],
       edgeIds: [],
-      tileIds: match.board.tiles.map((tile) => tile.id),
+      tileIds: [],
       scale: "wide",
       zoomPreset: "distribution"
     },
