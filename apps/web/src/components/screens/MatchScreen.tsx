@@ -130,6 +130,13 @@ interface DiceDisplayState {
   actorName: string | null;
 }
 
+interface BuildActionTooltipState {
+  title: string;
+  lines: string[];
+  left: number;
+  top: number;
+}
+
 const DICE_EXPAND_MS = 150;
 const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
@@ -236,6 +243,7 @@ export function MatchScreen(props: {
 
     return window.innerWidth > 1023;
   });
+  const [buildActionTooltip, setBuildActionTooltip] = useState<BuildActionTooltipState | null>(null);
   const latestDiceEvent = useMemo(() => getLatestDiceRollEvent(props.match), [props.match]);
   const [diceDisplay, setDiceDisplay] = useState<DiceDisplayState>(() => ({
     left: props.match.dice?.[0] ?? null,
@@ -311,8 +319,6 @@ export function MatchScreen(props: {
     : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
   const maritimeRatio =
     props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === props.maritimeForm.give)?.ratio ?? 4;
-  const maritimeRateOriginLabel = getMaritimeRateOriginLabel(props.match, props.match.you, props.maritimeForm.give, maritimeRatio);
-  const maritimeRatePillLabel = `${maritimeRatio}:1`;
   const tradeGiveTotal = totalResources(props.tradeForm.give);
   const tradeWantTotal = totalResources(props.tradeForm.want);
   const tradeGiveSummary = renderResourceMap(props.tradeForm.give) || "Noch nichts im Angebot";
@@ -569,6 +575,29 @@ export function MatchScreen(props: {
       setSheetState("half");
     }
   };
+  const openBuildActionTooltip = (
+    tooltip: { title: string; lines: string[] } | null,
+    element: HTMLElement
+  ) => {
+    if (!tooltip) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const estimatedWidth = Math.min(272, Math.max(200, rect.width));
+    const left = Math.min(
+      window.innerWidth - estimatedWidth / 2 - 12,
+      Math.max(estimatedWidth / 2 + 12, rect.left + rect.width / 2)
+    );
+
+    setBuildActionTooltip({
+      title: tooltip.title,
+      lines: tooltip.lines,
+      left,
+      top: rect.top - 10
+    });
+  };
+  const closeBuildActionTooltip = () => setBuildActionTooltip(null);
   const renderDevelopmentCardControls = (card: DevelopmentCardView): ReactNode => {
     if (!isCurrentPlayer) {
       return null;
@@ -907,6 +936,20 @@ export function MatchScreen(props: {
 
     window.localStorage.setItem(BOARD_HUD_STORAGE_KEY, boardHudOpen ? "open" : "closed");
   }, [boardHudOpen]);
+
+  useEffect(() => {
+    if (!buildActionTooltip) {
+      return;
+    }
+
+    const clearTooltip = () => setBuildActionTooltip(null);
+    window.addEventListener("scroll", clearTooltip, true);
+    window.addEventListener("resize", clearTooltip);
+    return () => {
+      window.removeEventListener("scroll", clearTooltip, true);
+      window.removeEventListener("resize", clearTooltip);
+    };
+  }, [buildActionTooltip]);
 
   useEffect(() => {
     return () => {
@@ -1297,7 +1340,7 @@ export function MatchScreen(props: {
         <section className="dock-section">
           <div className="action-status-card">
             <div className="action-status-head">
-              <span className="eyebrow">Jetzt möglich</span>
+              <span className="eyebrow">Nächster Schritt</span>
               <span className="action-status-meta">{renderMatchPlayerText(props.match, turnStatus.title)}</span>
             </div>
             <div className="action-status-copy">
@@ -1318,6 +1361,22 @@ export function MatchScreen(props: {
                 type="button"
                 className={`build-action-card ${action.active ? "is-active" : ""}`}
                 aria-disabled={action.disabled}
+                onMouseEnter={(event) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                }}
+                onMouseLeave={closeBuildActionTooltip}
+                onFocus={(event) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                }}
+                onBlur={closeBuildActionTooltip}
                 onClick={() => {
                   if (action.disabled) {
                     return;
@@ -1330,18 +1389,21 @@ export function MatchScreen(props: {
                   <strong>{action.label}</strong>
                   <span>{action.costLabel}</span>
                 </span>
-                <span className="build-action-note">{action.note}</span>
-                {action.tooltip ? (
-                  <span className="build-action-tooltip" role="tooltip">
-                    <strong>{action.tooltip.title}</strong>
-                    {action.tooltip.lines.map((line) => (
-                      <span key={line}>{line}</span>
-                    ))}
-                  </span>
-                ) : null}
               </button>
             ))}
           </div>
+          {buildActionTooltip ? (
+            <span
+              className="floating-build-action-tooltip"
+              role="tooltip"
+              style={{ left: buildActionTooltip.left, top: buildActionTooltip.top }}
+            >
+              <strong>{buildActionTooltip.title}</strong>
+              {buildActionTooltip.lines.map((line) => (
+                <span key={line}>{line}</span>
+              ))}
+            </span>
+          ) : null}
         </section>
         {developmentCards.length || pendingRoadBuilding ? (
           <section className="dock-section">
@@ -1621,10 +1683,6 @@ export function MatchScreen(props: {
                 <div className="trade-side-head">
                   <span className="eyebrow">Du gibst</span>
                   <strong>{maritimeRatio}x {renderResourceLabel(props.maritimeForm.give)}</strong>
-                  <div className="trade-rate-row">
-                    <span className="trade-rate-pill">{maritimeRatePillLabel}</span>
-                    <span className="trade-rate-copy">{maritimeRateOriginLabel}</span>
-                  </div>
                 </div>
                 <div className="trade-resource-grid-shell">
                   <TradeResourceCardGrid
@@ -3000,30 +3058,6 @@ function getPlayerPresenceState(player: MatchSnapshot["players"][number], now: n
     toneClass: "is-offline",
     indicatorClass: "is-offline"
   };
-}
-
-function getMaritimeRateOriginLabel(
-  match: MatchSnapshot,
-  playerId: string,
-  resource: Resource,
-  ratio: number
-): string {
-  const ownedPortTypes = new Set<PortType>();
-  for (const vertex of match.board.vertices) {
-    if (vertex.building?.ownerId === playerId && vertex.portType) {
-      ownedPortTypes.add(vertex.portType);
-    }
-  }
-
-  if (ratio === 2 && ownedPortTypes.has(resource)) {
-    return `${renderResourceLabel(resource)}-Hafen`;
-  }
-
-  if (ratio === 3 && ownedPortTypes.has("generic")) {
-    return "3:1-Hafen";
-  }
-
-  return "Bank";
 }
 
 function formatCountdown(ms: number): string {
