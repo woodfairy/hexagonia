@@ -1023,6 +1023,47 @@ describe("rules engine", () => {
     expect(resolved.players.find((entry) => entry.id === "p3")!.resources.brick).toBe(1);
     expect(resolved.tradeOffers).toHaveLength(0);
   });
+
+  it("allows trade offers where the proposer gives nothing", () => {
+    const state = createMatchState({
+      matchId: "match-trade-want-only",
+      roomId: "room-1",
+      seed: "trade-want-only-seed",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2"], ["Alice", "Bob"])
+    });
+
+    state.phase = "turn_action";
+    state.setupState = null;
+    state.turn = 3;
+    state.currentPlayerIndex = 0;
+
+    state.players.find((entry) => entry.id === "p2")!.resources.wool = 1;
+
+    const offered = applyAction(state, "p1", {
+      type: "create_trade_offer",
+      toPlayerId: "p2",
+      give: {
+        brick: 0,
+        lumber: 0,
+        ore: 0,
+        grain: 0,
+        wool: 0
+      },
+      want: {
+        brick: 0,
+        lumber: 0,
+        ore: 0,
+        grain: 0,
+        wool: 1
+      }
+    });
+
+    expect(offered.tradeOffers).toHaveLength(1);
+    expect(offered.tradeOffers[0]!.give).toEqual(createEmptyResourceMap());
+    expect(offered.tradeOffers[0]!.want.wool).toBe(1);
+  });
 });
 
 function findRandomStateForTotal(total: number): string {

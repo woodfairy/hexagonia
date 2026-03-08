@@ -683,7 +683,7 @@ function createTradeOfferedNotification(context: NotificationBuildContext, event
     label: "Handel",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "bietet einen Handel an", "bietest einen Handel an"),
     detail: trade
-      ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `gibt ${renderResourceMap(trade.give)} und möchte ${renderResourceMap(trade.want)} von ${targetForExchange}`, `gibst ${renderResourceMap(trade.give)} und möchtest ${renderResourceMap(trade.want)} von ${targetForExchange}`)}.`
+      ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `gibt ${renderResourceMap(trade.give) || "nichts"} und möchte ${renderResourceMap(trade.want) || "nichts"} von ${targetForExchange}`, `gibst ${renderResourceMap(trade.give) || "nichts"} und möchtest ${renderResourceMap(trade.want) || "nichts"} von ${targetForExchange}`)}.`
       : `Das Angebot richtet sich an ${targetForOffer}.`,
     badges: trade ? tradeSummaryBadges(match, viewerId, trade) : []
   });

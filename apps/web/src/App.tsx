@@ -2610,7 +2610,7 @@ function getMatchActionConfirmation(
         : "allen Mitspielern";
       return {
         title: "Handelsangebot senden?",
-        detail: `${renderResourceMap(action.give)} gegen ${renderResourceMap(action.want)} an ${targetName}.`,
+        detail: `${renderResourceMap(action.give) || "nichts"} gegen ${renderResourceMap(action.want) || "nichts"} an ${targetName}.`,
         confirmLabel: "Angebot senden"
       };
     }

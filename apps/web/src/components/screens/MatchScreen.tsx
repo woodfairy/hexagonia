@@ -380,7 +380,6 @@ export function MatchScreen(props: {
   ];
   const canSubmitTradeOffer =
     props.match.allowedMoves.canCreateTradeOffer &&
-    !isEmptyResourceMap(props.tradeForm.give) &&
     !isEmptyResourceMap(props.tradeForm.want) &&
     hasResources(props.selfPlayer?.resources ?? createEmptyResourceMap(), props.tradeForm.give);
   const canSubmitMaritimeTrade = (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
@@ -469,28 +468,85 @@ export function MatchScreen(props: {
     const visibleIndex = visibleTabs.findIndex((entry) => entry.id === tab);
     return visibleIndex === -1 ? MATCH_TAB_ORDER[tab] : visibleIndex;
   };
-  const getTabStripStyle = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number): CSSProperties => {
+  const getTabLayout = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number) => {
+    const normalizedColumns = Math.max(1, columns);
+    const gridColumns = normalizedColumns * 2;
+    const rows = Math.max(1, Math.ceil(tabs.length / normalizedColumns));
+    const remainder = tabs.length % normalizedColumns;
     const activeIndex = Math.max(
       0,
       tabs.findIndex((tab) => tab.id === activeTab)
     );
-    const normalizedColumns = Math.max(1, columns);
-    const rows = Math.max(1, Math.ceil(tabs.length / normalizedColumns));
-    const activeRow = Math.floor(activeIndex / normalizedColumns);
-    let activeColumn = activeIndex % normalizedColumns;
 
-    if (tabs.length % normalizedColumns === 1 && activeIndex === tabs.length - 1 && normalizedColumns > 1) {
-      activeColumn = Math.floor(normalizedColumns / 2);
-    }
+    const layout = tabs.map((tab, index) => {
+      const row = Math.floor(index / normalizedColumns);
+      const column = index % normalizedColumns;
+      const isLastRow = row === rows - 1;
+      const isTailRow = isLastRow && remainder > 0 && remainder < normalizedColumns;
+      let span = 2;
+      let start = column * 2 + 1;
+
+      if (isTailRow) {
+        const tailIndex = index - row * normalizedColumns;
+        if (remainder === 1) {
+          span = Math.max(2, gridColumns - 2);
+          start = Math.floor((gridColumns - span) / 2) + 1;
+        } else if (remainder === 2) {
+          span = Math.floor(gridColumns / 2);
+          start = tailIndex === 0 ? 1 : gridColumns - span + 1;
+        }
+      }
+
+      return {
+        id: tab.id,
+        row,
+        start,
+        span
+      };
+    });
+
+    const activeLayout = layout[Math.min(activeIndex, layout.length - 1)] ?? { row: 0, start: 1, span: 2 };
+
+    return {
+      rows,
+      gridColumns,
+      active: activeLayout,
+      items: layout
+    };
+  };
+  const getTabStripStyle = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number): CSSProperties => {
+    const normalizedColumns = Math.max(1, columns);
+    const tabLayout = getTabLayout(tabs, normalizedColumns);
 
     return {
       "--tab-count": `${tabs.length}`,
       "--tab-columns": `${normalizedColumns}`,
-      "--tab-rows": `${rows}`,
-      "--tab-active-index": `${activeIndex}`,
-      "--tab-active-row": `${activeRow}`,
-      "--tab-active-column": `${activeColumn}`
+      "--tab-grid-columns": `${tabLayout.gridColumns}`,
+      "--tab-rows": `${tabLayout.rows}`,
+      "--tab-active-index": `${Math.max(
+        0,
+        tabs.findIndex((tab) => tab.id === activeTab)
+      )}`,
+      "--tab-active-row": `${tabLayout.active.row}`,
+      "--tab-active-grid-start": `${tabLayout.active.start}`,
+      "--tab-active-grid-span": `${tabLayout.active.span}`
     } as CSSProperties;
+  };
+  const getTabButtonStyle = (
+    tabs: ReadonlyArray<{ id: MatchPanelTab }>,
+    tabId: MatchPanelTab,
+    columns: number
+  ): CSSProperties => {
+    const tabLayout = getTabLayout(tabs, columns);
+    const layout = tabLayout.items.find((item) => item.id === tabId);
+    if (!layout) {
+      return {};
+    }
+
+    return {
+      gridColumn: `${layout.start} / span ${layout.span}`,
+      gridRow: `${layout.row + 1}`
+    };
   };
   const changeActiveTab = (nextTab: MatchPanelTab) => {
     if (nextTab === activeTab) {
@@ -1239,13 +1295,15 @@ export function MatchScreen(props: {
     actions: (
       <div className="panel-frame actions-frame">
         <section className="dock-section">
-          <div className="dock-section-head">
-            <h3>Jetzt möglich</h3>
-            <span>{renderMatchPlayerText(props.match, turnStatus.title)}</span>
-          </div>
-          <div className="action-placeholder">
-            <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
-            <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
+          <div className="action-status-card">
+            <div className="action-status-head">
+              <span className="eyebrow">Jetzt möglich</span>
+              <span className="action-status-meta">{renderMatchPlayerText(props.match, turnStatus.title)}</span>
+            </div>
+            <div className="action-status-copy">
+              <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
+              <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
+            </div>
             {turnStatus.callout ? <span className="status-pill is-warning">{turnStatus.callout}</span> : null}
           </div>
         </section>
@@ -1308,10 +1366,27 @@ export function MatchScreen(props: {
             <h3>Entwicklungskarten</h3>
             <span>{developmentCards.length} Karten</span>
           </div>
-          <div className="status-strip development-summary-pills development-summary-pills-hand">
-            <span className="status-pill">Öffentlich {props.selfPlayer?.publicVictoryPoints ?? 0}</span>
-            <span className="status-pill">Geheim {hiddenVictoryPoints}</span>
-            <span className="status-pill">Gesamt {totalVictoryPoints}</span>
+          <div className="development-hand-summary">
+            <div className="development-hand-summary-head">
+              <span className="eyebrow">Siegpunkte</span>
+              <span className="development-hand-summary-meta">
+                Entwicklungskarten auf der Hand: {developmentCards.length}
+              </span>
+            </div>
+            <div className="development-hand-summary-grid">
+              <article className="development-hand-summary-card">
+                <span>Öffentlich sichtbar</span>
+                <strong>{props.selfPlayer?.publicVictoryPoints ?? 0}</strong>
+              </article>
+              <article className="development-hand-summary-card">
+                <span>Geheim aus Karten</span>
+                <strong>{hiddenVictoryPoints}</strong>
+              </article>
+              <article className="development-hand-summary-card is-total">
+                <span>Gesamt</span>
+                <strong>{totalVictoryPoints}</strong>
+              </article>
+            </div>
           </div>
           <div className="scroll-list card-list">
             {pendingRoadBuildingCard}
@@ -1371,7 +1446,6 @@ export function MatchScreen(props: {
                   <div className="trade-side-head">
                     <span className="eyebrow">Du gibst</span>
                     <strong>{tradeGiveSummary}</strong>
-                    <span>Stelle dein Angebot aus beliebigen Rohstoffen deiner Hand zusammen.</span>
                   </div>
                   <div className="trade-resource-grid-shell">
                     <TradeResourceCardGrid
@@ -1438,7 +1512,6 @@ export function MatchScreen(props: {
                   <div className="trade-side-head">
                     <span className="eyebrow">Du erhältst</span>
                     <strong>{tradeWantSummary}</strong>
-                    <span>Fordere eine beliebige Kombination von Rohstoffen an.</span>
                   </div>
                   <div className="trade-resource-grid-shell">
                     <TradeResourceCardGrid
@@ -1576,7 +1649,7 @@ export function MatchScreen(props: {
                   min={maritimeRatio}
                   max={maritimeRatio}
                   fixed
-                  helper={`${maritimeRatio}:1 mit deiner aktuell besten Hafenrate.`}
+                  helper={`${maritimeRatio}:1 Hafenrate`}
                   onChange={() => undefined}
                 />
               </article>
@@ -1587,7 +1660,6 @@ export function MatchScreen(props: {
                 <div className="trade-side-head">
                   <span className="eyebrow">Du erhältst</span>
                   <strong>1x {renderResourceLabel(props.maritimeForm.receive)}</strong>
-                  <span>Wähle den Zielrohstoff für den Seehandel.</span>
                 </div>
                 <div className="trade-resource-grid-shell">
                   <TradeResourceCardGrid
@@ -1607,7 +1679,7 @@ export function MatchScreen(props: {
                   min={1}
                   max={1}
                   fixed
-                  helper="Du erhältst im Seehandel immer genau 1 Karte."
+                  helper="Immer 1 Karte"
                   onChange={() => undefined}
                 />
               </article>
@@ -1618,7 +1690,7 @@ export function MatchScreen(props: {
                   <strong>Bank / Hafen</strong>
                 </div>
                 <div className="trade-target-placeholder-copy">
-                  Kein Zielspieler nötig. Du tauschst direkt mit dem Hafen.
+                  Direkttausch
                 </div>
               </article>
 
@@ -1740,14 +1812,7 @@ export function MatchScreen(props: {
                 {activePlayer ? (
                   <PlayerColorBadge
                     color={activePlayer.color}
-                    label={
-                      <>
-                        Am Zug:{" "}
-                        <PlayerMention color={activePlayer.color}>
-                          {activePlayer.id === props.match.you ? "Du" : activePlayer.username}
-                        </PlayerMention>
-                      </>
-                    }
+                    label={`Am Zug · ${activePlayer.id === props.match.you ? "Du" : activePlayer.username}`}
                     compact
                   />
                 ) : (
@@ -1802,13 +1867,7 @@ export function MatchScreen(props: {
                     <div className="board-hud-row">
                       <PlayerColorBadge
                         color={props.selfPlayer.color}
-                        label={
-                          <>
-                            <PlayerMention color={props.selfPlayer.color}>Du</PlayerMention>:{" "}
-                            <PlayerMention color={props.selfPlayer.color}>{props.selfPlayer.username}</PlayerMention> -{" "}
-                            {renderPlayerColorLabel(props.selfPlayer.color)}
-                          </>
-                        }
+                        label={`Du · ${props.selfPlayer.username} · ${renderPlayerColorLabel(props.selfPlayer.color)}`}
                       />
                     </div>
                   ) : null}
@@ -1936,6 +1995,7 @@ export function MatchScreen(props: {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab.id}
+                style={getTabButtonStyle(MATCH_TABS, tab.id, 3)}
                 className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                 onClick={() => changeActiveTab(tab.id)}
               >
@@ -1980,6 +2040,7 @@ export function MatchScreen(props: {
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab.id}
+                  style={getTabButtonStyle(visibleTabs, tab.id, visibleTabs.length > 4 ? 3 : 2)}
                   className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                   onClick={() => changeActiveTab(tab.id)}
                 >

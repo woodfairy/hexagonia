@@ -940,8 +940,8 @@ function handleCreateTradeOffer(
   want: ResourceMap
 ): void {
   ensurePhase(state.phase === "turn_action");
-  if (isEmptyResourceMap(give) || isEmptyResourceMap(want)) {
-    throw new GameRuleError("Ein Handel muss Geben und Nehmen enthalten.");
+  if (isEmptyResourceMap(want)) {
+    throw new GameRuleError("Ein Handel muss mindestens eine gewünschte Ressource enthalten.");
   }
 
   const player = getPlayer(state, playerId);
