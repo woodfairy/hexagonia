@@ -1410,11 +1410,6 @@ export function MatchScreen(props: {
                   action.onClick();
                 }}
               >
-                <span
-                  className={`build-action-state ${action.active ? "is-active" : action.disabled ? "is-disabled" : "is-ready"}`}
-                >
-                  {action.active ? "Aktiv" : action.disabled ? "Gesperrt" : "Bereit"}
-                </span>
                 <span className="build-action-head">
                   <strong>{action.label}</strong>
                   <span>{action.costLabel}</span>
