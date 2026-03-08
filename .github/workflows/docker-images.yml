@@ -12,25 +12,525 @@ concurrency:
   group: docker-images-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  build:
-    name: Build ${{ matrix.image.name }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        image:
-          - name: server
-            dockerfile: apps/server/Dockerfile
-          - name: web
-            dockerfile: apps/web/Dockerfile
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.0.0"
+  TURBO_TELEMETRY_DISABLED: "1"
+  FORCE_COLOR: "1"
 
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      web: ${{ steps.detect.outputs.web }}
+      server: ${{ steps.detect.outputs.server }}
+      both: ${{ steps.detect.outputs.both }}
+      infra: ${{ steps.detect.outputs.infra }}
+      docs_only: ${{ steps.detect.outputs.docs_only }}
+      targets: ${{ steps.detect.outputs.targets }}
+    steps:
+      - name: Detect affected images
+        id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            let files = [];
+
+            if (context.eventName === "workflow_dispatch") {
+              files = ["workflow_dispatch"];
+            } else if (context.eventName === "pull_request") {
+              files = await github.paginate(
+                github.rest.pulls.listFiles,
+                {
+                  owner,
+                  repo,
+                  pull_number: context.payload.pull_request.number,
+                  per_page: 100
+                },
+                (response) => response.data.map((file) => file.filename)
+              );
+            } else if (context.eventName === "push") {
+              const base = context.payload.before;
+              if (!base || /^0+$/.test(base)) {
+                files = ["__full__"];
+              } else {
+                const comparison = await github.rest.repos.compareCommits({
+                  owner,
+                  repo,
+                  base,
+                  head: context.sha
+                });
+                files = (comparison.data.files ?? []).map((file) => file.filename);
+              }
+            } else {
+              files = ["__full__"];
+            }
+
+            const isDoc = (file) =>
+              file === "README.md" ||
+              file.startsWith("docs/") ||
+              file.endsWith(".md");
+
+            const hitsBoth = (file) =>
+              file === "__full__" ||
+              file === "workflow_dispatch" ||
+              file === ".dockerignore" ||
+              file === "docker-bake.hcl" ||
+              file === "package.json" ||
+              file === "pnpm-lock.yaml" ||
+              file === "pnpm-workspace.yaml" ||
+              file === "tsconfig.json" ||
+              file === "tsconfig.base.json" ||
+              file === "turbo.json" ||
+              file.startsWith(".github/workflows/") ||
+              file.startsWith("packages/shared/") ||
+              file.startsWith("packages/rules/") ||
+              file === "apps/server/Dockerfile" ||
+              file === "apps/web/Dockerfile";
+
+            const hitsWeb = (file) =>
+              file.startsWith("apps/web/") ||
+              file.startsWith("assets/");
+
+            const hitsServer = (file) =>
+              file.startsWith("apps/server/");
+
+            let docsOnly = files.length > 0 && files.every((file) => isDoc(file));
+            let infra = false;
+            let web = false;
+            let server = false;
+
+            if (files.length === 0) {
+              docsOnly = false;
+              infra = true;
+              web = true;
+              server = true;
+            }
+
+            for (const file of files) {
+              if (isDoc(file)) {
+                continue;
+              }
+
+              if (hitsBoth(file)) {
+                infra = true;
+                web = true;
+                server = true;
+                continue;
+              }
+
+              if (hitsWeb(file)) {
+                web = true;
+                continue;
+              }
+
+              if (hitsServer(file)) {
+                server = true;
+                continue;
+              }
+
+              infra = true;
+              web = true;
+              server = true;
+            }
+
+            const both = web && server;
+            const targets = both ? "web,server" : web ? "web" : server ? "server" : "";
+
+            core.setOutput("web", String(web));
+            core.setOutput("server", String(server));
+            core.setOutput("both", String(both));
+            core.setOutput("infra", String(infra));
+            core.setOutput("docs_only", String(docsOnly));
+            core.setOutput("targets", targets);
+
+  verify:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Resolve pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Cache turbo and TypeScript state
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            .cache/tsc
+          key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('pnpm-lock.yaml', 'package.json', 'apps/**/package.json', 'packages/**/package.json', 'turbo.json', 'tsconfig.json', 'tsconfig.base.json') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-
+
+      - name: Require committed pnpm lockfile
+        shell: bash
+        run: |
+          if [[ ! -f pnpm-lock.yaml ]]; then
+            echo "pnpm-lock.yaml is required for the CI pipeline." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        shell: bash
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify affected graph
+        shell: bash
+        env:
+          BUILD_WEB: ${{ needs.changes.outputs.web }}
+          BUILD_SERVER: ${{ needs.changes.outputs.server }}
+        run: |
+          filters=()
+          if [[ "$BUILD_WEB" == "true" ]]; then
+            filters+=("--filter=@hexagonia/web...")
+          fi
+          if [[ "$BUILD_SERVER" == "true" ]]; then
+            filters+=("--filter=@hexagonia/server...")
+          fi
+
+          pnpm turbo run typecheck "${filters[@]}"
+          pnpm turbo run test "${filters[@]}"
+
+      - name: Create pruned Docker contexts
+        shell: bash
+        env:
+          BUILD_WEB: ${{ needs.changes.outputs.web }}
+          BUILD_SERVER: ${{ needs.changes.outputs.server }}
+          PRUNED_ROOT: ${{ runner.temp }}/pruned
+        run: |
+          rm -rf "$PRUNED_ROOT"
+          mkdir -p "$PRUNED_ROOT"
+
+          if [[ "$BUILD_WEB" == "true" ]]; then
+            pnpm turbo prune @hexagonia/web --docker --out-dir "$PRUNED_ROOT/web"
+            cp apps/web/Dockerfile "$PRUNED_ROOT/web/Dockerfile"
+            mkdir -p "$PRUNED_ROOT/web/full/assets"
+            cp -R assets/. "$PRUNED_ROOT/web/full/assets/"
+          fi
+
+          if [[ "$BUILD_SERVER" == "true" ]]; then
+            pnpm turbo prune @hexagonia/server --docker --out-dir "$PRUNED_ROOT/server"
+            cp apps/server/Dockerfile "$PRUNED_ROOT/server/Dockerfile"
+          fi
+
+      - name: Upload pruned contexts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pruned-contexts
+          path: ${{ runner.temp }}/pruned
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  package-amd64:
+    needs:
+      - changes
+      - verify
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      BUILD_OUTPUT: ${{ github.event_name != 'pull_request' && 'type=image,push-by-digest=true,name-canonical=true,push=true' || 'type=cacheonly' }}
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      DOCKER_BUILD_SUMMARY: "false"
+    steps:
+      - name: Checkout bake definition
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-bake.hcl
+          sparse-checkout-cone-mode: false
+
+      - name: Download pruned contexts
+        uses: actions/download-artifact@v4
+        with:
+          name: pruned-contexts
+          path: ${{ runner.temp }}/pruned
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (web)
+        if: needs.changes.outputs.web == 'true'
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-web
+          bake-target: web
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Docker metadata (server)
+        if: needs.changes.outputs.server == 'true'
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-server
+          bake-target: server
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Build web image (amd64)
+        if: needs.changes.outputs.web == 'true'
+        id: bake-web
+        uses: docker/bake-action@v5
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta-web.outputs.bake-file-tags }}
+            cwd://${{ steps.meta-web.outputs.bake-file-labels }}
+          targets: web
+          set: |
+            web.context=${{ runner.temp }}/pruned/web
+            web.dockerfile=${{ runner.temp }}/pruned/web/Dockerfile
+            web.platform=linux/amd64
+            web.cache-from=type=gha,scope=hexagonia-linux-amd64
+            web.cache-to=type=gha,mode=max,scope=hexagonia-linux-amd64
+            web.output=${{ env.BUILD_OUTPUT }}
+
+      - name: Build server image (amd64)
+        if: needs.changes.outputs.server == 'true'
+        id: bake-server
+        uses: docker/bake-action@v5
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta-server.outputs.bake-file-tags }}
+            cwd://${{ steps.meta-server.outputs.bake-file-labels }}
+          targets: server
+          set: |
+            server.context=${{ runner.temp }}/pruned/server
+            server.dockerfile=${{ runner.temp }}/pruned/server/Dockerfile
+            server.platform=linux/amd64
+            server.cache-from=type=gha,scope=hexagonia-linux-amd64
+            server.cache-to=type=gha,mode=max,scope=hexagonia-linux-amd64
+            server.output=${{ env.BUILD_OUTPUT }}
+
+      - name: Record pushed digests
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+
+          if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
+            mkdir -p "$RUNNER_TEMP/digests/web"
+            digest='${{ fromJSON(steps.bake-web.outputs.metadata)['containerimage.digest'] }}'
+            touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
+          fi
+
+          if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
+            mkdir -p "$RUNNER_TEMP/digests/server"
+            digest='${{ fromJSON(steps.bake-server.outputs.metadata)['containerimage.digest'] }}'
+            touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
+          fi
+
+      - name: Upload digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-linux-amd64
+          path: ${{ runner.temp }}/digests
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  package-arm64-native:
+    needs:
+      - changes
+      - verify
+    if: needs.changes.outputs.docs_only != 'true' && vars.CI_ARM64_RUNNER != ''
+    runs-on: ${{ vars.CI_ARM64_RUNNER }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      BUILD_OUTPUT: ${{ github.event_name != 'pull_request' && 'type=image,push-by-digest=true,name-canonical=true,push=true' || 'type=cacheonly' }}
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      DOCKER_BUILD_SUMMARY: "false"
+    steps:
+      - name: Checkout bake definition
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-bake.hcl
+          sparse-checkout-cone-mode: false
+
+      - name: Download pruned contexts
+        uses: actions/download-artifact@v4
+        with:
+          name: pruned-contexts
+          path: ${{ runner.temp }}/pruned
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (web)
+        if: needs.changes.outputs.web == 'true'
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-web
+          bake-target: web
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Docker metadata (server)
+        if: needs.changes.outputs.server == 'true'
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-server
+          bake-target: server
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Build web image (arm64)
+        if: needs.changes.outputs.web == 'true'
+        id: bake-web
+        uses: docker/bake-action@v5
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta-web.outputs.bake-file-tags }}
+            cwd://${{ steps.meta-web.outputs.bake-file-labels }}
+          targets: web
+          set: |
+            web.context=${{ runner.temp }}/pruned/web
+            web.dockerfile=${{ runner.temp }}/pruned/web/Dockerfile
+            web.platform=linux/arm64
+            web.cache-from=type=gha,scope=hexagonia-linux-arm64
+            web.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
+            web.output=${{ env.BUILD_OUTPUT }}
+
+      - name: Build server image (arm64)
+        if: needs.changes.outputs.server == 'true'
+        id: bake-server
+        uses: docker/bake-action@v5
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta-server.outputs.bake-file-tags }}
+            cwd://${{ steps.meta-server.outputs.bake-file-labels }}
+          targets: server
+          set: |
+            server.context=${{ runner.temp }}/pruned/server
+            server.dockerfile=${{ runner.temp }}/pruned/server/Dockerfile
+            server.platform=linux/arm64
+            server.cache-from=type=gha,scope=hexagonia-linux-arm64
+            server.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
+            server.output=${{ env.BUILD_OUTPUT }}
+
+      - name: Record pushed digests
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+
+          if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
+            mkdir -p "$RUNNER_TEMP/digests/web"
+            digest='${{ fromJSON(steps.bake-web.outputs.metadata)['containerimage.digest'] }}'
+            touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
+          fi
+
+          if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
+            mkdir -p "$RUNNER_TEMP/digests/server"
+            digest='${{ fromJSON(steps.bake-server.outputs.metadata)['containerimage.digest'] }}'
+            touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
+          fi
+
+      - name: Upload digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-linux-arm64
+          path: ${{ runner.temp }}/digests
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  package-arm64-qemu:
+    needs:
+      - changes
+      - verify
+    if: needs.changes.outputs.docs_only != 'true' && vars.CI_ARM64_RUNNER == ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      BUILD_OUTPUT: ${{ github.event_name != 'pull_request' && 'type=image,push-by-digest=true,name-canonical=true,push=true' || 'type=cacheonly' }}
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      DOCKER_BUILD_SUMMARY: "false"
+    steps:
+      - name: Checkout bake definition
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-bake.hcl
+          sparse-checkout-cone-mode: false
+
+      - name: Download pruned contexts
+        uses: actions/download-artifact@v4
+        with:
+          name: pruned-contexts
+          path: ${{ runner.temp }}/pruned
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -48,26 +548,212 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
+      - name: Docker metadata (web)
+        if: needs.changes.outputs.web == 'true'
+        id: meta-web
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/hexagonia-${{ matrix.image.name }}
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-web
+          bake-target: web
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Docker metadata (server)
+        if: needs.changes.outputs.server == 'true'
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-server
+          bake-target: server
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Build web image (arm64 via QEMU)
+        if: needs.changes.outputs.web == 'true'
+        id: bake-web
+        uses: docker/bake-action@v5
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta-web.outputs.bake-file-tags }}
+            cwd://${{ steps.meta-web.outputs.bake-file-labels }}
+          targets: web
+          set: |
+            web.context=${{ runner.temp }}/pruned/web
+            web.dockerfile=${{ runner.temp }}/pruned/web/Dockerfile
+            web.platform=linux/arm64
+            web.cache-from=type=gha,scope=hexagonia-linux-arm64
+            web.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
+            web.output=${{ env.BUILD_OUTPUT }}
+
+      - name: Build server image (arm64 via QEMU)
+        if: needs.changes.outputs.server == 'true'
+        id: bake-server
+        uses: docker/bake-action@v5
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta-server.outputs.bake-file-tags }}
+            cwd://${{ steps.meta-server.outputs.bake-file-labels }}
+          targets: server
+          set: |
+            server.context=${{ runner.temp }}/pruned/server
+            server.dockerfile=${{ runner.temp }}/pruned/server/Dockerfile
+            server.platform=linux/arm64
+            server.cache-from=type=gha,scope=hexagonia-linux-arm64
+            server.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
+            server.output=${{ env.BUILD_OUTPUT }}
+
+      - name: Record pushed digests
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+
+          if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
+            mkdir -p "$RUNNER_TEMP/digests/web"
+            digest='${{ fromJSON(steps.bake-web.outputs.metadata)['containerimage.digest'] }}'
+            touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
+          fi
+
+          if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
+            mkdir -p "$RUNNER_TEMP/digests/server"
+            digest='${{ fromJSON(steps.bake-server.outputs.metadata)['containerimage.digest'] }}'
+            touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
+          fi
+
+      - name: Upload digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-linux-arm64
+          path: ${{ runner.temp }}/digests
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  merge:
+    needs:
+      - changes
+      - package-amd64
+      - package-arm64-native
+      - package-arm64-qemu
+    if: needs.changes.outputs.docs_only != 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download amd64 digests
+        uses: actions/download-artifact@v4
+        with:
+          name: digests-linux-amd64
+          path: ${{ runner.temp }}/digests/digests-linux-amd64
+
+      - name: Download arm64 digests
+        uses: actions/download-artifact@v4
+        with:
+          name: digests-linux-arm64
+          path: ${{ runner.temp }}/digests/digests-linux-arm64
+
+      - name: Docker metadata (web)
+        if: needs.changes.outputs.web == 'true'
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-web
           tags: |
             type=ref,event=branch
             type=sha,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
 
-      - name: Build ${{ matrix.image.name }} image
-        uses: docker/build-push-action@v6
+      - name: Docker metadata (server)
+        if: needs.changes.outputs.server == 'true'
+        id: meta-server
+        uses: docker/metadata-action@v5
         with:
-          context: .
-          file: ${{ matrix.image.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          load: false
-          provenance: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.image.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+          images: ghcr.io/${{ github.repository_owner }}/hexagonia-server
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      - name: Publish web manifest
+        if: needs.changes.outputs.web == 'true'
+        shell: bash
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/hexagonia-web
+          TAGS: ${{ steps.meta-web.outputs.tags }}
+        run: |
+          mapfile -t tags < <(printf '%s\n' "$TAGS" | sed '/^$/d')
+          refs=()
+
+          for digest_dir in "$RUNNER_TEMP"/digests/digests-linux-*; do
+            if [[ -d "$digest_dir/web" ]]; then
+              for digest_file in "$digest_dir"/web/*; do
+                [[ -e "$digest_file" ]] || continue
+                refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
+              done
+            fi
+          done
+
+          if [[ "${#refs[@]}" -eq 0 ]]; then
+            echo "No web digests found." >&2
+            exit 1
+          fi
+
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=("-t" "$tag")
+          done
+
+          docker buildx imagetools create "${tag_args[@]}" "${refs[@]}"
+          docker buildx imagetools inspect "${tags[0]}"
+
+      - name: Publish server manifest
+        if: needs.changes.outputs.server == 'true'
+        shell: bash
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/hexagonia-server
+          TAGS: ${{ steps.meta-server.outputs.tags }}
+        run: |
+          mapfile -t tags < <(printf '%s\n' "$TAGS" | sed '/^$/d')
+          refs=()
+
+          for digest_dir in "$RUNNER_TEMP"/digests/digests-linux-*; do
+            if [[ -d "$digest_dir/server" ]]; then
+              for digest_file in "$digest_dir"/server/*; do
+                [[ -e "$digest_file" ]] || continue
+                refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
+              done
+            fi
+          done
+
+          if [[ "${#refs[@]}" -eq 0 ]]; then
+            echo "No server digests found." >&2
+            exit 1
+          fi
+
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=("-t" "$tag")
+          done
+
+          docker buildx imagetools create "${tag_args[@]}" "${refs[@]}"
+          docker buildx imagetools inspect "${tags[0]}"

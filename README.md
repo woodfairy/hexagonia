@@ -16,6 +16,11 @@ Monorepo for a browser-based, real-time, Catan-like strategy game with:
 5. Start the backend with `pnpm dev:server`.
 6. Start the frontend in a second terminal with `pnpm dev:web`.
 
+## CI
+
+- Commit a real `pnpm-lock.yaml`; the GitHub Actions pipeline uses frozen installs and cache keys derived from it.
+- Set the optional repository variable `CI_ARM64_RUNNER` to a native arm64 runner label if you want to avoid the QEMU fallback for `linux/arm64` image builds.
+
 ## Docker
 
 `docker-compose.yml` is configured to pull prebuilt images from GHCR by default:
