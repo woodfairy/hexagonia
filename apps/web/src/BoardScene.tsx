@@ -44,12 +44,17 @@ interface BoardSceneProps {
 const TILE_HEIGHT = 0.82;
 const BUILT_ROAD_RADIUS = 0.24;
 const GUIDE_ROAD_RADIUS = 0.14;
-const PORT_MARKER_DISTANCE = 1.9;
+const PORT_MARKER_DISTANCE = 2.25;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
 const TILE_OUTER_BEVEL_THICKNESS = 0.09;
 const TILE_INSET_DEPTH = 0.18;
 const TILE_INSET_BEVEL_SIZE = 0.09;
 const TILE_INSET_BEVEL_THICKNESS = 0.04;
+const TILE_OUTER_RENDER_SCALE = 0.955;
+const TILE_INSET_RENDER_SCALE = 0.918;
+const TILE_OVERLAY_RENDER_SCALE = 0.895;
+const TILE_SAND_UNDERLAY_SCALE = 1;
+const TILE_SAND_UNDERLAY_Y = 0.026;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const INTERACTIVE_LAYER = 1;
@@ -57,12 +62,25 @@ const SHARED_RESOURCE_FLAG = "__sharedResource";
 const modernTileShellCache = new Map<string, SharedModernTileShell>();
 const texturedTileShellCache = new Map<string, SharedTexturedTileShell>();
 const tileOutlineCache = new Map<string, SharedTileOutline>();
+const tileSandGeometryCache = new Map<string, THREE.ShapeGeometry>();
 const buildingTemplateCache = new Map<string, THREE.Group>();
 const tokenSpriteMaterialCache = new Map<string, THREE.SpriteMaterial>();
 const portSpriteMaterialCache = new Map<PortType, THREE.SpriteMaterial>();
 const roadGeometryCache = new Map<string, THREE.CapsuleGeometry>();
 const roadHitProxyGeometryCache = new Map<string, THREE.CapsuleGeometry>();
 const tileProxyGeometryCache = new Map<string, THREE.CylinderGeometry>();
+const TOKEN_PIP_COUNT_BY_NUMBER: Record<number, number> = {
+  2: 1,
+  3: 2,
+  4: 3,
+  5: 4,
+  6: 5,
+  8: 5,
+  9: 4,
+  10: 3,
+  11: 2,
+  12: 1
+};
 const interactiveProxyMaterial = (() => {
   const material = markSharedResource(new THREE.MeshBasicMaterial());
   material.colorWrite = false;
@@ -71,6 +89,15 @@ const interactiveProxyMaterial = (() => {
   material.fog = false;
   return material;
 })();
+const tileSandMaterial = markSharedResource(
+  new THREE.MeshStandardMaterial({
+    color: "#e7cf8d",
+    roughness: 0.98,
+    metalness: 0.01,
+    emissive: new THREE.Color("#c6aa62"),
+    emissiveIntensity: 0.08
+  })
+);
 const vertexInteractiveProxyGeometry = markSharedResource(new THREE.CylinderGeometry(0.66, 0.72, 1.4, 12));
 const portInteractiveProxyGeometry = markSharedResource(new THREE.CylinderGeometry(1.48, 1.48, 2.1, 12));
 const vertexMarkerGeometry = markSharedResource(new THREE.CylinderGeometry(0.54, 0.6, 0.16, 12));
@@ -385,8 +412,8 @@ export function BoardScene(props: BoardSceneProps) {
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#091520");
-    scene.fog = new THREE.Fog("#091520", 80, 180);
+    scene.background = new THREE.Color("#156c97");
+    scene.fog = new THREE.Fog("#156c97", 92, 210);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
     camera.position.copy(DEFAULT_CAMERA_POSITION);
@@ -489,14 +516,16 @@ export function BoardScene(props: BoardSceneProps) {
     window.addEventListener("blur", onWindowBlur);
 
     const table = new THREE.Mesh(
-      new THREE.CylinderGeometry(44, 48, 4, 48),
+      new THREE.CylinderGeometry(52, 56, 1.8, 72),
       new THREE.MeshStandardMaterial({
-        color: "#102638",
-        roughness: 0.94,
-        metalness: 0.08
+        color: "#0b5f86",
+        roughness: 0.72,
+        metalness: 0.04,
+        emissive: new THREE.Color("#0f4e71"),
+        emissiveIntensity: 0.22
       })
     );
-    table.position.y = -3.2;
+    table.position.y = -1.06;
     table.receiveShadow = false;
     scene.add(table);
 
@@ -954,6 +983,7 @@ export function BoardScene(props: BoardSceneProps) {
     const includeTerrainRelief = props.visualSettings.terrainRelief;
 
     configureKeyLightShadow(keyLightRef.current, props.snapshot.board);
+    group.add(createBoardWaterBackdrop(props.snapshot.board));
 
     for (const tile of props.snapshot.board.tiles) {
       if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
@@ -1286,11 +1316,7 @@ function freezeStaticTransforms(root: THREE.Object3D): void {
   });
 }
 
-function configureKeyLightShadow(light: THREE.DirectionalLight | null, board: MatchSnapshot["board"]): void {
-  if (!light) {
-    return;
-  }
-
+function getBoardBounds(board: MatchSnapshot["board"]) {
   const bounds = board.vertices.reduce(
     (current, vertex) => ({
       minX: Math.min(current.minX, vertex.x),
@@ -1305,6 +1331,23 @@ function configureKeyLightShadow(light: THREE.DirectionalLight | null, board: Ma
       maxZ: Number.NEGATIVE_INFINITY
     }
   );
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+  const span = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ);
+  return {
+    ...bounds,
+    centerX,
+    centerZ,
+    span
+  };
+}
+
+function configureKeyLightShadow(light: THREE.DirectionalLight | null, board: MatchSnapshot["board"]): void {
+  if (!light) {
+    return;
+  }
+
+  const bounds = getBoardBounds(board);
   const span = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ);
   const extent = Math.max(span * 0.9, 26) + 12;
   light.target.position.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
@@ -1313,6 +1356,54 @@ function configureKeyLightShadow(light: THREE.DirectionalLight | null, board: Ma
   light.shadow.camera.top = extent;
   light.shadow.camera.bottom = -extent;
   light.shadow.camera.updateProjectionMatrix();
+}
+
+function createBoardWaterBackdrop(board: MatchSnapshot["board"]): THREE.Group {
+  const bounds = getBoardBounds(board);
+  const radius = Math.max(bounds.span * 0.84, 30);
+  const backdrop = new THREE.Group();
+
+  const deepWater = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius + 12, radius + 14, 0.96, 72),
+    new THREE.MeshStandardMaterial({
+      color: "#0d6188",
+      roughness: 0.38,
+      metalness: 0.06,
+      emissive: new THREE.Color("#0a4e70"),
+      emissiveIntensity: 0.16
+    })
+  );
+  deepWater.position.set(bounds.centerX, -0.9, bounds.centerZ);
+
+  const shallowWater = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius + 4.2, radius + 5.1, 0.12, 72),
+    new THREE.MeshStandardMaterial({
+      color: "#6ebed8",
+      roughness: 0.26,
+      metalness: 0.03,
+      transparent: true,
+      opacity: 0.72,
+      emissive: new THREE.Color("#8edaf0"),
+      emissiveIntensity: 0.18
+    })
+  );
+  shallowWater.position.set(bounds.centerX, -0.08, bounds.centerZ);
+
+  const foamRing = new THREE.Mesh(
+    new THREE.TorusGeometry(radius + 2.2, 1.55, 10, 104),
+    new THREE.MeshBasicMaterial({
+      color: "#e6fbff",
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      toneMapped: false
+    })
+  );
+  foamRing.position.set(bounds.centerX, 0.01, bounds.centerZ);
+  foamRing.rotation.x = Math.PI / 2;
+
+  backdrop.add(deepWater, shallowWater, foamRing);
+  return backdrop;
 }
 
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
@@ -1396,10 +1487,16 @@ function createTokenSprite(
   const resourceBadgeFill = robber ? "#0f1a24" : "#162633";
   const resourceBadgeStroke = robber ? "#f3cf83" : "rgba(240, 226, 190, 0.34)";
   const resourceIconColor = robber ? "#f3cf83" : getResourceIconColor(resource);
+  const hasPipRow = token !== null && !robber;
+  const highlightedToken = token === 6 || token === 8;
+  const numberColor = robber ? "#f3cf83" : highlightedToken ? "#b83e2f" : "#203240";
+  const numberY = token === null ? 156 : showResourceIcon ? 150 : 138;
+  const pipY = showResourceIcon ? 199 : 187;
+  const numberFontSize = showResourceIcon ? 88 : 96;
 
   context.fillStyle = robber ? "#17212b" : "#f4edd8";
   context.beginPath();
-  context.arc(center, center, 87, 0, Math.PI * 2);
+  context.arc(center, center, 90, 0, Math.PI * 2);
   context.fill();
 
   context.lineWidth = 10.5;
@@ -1424,17 +1521,20 @@ function createTokenSprite(
   }
 
   if (token !== null) {
-    context.fillStyle = token === 6 || token === 8 ? "#b83e2f" : "#203240";
-    context.font = "700 92px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+    context.fillStyle = numberColor;
+    context.font = `700 ${numberFontSize}px 'Segoe UI Variable', 'Trebuchet MS', sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(String(token), center, 156);
+    context.fillText(String(token), center, numberY);
+    if (hasPipRow) {
+      drawTokenPipRow(context, token, center, pipY, numberColor);
+    }
   } else {
     context.fillStyle = "#f3cf83";
     context.font = "700 36px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("R\u00c4UBER", center, 156);
+    context.fillText("RÄUBER", center, numberY);
   }
 
   const texture = markSharedResource(new THREE.CanvasTexture(canvas));
@@ -1459,6 +1559,49 @@ function createTokenSprite(
   return sprite;
 }
 
+function getTokenPipCount(token: number | null): number {
+  if (token === null) {
+    return 0;
+  }
+  return TOKEN_PIP_COUNT_BY_NUMBER[token] ?? 0;
+}
+
+function drawTokenPipRow(
+  context: CanvasRenderingContext2D,
+  token: number,
+  centerX: number,
+  y: number,
+  color: string
+): void {
+  const pipCount = getTokenPipCount(token);
+  if (!pipCount) {
+    return;
+  }
+
+  const spacing = pipCount >= 5 ? 15 : 16;
+  const radius = pipCount >= 5 ? 5.2 : 5.6;
+  const totalWidth = (pipCount - 1) * spacing;
+
+  context.fillStyle = color;
+  context.beginPath();
+  for (let index = 0; index < pipCount; index += 1) {
+    const x = centerX - totalWidth / 2 + index * spacing;
+    context.moveTo(x + radius, y);
+    context.arc(x, y, radius, 0, Math.PI * 2);
+  }
+  context.fill();
+}
+
+function getTileAverageRadius(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): number {
+  return tile.vertexIds.reduce((sum, vertexId) => {
+    const vertex = verticesById.get(vertexId)!;
+    return sum + Math.hypot(vertex.x - tile.x, vertex.y - tile.y);
+  }, 0) / Math.max(tile.vertexIds.length, 1);
+}
+
 function createTileShapeKey(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
@@ -1471,6 +1614,29 @@ function createTileShapeKey(
     .join("|");
 }
 
+function getTileSandGeometry(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.ShapeGeometry {
+  const cacheKey = createTileShapeKey(tile, verticesById);
+  let geometry = tileSandGeometryCache.get(cacheKey);
+  if (!geometry) {
+    geometry = markSharedResource(new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_SAND_UNDERLAY_SCALE)));
+    geometry.rotateX(-Math.PI / 2);
+    tileSandGeometryCache.set(cacheKey, geometry);
+  }
+  return geometry;
+}
+
+function createTileSandUnderlay(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Mesh {
+  const sand = markTileShadowReceiver(new THREE.Mesh(getTileSandGeometry(tile, verticesById), tileSandMaterial));
+  sand.position.y = TILE_SAND_UNDERLAY_Y;
+  return sand;
+}
+
 function getSharedModernTileShell(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
@@ -1481,7 +1647,7 @@ function getSharedModernTileShell(
     return existing;
   }
 
-  const outerGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById), {
+  const outerGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, TILE_OUTER_RENDER_SCALE), {
     depth: TILE_HEIGHT,
     bevelEnabled: true,
     bevelSegments: 1,
@@ -1492,7 +1658,7 @@ function getSharedModernTileShell(
   }));
   outerGeometry.rotateX(-Math.PI / 2);
 
-  const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, 0.962), {
+  const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, TILE_INSET_RENDER_SCALE), {
     depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
     bevelSegments: 1,
@@ -1545,7 +1711,7 @@ function getSharedTexturedTileShell(
     return existing;
   }
 
-  const outerGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById), {
+  const outerGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, TILE_OUTER_RENDER_SCALE), {
     depth: TILE_HEIGHT,
     bevelEnabled: true,
     bevelSegments: 1,
@@ -1557,7 +1723,7 @@ function getSharedTexturedTileShell(
   outerGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(outerGeometry);
 
-  const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, 0.962), {
+  const insetGeometry = markSharedResource(new THREE.ExtrudeGeometry(createTileShape(tile, verticesById, TILE_INSET_RENDER_SCALE), {
     depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
     bevelSegments: 1,
@@ -1569,7 +1735,7 @@ function getSharedTexturedTileShell(
   insetGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(insetGeometry);
 
-  const overlayGeometry = markSharedResource(new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932)));
+  const overlayGeometry = markSharedResource(new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_OVERLAY_RENDER_SCALE)));
   overlayGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(overlayGeometry);
 
@@ -1644,6 +1810,7 @@ function createModernTileMesh(
   }
 ): THREE.Group {
   const shell = getSharedModernTileShell(tile, verticesById);
+  const sandUnderlay = createTileSandUnderlay(tile, verticesById);
   const outerMesh = markTileShadowReceiver(new THREE.Mesh(shell.outerGeometry, [
     shell.outerTopMaterial,
     shell.outerSideMaterial
@@ -1664,7 +1831,7 @@ function createModernTileMesh(
   insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
   const tileGroup = new THREE.Group();
-  tileGroup.add(outerMesh, insetMesh);
+  tileGroup.add(sandUnderlay, outerMesh, insetMesh);
   appendTileDecorations(tileGroup, tile, active, options);
   return tileGroup;
 }
@@ -1677,6 +1844,7 @@ function createTexturedTileMesh(
   options: TexturedTileOptions
 ): THREE.Group {
   const shell = getSharedTexturedTileShell(tile, verticesById, terrainBundle);
+  const sandUnderlay = createTileSandUnderlay(tile, verticesById);
   const outerTopMaterial = active ? shell.outerTopMaterial.clone() : shell.outerTopMaterial;
   const insetTopMaterial = active ? shell.insetTopMaterial.clone() : shell.insetTopMaterial;
   const overlayMaterial = active ? shell.overlayMaterial.clone() : shell.overlayMaterial;
@@ -1704,7 +1872,7 @@ function createTexturedTileMesh(
   overlay.renderOrder = 4;
 
   const tileGroup = new THREE.Group();
-  tileGroup.add(outerMesh, insetMesh, overlay);
+  tileGroup.add(sandUnderlay, outerMesh, insetMesh, overlay);
   appendTileDecorations(tileGroup, tile, active, options);
   return tileGroup;
 }
@@ -1719,6 +1887,7 @@ function appendTileDecorations(
     const reliefMode: Exclude<UltraTileReliefMode, "none"> = options.includeProps ? "full" : "terrain";
     const reliefGroup = createUltraTerrainRelief(tile, active, reliefMode);
     reliefGroup.position.y = TILE_HEIGHT + 0.006;
+    reliefGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
     tileGroup.add(reliefGroup);
   }
 
@@ -1729,6 +1898,7 @@ function appendTileDecorations(
   const propGroup = createLandingFancyTileProps(tile.resource);
   nudgeFancyPropsAwayFromTileCenter(propGroup);
   propGroup.position.y = TILE_HEIGHT + 0.03;
+  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
   propGroup.traverse((entry) => {
     entry.userData.castTileShadow = true;
   });
@@ -4257,34 +4427,41 @@ function createPortMarker(
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
 ): THREE.Group {
   const palette = getPortMarkerPalette(port.type);
-  const [leftId, rightId] = edge.vertexIds;
+  const [leftId, rightId] = port.vertexIds;
   const left = verticesById.get(leftId)!;
   const right = verticesById.get(rightId)!;
   const edgeCenter = new THREE.Vector3((left.x + right.x) / 2, TILE_HEIGHT + 0.12, (left.y + right.y) / 2);
-  const outward = new THREE.Vector3(edgeCenter.x - tile.x, 0, edgeCenter.z - tile.y).normalize();
+  const fallbackOutward = new THREE.Vector3(edgeCenter.x - tile.x, 0, edgeCenter.z - tile.y).normalize();
+  const outward = new THREE.Vector3(left.x - tile.x, 0, left.y - tile.y)
+    .normalize()
+    .add(new THREE.Vector3(right.x - tile.x, 0, right.y - tile.y).normalize());
+  if (outward.lengthSq() < 0.0001) {
+    outward.copy(fallbackOutward);
+  } else {
+    outward.normalize();
+  }
   const sideways = new THREE.Vector3(-outward.z, 0, outward.x).normalize();
   const markerPosition = edgeCenter.clone().add(outward.clone().multiplyScalar(PORT_MARKER_DISTANCE));
-  const bridgePosition = edgeCenter.clone().add(outward.clone().multiplyScalar(PORT_MARKER_DISTANCE * 0.42));
-  const bridgeLength = PORT_MARKER_DISTANCE * 0.6;
+  const bridgeHeight = TILE_HEIGHT + 0.14;
+  const bridgeStartInset = 0.18;
+  const dockAttachDepth = 0.54;
+  const dockAttachSpread = 0.56;
+  const leftBridgeStart = new THREE.Vector3(left.x, bridgeHeight, left.y).add(outward.clone().multiplyScalar(bridgeStartInset));
+  const rightBridgeStart = new THREE.Vector3(right.x, bridgeHeight, right.y).add(outward.clone().multiplyScalar(bridgeStartInset));
+  const leftBridgeEnd = markerPosition
+    .clone()
+    .add(sideways.clone().multiplyScalar(-dockAttachSpread))
+    .add(outward.clone().multiplyScalar(-dockAttachDepth))
+    .setY(bridgeHeight);
+  const rightBridgeEnd = markerPosition
+    .clone()
+    .add(sideways.clone().multiplyScalar(dockAttachSpread))
+    .add(outward.clone().multiplyScalar(-dockAttachDepth))
+    .setY(bridgeHeight);
 
   const marker = new THREE.Group();
-
-  const bridge = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.11, Math.max(bridgeLength, 0.34), 4, 8),
-    new THREE.MeshStandardMaterial({
-      color: palette.bridge,
-      roughness: 0.52,
-      metalness: 0.06,
-      transparent: true,
-      opacity: 0.98,
-      emissive: new THREE.Color(palette.emissive),
-      emissiveIntensity: 0.12
-    })
-  );
-  bridge.position.copy(bridgePosition);
-  bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward.clone());
-  bridge.castShadow = false;
-  bridge.receiveShadow = true;
+  const leftBridge = createPortBridge(leftBridgeStart, leftBridgeEnd, palette);
+  const rightBridge = createPortBridge(rightBridgeStart, rightBridgeEnd, palette);
 
   const dockBase = new THREE.Mesh(
     new THREE.CylinderGeometry(1.02, 1.12, 0.18, 6),
@@ -4345,8 +4522,34 @@ function createPortMarker(
   badge.position.set(markerPosition.x, TILE_HEIGHT + 1.12, markerPosition.z);
 
   marker.userData.proxyPosition = new THREE.Vector3(markerPosition.x, TILE_HEIGHT + 1.02, markerPosition.z);
-  marker.add(bridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), signPost, badge);
+  marker.add(leftBridge, rightBridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), signPost, badge);
   return marker;
+}
+
+function createPortBridge(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  palette: ReturnType<typeof getPortMarkerPalette>
+): THREE.Mesh {
+  const direction = end.clone().sub(start);
+  const span = Math.max(direction.length() - 0.24, 0.26);
+  const bridge = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.105, span, 4, 8),
+    new THREE.MeshStandardMaterial({
+      color: palette.bridge,
+      roughness: 0.52,
+      metalness: 0.06,
+      transparent: true,
+      opacity: 0.98,
+      emissive: new THREE.Color(palette.emissive),
+      emissiveIntensity: 0.12
+    })
+  );
+  bridge.position.copy(start).add(end).multiplyScalar(0.5);
+  bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  bridge.castShadow = false;
+  bridge.receiveShadow = true;
+  return bridge;
 }
 
 function createPortSprite(type: PortType): THREE.Sprite {
@@ -4523,7 +4726,11 @@ function createTileOutline(
   if (!outline) {
     const points = tile.vertexIds.map((vertexId) => {
       const vertex = verticesById.get(vertexId)!;
-      return new THREE.Vector3(vertex.x - tile.x, 0, vertex.y - tile.y);
+      return new THREE.Vector3(
+        (vertex.x - tile.x) * TILE_OUTER_RENDER_SCALE,
+        0,
+        (vertex.y - tile.y) * TILE_OUTER_RENDER_SCALE
+      );
     });
     outline = {
       geometry: markSharedResource(new THREE.BufferGeometry().setFromPoints(points)),
@@ -4646,12 +4853,10 @@ function createTileInteractiveProxy(
   const cacheKey = createTileShapeKey(tile, verticesById);
   let geometry = tileProxyGeometryCache.get(cacheKey);
   if (!geometry) {
-    const radius =
-      tile.vertexIds.reduce((sum, vertexId) => {
-        const vertex = verticesById.get(vertexId)!;
-        return sum + Math.hypot(vertex.x - tile.x, vertex.y - tile.y);
-      }, 0) / Math.max(tile.vertexIds.length, 1);
-    geometry = markSharedResource(new THREE.CylinderGeometry(Math.max(radius * 0.88, 2.4), Math.max(radius * 0.88, 2.4), 1.4, 6));
+    const radius = getTileAverageRadius(tile, verticesById) * TILE_OUTER_RENDER_SCALE;
+    geometry = markSharedResource(
+      new THREE.CylinderGeometry(Math.max(radius * 0.88, 2.35), Math.max(radius * 0.88, 2.35), 1.4, 6)
+    );
     tileProxyGeometryCache.set(cacheKey, geometry);
   }
 
@@ -4737,16 +4942,13 @@ function createTileFocusMarker(
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
   strong: boolean
 ): THREE.Mesh {
-  const radius = tile.vertexIds.reduce((sum, vertexId) => {
-    const vertex = verticesById.get(vertexId)!;
-    return sum + Math.hypot(vertex.x - tile.x, vertex.y - tile.y);
-  }, 0) / Math.max(tile.vertexIds.length, 1);
+  const radius = getTileAverageRadius(tile, verticesById) * TILE_OUTER_RENDER_SCALE;
   const material = new THREE.MeshBasicMaterial({
     color: strong ? "#ffd88a" : "#b1dcff",
     transparent: true,
     opacity: strong ? 0.78 : 0.62
   });
-  const marker = new THREE.Mesh(new THREE.TorusGeometry(Math.max(radius * 0.76, 2.6), 0.18, 12, 48), material);
+  const marker = new THREE.Mesh(new THREE.TorusGeometry(Math.max(radius * 0.76, 2.45), 0.18, 12, 48), material);
   marker.rotation.x = Math.PI / 2;
   marker.userData.baseScale = marker.scale.clone();
   marker.userData.material = material;
