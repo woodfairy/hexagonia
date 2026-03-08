@@ -6,13 +6,6 @@ import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import type { AuthMode } from "../../ui";
 import hexaLogo from "../../../../../assets/img/hexa.png";
 
-const HERO_STATS = [
-  { value: "3-4", label: "Plätze pro Tisch" },
-  { value: "Privat", label: "Räume per Code oder Link" },
-  { value: "Mobil", label: "Desktop + Handy-Browser" },
-  { value: "Live", label: "Direkt im Browser" }
-] as const;
-
 const FLOW_STEPS = [
   {
     title: "Privaten Tisch eröffnen",
@@ -352,9 +345,9 @@ export function LandingScreen(props: {
             <span className="landing-kicker">Modernes Tabletop-Strategy im Browser</span>
             <h1 id="landing-hero-title">Hexagonia bringt Strategie und Handel in den Browser.</h1>
             <p className="landing-lead">
-              Eröffne private Räume, hol Freunde per Code oder Link an den Tisch und spiel direkt los. Auf dich warten
-              Handel, Bauentscheidungen, Räuberphase und Entwicklungskarten in einer Runde, die sofort nach echter
-              Catan-Spannung klingt.
+              Eröffne private Räume, hol Freunde per Code oder Link an den Tisch und spiel direkt los. Handel,
+              Bauentscheidungen, Räuberphase und Entwicklungskarten bringen sofort Druck und echte Brettspielspannung in
+              den Browser.
             </p>
 
             <div className="landing-hero-actions">
@@ -363,19 +356,11 @@ export function LandingScreen(props: {
               </button>
             </div>
 
-            <div className="landing-hero-stats">
-              {HERO_STATS.map((entry, index) => (
-                <article
-                  key={entry.label}
-                  className="landing-stat-card"
-                  data-reveal
-                  style={revealStyle(120 + index * 60)}
-                >
-                  <strong>{entry.value}</strong>
-                  <span>{entry.label}</span>
-                </article>
-              ))}
-            </div>
+            <article className="landing-free-promise" data-reveal style={revealStyle(120)}>
+              <span className="landing-kicker">Fair Play</span>
+              <strong>Hexagonia ist 100 % kostenlos und wird es bleiben.</strong>
+              <span>Kein Abo. Keine Paywalls. Keine bezahlten Vorteile. Nie.</span>
+            </article>
           </div>
 
           <div className="landing-hero-scene-column">
@@ -490,28 +475,17 @@ export function LandingScreen(props: {
             <span className="landing-kicker">Zugang</span>
             <h2 id="landing-access-title">Melde dich an und geh direkt an deinen Tisch.</h2>
             <p>
-              Erstelle ein Konto oder logg dich wieder ein. Wenn du mit einer Einladung gekommen bist, landest du danach
-              direkt in der passenden Runde.
+              Erstelle ein Konto oder logg dich ein. Wenn du mit einer Einladung gekommen bist, landest du danach direkt
+              in der passenden Runde.
             </p>
-
-            <div className="landing-access-points">
-              <article className="landing-access-point">
-                <strong>Private Runde statt öffentlicher Queue</strong>
-                <span>Du landest in deinem Raum, nicht in einem anonymen Matchmaking-Prozess.</span>
-              </article>
-              <article className="landing-access-point">
-                <strong>Schnell an den Tisch statt durch Menüs</strong>
-                <span>Login, Raum betreten und direkt mit deiner Runde loslegen.</span>
-              </article>
-              <article className="landing-access-point">
-                <strong>Mit Freunden direkt an denselben Tisch</strong>
-                <span>
-                  {props.inviteCode
-                    ? `Der erkannte Code ${props.inviteCode} wird nach dem Login automatisch geöffnet.`
-                    : "Code oder Link bringen euch ohne Umwege genau in dieselbe Runde."}
-                </span>
-              </article>
-            </div>
+            <article className="landing-access-point landing-access-point-highlight">
+              <strong>{props.inviteCode ? "Einladung wird direkt geöffnet" : "Private Runde ohne Umwege"}</strong>
+              <span>
+                {props.inviteCode
+                  ? `Der erkannte Code ${props.inviteCode} wird nach dem Login automatisch geöffnet.`
+                  : "Code oder Link bringen euch ohne öffentliche Queue direkt an denselben Tisch."}
+              </span>
+            </article>
           </div>
 
           <article className="landing-auth-panel" data-reveal style={revealStyle(120)}>
@@ -595,9 +569,9 @@ export function LandingScreen(props: {
       <footer className="landing-footer">
         <div className="landing-footer-copy">
           <strong>Hexagonia</strong>
-          <span>Browser-Strategie für private Runden mit starkem Brettgefühl, spannenden Entscheidungen und klarer Einladungskette.</span>
+          <span>Browser-Strategie für private Runden. Kostenlos, ohne Abo und ohne Paywalls.</span>
         </div>
-        <span>Einladen, aufbauen, handeln, bauen und direkt gemeinsam spielen.</span>
+        <span>Einladen, aufbauen, handeln und direkt gemeinsam spielen.</span>
       </footer>
     </div>
   );

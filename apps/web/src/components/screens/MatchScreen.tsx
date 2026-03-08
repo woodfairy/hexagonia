@@ -1301,7 +1301,6 @@ export function MatchScreen(props: {
               <span className="action-status-meta">{renderMatchPlayerText(props.match, turnStatus.title)}</span>
             </div>
             <div className="action-status-copy">
-              <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
               <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
             </div>
             {turnStatus.callout ? <span className="status-pill is-warning">{turnStatus.callout}</span> : null}
@@ -1318,45 +1317,48 @@ export function MatchScreen(props: {
                 key={action.id}
                 type="button"
                 className={`build-action-card ${action.active ? "is-active" : ""}`}
-                disabled={action.disabled}
-                onClick={action.onClick}
+                aria-disabled={action.disabled}
+                onClick={() => {
+                  if (action.disabled) {
+                    return;
+                  }
+
+                  action.onClick();
+                }}
               >
                 <span className="build-action-head">
                   <strong>{action.label}</strong>
                   <span>{action.costLabel}</span>
                 </span>
                 <span className="build-action-note">{action.note}</span>
+                {action.tooltip ? (
+                  <span className="build-action-tooltip" role="tooltip">
+                    <strong>{action.tooltip.title}</strong>
+                    {action.tooltip.lines.map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
         </section>
-        <section className="dock-section">
-          <div className="dock-section-head">
-            <h3>Entwicklungskarten</h3>
-            <span>Spielbar: {playableDevelopmentCardCount}</span>
-          </div>
-          <article className="mini-card development-summary-card">
-            <strong>{pendingRoadBuilding ? "Straßenbau-Effekt läuft" : "Direkt aus der Hand spielen"}</strong>
-            <span>
-              {pendingRoadBuilding
-                ? `Es sind noch ${pendingRoadBuilding.remainingRoads} kostenlose ${pendingRoadBuilding.remainingRoads === 1 ? "Straße" : "Straßen"} offen.`
-                : "Alle Entwicklungskarten werden in der Hand erklärt und von dort direkt ausgespielt."}
-            </span>
-          </article>
-          <div className="status-strip development-summary-pills">
-            <span className="status-pill">Hand {developmentCards.length}</span>
-            <span className="status-pill">Geheime VP {hiddenVictoryPoints}</span>
-            <span className="status-pill">Gesamt VP {totalVictoryPoints}</span>
-          </div>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={openHandPanel}
-            disabled={!developmentCards.length && !pendingRoadBuilding}
-          >
-            Zur Hand wechseln
-          </button>
-        </section>
+        {developmentCards.length || pendingRoadBuilding ? (
+          <section className="dock-section">
+            <div className="dock-section-head">
+              <h3>Entwicklungskarten</h3>
+              <span>{pendingRoadBuilding ? "Straßenbau aktiv" : `${developmentCards.length} in Hand`}</span>
+            </div>
+            <div className="status-strip development-summary-pills">
+              <span className="status-pill">Spielbar {playableDevelopmentCardCount}</span>
+              <span className="status-pill">Geheime VP {hiddenVictoryPoints}</span>
+              <span className="status-pill">Gesamt VP {totalVictoryPoints}</span>
+            </div>
+            <button type="button" className="secondary-button" onClick={openHandPanel}>
+              Zur Hand
+            </button>
+          </section>
+        ) : null}
       </div>
     ),
     hand: (
@@ -1421,7 +1423,6 @@ export function MatchScreen(props: {
         <section className="dock-section">
           <div className="dock-section-head">
             <h3>Handel</h3>
-            <span>{tradeSection === "player" ? "Spieler" : "Hafen"}</span>
           </div>
           {incomingTradeOffer ?? props.match.tradeOffers[0] ? (
             <TradeBanner
@@ -1559,7 +1560,7 @@ export function MatchScreen(props: {
                   </div>
                 </article>
 
-                <article className="trade-target-card">
+                <article className={`trade-target-card ${isCurrentPlayer ? "" : "trade-target-card-compact"}`.trim()}>
                   <div className="trade-side-head">
                     <span className="eyebrow">Angebot an</span>
                     <strong>
@@ -1624,7 +1625,6 @@ export function MatchScreen(props: {
                     <span className="trade-rate-pill">{maritimeRatePillLabel}</span>
                     <span className="trade-rate-copy">{maritimeRateOriginLabel}</span>
                   </div>
-                  <span>Nur Rohstoffe mit ausreichender Anzahl sind auswählbar.</span>
                 </div>
                 <div className="trade-resource-grid-shell">
                   <TradeResourceCardGrid
@@ -1735,6 +1735,7 @@ export function MatchScreen(props: {
                       color={player.color}
                       isSelf={player.id === props.match.you}
                       compact
+                      meta={null}
                     />
                     <div className="player-card-presence">
                       <span className={`status-pill player-connection-pill ${presence.toneClass}`}>
@@ -1744,9 +1745,13 @@ export function MatchScreen(props: {
                       <span className="player-connection-detail">{presence.detail}</span>
                     </div>
                   </div>
-                    <div className="player-card-head-side">
-                      <PlayerColorBadge color={player.color} label={renderPlayerColorLabel(player.color)} compact />
-                    </div>
+                  <div className="player-card-head-side">
+                    <PlayerColorBadge
+                      color={player.color}
+                      label={player.id === props.match.you ? `Du · ${renderPlayerColorLabel(player.color)}` : renderPlayerColorLabel(player.color)}
+                      compact
+                    />
+                  </div>
                   </div>
                 <div className="player-stat-grid player-stat-grid-compact">
                   <PlayerStatCard label="VP" value={String(player.publicVictoryPoints)} />
@@ -2601,10 +2606,73 @@ function createBuildActionState(
     label,
     costLabel: renderCostText(props.cost),
     note,
+    tooltip: describeBuildActionTooltip(id, {
+      phase: props.phase,
+      isCurrentPlayer: props.isCurrentPlayer,
+      missing,
+      hasLegalTarget,
+      active
+    }),
     active,
     disabled: !actionable,
     onClick: props.onClick
   };
+}
+
+function describeBuildActionTooltip(
+  id: BuildActionId,
+  props: {
+    phase: MatchSnapshot["phase"];
+    isCurrentPlayer: boolean;
+    missing: Array<{ resource: Resource; count: number }>;
+    hasLegalTarget: boolean;
+    active: boolean;
+  }
+): { title: string; lines: string[] } | null {
+  if (!props.isCurrentPlayer) {
+    return {
+      title: "Nicht dein Zug",
+      lines: ["Bauen ist nur in deinem eigenen Zug möglich."]
+    };
+  }
+
+  if (props.phase !== "turn_action") {
+    return {
+      title: props.phase === "turn_roll" ? "Erst würfeln" : "Gerade nicht verfügbar",
+      lines: [
+        props.phase === "turn_roll"
+          ? "Du musst den Zug zuerst mit dem Würfelwurf starten."
+          : "Diese Aktion ist in der aktuellen Phase gesperrt."
+      ]
+    };
+  }
+
+  if (props.missing.length > 0) {
+    return {
+      title: "Rohstoffe fehlen",
+      lines: props.missing.map((entry) => `${entry.count}x ${renderResourceLabel(entry.resource)} fehlt`)
+    };
+  }
+
+  if (!props.hasLegalTarget) {
+    return {
+      title: id === "development" ? "Zurzeit nicht verfügbar" : "Kein gültiger Bauplatz",
+      lines: [
+        id === "development"
+          ? "Im Moment kann keine Entwicklungskarte gekauft werden."
+          : "Auf dem Brett gibt es aktuell kein legales Ziel für diese Aktion."
+      ]
+    };
+  }
+
+  if (props.active) {
+    return {
+      title: "Bauplatz wählen",
+      lines: ["Wähle jetzt direkt auf dem Brett ein gültiges Ziel."]
+    };
+  }
+
+  return null;
 }
 
 function createOwnActionCue(

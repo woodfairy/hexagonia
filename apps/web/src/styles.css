@@ -2003,6 +2003,7 @@ select {
 }
 
 .build-action-card {
+  position: relative;
   min-block-size: 6.2rem;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-card);
@@ -2016,13 +2017,17 @@ select {
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
+.build-action-card[aria-disabled="true"] {
+  cursor: default;
+}
+
 .build-action-card.is-active {
   border-color: rgba(var(--accent-rgb), 0.44);
   background: rgba(var(--accent-rgb), 0.12);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .build-action-card:hover:not(:disabled) {
+  .build-action-card:hover:not([aria-disabled="true"]) {
     transform: translateY(-2px);
     border-color: rgba(var(--accent-rgb), 0.38);
     background: rgba(var(--accent-rgb), 0.1);
@@ -2056,6 +2061,44 @@ select {
 .build-action-note {
   line-height: 1.3;
   font-size: 0.84rem;
+}
+
+.build-action-tooltip {
+  position: absolute;
+  inset-inline-start: 0.8rem;
+  inset-block-end: calc(100% + 0.55rem);
+  z-index: 6;
+  display: grid;
+  gap: 0.22rem;
+  inline-size: min(17rem, calc(100vw - 3rem));
+  padding: 0.68rem 0.76rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(18, 31, 44, 0.98), rgba(10, 21, 32, 0.96)),
+    rgba(10, 21, 32, 0.96);
+  box-shadow: 0 18px 40px rgba(3, 8, 13, 0.34);
+  opacity: 0;
+  transform: translateY(0.35rem);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 200ms ease;
+}
+
+.build-action-tooltip strong {
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.build-action-tooltip > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.28;
+}
+
+.build-action-card[aria-disabled="true"]:hover .build-action-tooltip,
+.build-action-card[aria-disabled="true"]:focus-visible .build-action-tooltip {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .turn-status-card {
@@ -2719,8 +2762,22 @@ select {
 .tab-strip::after {
   content: "";
   position: absolute;
-  inset-inline-start: 0.3rem;
-  inset-block-start: 0.3rem;
+  inset-inline-start: calc(
+    0.3rem
+    + (var(--tab-active-grid-start) - 1)
+      * (
+        ((100% - 0.6rem - ((var(--tab-grid-columns) - 1) * 0.26rem)) / var(--tab-grid-columns))
+        + 0.26rem
+      )
+  );
+  inset-block-start: calc(
+    0.3rem
+    + var(--tab-active-row)
+      * (
+        ((100% - 0.6rem - ((var(--tab-rows) - 1) * 0.26rem)) / var(--tab-rows))
+        + 0.26rem
+      )
+  );
   inline-size: calc(
     (
         (100% - 0.6rem - ((var(--tab-grid-columns) - 1) * 0.26rem))
@@ -2736,19 +2793,9 @@ select {
   box-shadow:
     0 0.65rem 1.1rem rgba(8, 15, 24, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.36);
-  transform:
-    translateX(
-      calc(
-        (var(--tab-active-grid-start) - 1)
-          * (
-            ((100% - 0.6rem - ((var(--tab-grid-columns) - 1) * 0.26rem)) / var(--tab-grid-columns))
-            + 0.26rem
-          )
-      )
-    )
-    translateY(calc(var(--tab-active-row) * (100% + 0.26rem)));
   transition:
-    transform 320ms cubic-bezier(0.2, 0.82, 0.22, 1),
+    inset-inline-start 320ms cubic-bezier(0.2, 0.82, 0.22, 1),
+    inset-block-start 320ms cubic-bezier(0.2, 0.82, 0.22, 1),
     inline-size 240ms ease,
     block-size 240ms ease;
   pointer-events: none;
@@ -2837,8 +2884,8 @@ select {
 }
 
 .tab-strip button[aria-selected="true"]::after {
-  background: rgba(20, 32, 44, 0.28);
-  transform: scaleX(1);
+  background: transparent;
+  transform: scaleX(0);
 }
 
 .tab-strip button:focus-visible {
@@ -3615,8 +3662,33 @@ select {
   grid-column: 1 / -1;
 }
 
+.trade-target-card.trade-target-card-compact {
+  gap: 0.46rem;
+  padding: 0.72rem 0.82rem;
+}
+
+.trade-target-card.trade-target-card-compact .trade-side-head {
+  min-block-size: 0;
+  gap: 0.14rem;
+}
+
+.trade-target-card.trade-target-card-compact .trade-side-head strong {
+  font-size: 0.94rem;
+}
+
 .trade-target-card-placeholder {
   align-content: start;
+  gap: 0.46rem;
+  padding: 0.72rem 0.82rem;
+}
+
+.trade-target-card-placeholder .trade-side-head {
+  min-block-size: 0;
+  gap: 0.14rem;
+}
+
+.trade-target-card-placeholder .trade-side-head strong {
+  font-size: 0.94rem;
 }
 
 .trade-rate-row {
@@ -3648,14 +3720,16 @@ select {
 }
 
 .trade-target-placeholder-copy {
-  min-block-size: 3.5rem;
-  padding: 0.72rem 0.8rem;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
-  border-radius: calc(var(--radius-card) - 0.18rem);
-  background: rgba(255, 255, 255, 0.02);
+  min-block-size: 0;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding: 0.4rem 0.56rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.92rem;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.32;
+  font-size: 0.74rem;
+  line-height: 1.2;
 }
 
 .trade-target-picker {
@@ -3719,6 +3793,11 @@ select {
 
 .trade-submit-button {
   grid-column: 1 / -1;
+}
+
+.trade-builder.maritime-builder .trade-submit-button {
+  min-block-size: 2.72rem;
+  padding-block: 0.68rem;
 }
 
 .trade-banner-stack {

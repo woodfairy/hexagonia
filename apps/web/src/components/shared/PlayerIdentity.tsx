@@ -12,21 +12,22 @@ export function PlayerIdentity(props: {
 }) {
   const accentClass = getPlayerAccentClass(props.color);
   const meta =
-    props.meta ??
-    (props.isSelf ? (
-      <>
-        <PlayerMention color={props.color}>Du</PlayerMention> spielst {renderPlayerColorLabel(props.color)}
-      </>
-    ) : (
-      renderPlayerColorLabel(props.color)
-    ));
+    props.meta !== undefined
+      ? props.meta
+      : props.isSelf
+        ? (
+            <>
+              <PlayerMention color={props.color}>Du</PlayerMention> spielst {renderPlayerColorLabel(props.color)}
+            </>
+          )
+        : renderPlayerColorLabel(props.color);
 
   return (
     <span className={`player-identity ${accentClass} ${props.compact ? "is-compact" : ""}`}>
       <span className="player-swatch" aria-hidden="true" />
       <span className="player-identity-copy">
         <strong className="player-name-text">{props.username}</strong>
-        <span>{meta}</span>
+        {meta ? <span>{meta}</span> : null}
       </span>
     </span>
   );
