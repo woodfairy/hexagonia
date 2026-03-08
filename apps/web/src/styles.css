@@ -1892,7 +1892,14 @@ select {
   flex: 1 1 calc(50% - 0.4rem);
 }
 
+.match-dock .quick-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
 .match-dock .quick-action-grid > * {
+  min-inline-size: 0;
   min-block-size: 2.55rem;
   font-size: 0.94rem;
 }
