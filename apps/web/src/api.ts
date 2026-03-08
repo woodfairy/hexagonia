@@ -1,4 +1,5 @@
 import type { AdminMatchSummary, AdminUserRecord, AuthUser, RoomDetails, SetupMode, StartingPlayerMode, UserRole } from "@hexagonia/shared";
+import { getRuntimeApiBaseUrl, getRuntimeWebSocketUrl } from "./runtimeConfig";
 
 function getDefaultApiBaseUrl(): string {
   if (typeof window === "undefined") {
@@ -21,7 +22,7 @@ function getDefaultWebSocketUrl(): string {
   return url.toString();
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? getDefaultApiBaseUrl();
+const API_BASE_URL = getRuntimeApiBaseUrl() ?? getDefaultApiBaseUrl();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -225,6 +226,6 @@ export async function startRoom(roomId: string): Promise<{ room: RoomDetails; ma
 }
 
 export function createWebSocket(): WebSocket {
-  const url = import.meta.env.VITE_WS_URL ?? getDefaultWebSocketUrl();
+  const url = getRuntimeWebSocketUrl() ?? getDefaultWebSocketUrl();
   return new WebSocket(url);
 }

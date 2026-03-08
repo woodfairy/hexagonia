@@ -1,3 +1,5 @@
+import { getRuntimeRecaptchaSiteKey } from "./runtimeConfig";
+
 const RECAPTCHA_SCRIPT_ID = "google-recaptcha-script";
 const RECAPTCHA_API_URL = "https://www.google.com/recaptcha/api.js?render=explicit";
 const RECAPTCHA_CONTAINER_ID = "google-recaptcha-container";
@@ -6,8 +8,7 @@ let scriptPromise: Promise<void> | null = null;
 let widgetId: number | null = null;
 
 function getSiteKey(): string | null {
-  const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY?.trim();
-  return siteKey ? siteKey : null;
+  return getRuntimeRecaptchaSiteKey();
 }
 
 function ensureContainer(): HTMLDivElement {

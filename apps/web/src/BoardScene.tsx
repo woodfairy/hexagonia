@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { isFirefoxBrowser } from "./browserPerformance";
 import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
@@ -103,9 +104,9 @@ interface SharedTexturedTileShell {
   outerGeometry: THREE.ExtrudeGeometry;
   insetGeometry: THREE.ExtrudeGeometry;
   overlayGeometry: THREE.ShapeGeometry;
-  outerTopMaterial: THREE.MeshPhysicalMaterial;
+  outerTopMaterial: THREE.MeshStandardMaterial;
   outerSideMaterial: THREE.MeshStandardMaterial;
-  insetTopMaterial: THREE.MeshPhysicalMaterial;
+  insetTopMaterial: THREE.MeshStandardMaterial;
   insetSideMaterial: THREE.MeshStandardMaterial;
   overlayMaterial: THREE.MeshBasicMaterial;
 }
@@ -391,9 +392,10 @@ export function BoardScene(props: BoardSceneProps) {
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: false
+      alpha: false,
+      powerPreference: "high-performance"
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isFirefoxBrowser() ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
@@ -954,7 +956,7 @@ export function BoardScene(props: BoardSceneProps) {
 
     for (const tile of props.snapshot.board.tiles) {
       if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
-        texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource));
+        texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource, "board"));
       }
       const base =
         useTexturedTiles
@@ -1574,16 +1576,14 @@ function getSharedTexturedTileShell(
     outerGeometry,
     insetGeometry,
     overlayGeometry,
-    outerTopMaterial: markSharedResource(new THREE.MeshPhysicalMaterial({
+    outerTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
       color: terrainBundle.appearance.topTint,
       map: terrainBundle.colorMap,
-      roughnessMap: terrainBundle.roughnessMap,
-      bumpMap: terrainBundle.bumpMap,
+      ...(terrainBundle.roughnessMap ? { roughnessMap: terrainBundle.roughnessMap } : {}),
+      ...(terrainBundle.bumpMap ? { bumpMap: terrainBundle.bumpMap } : {}),
       roughness: terrainBundle.appearance.roughness,
       metalness: terrainBundle.appearance.metalness,
       bumpScale: terrainBundle.appearance.bumpScale * 0.82,
-      clearcoat: terrainBundle.appearance.clearcoat,
-      clearcoatRoughness: terrainBundle.appearance.clearcoatRoughness,
       emissive: new THREE.Color(terrainBundle.appearance.emissive),
       emissiveIntensity: 0.02
     })),
@@ -1592,16 +1592,14 @@ function getSharedTexturedTileShell(
       roughness: 0.96,
       metalness: 0.02
     })),
-    insetTopMaterial: markSharedResource(new THREE.MeshPhysicalMaterial({
+    insetTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
       color: terrainBundle.appearance.insetTint,
       map: terrainBundle.colorMap,
-      roughnessMap: terrainBundle.roughnessMap,
-      bumpMap: terrainBundle.bumpMap,
+      ...(terrainBundle.roughnessMap ? { roughnessMap: terrainBundle.roughnessMap } : {}),
+      ...(terrainBundle.bumpMap ? { bumpMap: terrainBundle.bumpMap } : {}),
       roughness: Math.max(terrainBundle.appearance.roughness - 0.05, 0.36),
       metalness: terrainBundle.appearance.metalness,
       bumpScale: terrainBundle.appearance.bumpScale,
-      clearcoat: terrainBundle.appearance.clearcoat,
-      clearcoatRoughness: Math.max(terrainBundle.appearance.clearcoatRoughness - 0.08, 0.2),
       emissive: new THREE.Color(terrainBundle.appearance.emissive),
       emissiveIntensity: 0.028
     })),

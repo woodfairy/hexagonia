@@ -21,6 +21,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://hexagonia:hexagonia@postgres:5432/hexagonia}
       SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:-hexagonia-dev-secret-change-me}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
+      RECAPTCHA_ENABLED: ${RECAPTCHA_ENABLED:-}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin123}
       PORT: ${PORT:-3000}
@@ -32,5 +34,7 @@ services:
     pull_policy: always
     depends_on:
       - server
+    environment:
+      RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY:-}
     ports:
       - "4173:4173"

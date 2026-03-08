@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { TILE_COLORS } from "./boardVisuals";
 
 export type TerrainResource = Resource | "desert";
+export type TerrainTextureProfile = "board" | "landing";
 
 interface CachedTerrainMaps {
   appearance: UltraTerrainAppearance;
@@ -22,8 +23,6 @@ export interface UltraTerrainAppearance {
   roughness: number;
   metalness: number;
   bumpScale: number;
-  clearcoat: number;
-  clearcoatRoughness: number;
   overlayOpacity: number;
   overlayScale: number;
 }
@@ -31,46 +30,80 @@ export interface UltraTerrainAppearance {
 export interface UltraTerrainTextureBundle {
   appearance: UltraTerrainAppearance;
   colorMap: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-  bumpMap: THREE.CanvasTexture;
+  roughnessMap?: THREE.CanvasTexture;
+  bumpMap?: THREE.CanvasTexture;
   overlayMask: THREE.CanvasTexture;
 }
 
-const TERRAIN_TEXTURE_SIZE = 512;
-const SHARED_RESOURCE_FLAG = "__sharedResource";
-const terrainMapCache = new Map<TerrainResource, CachedTerrainMaps>();
-const terrainTextureBundleCache = new Map<TerrainResource, UltraTerrainTextureBundle>();
+interface TerrainTextureProfileConfig {
+  size: number;
+  includeRoughnessMap: boolean;
+  includeBumpMap: boolean;
+}
 
-export function createUltraTerrainTextureBundle(resource: TerrainResource): UltraTerrainTextureBundle {
-  const existing = terrainTextureBundleCache.get(resource);
+const TERRAIN_TEXTURE_SIZE = 512;
+const TERRAIN_TEXTURE_PROFILE_CONFIGS: Record<TerrainTextureProfile, TerrainTextureProfileConfig> = {
+  board: {
+    size: 256,
+    includeRoughnessMap: true,
+    includeBumpMap: true
+  },
+  landing: {
+    size: 256,
+    includeRoughnessMap: false,
+    includeBumpMap: false
+  }
+};
+const SHARED_RESOURCE_FLAG = "__sharedResource";
+const terrainMapCache = new Map<string, CachedTerrainMaps>();
+const terrainTextureBundleCache = new Map<string, UltraTerrainTextureBundle>();
+
+export function createUltraTerrainTextureBundle(
+  resource: TerrainResource,
+  profile: TerrainTextureProfile
+): UltraTerrainTextureBundle {
+  const cacheKey = createTerrainCacheKey(resource, profile);
+  const existing = terrainTextureBundleCache.get(cacheKey);
   if (existing) {
     return existing;
   }
 
-  const cached = getCachedTerrainMaps(resource);
-  const bundle = {
+  const cached = getCachedTerrainMaps(resource, profile);
+  const profileConfig = TERRAIN_TEXTURE_PROFILE_CONFIGS[profile];
+  const bundle: UltraTerrainTextureBundle = {
     appearance: cached.appearance,
     colorMap: createCanvasTexture(cached.colorCanvas, true),
-    roughnessMap: createCanvasTexture(cached.roughnessCanvas, false),
-    bumpMap: createCanvasTexture(cached.bumpCanvas, false),
     overlayMask: createCanvasTexture(cached.overlayCanvas, false, cached.appearance.overlayScale, THREE.RepeatWrapping)
   };
-  terrainTextureBundleCache.set(resource, bundle);
+  if (profileConfig.includeRoughnessMap) {
+    bundle.roughnessMap = createCanvasTexture(cached.roughnessCanvas, false);
+  }
+  if (profileConfig.includeBumpMap) {
+    bundle.bumpMap = createCanvasTexture(cached.bumpCanvas, false);
+  }
+
+  terrainTextureBundleCache.set(cacheKey, bundle);
   return bundle;
 }
 
-function getCachedTerrainMaps(resource: TerrainResource): CachedTerrainMaps {
-  const existing = terrainMapCache.get(resource);
+function createTerrainCacheKey(resource: TerrainResource, profile: TerrainTextureProfile): string {
+  return `${profile}:${resource}`;
+}
+
+function getCachedTerrainMaps(resource: TerrainResource, profile: TerrainTextureProfile): CachedTerrainMaps {
+  const cacheKey = createTerrainCacheKey(resource, profile);
+  const existing = terrainMapCache.get(cacheKey);
   if (existing) {
     return existing;
   }
 
-  const generated = createTerrainMaps(resource);
-  terrainMapCache.set(resource, generated);
+  const generated = createTerrainMaps(resource, profile);
+  terrainMapCache.set(cacheKey, generated);
   return generated;
 }
 
-function createTerrainMaps(resource: TerrainResource): CachedTerrainMaps {
+function createTerrainMaps(resource: TerrainResource, profile: TerrainTextureProfile): CachedTerrainMaps {
+  const profileConfig = TERRAIN_TEXTURE_PROFILE_CONFIGS[profile];
   const appearance = createAppearance(resource);
   const colorCanvas = createCanvas();
   const roughnessCanvas = createCanvas();
@@ -108,10 +141,10 @@ function createTerrainMaps(resource: TerrainResource): CachedTerrainMaps {
 
   return {
     appearance,
-    colorCanvas,
-    roughnessCanvas,
-    bumpCanvas,
-    overlayCanvas
+    colorCanvas: downsampleCanvas(colorCanvas, profileConfig.size),
+    roughnessCanvas: downsampleCanvas(roughnessCanvas, profileConfig.size),
+    bumpCanvas: downsampleCanvas(bumpCanvas, profileConfig.size),
+    overlayCanvas: downsampleCanvas(overlayCanvas, profileConfig.size)
   };
 }
 
@@ -137,8 +170,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         roughness: 0.86,
         metalness: 0.03,
         bumpScale: 0.18,
-        clearcoat: 0.08,
-        clearcoatRoughness: 0.6,
         overlayOpacity: 0.26,
         overlayScale: 1.12
       };
@@ -153,8 +184,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         roughness: 0.74,
         metalness: 0.08,
         bumpScale: 0.22,
-        clearcoat: 0.04,
-        clearcoatRoughness: 0.78,
         overlayOpacity: 0.2,
         overlayScale: 1.04
       };
@@ -169,8 +198,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         roughness: 0.72,
         metalness: 0.02,
         bumpScale: 0.14,
-        clearcoat: 0.12,
-        clearcoatRoughness: 0.42,
         overlayOpacity: 0.28,
         overlayScale: 1.18
       };
@@ -185,8 +212,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         roughness: 0.9,
         metalness: 0.01,
         bumpScale: 0.16,
-        clearcoat: 0.02,
-        clearcoatRoughness: 0.9,
         overlayOpacity: 0.18,
         overlayScale: 1.02
       };
@@ -201,8 +226,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         roughness: 0.82,
         metalness: 0.02,
         bumpScale: 0.12,
-        clearcoat: 0.08,
-        clearcoatRoughness: 0.52,
         overlayOpacity: 0.2,
         overlayScale: 1.1
       };
@@ -217,8 +240,6 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         roughness: 0.94,
         metalness: 0,
         bumpScale: 0.11,
-        clearcoat: 0.02,
-        clearcoatRoughness: 0.88,
         overlayOpacity: 0.16,
         overlayScale: 1.06
       };
@@ -577,6 +598,20 @@ function createCanvas(): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = TERRAIN_TEXTURE_SIZE;
   canvas.height = TERRAIN_TEXTURE_SIZE;
+  return canvas;
+}
+
+function downsampleCanvas(source: HTMLCanvasElement, size: number): HTMLCanvasElement {
+  if (source.width === size && source.height === size) {
+    return source;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  context.imageSmoothingEnabled = true;
+  context.drawImage(source, 0, 0, size, size);
   return canvas;
 }
 

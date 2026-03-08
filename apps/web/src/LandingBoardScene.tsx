@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { isFirefoxBrowser } from "./browserPerformance";
 import { TILE_COLORS } from "./boardVisuals";
 
 interface ShowcaseTile {
@@ -136,6 +137,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     const boardGroup = new THREE.Group();
     const pointer = new THREE.Vector2();
     const glowMarkers: Array<{ material: THREE.MeshBasicMaterial; speed: number; baseOpacity: number }> = [];
+    const firefoxBrowser = isFirefoxBrowser();
     let scrollProgress = 0;
     let frameId = 0;
     let isSceneVisible = true;
@@ -294,7 +296,8 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       const coarsePointer =
         typeof window.matchMedia === "function" ? window.matchMedia("(pointer: coarse)").matches : false;
       isCompactScene = coarsePointer || window.innerWidth < 720;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, isCompactScene ? 1.1 : 1.75));
+      const maxPixelRatio = firefoxBrowser ? (isCompactScene ? 1 : 1.25) : isCompactScene ? 1.1 : 1.75;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
       renderer.shadowMap.enabled = !isCompactScene;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     };
@@ -711,7 +714,7 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
 }
 
 function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
-  const bundle = createUltraTerrainTextureBundle(tile.resource);
+  const bundle = createUltraTerrainTextureBundle(tile.resource, "landing");
   const outerShape = createTileShape(tile, verticesById);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
     depth: TILE_HEIGHT,
@@ -739,16 +742,14 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
   remapPlanarTileUvs(insetGeometry);
 
   const outerMesh = new THREE.Mesh(outerGeometry, [
-    new THREE.MeshPhysicalMaterial({
+    new THREE.MeshStandardMaterial({
       color: bundle.appearance.topTint,
       map: bundle.colorMap,
-      roughnessMap: bundle.roughnessMap,
-      bumpMap: bundle.bumpMap,
+      ...(bundle.roughnessMap ? { roughnessMap: bundle.roughnessMap } : {}),
+      ...(bundle.bumpMap ? { bumpMap: bundle.bumpMap } : {}),
       roughness: bundle.appearance.roughness,
       metalness: bundle.appearance.metalness,
       bumpScale: bundle.appearance.bumpScale * 0.82,
-      clearcoat: bundle.appearance.clearcoat,
-      clearcoatRoughness: bundle.appearance.clearcoatRoughness,
       emissive: new THREE.Color(bundle.appearance.emissive),
       emissiveIntensity: 0.02
     }),
@@ -760,16 +761,14 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
   ]);
 
   const insetMesh = new THREE.Mesh(insetGeometry, [
-    new THREE.MeshPhysicalMaterial({
+    new THREE.MeshStandardMaterial({
       color: bundle.appearance.insetTint,
       map: bundle.colorMap,
-      roughnessMap: bundle.roughnessMap,
-      bumpMap: bundle.bumpMap,
+      ...(bundle.roughnessMap ? { roughnessMap: bundle.roughnessMap } : {}),
+      ...(bundle.bumpMap ? { bumpMap: bundle.bumpMap } : {}),
       roughness: Math.max(bundle.appearance.roughness - 0.05, 0.36),
       metalness: bundle.appearance.metalness,
       bumpScale: bundle.appearance.bumpScale,
-      clearcoat: bundle.appearance.clearcoat,
-      clearcoatRoughness: Math.max(bundle.appearance.clearcoatRoughness - 0.08, 0.2),
       emissive: new THREE.Color(bundle.appearance.emissive),
       emissiveIntensity: 0.028
     }),
