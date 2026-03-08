@@ -593,60 +593,72 @@ function renderFeatureIcon(icon: (typeof BUILD_FEATURES)[number]["icon"] | (type
   switch (icon) {
     case "board":
       return (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7.2 5.2h9.6l4.4 6.8-4.4 6.8H7.2L2.8 12z" />
-          <path d="M7.2 5.2 12 12l-4.8 6.8" />
-          <path d="M16.8 5.2 12 12l4.8 6.8" />
-          <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+        <span className="landing-feature-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8.7 4.8h6.6l3.3 5.2-3.3 5.2H8.7L5.4 10z" />
+            <path d="M4.5 10.7h4.6l2.3 3.6-2.3 3.6H4.5l-2.3-3.6z" />
+            <path d="M14.9 10.7h4.6l2.3 3.6-2.3 3.6h-4.6l-2.3-3.6z" />
+          </svg>
+        </span>
       );
     case "rooms":
       return (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="8.1" cy="9" r="2.3" />
-          <circle cx="15.9" cy="9" r="2.3" />
-          <path d="M4.8 17.4c.86-2.08 2.74-3.2 5.16-3.2s4.3 1.12 5.16 3.2" />
-          <path d="M10.8 9h2.4" />
-        </svg>
+        <span className="landing-feature-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8.1" r="2.6" />
+            <circle cx="6.5" cy="10.3" r="1.9" />
+            <circle cx="17.5" cy="10.3" r="1.9" />
+            <path d="M7.4 18.2c.76-2.34 2.56-3.72 4.6-3.72s3.84 1.38 4.6 3.72" />
+            <path d="M3.9 17.9c.34-1.3 1.33-2.14 2.74-2.38" />
+            <path d="M20.1 17.9c-.34-1.3-1.33-2.14-2.74-2.38" />
+          </svg>
+        </span>
       );
     case "trade":
-      return <HarborIcon shell size={18} color="#f8f0de" />;
+      return <HarborIcon size={24} color="currentColor" />;
     case "robber":
       return (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7.2 9.4 9.4 5.6h5.2l2.2 3.8v7.8H7.2z" />
-          <path d="M9.4 5.6 12 8l2.6-2.4" />
-          <path d="M7.2 14.8 9.8 13l2.2 1.5 2.2-1.5 2.6 1.8" />
-          <circle cx="9.7" cy="11.6" r="0.8" fill="currentColor" stroke="none" />
-          <circle cx="14.3" cy="11.6" r="0.8" fill="currentColor" stroke="none" />
-        </svg>
+        <span className="landing-feature-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7.1 10.1 12 4.8l4.9 5.3v5.1c0 2.55-2.07 4.62-4.62 4.62h-.54A4.62 4.62 0 0 1 7.1 15.2z" />
+            <path d="M9.3 10.8c.88-.92 1.78-1.32 2.7-1.32s1.82.4 2.7 1.32" />
+            <path d="M9.3 15.5c1.82-.94 3.58-.94 5.4 0" />
+            <circle cx="10.1" cy="12.35" r="0.72" fill="currentColor" stroke="none" />
+            <circle cx="13.9" cy="12.35" r="0.72" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
       );
     case "cards":
       return (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="5.2" y="6.2" width="10.8" height="13" rx="1.9" transform="rotate(-8 5.2 6.2)" />
-          <rect x="8.2" y="4.8" width="10.8" height="13.4" rx="1.9" />
-          <path d="m12 9.2 1 1.7 1.95.34-1.38 1.35.3 1.9L12 13.7l-1.87.79.3-1.9-1.38-1.35 1.95-.34z" />
-        </svg>
+        <span className="landing-feature-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4.9" y="7.1" width="10.3" height="12.4" rx="1.8" transform="rotate(-8 4.9 7.1)" />
+            <rect x="8.8" y="4.8" width="10.3" height="13.2" rx="1.8" />
+            <path d="m13.95 8.95 1.08 1.92 2.2.38-1.57 1.57.36 2.34-2.07-.95-2.07.95.36-2.34-1.57-1.57 2.2-.38z" />
+          </svg>
+        </span>
       );
     case "build":
       return (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="7" y="3.8" width="10" height="16.4" rx="2.4" />
-          <path d="M10.2 6.8h3.6" />
-          <path d="M9.6 15.1h4.8" />
-          <path d="M10.1 17.6h3.8" />
-          <circle cx="12" cy="18.5" r="0.7" fill="currentColor" stroke="none" />
-        </svg>
+        <span className="landing-feature-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="7" y="3.4" width="10" height="17.2" rx="2.5" />
+            <path d="M10.1 6.4h3.8" />
+            <circle cx="12" cy="16.9" r="1.15" fill="currentColor" stroke="none" />
+            <path d="M12 10.15v3.8" />
+            <path d="M10.1 12.05h3.8" />
+          </svg>
+        </span>
       );
     default:
       return (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7.2 5.2h9.6l4.4 6.8-4.4 6.8H7.2L2.8 12z" />
-          <path d="M7.2 5.2 12 12l-4.8 6.8" />
-          <path d="M16.8 5.2 12 12l4.8 6.8" />
-          <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+        <span className="landing-feature-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8.7 4.8h6.6l3.3 5.2-3.3 5.2H8.7L5.4 10z" />
+            <path d="M4.5 10.7h4.6l2.3 3.6-2.3 3.6H4.5l-2.3-3.6z" />
+            <path d="M14.9 10.7h4.6l2.3 3.6-2.3 3.6h-4.6l-2.3-3.6z" />
+          </svg>
+        </span>
       );
   }
 }

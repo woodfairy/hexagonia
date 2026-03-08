@@ -765,6 +765,23 @@ body.guest-landing-mode {
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8f0de;
+  line-height: 0;
+  flex: none;
+}
+
+.landing-feature-glyph {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.landing-feature-glyph svg {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
 }
 
 .landing-mechanics-layout {
