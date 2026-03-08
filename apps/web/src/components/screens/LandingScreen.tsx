@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { DEVELOPMENT_CARD_TYPES, SETUP_MODES } from "@hexagonia/shared";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import { HarborIcon, ResourceIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
@@ -14,10 +13,10 @@ const NAV_ITEMS = [
 ] as const;
 
 const HERO_STATS = [
-  { value: "4", label: "Plätze pro Tisch" },
-  { value: `${SETUP_MODES.length}`, label: "Setup-Varianten" },
-  { value: `${DEVELOPMENT_CARD_TYPES.length}`, label: "Entwicklungskarten" },
-  { value: "Live", label: "Spielen + fortsetzen" }
+  { value: "3-4", label: "Plätze pro Tisch" },
+  { value: "Privat", label: "Räume per Code oder Link" },
+  { value: "Mobil", label: "Desktop + Handy-Browser" },
+  { value: "Live", label: "Direkt im Browser" }
 ] as const;
 
 const FLOW_STEPS = [
@@ -37,18 +36,18 @@ const FLOW_STEPS = [
     meta: "Beginner oder variabel"
   },
   {
-    title: "Live spielen und wieder einsteigen",
-    body: "Board, Handel, Würfel, Räuber und Event-Log laufen synchron. Offene Räume und laufende Partien bleiben für dich erreichbar.",
-    meta: "Live spielen, wieder einsteigen"
+    title: "Gemeinsam starten und losspielen",
+    body: "Sobald alle am Tisch sind, geht es direkt ins Spiel: bauen, handeln, würfeln und den nächsten starken Zug vorbereiten.",
+    meta: "Schnell rein, direkt spielen"
   }
 ] as const;
 
 const BUILD_FEATURES = [
   {
     icon: "board",
-    title: "Das Brett lebt mit jeder Runde",
-    body: "Du siehst sofort, was auf dem Spielfeld passiert: Würfel, Bauaktionen, Handelsmomente und wichtige Wendepunkte der Partie.",
-    detail: "Animiertes 3D-Spielbrett"
+    title: "Jede Runde verändert das Spiel",
+    body: "Mit jedem Wurf, jedem Bau und jedem Deal kippt die Lage neu. Gute Positionen entstehen nicht zufällig, sondern weil du sie dir Zug für Zug holst.",
+    detail: "Druck, Timing und starke Züge"
   },
   {
     icon: "rooms",
@@ -74,19 +73,19 @@ const MECHANICS = [
   {
     icon: "board",
     title: "Board und Aufbauphase",
-    body: "Start-Siedlungen, Start-Straßen, Vorwärts- und Rückwärts-Setup sowie variable oder vorbereitete Bretter laufen bereits im Match.",
+    body: "Start-Siedlungen, Start-Straßen sowie Vorwärts- und Rückwärts-Setup sind klar abgebildet, egal ob ihr mit variablem oder vorbereitetem Brett spielt.",
     accent: "Setup, Platzierung, Häfen"
   },
   {
     icon: "trade",
     title: "Handel mit echter Entscheidungstiefe",
-    body: "Angebote können offen oder gezielt gestellt, angenommen, abgelehnt oder zurückgezogen werden. Maritime Raten richten sich am eigenen Hafenstatus aus.",
+    body: "Deals entstehen nicht nebenbei: Du setzt Angebote, reizt andere Spieler zu Fehlern und holst selbst aus knappen Händen noch starke Züge heraus.",
     accent: "Direkthandel und Banktausch"
   },
   {
     icon: "robber",
     title: "Räuberphase mit klaren Entscheidungen",
-    body: "Wenn der Räuber ins Spiel kommt, bleiben Abwurf, Zielwahl und das neue Feld jederzeit klar verständlich und spürbar spannend.",
+    body: "Der Räuber bringt die Partie sofort zum Kippen: Karten werden knapp, starke Felder blockiert und ein gut gesetzter Zug trifft genau den richtigen Gegner.",
     accent: "Räuber, Abwurf und Zielwahl"
   },
   {
@@ -97,9 +96,9 @@ const MECHANICS = [
   },
   {
     icon: "rooms",
-    title: "Räume, Wiedereinstieg und Fortsetzen",
-    body: "Konten speichern deinen Zugang. Räume und laufende Matches bleiben zugänglich, damit eine Runde nicht am Browser-Refresh scheitert.",
-    accent: "Persistente Zugänge"
+    title: "Private Räume ohne Umwege",
+    body: "Du eröffnest eine Runde, teilst Code oder Link und sitzt ohne öffentliche Lobby direkt mit deinen Leuten am Tisch.",
+    accent: "Code, Link, private Runde"
   },
   {
     icon: "build",
@@ -161,30 +160,7 @@ export function LandingScreen(props: {
       return;
     }
 
-    if (prefersReducedMotion || typeof IntersectionObserver === "undefined") {
-      revealNodes.forEach((node) => node.classList.add("is-visible"));
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) {
-            continue;
-          }
-
-          entry.target.classList.add("is-visible");
-          observer.unobserve(entry.target);
-        }
-      },
-      {
-        threshold: 0.18,
-        rootMargin: "0px 0px -10% 0px"
-      }
-    );
-
-    revealNodes.forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
+    revealNodes.forEach((node) => node.classList.add("is-visible"));
   }, [prefersReducedMotion]);
 
   useEffect(() => {
@@ -351,8 +327,8 @@ export function LandingScreen(props: {
             <h1 id="landing-hero-title">Hexagonia bringt Strategie und Handel in den Browser.</h1>
             <p className="landing-lead">
               Eröffne private Räume, hol Freunde per Code oder Link an den Tisch und spiel direkt los. Auf dich warten
-              Handel, Bauentscheidungen, Räuberphase, Entwicklungskarten und laufende Partien, in die du später wieder
-              sauber einsteigen kannst.
+              Handel, Bauentscheidungen, Räuberphase und Entwicklungskarten in einer Runde, die sofort nach echter
+              Catan-Spannung klingt.
             </p>
 
             <div className="landing-hero-actions">
@@ -383,12 +359,12 @@ export function LandingScreen(props: {
             <div className="landing-scene-shell">
               <LandingBoardScene reducedMotion={prefersReducedMotion} visualProfile="fancy" />
               <div className="landing-scene-badge is-top">
-                <span className="landing-badge-label">Schon spielbar</span>
-                <strong>Trade, Robber, Development</strong>
+                <span className="landing-badge-label">Am Tisch</span>
+                <strong>Handel, Druck und starke Wendungen</strong>
               </div>
               <div className="landing-scene-badge is-bottom">
-                <span className="landing-badge-label">Spielstart</span>
-                <strong>Beginner oder variable Verteilung</strong>
+                <span className="landing-badge-label">Deine Runde</span>
+                <strong>Privat einladen und direkt losspielen</strong>
               </div>
               <div className="landing-scene-badge is-side">
                 <span className="landing-badge-label">Einladung</span>
@@ -403,8 +379,8 @@ export function LandingScreen(props: {
             <span className="landing-kicker">So läuft eine Runde</span>
             <h2 id="landing-flow-title">Schnell in die Partie.</h2>
             <p>
-              Hexagonia setzt auf einen klaren privaten Ablauf: Runde anlegen, Mitspieler reinholen, Setup festziehen,
-              Partie starten und bei Bedarf später sauber wieder aufnehmen.
+              Hexagonia setzt auf einen klaren privaten Ablauf: Runde anlegen, Mitspieler reinholen, Setup festlegen und
+              ohne Umwege gemeinsam starten.
             </p>
           </div>
 
@@ -430,8 +406,8 @@ export function LandingScreen(props: {
             <span className="landing-kicker">Im Spiel</span>
             <h2 id="landing-build-title">Was dich in Hexagonia erwartet.</h2>
             <p>
-              Der Fokus liegt auf einer runden Spielerfahrung: Freunde einladen, Partie starten, handeln, bauen,
-              den Räuber versetzen und später wieder in laufende Runden einsteigen.
+              Der Fokus liegt auf einer runden Spielerfahrung: Freunde einladen, Partie starten, handeln, bauen und mit
+              jeder Entscheidung mehr Druck auf die anderen Spieler machen.
             </p>
           </div>
 
@@ -457,17 +433,14 @@ export function LandingScreen(props: {
             <aside className="landing-mechanics-sticky" data-reveal style={revealStyle(0)}>
               <span className="landing-kicker">Mechaniken im Fokus</span>
               <h2 id="landing-mechanics-title">Die Partie ist auf Interaktion gebaut, nicht auf Screen-Tapete.</h2>
-              <p>
-                Entscheidende Systeme greifen bereits ineinander: Aufbauphase, Ressourcenfluss, Handel, Räuber, Entwicklung,
-                Wertung und der Wiedereinstieg in laufende Sessions.
-              </p>
+              <p>Hexagonia lebt von direkten Entscheidungen: bauen, handeln, blockieren, kontern und die Partie Zug für Zug zu deinen Gunsten kippen.</p>
 
               <ul className="landing-capability-list">
                 <li>Private Räume mit Sitzplätzen und Ready-State</li>
                 <li>Setup-Modi mit kontrolliertem Spielstart</li>
                 <li>Handel zwischen Spielern und über Häfen</li>
                 <li>Räuber- und Abwurfphasen mit klarem Ablauf</li>
-                <li>Konten mit einfachem Wiedereinstieg</li>
+                <li>Entwicklungskarten und Wertungen mit echten Wendepunkten</li>
               </ul>
             </aside>
 
@@ -504,15 +477,15 @@ export function LandingScreen(props: {
                 <span>Du landest in deinem Raum, nicht in einem anonymen Matchmaking-Prozess.</span>
               </article>
               <article className="landing-access-point">
-                <strong>Wieder rein in gespeicherte Sessions</strong>
-                <span>Offene Räume und laufende Matches bleiben deinem Konto zugeordnet.</span>
+                <strong>Schnell an den Tisch statt durch Menüs</strong>
+                <span>Login, Raum betreten und direkt mit deiner Runde loslegen.</span>
               </article>
               <article className="landing-access-point">
-                <strong>Einladungen bleiben erhalten</strong>
+                <strong>Mit Freunden direkt an denselben Tisch</strong>
                 <span>
                   {props.inviteCode
                     ? `Der erkannte Code ${props.inviteCode} wird nach dem Login automatisch geöffnet.`
-                    : "Einladungslinks und Raumcodes führen nach dem Login direkt an den richtigen Tisch."}
+                    : "Code oder Link bringen euch ohne Umwege genau in dieselbe Runde."}
                 </span>
               </article>
             </div>
@@ -583,7 +556,7 @@ export function LandingScreen(props: {
           <strong>Hexagonia</strong>
           <span>Browser-Strategie für private Runden mit starkem Brettgefühl, spannenden Entscheidungen und klarer Einladungskette.</span>
         </div>
-        <span>Einladen, aufbauen, handeln, bauen und laufende Partien später wieder aufnehmen.</span>
+        <span>Einladen, aufbauen, handeln, bauen und direkt gemeinsam spielen.</span>
       </footer>
     </div>
   );

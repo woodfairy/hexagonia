@@ -586,12 +586,12 @@ export function bindGlobalUiSounds(): () => void {
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    void uiSoundManager.unlock();
     const element = resolveInteractiveElement(event.target);
     if (!element) {
       return;
     }
 
+    void uiSoundManager.unlock();
     playInteractiveClick(element);
   };
 

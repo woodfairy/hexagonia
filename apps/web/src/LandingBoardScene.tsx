@@ -193,7 +193,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     const outerRing = new THREE.Mesh(
       new THREE.TorusGeometry(28.5, 0.24, 12, 88),
       new THREE.MeshBasicMaterial({
-        color: "#ecdfbb",
+        color: "#ddd0ff",
         transparent: true,
         opacity: 0.42
       })

@@ -7,8 +7,8 @@
   --landing-line: rgba(255, 255, 255, 0.1);
   --landing-text: #f4efe3;
   --landing-muted: #aac0c5;
-  --landing-accent: #e2b465;
-  --landing-accent-strong: #f6dba8;
+  --landing-accent: #b694ff;
+  --landing-accent-strong: #ddd0ff;
   --landing-cool: #76c4e8;
   --landing-shadow: 0 28px 80px rgba(2, 8, 12, 0.38);
   --landing-display: "Aptos Display", "Bahnschrift", "Segoe UI Variable Display", sans-serif;
@@ -31,7 +31,7 @@ body.guest-landing-mode #root {
 body.guest-landing-mode {
   background:
     radial-gradient(circle at 12% 12%, rgba(118, 196, 232, 0.16), transparent 26rem),
-    radial-gradient(circle at 84% 18%, rgba(226, 180, 101, 0.17), transparent 24rem),
+    radial-gradient(circle at 84% 18%, rgba(182, 148, 255, 0.17), transparent 24rem),
     linear-gradient(180deg, var(--landing-bg-0), var(--landing-bg-1) 42%, var(--landing-bg-2));
   color: var(--landing-text);
   font-family: var(--landing-ui);
@@ -68,7 +68,7 @@ body.guest-landing-mode {
   block-size: 32rem;
   background:
     radial-gradient(circle at 30% 18%, rgba(118, 196, 232, 0.16), transparent 22rem),
-    radial-gradient(circle at 70% 10%, rgba(226, 180, 101, 0.12), transparent 18rem);
+    radial-gradient(circle at 70% 10%, rgba(182, 148, 255, 0.12), transparent 18rem);
   pointer-events: none;
   z-index: 0;
 }
@@ -91,8 +91,8 @@ body.guest-landing-mode {
   padding:
     1.1rem max(var(--landing-inline-space), env(safe-area-inset-right))
     0.8rem max(var(--landing-inline-space), env(safe-area-inset-left));
-  backdrop-filter: blur(18px);
-  background: linear-gradient(180deg, rgba(7, 16, 23, 0.88), rgba(7, 16, 23, 0.42) 84%, transparent);
+  border-block-end: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(7, 16, 23, 0.96), rgba(7, 16, 23, 0.82) 78%, rgba(7, 16, 23, 0.28));
   z-index: 20;
 }
 
@@ -101,6 +101,7 @@ body.guest-landing-mode {
 .landing-button {
   border: 0;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .landing-brand {
@@ -217,7 +218,7 @@ body.guest-landing-mode {
   color: #1c2228;
   font-weight: 700;
   letter-spacing: 0.01em;
-  box-shadow: 0 16px 34px rgba(226, 180, 101, 0.22);
+  box-shadow: 0 16px 34px rgba(182, 148, 255, 0.24);
   transition:
     transform 180ms ease,
     filter 180ms ease,
@@ -296,11 +297,12 @@ body.guest-landing-mode {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   color: var(--landing-text);
+  touch-action: manipulation;
 }
 
 .landing-music-select-button.is-open {
-  border-color: rgba(226, 180, 101, 0.34);
-  background: rgba(226, 180, 101, 0.12);
+  border-color: rgba(182, 148, 255, 0.34);
+  background: rgba(182, 148, 255, 0.12);
 }
 
 .landing-music-track-label {
@@ -339,11 +341,12 @@ body.guest-landing-mode {
   background: transparent;
   color: var(--landing-text);
   text-align: left;
+  touch-action: manipulation;
 }
 
 .landing-music-menu-item.is-active {
-  border-color: rgba(226, 180, 101, 0.34);
-  background: rgba(226, 180, 101, 0.14);
+  border-color: rgba(182, 148, 255, 0.34);
+  background: rgba(182, 148, 255, 0.14);
 }
 
 .landing-music-menu-item:hover,
@@ -362,6 +365,7 @@ body.guest-landing-mode {
   color: var(--landing-text);
   font-size: 0.84rem;
   font-weight: 700;
+  touch-action: manipulation;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -369,8 +373,8 @@ body.guest-landing-mode {
 }
 
 .landing-music-chip.is-active {
-  border-color: rgba(226, 180, 101, 0.34);
-  background: rgba(226, 180, 101, 0.16);
+  border-color: rgba(182, 148, 255, 0.34);
+  background: rgba(182, 148, 255, 0.16);
 }
 
 .landing-music-chip.is-muted {
@@ -496,7 +500,6 @@ body.guest-landing-mode {
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
     var(--landing-panel);
   box-shadow: var(--landing-shadow);
-  backdrop-filter: blur(20px);
 }
 
 .landing-stat-card {
@@ -523,7 +526,7 @@ body.guest-landing-mode {
   border-radius: 2rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at 50% 24%, rgba(226, 180, 101, 0.12), transparent 32%),
+    radial-gradient(circle at 50% 24%, rgba(182, 148, 255, 0.12), transparent 32%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
     rgba(6, 14, 20, 0.78);
   box-shadow: var(--landing-shadow);
@@ -703,8 +706,8 @@ body.guest-landing-mode {
   gap: 0.18rem;
   padding: 0.85rem 0.95rem;
   border-radius: 1rem;
-  border: 1px solid rgba(226, 180, 101, 0.2);
-  background: rgba(226, 180, 101, 0.08);
+  border: 1px solid rgba(182, 148, 255, 0.2);
+  background: rgba(182, 148, 255, 0.08);
 }
 
 .landing-auth-note span {
@@ -737,13 +740,13 @@ body.guest-landing-mode {
 }
 
 .landing-auth-form input:hover {
-  border-color: rgba(226, 180, 101, 0.26);
+  border-color: rgba(182, 148, 255, 0.26);
 }
 
 .landing-auth-form input:focus-visible {
   outline: none;
-  border-color: rgba(226, 180, 101, 0.46);
-  box-shadow: 0 0 0 0.18rem rgba(226, 180, 101, 0.14);
+  border-color: rgba(182, 148, 255, 0.46);
+  box-shadow: 0 0 0 0.18rem rgba(182, 148, 255, 0.14);
 }
 
 .landing-auth-submit {
@@ -780,21 +783,18 @@ body.guest-landing-mode {
 }
 
 [data-reveal] {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 640ms ease var(--landing-reveal-delay, 0ms),
-    transform 640ms ease var(--landing-reveal-delay, 0ms);
+  opacity: 1;
+  transform: none;
 }
 
 [data-reveal].is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 .landing-scene-fallback {
   background:
-    radial-gradient(circle at 50% 35%, rgba(226, 180, 101, 0.22), transparent 18rem),
+    radial-gradient(circle at 50% 35%, rgba(182, 148, 255, 0.22), transparent 18rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
     rgba(6, 14, 20, 0.86);
 }
@@ -829,7 +829,7 @@ body.guest-landing-mode {
   inset-inline-start: 50%;
   inset-block-start: 43%;
   transform: translate(-50%, -50%);
-  background: linear-gradient(180deg, rgba(226, 180, 101, 0.42), rgba(226, 180, 101, 0.2));
+  background: linear-gradient(180deg, rgba(182, 148, 255, 0.42), rgba(182, 148, 255, 0.2));
 }
 
 .landing-fallback-hex.is-left {
@@ -864,7 +864,7 @@ body.guest-landing-mode {
   inline-size: 7rem;
   block-size: 0.42rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(246, 219, 168, 0.18), rgba(246, 219, 168, 0.78), rgba(246, 219, 168, 0.18));
+  background: linear-gradient(90deg, rgba(221, 208, 255, 0.18), rgba(221, 208, 255, 0.78), rgba(221, 208, 255, 0.18));
 }
 
 .landing-fallback-road.is-a {
