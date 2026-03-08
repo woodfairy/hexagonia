@@ -124,6 +124,13 @@ export function App() {
   const [musicPaused, setMusicPaused] = useState(() => uiSoundManager.isMusicPaused());
   const [musicPlaybackMode, setMusicPlaybackMode] = useState(() => uiSoundManager.getMusicPlaybackMode());
   const [boardVisualSettings, setBoardVisualSettings] = useState<BoardVisualSettings>(() => resolveInitialBoardVisualSettings());
+  const [authSubmitPending, setAuthSubmitPending] = useState(false);
+  const [createRoomPending, setCreateRoomPending] = useState(false);
+  const [joinByCodePending, setJoinByCodePending] = useState(false);
+  const [roomJoinPending, setRoomJoinPending] = useState(false);
+  const [roomReadyPending, setRoomReadyPending] = useState(false);
+  const [roomStartPending, setRoomStartPending] = useState(false);
+  const [roomLeavePending, setRoomLeavePending] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState({
     username: "",
@@ -228,11 +235,7 @@ export function App() {
 
   const playUiFeedback = useCallback(
     ({ sound, haptic }: UiFeedbackRequest) => {
-      if (isGuestLanding) {
-        return;
-      }
-
-      if (sound) {
+      if (sound && !isGuestLanding) {
         void uiSoundManager.play(...sound);
       }
 
@@ -1178,23 +1181,26 @@ export function App() {
 
   const handleOpenTrackedRoom = useCallback(
     (roomId: string) => {
+      playUiFeedback({ haptic: "dialog" });
       navigateTo({ kind: "room", roomId });
       triggerReconnect("Realtime-Verbindung wird für den Raum wiederhergestellt.");
     },
-    [navigateTo, triggerReconnect]
+    [navigateTo, playUiFeedback, triggerReconnect]
   );
 
   const handleResumeMatch = useCallback(
     (matchId: string) => {
+      playUiFeedback({ haptic: "dialog" });
       navigateTo({ kind: "match", matchId });
       triggerReconnect("Realtime-Verbindung wird für die Partie wiederhergestellt.");
     },
-    [navigateTo, triggerReconnect]
+    [navigateTo, playUiFeedback, triggerReconnect]
   );
 
   const handleOpenAdmin = useCallback(() => {
+    playUiFeedback({ haptic: "dialog" });
     navigateTo({ kind: "admin" });
-  }, [navigateTo]);
+  }, [navigateTo, playUiFeedback]);
 
   const handleToggleSoundMuted = useCallback(() => {
     setSoundMuted((current) => {
@@ -1257,7 +1263,11 @@ export function App() {
 
   const handleAuthSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (authSubmitPending) {
+      return;
+    }
 
+    setAuthSubmitPending(true);
     try {
       const recaptchaToken = authMode === "register" ? await getRecaptchaRegisterToken() : null;
       const user =
@@ -1275,13 +1285,20 @@ export function App() {
       setSession(user);
       setAuthForm({ username: "", password: "" });
       setStatus(`${user.username} ist angemeldet.`);
-      pushToast("success", "Willkommen", `${user.username} ist jetzt in Hexagonia angemeldet.`);
+      playUiFeedback({ haptic: "success" });
     } catch (authError) {
       pushToast("error", "Anmeldung fehlgeschlagen", (authError as Error).message);
+    } finally {
+      setAuthSubmitPending(false);
     }
   };
 
   const handleCreateRoom = async () => {
+    if (createRoomPending) {
+      return;
+    }
+
+    setCreateRoomPending(true);
     try {
       const nextRoom = await createRoom();
       setRoom(nextRoom);
@@ -1291,10 +1308,17 @@ export function App() {
       pushToast("success", "Raum erstellt", `Code ${nextRoom.code} ist bereit.`);
     } catch (roomError) {
       pushToast("error", "Raum konnte nicht erstellt werden", (roomError as Error).message);
+    } finally {
+      setCreateRoomPending(false);
     }
   };
 
   const handleJoinByCode = async () => {
+    if (joinByCodePending) {
+      return;
+    }
+
+    setJoinByCodePending(true);
     try {
       const targetRoom = await getRoomByCode(joinCode);
       const joinedRoom = await joinRoom(targetRoom.id);
@@ -1305,14 +1329,17 @@ export function App() {
       pushToast("success", "Raum beigetreten", `Du bist jetzt im Raum ${joinedRoom.code}.`);
     } catch (joinError) {
       pushToast("error", "Beitritt fehlgeschlagen", (joinError as Error).message);
+    } finally {
+      setJoinByCodePending(false);
     }
   };
 
   const handleJoinRoom = async () => {
-    if (!room) {
+    if (!room || roomJoinPending) {
       return;
     }
 
+    setRoomJoinPending(true);
     try {
       const nextRoom = await joinRoom(room.id);
       setRoom(nextRoom);
@@ -1325,20 +1352,26 @@ export function App() {
       );
     } catch (joinError) {
       pushToast("error", "Beitritt fehlgeschlagen", (joinError as Error).message);
+    } finally {
+      setRoomJoinPending(false);
     }
   };
 
   const handleReadyToggle = async (ready: boolean) => {
-    if (!room) {
+    if (!room || roomReadyPending) {
       return;
     }
 
+    setRoomReadyPending(true);
     try {
       const nextRoom = await setReady(room.id, ready);
       setRoom(nextRoom);
       await loadMyRooms();
+      playUiFeedback({ haptic: "success" });
     } catch (readyError) {
       pushToast("error", "Ready-Status fehlgeschlagen", (readyError as Error).message);
+    } finally {
+      setRoomReadyPending(false);
     }
   };
 
@@ -1405,10 +1438,11 @@ export function App() {
   };
 
   const handleLeaveRoom = async () => {
-    if (!room) {
+    if (!room || roomLeavePending) {
       return;
     }
 
+    setRoomLeavePending(true);
     try {
       await leaveRoom(room.id);
       setRoom(null);
@@ -1419,6 +1453,8 @@ export function App() {
       pushToast("info", "Raum verlassen", "Du bist zurück in der Zentrale.");
     } catch (leaveError) {
       pushToast("error", "Raum konnte nicht verlassen werden", (leaveError as Error).message);
+    } finally {
+      setRoomLeavePending(false);
     }
   };
 
@@ -1438,10 +1474,11 @@ export function App() {
   };
 
   const handleStartRoom = async () => {
-    if (!room) {
+    if (!room || roomStartPending) {
       return;
     }
 
+    setRoomStartPending(true);
     try {
       const result = await startRoom(room.id);
       setRoom(result.room);
@@ -1454,6 +1491,8 @@ export function App() {
       pushToast("success", "Partie startet", "Die neue Runde wurde erfolgreich gestartet.");
     } catch (startError) {
       pushToast("error", "Start fehlgeschlagen", (startError as Error).message);
+    } finally {
+      setRoomStartPending(false);
     }
   };
 
@@ -1822,6 +1861,7 @@ export function App() {
       <>
         <LandingScreen
           authForm={authForm}
+          authSubmitPending={authSubmitPending}
           authMode={authMode}
           inviteCode={guestInviteCode}
           musicPaused={session === undefined ? true : musicPaused}
@@ -1850,13 +1890,13 @@ export function App() {
       : {};
   const headerAdminProps = session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {};
 
-  const displayEyebrow = !session ? "Mit Freunden spielen" : headerContext.eyebrow;
+  const displayEyebrow = !session ? "Mit Freunden spielen" : activeScreen === "lobby" ? "HEXAGONIA" : headerContext.eyebrow;
   const currentMatchPlayer = match?.players.find((player) => player.id === match.currentPlayerId) ?? null;
   const displayMeta =
     !session
       ? TEXT.subtitle
       : activeScreen === "lobby"
-        ? "Raum erstellen oder mit einem Code beitreten"
+        ? ""
         : activeScreen === "room" && room
           ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/4 Spieler`
           : activeScreen === "match" && match
@@ -1904,6 +1944,8 @@ export function App() {
       <div className="app-stage">
         {activeScreen === "lobby" && session ? (
           <LobbyScreen
+            createRoomPending={createRoomPending}
+            joinByCodePending={joinByCodePending}
             joinCode={joinCode}
             rooms={myRooms}
             session={session}
@@ -1937,9 +1979,13 @@ export function App() {
         {activeScreen === "room" && session ? (
           room ? (
             <RoomScreen
+              joinRoomPending={roomJoinPending}
+              leavePending={roomLeavePending}
               presence={presence}
+              readyPending={roomReadyPending}
               room={room}
               session={session}
+              startPending={roomStartPending}
               onCopyCode={handleCopyRoomCode}
               onCopyInviteLink={handleCopyInviteLink}
               onJoinRoom={handleJoinRoom}

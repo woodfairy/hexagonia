@@ -518,6 +518,28 @@ button:disabled {
   transform: none !important;
 }
 
+.button-loading-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.58rem;
+}
+
+.button-loading-spinner {
+  inline-size: 0.95rem;
+  block-size: 0.95rem;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 999px;
+  animation: button-loading-spin 720ms linear infinite;
+}
+
+@keyframes button-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .large-button {
   min-block-size: 3.15rem;
   font-size: 1rem;

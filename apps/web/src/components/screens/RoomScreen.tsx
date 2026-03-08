@@ -1,11 +1,16 @@
 import type { AuthUser, RoomDetails, SetupMode, StartingPlayerMode } from "@hexagonia/shared";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
+import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import { renderPlayerColorLabel } from "../../ui";
 
 export function RoomScreen(props: {
   room: RoomDetails;
   session: AuthUser;
   presence: string[];
+  joinRoomPending: boolean;
+  readyPending: boolean;
+  startPending: boolean;
+  leavePending: boolean;
   onJoinRoom: () => void;
   onKickUser: (userId: string) => void;
   onSetupModeChange: (setupMode: SetupMode) => void;
@@ -221,8 +226,8 @@ export function RoomScreen(props: {
                 canJoinRoom ? (
                   <>
                     <p className="muted-copy room-action-hint">Beim Beitritt bekommst du automatisch den nächsten freien Platz.</p>
-                    <button className="primary-button" type="button" onClick={props.onJoinRoom}>
-                      Beitreten
+                    <button className="primary-button" type="button" onClick={props.onJoinRoom} disabled={props.joinRoomPending}>
+                      <LoadingButtonContent loading={props.joinRoomPending} idleLabel="Beitreten" loadingLabel="Beitritt laeuft..." />
                     </button>
                   </>
                 ) : (
@@ -235,18 +240,23 @@ export function RoomScreen(props: {
                 <button
                   className={currentSeat.ready ? "secondary-button is-accent" : "primary-button"}
                   type="button"
+                  disabled={props.readyPending}
                   onClick={() => props.onReady(!currentSeat.ready)}
                 >
-                  {currentSeat.ready ? "Nicht mehr bereit" : "Bereit"}
+                  <LoadingButtonContent
+                    loading={props.readyPending}
+                    idleLabel={currentSeat.ready ? "Nicht mehr bereit" : "Bereit"}
+                    loadingLabel="Status wird gespeichert..."
+                  />
                 </button>
               ) : null}
               {canStart ? (
-                <button className="primary-button" type="button" onClick={props.onStart}>
-                  Partie starten
+                <button className="primary-button" type="button" onClick={props.onStart} disabled={props.startPending}>
+                  <LoadingButtonContent loading={props.startPending} idleLabel="Partie starten" loadingLabel="Partie startet..." />
                 </button>
               ) : null}
-              <button className="ghost-button" type="button" onClick={props.onLeave}>
-                Raum verlassen
+              <button className="ghost-button" type="button" onClick={props.onLeave} disabled={props.leavePending}>
+                <LoadingButtonContent loading={props.leavePending} idleLabel="Raum verlassen" loadingLabel="Raum wird verlassen..." />
               </button>
             </div>
           </article>

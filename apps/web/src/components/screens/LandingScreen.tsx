@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import { HarborIcon, ResourceIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
+import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import type { AuthMode } from "../../ui";
 import hexaLogo from "../../../../../assets/img/hexa.png";
 
@@ -118,6 +119,7 @@ export function LandingScreen(props: {
   onSelectMusicTrack: (trackId: string) => void;
   onSubmit: (event: FormEvent) => void;
   onToggleMusicPaused: () => void;
+  authSubmitPending: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const trackMenuRef = useRef<HTMLDivElement | null>(null);
@@ -564,8 +566,12 @@ export function LandingScreen(props: {
                 />
               </label>
 
-              <button className="landing-button landing-auth-submit" type="submit">
-                {authSubmitLabel}
+              <button className="landing-button landing-auth-submit" type="submit" disabled={props.authSubmitPending}>
+                <LoadingButtonContent
+                  loading={props.authSubmitPending}
+                  idleLabel={authSubmitLabel}
+                  loadingLabel={props.authMode === "login" ? "Anmeldung laeuft..." : "Registrierung laeuft..."}
+                />
               </button>
 
               {props.authMode === "register" ? (

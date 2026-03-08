@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import type { AuthMode } from "../../ui";
 
 export function AuthScreen(props: {
@@ -10,6 +11,7 @@ export function AuthScreen(props: {
   onAuthModeChange: (mode: AuthMode) => void;
   onAuthFieldChange: (field: "username" | "password", value: string) => void;
   onSubmit: (event: FormEvent) => void;
+  authSubmitPending: boolean;
 }) {
   return (
     <section className="screen-shell auth-shell">
@@ -78,8 +80,12 @@ export function AuthScreen(props: {
             />
           </label>
 
-          <button className="primary-button auth-submit" type="submit">
-            {props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen und loslegen"}
+          <button className="primary-button auth-submit" type="submit" disabled={props.authSubmitPending}>
+            <LoadingButtonContent
+              loading={props.authSubmitPending}
+              idleLabel={props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen und loslegen"}
+              loadingLabel={props.authMode === "login" ? "Anmeldung laeuft..." : "Registrierung laeuft..."}
+            />
           </button>
 
           {props.authMode === "register" ? (

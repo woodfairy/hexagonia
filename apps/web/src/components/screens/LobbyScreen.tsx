@@ -1,11 +1,14 @@
 import type { AuthUser, RoomDetails } from "@hexagonia/shared";
 import { PlayerColorBadge } from "../shared/PlayerIdentity";
+import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import { renderPlayerColorLabel } from "../../ui";
 
 export function LobbyScreen(props: {
   session: AuthUser;
   rooms: RoomDetails[];
   joinCode: string;
+  createRoomPending: boolean;
+  joinByCodePending: boolean;
   onJoinCodeChange: (value: string) => void;
   onCreateRoom: () => void;
   onJoinByCode: () => void;
@@ -21,16 +24,6 @@ export function LobbyScreen(props: {
           <p className="hero-copy">
             Starte einen privaten Spieltisch oder steig direkt wieder in deine laufenden Räume und Partien ein.
           </p>
-          <div className="lobby-summary-grid">
-            <div className="summary-card">
-              <strong>Sofort starten</strong>
-              <span>Privaten Raum anlegen, Freunde einladen und die Runde aufsetzen.</span>
-            </div>
-            <div className="summary-card">
-              <strong>Nahtlos fortsetzen</strong>
-              <span>Offene Räume und aktive Partien bleiben für dich griffbereit.</span>
-            </div>
-          </div>
         </article>
 
         <article className="surface resume-surface">
@@ -98,9 +91,13 @@ export function LobbyScreen(props: {
               <h2>Neuen Raum eröffnen</h2>
             </div>
           </div>
-          <p>Lege sofort einen privaten 4er-Raum an und übernimm Platz 1.</p>
-          <button className="primary-button large-button" type="button" onClick={props.onCreateRoom}>
-            Privaten Raum erstellen
+          <p>Erstelle direkt einen privaten Raum und starte als Host auf Platz 1.</p>
+          <button className="primary-button large-button" type="button" onClick={props.onCreateRoom} disabled={props.createRoomPending}>
+            <LoadingButtonContent
+              loading={props.createRoomPending}
+              idleLabel="Privaten Raum erstellen"
+              loadingLabel="Raum wird erstellt..."
+            />
           </button>
         </article>
 
@@ -118,11 +115,11 @@ export function LobbyScreen(props: {
               value={props.joinCode}
               onChange={(event) => props.onJoinCodeChange(event.target.value.toUpperCase())}
             />
-            <button className="primary-button" type="button" onClick={props.onJoinByCode}>
-              Beitreten
+            <button className="primary-button" type="button" onClick={props.onJoinByCode} disabled={props.joinByCodePending}>
+              <LoadingButtonContent loading={props.joinByCodePending} idleLabel="Beitreten" loadingLabel="Beitritt laeuft..." />
             </button>
           </div>
-          <span className="muted-copy">Code eingeben, bestätigen und direkt in den Raum springen.</span>
+          <span className="muted-copy">Code eingeben und direkt in den Raum springen.</span>
         </article>
       </div>
     </section>
