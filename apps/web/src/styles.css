@@ -2755,6 +2755,9 @@ select {
 .tab-panel-view {
   --tab-panel-shift-x: 0.7rem;
   min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  display: grid;
   animation: tab-panel-enter 220ms cubic-bezier(0.22, 0.82, 0.24, 1);
   will-change: transform, opacity;
 }
