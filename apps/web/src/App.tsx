@@ -39,6 +39,7 @@ import {
   updateAdminUser,
   updateRoomSettings
 } from "./api";
+import { uiHapticsManager } from "./audio/uiHapticsManager";
 import { bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
 import type { InteractionMode } from "./BoardScene";
 import {
@@ -100,6 +101,11 @@ interface PendingRobberTargetSelection {
   targetPlayerIds: string[];
 }
 
+interface UiFeedbackRequest {
+  sound?: Parameters<typeof uiSoundManager.play>;
+  haptic?: Parameters<typeof uiHapticsManager.play>[0];
+}
+
 export function App() {
   const [session, setSession] = useState<AuthUser | null | undefined>(undefined);
   const [room, setRoom] = useState<RoomDetails | null>(null);
@@ -111,6 +117,7 @@ export function App() {
   const [socketEpoch, setSocketEpoch] = useState(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [soundMuted, setSoundMuted] = useState(() => uiSoundManager.isMuted());
+  const [hapticsMuted, setHapticsMuted] = useState(() => uiHapticsManager.isMuted());
   const [selectedMusicTrackId, setSelectedMusicTrackId] = useState(() => uiSoundManager.getSelectedMusicTrackId());
   const [musicPaused, setMusicPaused] = useState(() => uiSoundManager.isMusicPaused());
   const [musicPlaybackMode, setMusicPlaybackMode] = useState(() => uiSoundManager.getMusicPlaybackMode());
@@ -149,6 +156,7 @@ export function App() {
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
   const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
   const musicTracks = useMemo(() => uiSoundManager.getMusicTracks(), []);
+  const hapticsSupported = uiHapticsManager.isSupported();
   const [robberUiBlockedByDiceAnimation, setRobberUiBlockedByDiceAnimation] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -166,7 +174,7 @@ export function App() {
   const robberUiMatchIdRef = useRef<string | null>(null);
   const robberUiDiceEventIdRef = useRef<string | null>(null);
   const robberUiBlockTimerRef = useRef<number | null>(null);
-  const matchSoundStateRef = useRef<{
+  const matchFeedbackStateRef = useRef<{
     matchId: string | null;
     currentPlayerId: string | null;
     actionableTradeCount: number;
@@ -216,13 +224,19 @@ export function App() {
   }, [route.kind, session]);
   const isGuestLanding = activeScreen === "auth";
 
-  const playUiSound = useCallback(
-    (...args: Parameters<typeof uiSoundManager.play>) => {
+  const playUiFeedback = useCallback(
+    ({ sound, haptic }: UiFeedbackRequest) => {
       if (isGuestLanding) {
         return;
       }
 
-      void uiSoundManager.play(...args);
+      if (sound) {
+        void uiSoundManager.play(...sound);
+      }
+
+      if (haptic) {
+        void uiHapticsManager.play(haptic);
+      }
     },
     [isGuestLanding]
   );
@@ -278,13 +292,13 @@ export function App() {
       toastCounterRef.current += 1;
       const id = `toast-${Date.now()}-${toastCounterRef.current}`;
       const nextToast: ToastMessage = body ? { id, tone, title, body } : { id, tone, title };
-      playUiSound(getToastSoundId(tone));
+      playUiFeedback({ haptic: getToastHapticId(tone) });
       setToasts((current) => [...current, nextToast].slice(-4));
       window.setTimeout(() => {
         removeToast(id);
       }, tone === "error" ? 5400 : 3600);
     },
-    [playUiSound, removeToast]
+    [playUiFeedback, removeToast]
   );
 
   useEffect(() => {
@@ -329,7 +343,7 @@ export function App() {
 
   useEffect(() => {
     if (!match) {
-      matchSoundStateRef.current = {
+      matchFeedbackStateRef.current = {
         matchId: null,
         currentPlayerId: null,
         actionableTradeCount: 0,
@@ -339,31 +353,29 @@ export function App() {
     }
 
     const actionableTradeCount = getActionableTradeCount(match);
-    const previous = matchSoundStateRef.current;
+    const previous = matchFeedbackStateRef.current;
 
     if (previous.matchId === match.matchId) {
       if (previous.currentPlayerId !== match.currentPlayerId && match.currentPlayerId === match.you) {
-        playUiSound("notify", { volume: 0.96, playbackRate: 1.04 });
+        playUiFeedback({ haptic: "nudge" });
       }
 
       if (previous.actionableTradeCount === 0 && actionableTradeCount > 0) {
-        playUiSound("notify", { volume: 0.9 });
+        playUiFeedback({ haptic: "nudge" });
       }
 
       if (!previous.winnerId && match.winnerId) {
-        playUiSound(match.winnerId === match.you ? "success" : "notify", {
-          volume: match.winnerId === match.you ? 1.08 : 0.94
-        });
+        playUiFeedback({ haptic: match.winnerId === match.you ? "success" : "nudge" });
       }
     }
 
-    matchSoundStateRef.current = {
+    matchFeedbackStateRef.current = {
       matchId: match.matchId,
       currentPlayerId: match.currentPlayerId,
       actionableTradeCount,
       winnerId: match.winnerId
     };
-  }, [match]);
+  }, [match, playUiFeedback]);
 
   useEffect(() => {
     setPendingMatchConfirmation(null);
@@ -471,8 +483,8 @@ export function App() {
       return;
     }
 
-    playUiSound(dialogOpen ? "open" : "close", { volume: dialogOpen ? 0.82 : 0.76 });
-  }, [pendingMatchConfirmation, pendingRobberTargetSelection, playUiSound]);
+    playUiFeedback({ haptic: "dialog" });
+  }, [pendingMatchConfirmation, pendingRobberTargetSelection, playUiFeedback]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -1179,11 +1191,26 @@ export function App() {
       const next = !current;
       uiSoundManager.setMuted(next);
       if (!next) {
-        playUiSound("notify", { volume: 0.82 });
+        playUiFeedback({ sound: ["click", { volume: 0.82 }] });
       }
       return next;
     });
-  }, [playUiSound]);
+  }, [playUiFeedback]);
+
+  const handleToggleHapticsMuted = useCallback(() => {
+    if (!hapticsSupported) {
+      return;
+    }
+
+    setHapticsMuted((current) => {
+      const next = !current;
+      uiHapticsManager.setMuted(next);
+      if (!next) {
+        playUiFeedback({ haptic: "dialog" });
+      }
+      return next;
+    });
+  }, [hapticsSupported, playUiFeedback]);
 
   const syncMusicPlayerState = useCallback(() => {
     setSelectedMusicTrackId(uiSoundManager.getSelectedMusicTrackId());
@@ -1610,7 +1637,7 @@ export function App() {
     const selfResources = selfPlayer?.resources;
 
     if (match.allowedMoves.initialSettlementVertexIds.includes(vertexId)) {
-      playUiSound("click", { volume: 0.82 });
+      playUiFeedback({ haptic: "nudge" });
       queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
@@ -1628,7 +1655,7 @@ export function App() {
       hasResources(selfResources, BUILD_COSTS.settlement) &&
       match.allowedMoves.settlementVertexIds.includes(vertexId)
     ) {
-      playUiSound("click", { volume: 0.82 });
+      playUiFeedback({ haptic: "nudge" });
       queueMatchConfirmation(
         {
           type: "match.action",
@@ -1648,7 +1675,7 @@ export function App() {
       hasResources(selfResources, BUILD_COSTS.city) &&
       match.allowedMoves.cityVertexIds.includes(vertexId)
     ) {
-      playUiSound("click", { volume: 0.82 });
+      playUiFeedback({ haptic: "nudge" });
       queueMatchConfirmation(
         {
           type: "match.action",
@@ -1672,7 +1699,7 @@ export function App() {
     const selfResources = selfPlayer?.resources;
 
     if (match.allowedMoves.initialRoadEdgeIds.includes(edgeId)) {
-      playUiSound("click", { volume: 0.82 });
+      playUiFeedback({ haptic: "nudge" });
       queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
@@ -1690,7 +1717,7 @@ export function App() {
       hasResources(selfResources, BUILD_COSTS.road) &&
       match.allowedMoves.roadEdgeIds.includes(edgeId)
     ) {
-      playUiSound("click", { volume: 0.82 });
+      playUiFeedback({ haptic: "nudge" });
       queueMatchConfirmation(
         {
           type: "match.action",
@@ -1705,7 +1732,7 @@ export function App() {
     }
 
     if (interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(edgeId)) {
-      playUiSound("click", { volume: 0.78 });
+      playUiFeedback({ haptic: "nudge" });
       queueMatchConfirmation({
         type: "match.action",
         matchId: match.matchId,
@@ -1823,6 +1850,8 @@ export function App() {
         connectionState={connectionState}
         connectionStatusText={status}
         eyebrow={displayEyebrow}
+        hapticsMuted={hapticsMuted}
+        hapticsSupported={hapticsSupported}
         meta={displayMeta}
         musicPaused={musicPaused}
         musicPlaybackMode={musicPlaybackMode}
@@ -1836,6 +1865,7 @@ export function App() {
         onNavigateHome={() => navigateTo({ kind: "home" })}
         onSelectMusicTrack={handleSelectMusicTrack}
         onBoardVisualSettingsChange={handleBoardVisualSettingsChange}
+        onToggleHapticsMuted={handleToggleHapticsMuted}
         onToggleSoundMuted={handleToggleSoundMuted}
         onToggleMusicPaused={handleToggleMusicPaused}
         {...headerAdminProps}
@@ -1908,6 +1938,8 @@ export function App() {
               profileMenuProps={{
                 boardVisualSettings,
                 connectionState,
+                hapticsMuted,
+                hapticsSupported,
                 musicPaused,
                 musicPlaybackMode,
                 musicTracks,
@@ -1919,6 +1951,7 @@ export function App() {
                 onLogout: handleLogout,
                 onNavigateHome: () => navigateTo({ kind: "home" }),
                 onSelectMusicTrack: handleSelectMusicTrack,
+                onToggleHapticsMuted: handleToggleHapticsMuted,
                 onToggleSoundMuted: handleToggleSoundMuted,
                 onToggleMusicPaused: handleToggleMusicPaused,
                 ...headerAdminProps,
@@ -2025,14 +2058,14 @@ function getReconnectJitter(attempt: number): number {
   return (attempt * 173) % 351;
 }
 
-function getToastSoundId(tone: ToastMessage["tone"]) {
+function getToastHapticId(tone: ToastMessage["tone"]) {
   switch (tone) {
     case "error":
       return "error" as const;
     case "success":
       return "success" as const;
     default:
-      return "notify" as const;
+      return "nudge" as const;
   }
 }
 

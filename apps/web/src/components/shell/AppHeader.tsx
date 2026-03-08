@@ -15,6 +15,8 @@ export function AppHeader(props: {
   title: string;
   meta?: string;
   soundMuted: boolean;
+  hapticsMuted: boolean;
+  hapticsSupported: boolean;
   musicTracks: ReadonlyArray<MusicTrack>;
   selectedMusicTrackId: string | null;
   musicPaused: boolean;
@@ -28,6 +30,7 @@ export function AppHeader(props: {
   onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
+  onToggleHapticsMuted: () => void;
   onToggleMusicPaused: () => void;
   onLogout: () => void | Promise<void>;
 }) {
@@ -69,11 +72,14 @@ export function AppHeader(props: {
             selectedMusicTrackId={props.selectedMusicTrackId}
             session={props.session}
             soundMuted={props.soundMuted}
+            hapticsMuted={props.hapticsMuted}
+            hapticsSupported={props.hapticsSupported}
             onBoardVisualSettingsChange={props.onBoardVisualSettingsChange}
             onMusicPlaybackModeChange={props.onMusicPlaybackModeChange}
             onLogout={props.onLogout}
             onNavigateHome={props.onNavigateHome}
             onSelectMusicTrack={props.onSelectMusicTrack}
+            onToggleHapticsMuted={props.onToggleHapticsMuted}
             onToggleSoundMuted={props.onToggleSoundMuted}
             onToggleMusicPaused={props.onToggleMusicPaused}
             {...(props.onNavigateAdmin ? { onNavigateAdmin: props.onNavigateAdmin } : {})}

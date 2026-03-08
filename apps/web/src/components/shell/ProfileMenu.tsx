@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@hexagonia/shared";
-import { uiSoundManager, type MusicPlaybackMode, type MusicTrack } from "../../audio/uiSoundManager";
+import { uiHapticsManager } from "../../audio/uiHapticsManager";
+import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
@@ -10,6 +11,8 @@ export interface ProfileMenuProps {
   session: AuthUser;
   connectionState: ConnectionState;
   soundMuted: boolean;
+  hapticsMuted: boolean;
+  hapticsSupported: boolean;
   musicTracks: ReadonlyArray<MusicTrack>;
   selectedMusicTrackId: string | null;
   musicPaused: boolean;
@@ -23,6 +26,7 @@ export interface ProfileMenuProps {
   onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
   onSelectMusicTrack: (trackId: string) => void;
   onToggleSoundMuted: () => void;
+  onToggleHapticsMuted: () => void;
   onToggleMusicPaused: () => void;
   onLogout: () => void | Promise<void>;
 }
@@ -128,6 +132,29 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <span>{props.soundMuted ? "Stumm geschaltet" : "Aktiv und bereit"}</span>
           </span>
           <span className={`status-pill ${props.soundMuted ? "muted" : ""}`}>{props.soundMuted ? "Aus" : "An"}</span>
+        </button>
+        <button
+          type="button"
+          className={`menu-action menu-toggle-action ${
+            !props.hapticsSupported || props.hapticsMuted ? "is-muted" : "is-active"
+          }`}
+          aria-pressed={props.hapticsSupported && !props.hapticsMuted}
+          onClick={() => props.onToggleHapticsMuted()}
+          disabled={!props.hapticsSupported}
+        >
+          <span className="menu-toggle-copy">
+            <strong>Haptik</strong>
+            <span>
+              {!props.hapticsSupported
+                ? "Auf diesem Geraet nicht verfuegbar"
+                : props.hapticsMuted
+                  ? "Deaktiviert"
+                  : "Aktiv fuer relevantes Feedback"}
+            </span>
+          </span>
+          <span className={`status-pill ${!props.hapticsSupported || props.hapticsMuted ? "muted" : ""}`}>
+            {!props.hapticsSupported ? "Nicht verfuegbar" : props.hapticsMuted ? "Aus" : "An"}
+          </span>
         </button>
         <div className="profile-board-panel">
           <div className="profile-music-copy">
@@ -265,7 +292,7 @@ export function ProfileMenu(props: ProfileMenuProps) {
       return;
     }
 
-    void uiSoundManager.play(open ? "open" : "close", { volume: 0.9 });
+    void uiHapticsManager.play("dialog");
   }, [open]);
 
   useEffect(() => {

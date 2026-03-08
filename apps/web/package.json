@@ -17,7 +17,8 @@
     "@hexagonia/shared": "file:../../packages/shared",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.175.0"
+    "three": "^0.175.0",
+    "web-haptics": "0.0.6"
   },
   "devDependencies": {
     "@types/react": "^19.0.10",

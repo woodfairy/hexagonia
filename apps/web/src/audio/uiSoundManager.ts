@@ -1,16 +1,11 @@
 import clickUrl from "../../../../assets/sounds/ui-click.wav";
-import closeUrl from "../../../../assets/sounds/ui-close.wav";
-import errorUrl from "../../../../assets/sounds/ui-error.wav";
-import notifyUrl from "../../../../assets/sounds/ui-notify.wav";
-import openUrl from "../../../../assets/sounds/ui-open.wav";
-import successUrl from "../../../../assets/sounds/ui-success.wav";
 
 const MUSIC_TRACK_IMPORTS = import.meta.glob("../../../../assets/songs/*.{mp3,wav,ogg,m4a,aac,flac}", {
   eager: true,
   import: "default"
 }) as Record<string, string>;
 
-export type UiSoundId = "click" | "open" | "close" | "success" | "notify" | "error";
+export type UiSoundId = "click";
 
 type UiSoundDirective = UiSoundId | "off";
 
@@ -50,12 +45,7 @@ const INTERACTIVE_SELECTOR = [
 ].join(", ");
 
 const SOUND_LIBRARY: Record<UiSoundId, UiSoundDefinition> = {
-  click: { url: clickUrl, volume: 0.72 },
-  open: { url: openUrl, volume: 0.58 },
-  close: { url: closeUrl, volume: 0.5 },
-  success: { url: successUrl, volume: 0.64 },
-  notify: { url: notifyUrl, volume: 0.56 },
-  error: { url: errorUrl, volume: 0.52 }
+  click: { url: clickUrl, volume: 0.72 }
 };
 const MUSIC_LIBRARY: MusicTrack[] = Object.entries(MUSIC_TRACK_IMPORTS)
   .map(([path, url]) => {
