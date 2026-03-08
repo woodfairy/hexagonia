@@ -135,6 +135,7 @@ interface BuildActionTooltipState {
   lines: string[];
   left: number;
   top: number;
+  placement: "above" | "below";
 }
 
 const DICE_EXPAND_MS = 150;
@@ -589,12 +590,14 @@ export function MatchScreen(props: {
       window.innerWidth - estimatedWidth / 2 - 12,
       Math.max(estimatedWidth / 2 + 12, rect.left + rect.width / 2)
     );
+    const placement = rect.top > 160 ? "above" : "below";
 
     setBuildActionTooltip({
       title: tooltip.title,
       lines: tooltip.lines,
       left,
-      top: rect.top - 10
+      top: placement === "above" ? rect.top - 10 : rect.bottom + 10,
+      placement
     });
   };
   const closeBuildActionTooltip = () => setBuildActionTooltip(null);
@@ -1396,6 +1399,7 @@ export function MatchScreen(props: {
             <span
               className="floating-build-action-tooltip"
               role="tooltip"
+              data-placement={buildActionTooltip.placement}
               style={{ left: buildActionTooltip.left, top: buildActionTooltip.top }}
             >
               <strong>{buildActionTooltip.title}</strong>
