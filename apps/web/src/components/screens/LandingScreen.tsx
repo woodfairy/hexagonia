@@ -153,7 +153,34 @@ export function LandingScreen(props: {
       return;
     }
 
-    revealNodes.forEach((node) => node.classList.add("is-visible"));
+    if (prefersReducedMotion || typeof IntersectionObserver === "undefined") {
+      revealNodes.forEach((node) => node.classList.add("is-visible"));
+      return;
+    }
+
+    revealNodes.forEach((node) => node.classList.remove("is-visible"));
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      {
+        root: null,
+        rootMargin: "0px 0px -12% 0px",
+        threshold: 0.18
+      }
+    );
+
+    revealNodes.forEach((node) => observer.observe(node));
+
+    return () => observer.disconnect();
   }, [prefersReducedMotion]);
 
   useEffect(() => {
