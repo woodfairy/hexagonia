@@ -352,7 +352,7 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
     }
   }
 
-  const vertices = [...verticesById.values()]
+  const vertices: VertexView[] = [...verticesById.values()]
     .map((vertex) => ({
       ...vertex,
       tileIds: vertex.tileIds.sort(sortId),
@@ -363,23 +363,25 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
     }))
     .sort((left, right) => sortId(left.id, right.id));
 
+  const finalizedEdges: EdgeView[] = edges
+    .map((edge) => ({
+      ...edge,
+      tileIds: edge.tileIds.sort(sortId),
+      ownerId: null,
+      color: null
+    }))
+    .sort((left, right) => sortId(left.id, right.id));
+
   return {
     tiles,
     vertices,
-    edges: edges
-      .map((edge) => ({
-        ...edge,
-        tileIds: edge.tileIds.sort(sortId),
-        ownerId: null,
-        color: null
-      }))
-      .sort((left, right) => sortId(left.id, right.id)),
+    edges: finalizedEdges,
     ports
   };
 }
 
 function getBoardLayout(boardSize: BoardSize): BoardLayout {
-  return LAYOUTS[boardSize];
+  return LAYOUTS[boardSize]!;
 }
 
 function applyTileContents(
