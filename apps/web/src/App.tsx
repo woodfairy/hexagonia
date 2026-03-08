@@ -381,6 +381,30 @@ export function App() {
   }, [isGuestLanding]);
 
   useEffect(() => {
+    if (!isGuestLanding) {
+      return;
+    }
+
+    const unlockMusic = () => {
+      void uiSoundManager.unlock();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Tab" || event.key === "Enter" || event.key === " ") {
+        unlockMusic();
+      }
+    };
+
+    window.addEventListener("pointerdown", unlockMusic, true);
+    window.addEventListener("keydown", onKeyDown, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", unlockMusic, true);
+      window.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [isGuestLanding]);
+
+  useEffect(() => {
     if (session === undefined) {
       return;
     }

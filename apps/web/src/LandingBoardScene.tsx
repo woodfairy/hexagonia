@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle } from "./boardUltraTerrain";
 import { isFirefoxBrowser } from "./browserPerformance";
@@ -70,6 +71,20 @@ const TILE_INSET_BEVEL_THICKNESS = 0.04;
 const HEX_RADIUS = 1;
 const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS;
 const HEX_HEIGHT = 2 * HEX_RADIUS;
+const LANDING_BOARD_YAW = 0.32;
+const LANDING_CAMERA_BASE_POSITION = new THREE.Vector3(0, 23.5, 39.5);
+const LANDING_CAMERA_SCROLL_POSITION_DELTA = new THREE.Vector3(0, 2.2, -4.6);
+const LANDING_CAMERA_BASE_TARGET = new THREE.Vector3(0, 1.9, 0);
+const LANDING_CAMERA_SCROLL_TARGET_DELTA = new THREE.Vector3(0, 0.7, 0);
+const LANDING_AUTO_ROTATE_SPEED = 0.15;
+const LANDING_AUTO_ROTATE_SPEED_REDUCED = 0.04;
+const LANDING_PRESENTATION_BLEND = 2.9;
+const LANDING_PRESENTATION_BLEND_REDUCED = 1.1;
+const LANDING_RESET_BLEND = 5.2;
+const LANDING_RESET_BLEND_REDUCED = 2.1;
+const LANDING_TOUCH_RESET_DELAY_MS = 250;
+const LANDING_RESET_POSITION_EPSILON = 0.08;
+const LANDING_RESET_TARGET_EPSILON = 0.03;
 const X_SCALE = 4.8;
 const Y_SCALE = 4.2;
 const CORNER_OFFSETS = [
@@ -133,20 +148,36 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 220);
-    const clock = new THREE.Clock();
+    const clock = new THREE.Clock(false);
     const boardGroup = new THREE.Group();
-    const pointer = new THREE.Vector2();
+    const controls = new OrbitControls(camera, mount);
     const glowMarkers: Array<{ material: THREE.MeshBasicMaterial; speed: number; baseOpacity: number }> = [];
     const firefoxBrowser = isFirefoxBrowser();
+    const activeTouchPointers = new Set<number>();
+    const idleBasePosition = new THREE.Vector3();
+    const idleTarget = new THREE.Vector3();
+    const desiredPosition = new THREE.Vector3();
+    const desiredTarget = new THREE.Vector3();
+    const idleOffset = new THREE.Vector3();
+    const orbitOffset = new THREE.Vector3();
+    const orbitSpherical = new THREE.Spherical();
     let scrollProgress = 0;
     let frameId = 0;
+    let elapsed = 0;
     let isSceneVisible = true;
     let isDocumentVisible = typeof document === "undefined" ? true : document.visibilityState !== "hidden";
     let isCompactScene = false;
     let isScrollTracking = false;
+    let isPointerInside = false;
+    let isUserInteracting = false;
+    let shouldResetAfterInteraction = false;
+    let isResetting = false;
+    let isAutoRotating = true;
+    let resetDelayUntil = 0;
+    let autoRotateAngle = 0;
+    let touchOrbitActive = false;
 
     scene.add(boardGroup);
-    camera.position.set(0, 23.5, 39.5);
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -318,15 +349,157 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       scrollProgress = THREE.MathUtils.clamp(progress, 0, 1);
     };
 
-    const handlePointerMove = (event: PointerEvent) => {
-      const rect = mount.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / Math.max(rect.width, 1);
-      const y = (event.clientY - rect.top) / Math.max(rect.height, 1);
-      pointer.set((x - 0.5) * 2, (y - 0.5) * 2);
+    const setCursor = (value: string) => {
+      mount.style.cursor = value;
     };
 
-    const handlePointerLeave = () => {
-      pointer.set(0, 0);
+    const applyIdlePose = () => {
+      resolveIdlePose(scrollProgress, idleBasePosition, idleTarget);
+      camera.position.copy(idleBasePosition);
+      controls.target.copy(idleTarget);
+      controls.update();
+    };
+
+    const setDesktopControlProfile = () => {
+      controls.enablePan = true;
+      controls.enableRotate = true;
+      controls.enableZoom = true;
+      mount.style.touchAction = "pan-y";
+    };
+
+    const setTouchIdleProfile = () => {
+      controls.enablePan = false;
+      controls.enableRotate = false;
+      controls.enableZoom = false;
+      mount.style.touchAction = "pan-y";
+    };
+
+    const setTouchCameraProfile = () => {
+      controls.enablePan = false;
+      controls.enableRotate = true;
+      controls.enableZoom = true;
+      mount.style.touchAction = "none";
+    };
+
+    const clearResetSchedule = () => {
+      resetDelayUntil = 0;
+    };
+
+    const pausePresentation = () => {
+      isAutoRotating = false;
+      isResetting = false;
+      clearResetSchedule();
+    };
+
+    const startReset = (delayMs = 0) => {
+      isAutoRotating = false;
+      if (delayMs > 0) {
+        isResetting = false;
+        resetDelayUntil = performance.now() + delayMs;
+        return;
+      }
+
+      isResetting = true;
+      clearResetSchedule();
+    };
+
+    const syncTouchControlProfile = () => {
+      if (activeTouchPointers.size >= 2) {
+        if (!touchOrbitActive) {
+          touchOrbitActive = true;
+          pausePresentation();
+        }
+        setTouchCameraProfile();
+        return;
+      }
+
+      if (touchOrbitActive) {
+        touchOrbitActive = false;
+        shouldResetAfterInteraction = false;
+        startReset(LANDING_TOUCH_RESET_DELAY_MS);
+      }
+
+      if (activeTouchPointers.size === 1) {
+        setTouchIdleProfile();
+        return;
+      }
+
+      setDesktopControlProfile();
+    };
+
+    const handlePointerEnter = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        return;
+      }
+
+      isPointerInside = true;
+      if (!isUserInteracting && !touchOrbitActive) {
+        pausePresentation();
+      }
+      setCursor("grab");
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        return;
+      }
+
+      const rect = mount.getBoundingClientRect();
+      const isInsideBounds =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+
+      if (isInsideBounds) {
+        isPointerInside = true;
+        if (!isUserInteracting) {
+          setCursor("grab");
+        }
+        return;
+      }
+
+      isPointerInside = false;
+      if (isUserInteracting) {
+        shouldResetAfterInteraction = true;
+      }
+    };
+
+    const handlePointerLeave = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        return;
+      }
+
+      isPointerInside = false;
+      if (isUserInteracting) {
+        shouldResetAfterInteraction = true;
+        return;
+      }
+
+      setCursor("");
+      startReset();
+    };
+
+    const handlePointerDownCapture = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") {
+        return;
+      }
+
+      activeTouchPointers.add(event.pointerId);
+      syncTouchControlProfile();
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") {
+        return;
+      }
+
+      activeTouchPointers.delete(event.pointerId);
+      syncTouchControlProfile();
+    };
+
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
     };
 
     const animate = () => {
@@ -335,11 +508,10 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
         return;
       }
 
-      const elapsed = clock.getElapsedTime();
-      const motionScale = props.reducedMotion ? 0.2 : 1;
-      const boardTilt = props.reducedMotion ? 0.32 : 0.32 + Math.sin(elapsed * 0.32) * 0.015;
-      const boardDrift = elapsed * 0.11 * motionScale;
-      boardGroup.rotation.y = boardTilt + boardDrift + scrollProgress * 0.12;
+      const delta = Math.min(clock.getDelta(), 0.05);
+      elapsed += delta;
+      const motionScale = props.reducedMotion ? 0.28 : 1;
+      boardGroup.rotation.y = LANDING_BOARD_YAW;
       boardGroup.position.y = props.reducedMotion ? 0 : Math.sin(elapsed * 0.7) * 0.08;
 
       glowMarkers.forEach((entry, index) => {
@@ -350,13 +522,50 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       outerRing.rotation.z = elapsed * 0.045 * motionScale;
       stars.rotation.y = elapsed * 0.025 * motionScale;
 
-      const targetPosition = new THREE.Vector3(
-        pointer.x * (props.reducedMotion ? 0.25 : 1.65),
-        23.5 + scrollProgress * 2.2 + pointer.y * (props.reducedMotion ? 0.08 : -0.55),
-        39.5 - scrollProgress * 4.6
-      );
-      camera.position.lerp(targetPosition, props.reducedMotion ? 0.08 : 0.05);
-      camera.lookAt(pointer.x * 1.1, 1.9 + scrollProgress * 0.7, pointer.y * 0.45);
+      if (!isUserInteracting) {
+        if (!isResetting && resetDelayUntil > 0 && performance.now() >= resetDelayUntil) {
+          isResetting = true;
+          clearResetSchedule();
+        }
+
+        resolveIdlePose(scrollProgress, idleBasePosition, idleTarget);
+        idleOffset.copy(idleBasePosition).sub(idleTarget);
+        orbitSpherical.setFromVector3(idleOffset);
+
+        if (isAutoRotating) {
+          autoRotateAngle += delta * (props.reducedMotion ? LANDING_AUTO_ROTATE_SPEED_REDUCED : LANDING_AUTO_ROTATE_SPEED);
+          if (autoRotateAngle > Math.PI * 2) {
+            autoRotateAngle -= Math.PI * 2;
+          }
+          orbitSpherical.theta += autoRotateAngle;
+          desiredTarget.copy(idleTarget);
+          orbitOffset.setFromSpherical(orbitSpherical);
+          desiredPosition.copy(idleTarget).add(orbitOffset);
+          const presentationBlend = 1 - Math.exp(-delta * (props.reducedMotion ? LANDING_PRESENTATION_BLEND_REDUCED : LANDING_PRESENTATION_BLEND));
+          controls.target.lerp(desiredTarget, presentationBlend);
+          camera.position.lerp(desiredPosition, presentationBlend);
+          controls.update();
+        } else if (isResetting) {
+          desiredTarget.copy(idleTarget);
+          desiredPosition.copy(idleBasePosition);
+          const resetBlend = 1 - Math.exp(-delta * (props.reducedMotion ? LANDING_RESET_BLEND_REDUCED : LANDING_RESET_BLEND));
+          controls.target.lerp(desiredTarget, resetBlend);
+          camera.position.lerp(desiredPosition, resetBlend);
+          controls.update();
+
+          if (
+            controls.target.distanceToSquared(desiredTarget) < LANDING_RESET_TARGET_EPSILON &&
+            camera.position.distanceToSquared(desiredPosition) < LANDING_RESET_POSITION_EPSILON
+          ) {
+            controls.target.copy(desiredTarget);
+            camera.position.copy(desiredPosition);
+            controls.update();
+            autoRotateAngle = 0;
+            isResetting = false;
+            isAutoRotating = true;
+          }
+        }
+      }
 
       renderer.render(scene, camera);
       frameId = window.requestAnimationFrame(animate);
@@ -367,6 +576,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
         return;
       }
 
+      clock.start();
       frameId = window.requestAnimationFrame(animate);
     };
 
@@ -376,6 +586,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       }
 
       window.cancelAnimationFrame(frameId);
+      clock.stop();
       frameId = 0;
     };
 
@@ -408,13 +619,47 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       stopAnimation();
     };
 
+    controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+    controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+    controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+    controls.touches.ONE = THREE.TOUCH.PAN;
+    controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+    controls.enableDamping = false;
+    controls.screenSpacePanning = true;
+    controls.minDistance = 28;
+    controls.maxDistance = 78;
+    controls.minPolarAngle = 0.52;
+    controls.maxPolarAngle = Math.PI / 2.08;
+    setDesktopControlProfile();
+    applyIdlePose();
+
+    const handleControlStart = () => {
+      isUserInteracting = true;
+      shouldResetAfterInteraction = false;
+      pausePresentation();
+      if (!touchOrbitActive) {
+        setCursor("grabbing");
+      }
+    };
+
+    const handleControlEnd = () => {
+      isUserInteracting = false;
+      if (!touchOrbitActive && isPointerInside) {
+        setCursor("grab");
+      } else {
+        setCursor("");
+      }
+
+      if (shouldResetAfterInteraction || (!isPointerInside && activeTouchPointers.size === 0 && resetDelayUntil === 0)) {
+        shouldResetAfterInteraction = false;
+        startReset();
+      }
+    };
+
     updateSize();
     updateScrollProgress();
     enableScrollTracking();
     startAnimation();
-
-    const supportsFinePointer =
-      typeof window.matchMedia === "function" ? window.matchMedia("(pointer: fine)").matches : false;
     const sceneVisibilityObserver =
       typeof IntersectionObserver === "undefined"
         ? null
@@ -440,22 +685,35 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
 
     window.addEventListener("resize", updateSize);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    controls.addEventListener("start", handleControlStart);
+    controls.addEventListener("end", handleControlEnd);
     sceneVisibilityObserver?.observe(mount);
-    if (supportsFinePointer) {
-      mount.addEventListener("pointermove", handlePointerMove);
-      mount.addEventListener("pointerleave", handlePointerLeave);
-    }
+    mount.addEventListener("pointerenter", handlePointerEnter);
+    mount.addEventListener("pointermove", handlePointerMove);
+    mount.addEventListener("pointerleave", handlePointerLeave);
+    mount.addEventListener("pointerdown", handlePointerDownCapture, true);
+    mount.addEventListener("pointerup", handlePointerUp);
+    mount.addEventListener("pointercancel", handlePointerUp);
+    mount.addEventListener("contextmenu", handleContextMenu);
 
     return () => {
       stopAnimation();
       disableScrollTracking();
       window.removeEventListener("resize", updateSize);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      controls.removeEventListener("start", handleControlStart);
+      controls.removeEventListener("end", handleControlEnd);
       sceneVisibilityObserver?.disconnect();
-      if (supportsFinePointer) {
-        mount.removeEventListener("pointermove", handlePointerMove);
-        mount.removeEventListener("pointerleave", handlePointerLeave);
-      }
+      mount.removeEventListener("pointerenter", handlePointerEnter);
+      mount.removeEventListener("pointermove", handlePointerMove);
+      mount.removeEventListener("pointerleave", handlePointerLeave);
+      mount.removeEventListener("pointerdown", handlePointerDownCapture, true);
+      mount.removeEventListener("pointerup", handlePointerUp);
+      mount.removeEventListener("pointercancel", handlePointerUp);
+      mount.removeEventListener("contextmenu", handleContextMenu);
+      mount.style.touchAction = "";
+      mount.style.cursor = "";
+      controls.dispose();
       disposeObjectTree(scene);
       renderer.dispose();
       mount.replaceChildren();
@@ -478,6 +736,11 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
   }
 
   return <div ref={mountRef} className="landing-scene-stage" aria-hidden="true" />;
+}
+
+function resolveIdlePose(scrollProgress: number, position: THREE.Vector3, target: THREE.Vector3): void {
+  position.copy(LANDING_CAMERA_BASE_POSITION).addScaledVector(LANDING_CAMERA_SCROLL_POSITION_DELTA, scrollProgress);
+  target.copy(LANDING_CAMERA_BASE_TARGET).addScaledVector(LANDING_CAMERA_SCROLL_TARGET_DELTA, scrollProgress);
 }
 
 function createShowcaseBoard(): ShowcaseBoard {
