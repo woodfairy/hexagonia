@@ -97,9 +97,28 @@ export function resolveInitialBoardVisualSettings(): BoardVisualSettings {
     return createBoardVisualSettings();
   }
 
-  return deserializeBoardVisualSettings(window.localStorage.getItem(BOARD_VISUAL_SETTINGS_STORAGE_KEY));
+  const storedSettings = window.localStorage.getItem(BOARD_VISUAL_SETTINGS_STORAGE_KEY);
+  const resolvedSettings = deserializeBoardVisualSettings(storedSettings);
+  const normalizedSettings = serializeBoardVisualSettings(resolvedSettings);
+
+  if (storedSettings !== normalizedSettings) {
+    persistBoardVisualSettings(resolvedSettings);
+  }
+
+  return resolvedSettings;
 }
 
 export function serializeBoardVisualSettings(settings: BoardVisualSettings): string {
   return JSON.stringify(normalizeBoardVisualSettings(settings));
+}
+
+export function persistBoardVisualSettings(settings: BoardVisualSettings): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    BOARD_VISUAL_SETTINGS_STORAGE_KEY,
+    serializeBoardVisualSettings(settings)
+  );
 }

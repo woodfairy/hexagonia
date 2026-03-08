@@ -1,4 +1,10 @@
-import type { AuthUser, MatchPhase, PlayerColor, ResourceMap } from "@hexagonia/shared";
+import type {
+  AuthUser,
+  MatchEventType,
+  MatchPhase,
+  PlayerColor,
+  ResourceMap
+} from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
 
 export type AuthMode = "login" | "register";
@@ -48,8 +54,8 @@ export function renderConnectionLabel(session: AuthUser | null | undefined, conn
   return "Offline";
 }
 
-export function renderEventLabel(type: string): string {
-  const labels: Record<string, string> = {
+export function renderEventLabel(type: MatchEventType): string {
+  const labels: Record<MatchEventType, string> = {
     starting_player_rolled: "Startspieler ausgewürfelt.",
     match_started: "Partie gestartet.",
     initial_settlement_placed: "Start-Siedlung gesetzt.",

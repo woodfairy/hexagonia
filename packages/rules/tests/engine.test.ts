@@ -1,10 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { PLAYER_COLORS, createEmptyResourceMap } from "@hexagonia/shared";
+import {
+  PLAYER_COLORS,
+  createEmptyResourceMap,
+  createGameConfig,
+  type SetupMode,
+  type StartingPlayerMode
+} from "@hexagonia/shared";
 import { generateBaseBoard } from "../src/board";
-import { applyAction, createMatchState, createSnapshot, rollStartingPlayer } from "../src/engine";
+import {
+  applyAction,
+  createMatchState as createBaseMatchState,
+  createSnapshot,
+  rollStartingPlayer
+} from "../src/engine";
 import { SeededRandom } from "../src/random";
 
 const OFFICIAL_VARIABLE_NUMBER_TOKENS = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
+
+type LegacyCreateMatchStateInput = Omit<Parameters<typeof createBaseMatchState>[0], "gameConfig"> & {
+  setupMode: SetupMode;
+  startingSeatIndex: number;
+  startingPlayerMode?: StartingPlayerMode;
+};
+
+function createMatchState(input: Parameters<typeof createBaseMatchState>[0] | LegacyCreateMatchStateInput) {
+  if ("gameConfig" in input) {
+    return createBaseMatchState(input);
+  }
+
+  const {
+    setupMode,
+    startingSeatIndex,
+    startingPlayerMode = "manual",
+    ...rest
+  } = input;
+
+  return createBaseMatchState({
+    ...rest,
+    gameConfig: createGameConfig({
+      setupMode,
+      startingPlayer: {
+        mode: startingPlayerMode,
+        seatIndex: startingSeatIndex
+      }
+    })
+  });
+}
 
 describe("rules engine", () => {
   it("starts in forward setup", () => {

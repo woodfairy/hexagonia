@@ -4,13 +4,20 @@ import type {
   ClientMessage,
   DevelopmentCardView,
   MatchSnapshot,
-  PlayerColor,
   PortType,
   Resource,
   ResourceMap,
   RoomDetails
 } from "@hexagonia/shared";
-import { createEmptyResourceMap, equalResourceMaps, hasResources, isEmptyResourceMap, RESOURCES, totalResources } from "@hexagonia/shared";
+import {
+  BUILD_COSTS,
+  createEmptyResourceMap,
+  equalResourceMaps,
+  hasResources,
+  isEmptyResourceMap,
+  RESOURCES,
+  totalResources
+} from "@hexagonia/shared";
 import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
@@ -23,6 +30,22 @@ import {
   createMatchNotificationState,
   type MatchNotification
 } from "./matchNotifications";
+import {
+  canAffordCost,
+  canBankPayYearOfPlenty,
+  createBuildActionState,
+  createOwnActionCameraCue,
+  createOwnActionCue,
+  describeDevelopmentCardStatus,
+  getLatestDiceRollEvent,
+  getPlayerById,
+  getPlayerColor,
+  getPlayerName,
+  getPlayerPresenceState,
+  getRobberDiscardGroups,
+  getTurnStatus,
+  renderDevelopmentLabel
+} from "./matchScreenViewModel";
 
 export interface TradeFormState {
   give: ResourceMap;
@@ -39,7 +62,6 @@ type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
 type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players" | "profile";
 type SheetState = "peek" | "half" | "full";
 type TradeSection = "player" | "maritime";
-type BuildActionId = "road" | "settlement" | "city" | "development";
 
 const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "actions", label: "Aktionen" },
@@ -64,13 +86,6 @@ const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
   overview: 3,
   players: 4,
   profile: 4
-};
-
-const BUILD_COSTS: Record<BuildActionId, Partial<Record<Resource, number>>> = {
-  road: { brick: 1, lumber: 1 },
-  settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
-  city: { grain: 2, ore: 3 },
-  development: { grain: 1, wool: 1, ore: 1 }
 };
 
 const AUTO_FOCUS_STORAGE_KEY = "hexagonia:auto-focus";
@@ -114,13 +129,6 @@ const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
 
 function isDenseLegendViewport(width: number, height: number): boolean {
   return width < 1320 || height < 840;
-}
-
-interface TurnStatus {
-  title: string;
-  detail: string;
-  playerId?: string;
-  callout?: string;
 }
 
 interface DiceDisplayState {
@@ -339,7 +347,7 @@ export function MatchScreen(props: {
     const ratio = props.match.allowedMoves.maritimeRates.find((rate) => rate.resource === resource)?.ratio ?? 4;
     return (props.selfPlayer?.resources?.[resource] ?? 0) >= ratio;
   });
-  const turnStatus = getTurnStatus(props.match, activePlayer, props.selfPlayer, props.interactionMode, props.selectedRoadEdges.length);
+  const turnStatus = getTurnStatus(props.match, activePlayer, props.selfPlayer, props.interactionMode);
   const robberDiscardGroups = useMemo(() => getRobberDiscardGroups(props.match), [props.match]);
   const canAffordRoad = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.road);
   const canAffordSettlement = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.settlement);
@@ -997,10 +1005,10 @@ export function MatchScreen(props: {
 
     seenDiceEventIdRef.current = latestDiceEvent?.id ?? null;
       setDiceDisplay({
-        left: props.match.dice?.[0] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[0] ?? null,
-        right: props.match.dice?.[1] ?? getPayloadDice(latestDiceEvent?.payload ?? {}, "dice")?.[1] ?? null,
+        left: props.match.dice?.[0] ?? latestDiceEvent?.payload.dice[0] ?? null,
+        right: props.match.dice?.[1] ?? latestDiceEvent?.payload.dice[1] ?? null,
         total:
-          getPayloadNumber(latestDiceEvent?.payload ?? {}, "total") ??
+          latestDiceEvent?.payload.total ??
           (props.match.dice ? props.match.dice[0] + props.match.dice[1] : null),
         phase: "idle",
         actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
@@ -1019,8 +1027,8 @@ export function MatchScreen(props: {
       return;
     }
 
-    const actualDice = getPayloadDice(latestDiceEvent.payload, "dice") ?? props.match.dice;
-    const total = getPayloadNumber(latestDiceEvent.payload, "total") ?? (actualDice ? actualDice[0] + actualDice[1] : null);
+    const actualDice = latestDiceEvent.payload.dice ?? props.match.dice;
+    const total = latestDiceEvent.payload.total ?? (actualDice ? actualDice[0] + actualDice[1] : null);
     const actorName = getPlayerName(props.match, latestDiceEvent.byPlayerId);
 
     if (seenDiceEventIdRef.current === null) {
@@ -3054,7 +3062,7 @@ function createOwnActionCameraCue(
   return null;
 }
 
-function getLatestDiceRollEvent(match: MatchSnapshot): MatchSnapshot["eventLog"][number] | null {
+function getLatestDiceRollEvent(match: MatchSnapshot): MatchEventOf<"dice_rolled"> | null {
   for (let index = match.eventLog.length - 1; index >= 0; index -= 1) {
     const event = match.eventLog[index];
     if (event?.type === "dice_rolled") {
@@ -3119,30 +3127,6 @@ function formatCountdown(ms: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function getPayloadString(payload: Record<string, unknown>, key: string): string | null {
-  const value = payload[key];
-  return typeof value === "string" ? value : null;
-}
-
-function getPayloadNumber(payload: Record<string, unknown>, key: string): number | null {
-  const value = payload[key];
-  return typeof value === "number" ? value : null;
-}
-
-function getPayloadDice(payload: Record<string, unknown>, key: string): [number, number] | null {
-  const value = payload[key];
-  if (!Array.isArray(value) || value.length !== 2) {
-    return null;
-  }
-
-  const [left, right] = value;
-  if (typeof left !== "number" || typeof right !== "number") {
-    return null;
-  }
-
-  return [left, right];
-}
-
 function rollPreviewValue(): number {
   dicePreviewCursor = (dicePreviewCursor % 6) + 1;
   return dicePreviewCursor;
@@ -3165,15 +3149,6 @@ function getDicePipPositions(value: number | null): string[] {
     default:
       return [];
   }
-}
-
-function getPayloadStringArray(payload: Record<string, unknown>, key: string): string[] {
-  const value = payload[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 function getTurnStatus(

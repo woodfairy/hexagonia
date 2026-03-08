@@ -4,12 +4,13 @@ import type { BoardFocusBadge, BoardFocusCue } from "../../BoardScene";
 import { renderEventLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 
 type MatchEvent = MatchSnapshot["eventLog"][number];
+type MatchEventOf<TType extends MatchEvent["type"]> = Extract<MatchEvent, { type: TType }>;
 type MatchPlayer = MatchSnapshot["players"][number];
 
 export interface MatchNotification {
   key: string;
   eventId: string;
-  eventType: string;
+  eventType: MatchEvent["type"];
   label: string;
   title: string;
   detail: string;
@@ -215,8 +216,11 @@ function createNotification(context: NotificationBuildContext, event: MatchEvent
   }
 }
 
-function createStartingPlayerNotification(match: MatchSnapshot, event: MatchEvent): MatchNotification {
-  const summary = getPayloadString(event.payload, "summary");
+function createStartingPlayerNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"starting_player_rolled">
+): MatchNotification {
+  const summary = event.payload.summary;
   return createBaseNotification(match, event, {
     label: "Start",
     title: getPlayerPredicate(match, match.you, event.byPlayerId, "beginnt die Partie", "beginnst die Partie"),
@@ -225,10 +229,14 @@ function createStartingPlayerNotification(match: MatchSnapshot, event: MatchEven
   });
 }
 
-function createMatchStartedNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const startingPlayerId = getPayloadString(event.payload, "startingPlayerId");
-  const setupMode = getPayloadString(event.payload, "setupMode");
-  const playerCount = getPayloadObjectArray(event.payload, "players").length;
+function createMatchStartedNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"match_started">,
+  viewerId: string
+): MatchNotification {
+  const startingPlayerId = event.payload.startingPlayerId;
+  const setupMode = event.payload.gameConfig.setupMode;
+  const playerCount = event.payload.players.length;
   return createBaseNotification(match, event, {
     label: "Partie",
     title: "Partie gestartet",
@@ -245,14 +253,11 @@ function createMatchStartedNotification(match: MatchSnapshot, event: MatchEvent,
 
 function createSettlementNotification(
   match: MatchSnapshot,
-  event: MatchEvent,
+  event: MatchEventOf<"initial_settlement_placed" | "settlement_built">,
   viewerId: string,
   initial: boolean
 ): MatchNotification | null {
-  const vertexId = getPayloadString(event.payload, "vertexId");
-  if (!vertexId) {
-    return createFallbackNotification(match, event);
-  }
+  const vertexId = event.payload.vertexId;
 
   const followUp = initial ? describeInitialSettlementFollowUp(match, viewerId) : null;
   return createBaseNotification(match, event, {
@@ -279,17 +284,13 @@ function createSettlementNotification(
 
 function createRoadNotification(
   match: MatchSnapshot,
-  event: MatchEvent,
+  event: MatchEventOf<"initial_road_placed" | "road_built">,
   viewerId: string,
   previousMatch: MatchSnapshot | null,
   initial: boolean
 ): MatchNotification | null {
-  const edgeId = getPayloadString(event.payload, "edgeId");
-  if (!edgeId) {
-    return createFallbackNotification(match, event);
-  }
-
-  const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
+  const edgeId = event.payload.edgeId;
+  const freeBuild = event.type === "road_built" ? event.payload.freeBuild : false;
   const followUp = initial ? describeInitialRoadFollowUp(match, previousMatch, viewerId, event.byPlayerId) : null;
   const title = initial
     ? getPlayerPredicate(match, match.you, event.byPlayerId, "setzt eine Start-Straße")
@@ -403,12 +404,11 @@ function describeInitialRoadFollowUp(
   };
 }
 
-function createCityNotification(match: MatchSnapshot, event: MatchEvent): MatchNotification | null {
-  const vertexId = getPayloadString(event.payload, "vertexId");
-  if (!vertexId) {
-    return createFallbackNotification(match, event);
-  }
-
+function createCityNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"city_built">
+): MatchNotification | null {
+  const vertexId = event.payload.vertexId;
   return createBaseNotification(match, event, {
     label: "Bau",
     title: getPlayerPredicate(match, match.you, event.byPlayerId, "baut eine Stadt", "baust eine Stadt"),
@@ -429,10 +429,10 @@ function createCityNotification(match: MatchSnapshot, event: MatchEvent): MatchN
 
 function createInitialResourcesNotification(
   match: MatchSnapshot,
-  event: MatchEvent,
+  event: MatchEventOf<"initial_resources_granted">,
   viewerId: string
 ): MatchNotification {
-  const resources = getPayloadResourceMap(event.payload, "resources");
+  const resources = event.payload.resources;
   return createBaseNotification(match, event, {
     label: "Startaufbau",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "erhält Start-Rohstoffe", "erhältst Start-Rohstoffe"),
@@ -441,8 +441,12 @@ function createInitialResourcesNotification(
   });
 }
 
-function createDiscardNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const count = getPayloadNumber(event.payload, "count");
+function createDiscardNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"resources_discarded">,
+  viewerId: string
+): MatchNotification {
+  const count = event.payload.count;
   const remainingPlayers = match.robberDiscardStatus
     .filter((entry) => !entry.done)
     .map((entry) => getDisplayPlayerName(match, viewerId, entry.playerId));
@@ -459,10 +463,13 @@ function createDiscardNotification(match: MatchSnapshot, event: MatchEvent, view
   });
 }
 
-function createDiceNotification(match: MatchSnapshot, event: MatchEvent): MatchNotification | null {
-  const total = getPayloadNumber(event.payload, "total");
-  const dice = getPayloadDice(event.payload, "dice");
-  if (total === null || total !== 7) {
+function createDiceNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"dice_rolled">
+): MatchNotification | null {
+  const total = event.payload.total;
+  const dice = event.payload.dice;
+  if (total !== 7) {
     return null;
   }
 
@@ -485,12 +492,15 @@ function createDiceNotification(match: MatchSnapshot, event: MatchEvent): MatchN
   });
 }
 
-function createDistributionNotification(match: MatchSnapshot, event: MatchEvent): MatchNotification {
-  const roll = getPayloadNumber(event.payload, "roll");
-  const dice = getPayloadDice(event.payload, "dice");
-  const tileIds = getPayloadStringArray(event.payload, "tileIds");
-  const blockedResources = getPayloadStringArray(event.payload, "blockedResources");
-  const grantsByPlayerId = getPayloadResourceMapRecord(event.payload, "grantsByPlayerId");
+function createDistributionNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"resources_distributed">
+): MatchNotification {
+  const roll = event.payload.roll;
+  const dice = event.payload.dice;
+  const tileIds = event.payload.tileIds;
+  const blockedResources = event.payload.blockedResources;
+  const grantsByPlayerId = event.payload.grantsByPlayerId;
   const grantBadges = summarizeGrantBadges(match, grantsByPlayerId);
   const tileLine = summarizeTileLine(match, tileIds, roll);
   const detail =
@@ -528,9 +538,12 @@ function createDistributionNotification(match: MatchSnapshot, event: MatchEvent)
   });
 }
 
-function createDevelopmentBoughtNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
+function createDevelopmentBoughtNotification(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"development_card_bought">
+): MatchNotification {
   const viewerId = context.viewerId;
-  const remaining = getPayloadNumber(event.payload, "remaining");
+  const remaining = event.payload.remaining;
   const cardType = getDevelopmentCardTypeForViewer(context, event);
   const isViewerActor = event.byPlayerId === viewerId;
   const title = cardType && isViewerActor
@@ -556,11 +569,10 @@ function createDevelopmentBoughtNotification(context: NotificationBuildContext, 
 
 function createDevelopmentPlayedNotification(
   match: MatchSnapshot,
-  event: MatchEvent,
+  event: MatchEventOf<"development_card_played">,
   viewerId: string
 ): MatchNotification {
-  const cardType = getPayloadString(event.payload, "cardType");
-  switch (cardType) {
+  switch (event.payload.cardType) {
     case "knight":
       return {
         ...createBaseNotification(match, event, {
@@ -581,7 +593,7 @@ function createDevelopmentPlayedNotification(
         badges: [{ label: "Kostenlose Straßen", tone: "warning" }]
       });
     case "year_of_plenty": {
-      const resources = getPayloadStringArray(event.payload, "resources").map((resource) => renderResourceLabel(resource));
+      const resources = event.payload.resources.map((resource) => renderResourceLabel(resource));
       return createBaseNotification(match, event, {
         label: "Entwicklung",
         title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Erfindung", "spielst Erfindung"),
@@ -593,8 +605,8 @@ function createDevelopmentPlayedNotification(
       });
     }
     case "monopoly": {
-      const resource = getPayloadString(event.payload, "resource");
-      const total = getPayloadNumber(event.payload, "total");
+      const resource = event.payload.resource;
+      const total = event.payload.total;
       return createBaseNotification(match, event, {
         label: "Entwicklung",
         title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Monopol", "spielst Monopol"),
@@ -611,16 +623,25 @@ function createDevelopmentPlayedNotification(
     default:
       return createBaseNotification(match, event, {
         label: "Entwicklung",
-        title: getPlayerPredicate(match, viewerId, event.byPlayerId, `spielt ${renderDevelopmentTypeLabel(cardType)}`, `spielst ${renderDevelopmentTypeLabel(cardType)}`),
+        title: getPlayerPredicate(
+          match,
+          viewerId,
+          event.byPlayerId,
+          `spielt ${renderDevelopmentTypeLabel(event.payload.cardType)}`,
+          `spielst ${renderDevelopmentTypeLabel(event.payload.cardType)}`
+        ),
         detail: "Der Entwicklungskarteneffekt ist jetzt aktiv."
       });
   }
 }
 
-function createRobberNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
+function createRobberNotification(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"robber_moved">
+): MatchNotification {
   const match = context.currentMatch;
   const viewerId = context.viewerId;
-  const tileId = getPayloadString(event.payload, "tileId");
+  const tileId = event.payload.tileId;
   const tileLabel = tileId ? getTileLabel(match, tileId) : "ein neues Feld";
   const victimId = getRobberVictimId(context, event);
   const exactResource = getRobberResourceForViewer(context, event, victimId);
@@ -671,12 +692,15 @@ function createRobberNotification(context: NotificationBuildContext, event: Matc
   });
 }
 
-function createTradeOfferedNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
+function createTradeOfferedNotification(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"trade_offered">
+): MatchNotification {
   const match = context.currentMatch;
   const viewerId = context.viewerId;
-  const tradeId = getPayloadString(event.payload, "tradeId");
+  const tradeId = event.payload.tradeId;
   const trade = tradeId ? findTrade(match.tradeOffers, tradeId) : null;
-  const toPlayerId = getPayloadString(event.payload, "toPlayerId");
+  const toPlayerId = event.payload.toPlayerId;
   const targetForExchange = toPlayerId ? getDisplayPlayerObject(match, viewerId, toPlayerId, "dative") : "allen Mitspielern";
   const targetForOffer = toPlayerId ? getDisplayPlayerObject(match, viewerId, toPlayerId, "accusative") : "alle Mitspieler";
   return createBaseNotification(match, event, {
@@ -689,11 +713,14 @@ function createTradeOfferedNotification(context: NotificationBuildContext, event
   });
 }
 
-function createTradeCompletedNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
+function createTradeCompletedNotification(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"trade_completed">
+): MatchNotification {
   const match = context.currentMatch;
   const viewerId = context.viewerId;
-  const proposerId = getPayloadString(event.payload, "fromPlayerId");
-  const tradeId = getPayloadString(event.payload, "tradeId");
+  const proposerId = event.payload.fromPlayerId;
+  const tradeId = event.payload.tradeId;
   const previousTrade = tradeId && context.previousMatch ? findTrade(context.previousMatch.tradeOffers, tradeId) : null;
   return createBaseNotification(match, event, {
     label: "Handel",
@@ -706,10 +733,13 @@ function createTradeCompletedNotification(context: NotificationBuildContext, eve
   });
 }
 
-function createTradeDeclinedNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
+function createTradeDeclinedNotification(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"trade_declined">
+): MatchNotification {
   const match = context.currentMatch;
   const viewerId = context.viewerId;
-  const tradeId = getPayloadString(event.payload, "tradeId");
+  const tradeId = event.payload.tradeId;
   const previousTrade = tradeId && context.previousMatch ? findTrade(context.previousMatch.tradeOffers, tradeId) : null;
   const proposerName = previousTrade ? getDisplayPlayerObject(match, viewerId, previousTrade.fromPlayerId, "dative") : null;
   return createBaseNotification(match, event, {
@@ -719,10 +749,13 @@ function createTradeDeclinedNotification(context: NotificationBuildContext, even
   });
 }
 
-function createTradeCancelledNotification(context: NotificationBuildContext, event: MatchEvent): MatchNotification {
+function createTradeCancelledNotification(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"trade_cancelled">
+): MatchNotification {
   const match = context.currentMatch;
   const viewerId = context.viewerId;
-  const tradeId = getPayloadString(event.payload, "tradeId");
+  const tradeId = event.payload.tradeId;
   const previousTrade = tradeId && context.previousMatch ? findTrade(context.previousMatch.tradeOffers, tradeId) : null;
   const targetPlayerName =
     previousTrade?.toPlayerId ? getDisplayPlayerObject(match, viewerId, previousTrade.toPlayerId, "accusative") : "alle Mitspieler";
@@ -733,10 +766,12 @@ function createTradeCancelledNotification(context: NotificationBuildContext, eve
   });
 }
 
-function createMaritimeTradeNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const give = getPayloadString(event.payload, "give");
-  const receive = getPayloadString(event.payload, "receive");
-  const giveCount = getPayloadNumber(event.payload, "giveCount");
+function createMaritimeTradeNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"maritime_trade">,
+  viewerId: string
+): MatchNotification {
+  const { give, receive, giveCount } = event.payload;
   return createBaseNotification(match, event, {
     label: "Handel",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "handelt mit dem Hafen", "handelst mit dem Hafen"),
@@ -751,8 +786,12 @@ function createMaritimeTradeNotification(match: MatchSnapshot, event: MatchEvent
   });
 }
 
-function createTurnEndedNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
+function createTurnEndedNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"turn_ended">,
+  viewerId: string
+): MatchNotification {
+  const nextPlayerId = event.payload.nextPlayerId;
   return createBaseNotification(match, event, {
     label: "Spielerwechsel",
     title: getPlayerPredicate(match, viewerId, nextPlayerId, "ist jetzt am Zug", "bist jetzt am Zug"),
@@ -778,11 +817,12 @@ function createTurnEndedNotification(match: MatchSnapshot, event: MatchEvent, vi
   });
 }
 
-function createLongestRoadAwardedNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const edgeIds = getPayloadStringArray(event.payload, "edgeIds");
-  const length = getPayloadNumber(event.payload, "length");
-  const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
-  const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+function createLongestRoadAwardedNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"longest_road_awarded">,
+  viewerId: string
+): MatchNotification {
+  const { edgeIds, length, previousPlayerId, publicVictoryPoints } = event.payload;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "übernimmt die Längste Straße", "übernimmst die Längste Straße"),
@@ -809,10 +849,12 @@ function createLongestRoadAwardedNotification(match: MatchSnapshot, event: Match
   });
 }
 
-function createLongestRoadLostNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-  const length = getPayloadNumber(event.payload, "length");
-  const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+function createLongestRoadLostNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"longest_road_lost">,
+  viewerId: string
+): MatchNotification {
+  const { nextPlayerId, length, publicVictoryPoints } = event.payload;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "verliert die Längste Straße", "verlierst die Längste Straße"),
@@ -829,11 +871,12 @@ function createLongestRoadLostNotification(match: MatchSnapshot, event: MatchEve
   });
 }
 
-function createLargestArmyAwardedNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const vertexIds = getPayloadStringArray(event.payload, "vertexIds");
-  const knightCount = getPayloadNumber(event.payload, "knightCount");
-  const previousPlayerId = getPayloadString(event.payload, "previousPlayerId");
-  const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+function createLargestArmyAwardedNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"largest_army_awarded">,
+  viewerId: string
+): MatchNotification {
+  const { vertexIds, knightCount, previousPlayerId, publicVictoryPoints } = event.payload;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "übernimmt die Größte Rittermacht", "übernimmst die Größte Rittermacht"),
@@ -860,10 +903,12 @@ function createLargestArmyAwardedNotification(match: MatchSnapshot, event: Match
   });
 }
 
-function createLargestArmyLostNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const nextPlayerId = getPayloadString(event.payload, "nextPlayerId");
-  const knightCount = getPayloadNumber(event.payload, "knightCount");
-  const publicVictoryPoints = getPayloadNumber(event.payload, "publicVictoryPoints");
+function createLargestArmyLostNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"largest_army_lost">,
+  viewerId: string
+): MatchNotification {
+  const { nextPlayerId, knightCount, publicVictoryPoints } = event.payload;
   return createBaseNotification(match, event, {
     label: "Auszeichnung",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "verliert die Größte Rittermacht", "verlierst die Größte Rittermacht"),
@@ -880,8 +925,12 @@ function createLargestArmyLostNotification(match: MatchSnapshot, event: MatchEve
   });
 }
 
-function createGameWonNotification(match: MatchSnapshot, event: MatchEvent, viewerId: string): MatchNotification {
-  const victoryPoints = getPayloadNumber(event.payload, "victoryPoints");
+function createGameWonNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"game_won">,
+  viewerId: string
+): MatchNotification {
+  const victoryPoints = event.payload.victoryPoints;
   return createBaseNotification(match, event, {
     label: "Sieg",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "gewinnt die Partie", "gewinnst die Partie"),
@@ -951,7 +1000,7 @@ function clonePrivateCache(cache: MatchNotificationPrivateCache): MatchNotificat
 
 function getDevelopmentCardTypeForViewer(
   context: NotificationBuildContext,
-  event: MatchEvent
+  event: MatchEventOf<"development_card_bought">
 ): DevelopmentCardType | null {
   const cached = context.privateCache.developmentCardTypesByEventId[event.id];
   if (cached) {
@@ -977,13 +1026,16 @@ function getDevelopmentCardTypeForViewer(
   return addedCard.type;
 }
 
-function getRobberVictimId(context: NotificationBuildContext, event: MatchEvent): string | null {
+function getRobberVictimId(
+  context: NotificationBuildContext,
+  event: MatchEventOf<"robber_moved">
+): string | null {
   const cached = context.privateCache.robberVictimIdsByEventId[event.id];
   if (cached) {
     return cached;
   }
 
-  const payloadVictimId = getPayloadString(event.payload, "targetPlayerId");
+  const payloadVictimId = event.payload.targetPlayerId;
   if (payloadVictimId) {
     context.privateCache.robberVictimIdsByEventId[event.id] = payloadVictimId;
     return payloadVictimId;
@@ -1021,7 +1073,7 @@ function getRobberVictimId(context: NotificationBuildContext, event: MatchEvent)
 
 function getRobberResourceForViewer(
   context: NotificationBuildContext,
-  event: MatchEvent,
+  event: MatchEventOf<"robber_moved">,
   victimId: string | null
 ): Resource | null {
   const cached = context.privateCache.robberResourcesByEventId[event.id];
@@ -1185,7 +1237,7 @@ function getNotificationLabel(event: MatchEvent): string {
   }
 }
 
-function renderDevelopmentTypeLabel(type: string | null): string {
+function renderDevelopmentTypeLabel(type: DevelopmentCardType | null): string {
   switch (type) {
     case "knight":
       return "Ritter";
@@ -1276,71 +1328,6 @@ function getPlayerById(match: MatchSnapshot, playerId?: string): MatchPlayer | n
   }
 
   return match.players.find((player) => player.id === playerId) ?? null;
-}
-
-function getPayloadString(payload: Record<string, unknown>, key: string): string | null {
-  const value = payload[key];
-  return typeof value === "string" ? value : null;
-}
-
-function getPayloadNumber(payload: Record<string, unknown>, key: string): number | null {
-  const value = payload[key];
-  return typeof value === "number" ? value : null;
-}
-
-function getPayloadBoolean(payload: Record<string, unknown>, key: string): boolean {
-  return payload[key] === true;
-}
-
-function getPayloadDice(payload: Record<string, unknown>, key: string): [number, number] | null {
-  const value = payload[key];
-  if (!Array.isArray(value) || value.length !== 2) {
-    return null;
-  }
-
-  const [left, right] = value;
-  return typeof left === "number" && typeof right === "number" ? [left, right] : null;
-}
-
-function getPayloadStringArray(payload: Record<string, unknown>, key: string): string[] {
-  const value = payload[key];
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
-}
-
-function getPayloadResourceMapRecord(payload: Record<string, unknown>, key: string): Record<string, ResourceMap> {
-  const value = payload[key];
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  const next: Record<string, ResourceMap> = {};
-  for (const [playerId, entry] of Object.entries(value)) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      continue;
-    }
-
-    next[playerId] = getPayloadResourceMap(entry as Record<string, unknown>, "__resource_map__");
-  }
-
-  return next;
-}
-
-function getPayloadResourceMap(payload: Record<string, unknown>, key: string): ResourceMap {
-  const source = key === "__resource_map__" ? payload : payload[key];
-  const next = {} as ResourceMap;
-  for (const resource of RESOURCES) {
-    const count =
-      source && typeof source === "object" && !Array.isArray(source)
-        ? (source as Partial<Record<Resource, unknown>>)[resource]
-        : 0;
-    next[resource] = typeof count === "number" ? count : 0;
-  }
-  return next;
-}
-
-function getPayloadObjectArray(payload: Record<string, unknown>, key: string): Record<string, unknown>[] {
-  const value = payload[key];
-  return Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object") : [];
 }
 
 function joinNames(names: string[]): string {
