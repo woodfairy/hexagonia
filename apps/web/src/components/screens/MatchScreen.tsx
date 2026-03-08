@@ -41,28 +41,28 @@ type TradeSection = "player" | "maritime";
 type BuildActionId = "road" | "settlement" | "city" | "development";
 
 const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
-  { id: "overview", label: "Überblick" },
   { id: "actions", label: "Aktionen" },
-  { id: "hand", label: "Hand" },
   { id: "trade", label: "Handel" },
+  { id: "hand", label: "Hand" },
+  { id: "overview", label: "Events" },
   { id: "players", label: "Spieler" }
 ];
 
 const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "actions", label: "Aktionen" },
-  { id: "hand", label: "Hand" },
   { id: "trade", label: "Handel" },
-  { id: "overview", label: "Mehr" },
+  { id: "hand", label: "Hand" },
+  { id: "overview", label: "Events" },
   { id: "profile", label: "Profil" }
 ];
 
 const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
-  overview: 0,
-  actions: 1,
+  actions: 0,
+  trade: 1,
   hand: 2,
-  trade: 3,
+  overview: 3,
   players: 4,
-  profile: 5
+  profile: 4
 };
 
 const BUILD_COSTS: Record<BuildActionId, Partial<Record<Resource, number>>> = {
@@ -468,6 +468,29 @@ export function MatchScreen(props: {
   const getTabTransitionOrder = (tab: MatchPanelTab) => {
     const visibleIndex = visibleTabs.findIndex((entry) => entry.id === tab);
     return visibleIndex === -1 ? MATCH_TAB_ORDER[tab] : visibleIndex;
+  };
+  const getTabStripStyle = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number): CSSProperties => {
+    const activeIndex = Math.max(
+      0,
+      tabs.findIndex((tab) => tab.id === activeTab)
+    );
+    const normalizedColumns = Math.max(1, columns);
+    const rows = Math.max(1, Math.ceil(tabs.length / normalizedColumns));
+    const activeRow = Math.floor(activeIndex / normalizedColumns);
+    let activeColumn = activeIndex % normalizedColumns;
+
+    if (tabs.length % normalizedColumns === 1 && activeIndex === tabs.length - 1 && normalizedColumns > 1) {
+      activeColumn = Math.floor(normalizedColumns / 2);
+    }
+
+    return {
+      "--tab-count": `${tabs.length}`,
+      "--tab-columns": `${normalizedColumns}`,
+      "--tab-rows": `${rows}`,
+      "--tab-active-index": `${activeIndex}`,
+      "--tab-active-row": `${activeRow}`,
+      "--tab-active-column": `${activeColumn}`
+    } as CSSProperties;
   };
   const changeActiveTab = (nextTab: MatchPanelTab) => {
     if (nextTab === activeTab) {
@@ -1092,51 +1115,9 @@ export function MatchScreen(props: {
       </div>
     </div>
   );
-  const activePlayerSummaryClassName = [
-    "match-overview-summary",
-    activePlayer ? "player-surface" : "",
-    activePlayer ? getPlayerAccentClass(activePlayer.color) : ""
-  ]
-    .join(" ")
-    .trim();
-
   const tabPanels: Record<MatchPanelTab, ReactNode> = {
     overview: (
       <div className={`panel-frame overview-frame ${isMobileViewport ? "is-mobile-overview" : ""}`}>
-        <section className={activePlayerSummaryClassName}>
-          <div className="match-overview-summary-head">
-            <span className="eyebrow">Am Zug</span>
-            {activePlayer ? (
-              <div className="match-overview-summary-player">
-                <span className="player-swatch" aria-hidden="true" />
-                <div className="match-overview-summary-player-copy">
-                  <strong className="player-name-text">{activePlayer.username}</strong>
-                  <span>
-                    {activePlayer.id === props.match.you ? (
-                      <>
-                        <PlayerMention color={activePlayer.color}>Du</PlayerMention> spielst {renderPlayerColorLabel(activePlayer.color)}
-                      </>
-                    ) : (
-                      renderPlayerColorLabel(activePlayer.color)
-                    )}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <strong className="match-overview-summary-empty">-</strong>
-            )}
-          </div>
-          <div className="match-overview-summary-meta">
-            <article className="match-overview-summary-metric">
-              <span>Phase</span>
-              <strong>{formatPhase(props.match.phase)}</strong>
-            </article>
-            <article className="match-overview-summary-metric">
-              <span>Würfel</span>
-              <strong>{boardDiceLabel}</strong>
-            </article>
-          </div>
-        </section>
         {props.match.phase === "robber_interrupt" && props.match.robberDiscardStatus.length > 0 ? (
           <section className="dock-section robber-discard-surface">
             <div className="dock-section-head">
@@ -1225,7 +1206,7 @@ export function MatchScreen(props: {
         ) : null}
         <section className="dock-section dock-section-fill">
           <div className="dock-section-head">
-            <h3>Live-Geschehen</h3>
+            <h3>Events</h3>
             <span>{notificationState.historyNotifications.length} Einträge</span>
           </div>
           <div className="scroll-list event-list">
@@ -1948,7 +1929,7 @@ export function MatchScreen(props: {
             </div>
           </div>
           {hasQuickActions ? renderQuickActions(false) : null}
-          <div className="tab-strip" role="tablist" aria-label="Match Navigation">
+          <div className="tab-strip center-last-item" style={getTabStripStyle(MATCH_TABS, 3)} role="tablist" aria-label="Match Navigation">
             {MATCH_TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -1988,7 +1969,8 @@ export function MatchScreen(props: {
           {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
           {effectiveSheetState !== "peek" ? (
             <div
-              className={`tab-strip mobile ${visibleTabs.length > 4 ? "has-five-tabs" : ""}`.trim()}
+              className={`tab-strip mobile ${visibleTabs.length > 4 ? "has-five-tabs center-last-item" : ""}`.trim()}
+              style={getTabStripStyle(visibleTabs, visibleTabs.length > 4 ? 3 : 2)}
               role="tablist"
               aria-label="Mobile Match Navigation"
             >
