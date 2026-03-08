@@ -298,13 +298,6 @@ jobs:
       DOCKER_BUILD_RECORD_UPLOAD: "false"
       DOCKER_BUILD_SUMMARY: "false"
     steps:
-      - name: Checkout bake definition
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            docker-bake.hcl
-          sparse-checkout-cone-mode: false
-
       - name: Download pruned contexts
         uses: actions/download-artifact@v4
         with:
@@ -324,33 +317,29 @@ jobs:
 
       - name: Build web image (amd64)
         if: needs.changes.outputs.web == 'true'
-        id: bake-web
-        uses: docker/bake-action@v5
+        id: build-web
+        uses: docker/build-push-action@v6
         with:
-          files: ./docker-bake.hcl
-          targets: web
-          set: |
-            web.context=${{ runner.temp }}/pruned/web
-            web.dockerfile=${{ runner.temp }}/pruned/web/Dockerfile
-            web.platform=linux/amd64
-            web.cache-from=type=gha,scope=hexagonia-linux-amd64
-            web.cache-to=type=gha,mode=max,scope=hexagonia-linux-amd64
-            web.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
+          context: ${{ runner.temp }}/pruned/web
+          file: ${{ runner.temp }}/pruned/web/Dockerfile
+          target: runner
+          platforms: linux/amd64
+          cache-from: type=gha,scope=hexagonia-linux-amd64
+          cache-to: type=gha,mode=max,scope=hexagonia-linux-amd64
+          outputs: ${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Build server image (amd64)
         if: needs.changes.outputs.server == 'true'
-        id: bake-server
-        uses: docker/bake-action@v5
+        id: build-server
+        uses: docker/build-push-action@v6
         with:
-          files: ./docker-bake.hcl
-          targets: server
-          set: |
-            server.context=${{ runner.temp }}/pruned/server
-            server.dockerfile=${{ runner.temp }}/pruned/server/Dockerfile
-            server.platform=linux/amd64
-            server.cache-from=type=gha,scope=hexagonia-linux-amd64
-            server.cache-to=type=gha,mode=max,scope=hexagonia-linux-amd64
-            server.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-server,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
+          context: ${{ runner.temp }}/pruned/server
+          file: ${{ runner.temp }}/pruned/server/Dockerfile
+          target: runner
+          platforms: linux/amd64
+          cache-from: type=gha,scope=hexagonia-linux-amd64
+          cache-to: type=gha,mode=max,scope=hexagonia-linux-amd64
+          outputs: ${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-server,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Record pushed digests
         if: github.event_name != 'pull_request'
@@ -360,13 +349,13 @@ jobs:
 
           if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
             mkdir -p "$RUNNER_TEMP/digests/web"
-            digest='${{ fromJSON(steps.bake-web.outputs.metadata)['containerimage.digest'] }}'
+            digest='${{ steps.build-web.outputs.digest }}'
             touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
           fi
 
           if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
             mkdir -p "$RUNNER_TEMP/digests/server"
-            digest='${{ fromJSON(steps.bake-server.outputs.metadata)['containerimage.digest'] }}'
+            digest='${{ steps.build-server.outputs.digest }}'
             touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
           fi
 
@@ -393,13 +382,6 @@ jobs:
       DOCKER_BUILD_RECORD_UPLOAD: "false"
       DOCKER_BUILD_SUMMARY: "false"
     steps:
-      - name: Checkout bake definition
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            docker-bake.hcl
-          sparse-checkout-cone-mode: false
-
       - name: Download pruned contexts
         uses: actions/download-artifact@v4
         with:
@@ -425,33 +407,29 @@ jobs:
 
       - name: Build web image (arm64)
         if: needs.changes.outputs.web == 'true'
-        id: bake-web
-        uses: docker/bake-action@v5
+        id: build-web
+        uses: docker/build-push-action@v6
         with:
-          files: ./docker-bake.hcl
-          targets: web
-          set: |
-            web.context=${{ runner.temp }}/pruned/web
-            web.dockerfile=${{ runner.temp }}/pruned/web/Dockerfile
-            web.platform=linux/arm64
-            web.cache-from=type=gha,scope=hexagonia-linux-arm64
-            web.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
-            web.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
+          context: ${{ runner.temp }}/pruned/web
+          file: ${{ runner.temp }}/pruned/web/Dockerfile
+          target: runner
+          platforms: linux/arm64
+          cache-from: type=gha,scope=hexagonia-linux-arm64
+          cache-to: type=gha,mode=max,scope=hexagonia-linux-arm64
+          outputs: ${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Build server image (arm64)
         if: needs.changes.outputs.server == 'true'
-        id: bake-server
-        uses: docker/bake-action@v5
+        id: build-server
+        uses: docker/build-push-action@v6
         with:
-          files: ./docker-bake.hcl
-          targets: server
-          set: |
-            server.context=${{ runner.temp }}/pruned/server
-            server.dockerfile=${{ runner.temp }}/pruned/server/Dockerfile
-            server.platform=linux/arm64
-            server.cache-from=type=gha,scope=hexagonia-linux-arm64
-            server.cache-to=type=gha,mode=max,scope=hexagonia-linux-arm64
-            server.output=${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-server,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
+          context: ${{ runner.temp }}/pruned/server
+          file: ${{ runner.temp }}/pruned/server/Dockerfile
+          target: runner
+          platforms: linux/arm64
+          cache-from: type=gha,scope=hexagonia-linux-arm64
+          cache-to: type=gha,mode=max,scope=hexagonia-linux-arm64
+          outputs: ${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-server,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
       - name: Record pushed digests
         if: github.event_name != 'pull_request'
@@ -461,13 +439,13 @@ jobs:
 
           if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
             mkdir -p "$RUNNER_TEMP/digests/web"
-            digest='${{ fromJSON(steps.bake-web.outputs.metadata)['containerimage.digest'] }}'
+            digest='${{ steps.build-web.outputs.digest }}'
             touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
           fi
 
           if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
             mkdir -p "$RUNNER_TEMP/digests/server"
-            digest='${{ fromJSON(steps.bake-server.outputs.metadata)['containerimage.digest'] }}'
+            digest='${{ steps.build-server.outputs.digest }}'
             touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
           fi
 
