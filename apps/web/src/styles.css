@@ -1885,10 +1885,7 @@ select {
 }
 
 .quick-action-grid {
-  display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
-  align-items: stretch;
 }
 
 .quick-action-grid > * {
