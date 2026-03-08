@@ -84,15 +84,15 @@ export function AuthScreen(props: {
             <LoadingButtonContent
               loading={props.authSubmitPending}
               idleLabel={props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen und loslegen"}
-              loadingLabel={props.authMode === "login" ? "Anmeldung laeuft..." : "Registrierung laeuft..."}
+              loadingLabel={props.authMode === "login" ? "Anmeldung läuft..." : "Registrierung läuft..."}
             />
           </button>
 
           {props.authMode === "register" ? (
             <p className="recaptcha-note">
-              Diese Seite ist durch reCAPTCHA geschuetzt. Es gelten die Google{" "}
+              Diese Seite ist durch reCAPTCHA geschützt. Es gelten die Google{" "}
               <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
-                Datenschutzerklaerung
+                Datenschutzerklärung
               </a>{" "}
               und{" "}
               <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">

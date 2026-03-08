@@ -796,7 +796,7 @@ async function verifyRegistrationRecaptcha(input: {
         return;
       }
 
-      throw new Error("reCAPTCHA-Pruefung ist fehlgeschlagen.");
+      throw new Error("reCAPTCHA-Prüfung ist fehlgeschlagen.");
     }
 
     const verification = (await response.json()) as RecaptchaVerificationResponse;
@@ -809,7 +809,7 @@ async function verifyRegistrationRecaptcha(input: {
         return;
       }
 
-      throw new Error("reCAPTCHA-Pruefung ist fehlgeschlagen.");
+      throw new Error("reCAPTCHA-Prüfung ist fehlgeschlagen.");
     }
   } catch (error) {
     if (failOpen) {

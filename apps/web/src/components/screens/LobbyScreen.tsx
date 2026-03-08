@@ -116,7 +116,7 @@ export function LobbyScreen(props: {
               onChange={(event) => props.onJoinCodeChange(event.target.value.toUpperCase())}
             />
             <button className="primary-button" type="button" onClick={props.onJoinByCode} disabled={props.joinByCodePending}>
-              <LoadingButtonContent loading={props.joinByCodePending} idleLabel="Beitreten" loadingLabel="Beitritt laeuft..." />
+              <LoadingButtonContent loading={props.joinByCodePending} idleLabel="Beitreten" loadingLabel="Beitritt läuft..." />
             </button>
           </div>
           <span className="muted-copy">Code eingeben und direkt in den Raum springen.</span>

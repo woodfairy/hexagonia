@@ -31,7 +31,7 @@ function ensureContainer(): HTMLDivElement {
 
 function loadScript(): Promise<void> {
   if (typeof window === "undefined") {
-    return Promise.reject(new Error("reCAPTCHA ist nur im Browser verfuegbar."));
+    return Promise.reject(new Error("reCAPTCHA ist nur im Browser verfügbar."));
   }
 
   if (window.grecaptcha) {
@@ -74,7 +74,7 @@ async function ensureWidget(siteKey: string): Promise<number> {
   return await new Promise<number>((resolve, reject) => {
     const recaptcha = window.grecaptcha;
     if (!recaptcha) {
-      reject(new Error("reCAPTCHA ist nicht verfuegbar."));
+      reject(new Error("reCAPTCHA ist nicht verfügbar."));
       return;
     }
 
@@ -105,13 +105,13 @@ export async function getRecaptchaRegisterToken(): Promise<string | null> {
   return await new Promise<string>((resolve, reject) => {
     const recaptcha = window.grecaptcha;
     if (!recaptcha) {
-      reject(new Error("reCAPTCHA ist nicht verfuegbar."));
+      reject(new Error("reCAPTCHA ist nicht verfügbar."));
       return;
     }
 
     recaptcha.ready(() => {
       recaptcha.execute(nextWidgetId).then(resolve).catch(() => {
-        reject(new Error("reCAPTCHA-Pruefung konnte nicht abgeschlossen werden."));
+        reject(new Error("reCAPTCHA-Prüfung konnte nicht abgeschlossen werden."));
       });
     });
   });

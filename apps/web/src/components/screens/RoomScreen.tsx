@@ -242,7 +242,7 @@ export function RoomScreen(props: {
                   <>
                     <p className="muted-copy room-action-hint">Beim Beitritt bekommst du automatisch den nächsten freien Platz.</p>
                     <button className="primary-button" type="button" onClick={props.onJoinRoom} disabled={props.joinRoomPending}>
-                      <LoadingButtonContent loading={props.joinRoomPending} idleLabel="Beitreten" loadingLabel="Beitritt laeuft..." />
+                      <LoadingButtonContent loading={props.joinRoomPending} idleLabel="Beitreten" loadingLabel="Beitritt läuft..." />
                     </button>
                   </>
                 ) : (
