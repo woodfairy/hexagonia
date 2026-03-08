@@ -598,6 +598,30 @@ class UiSoundManager {
 
 export const uiSoundManager = new UiSoundManager();
 
+export function bindGlobalMusicUnlock(): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const unlockMusic = () => {
+    void uiSoundManager.unlock();
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Tab" || event.key === "Enter" || event.key === " ") {
+      unlockMusic();
+    }
+  };
+
+  window.addEventListener("pointerdown", unlockMusic, true);
+  window.addEventListener("keydown", onKeyDown, true);
+
+  return () => {
+    window.removeEventListener("pointerdown", unlockMusic, true);
+    window.removeEventListener("keydown", onKeyDown, true);
+  };
+}
+
 export function bindGlobalUiSounds(): () => void {
   if (typeof window === "undefined") {
     return () => undefined;

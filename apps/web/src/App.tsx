@@ -49,7 +49,7 @@ import {
   updateRoomSettings
 } from "./api";
 import { uiHapticsManager } from "./audio/uiHapticsManager";
-import { bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
+import { bindGlobalMusicUnlock, bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
 import {
   AppHeaderSkeleton,
   DeepLinkBootSkeleton,
@@ -377,36 +377,17 @@ export function App() {
 
   useEffect(() => {
     uiSoundManager.prime();
+    const cleanup = bindGlobalMusicUnlock();
+    return cleanup;
+  }, []);
+
+  useEffect(() => {
     if (isGuestLanding) {
       return;
     }
 
     const cleanup = bindGlobalUiSounds();
     return cleanup;
-  }, [isGuestLanding]);
-
-  useEffect(() => {
-    if (!isGuestLanding) {
-      return;
-    }
-
-    const unlockMusic = () => {
-      void uiSoundManager.unlock();
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Tab" || event.key === "Enter" || event.key === " ") {
-        unlockMusic();
-      }
-    };
-
-    window.addEventListener("pointerdown", unlockMusic, true);
-    window.addEventListener("keydown", onKeyDown, true);
-
-    return () => {
-      window.removeEventListener("pointerdown", unlockMusic, true);
-      window.removeEventListener("keydown", onKeyDown, true);
-    };
   }, [isGuestLanding]);
 
   useEffect(() => {
