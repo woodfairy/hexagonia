@@ -19,10 +19,13 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/tsconfig.base.json ./
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/rules/node_modules ./packages/rules/node_modules
 COPY --from=builder /app/packages/rules/dist ./packages/rules/dist
 COPY --from=builder /app/packages/rules/package.json ./packages/rules/package.json
 EXPOSE 3000
