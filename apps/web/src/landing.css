@@ -24,8 +24,18 @@ body.guest-landing-mode,
 body.guest-landing-mode #root {
   block-size: auto;
   min-block-size: 100%;
+}
+
+html.guest-landing-mode,
+body.guest-landing-mode #root {
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+body.guest-landing-mode {
   overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body.guest-landing-mode {

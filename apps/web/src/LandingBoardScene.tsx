@@ -138,16 +138,17 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     const glowMarkers: Array<{ material: THREE.MeshBasicMaterial; speed: number; baseOpacity: number }> = [];
     let scrollProgress = 0;
     let frameId = 0;
+    let isSceneVisible = true;
+    let isDocumentVisible = typeof document === "undefined" ? true : document.visibilityState !== "hidden";
+    let isCompactScene = false;
+    let isScrollTracking = false;
 
     scene.add(boardGroup);
     camera.position.set(0, 23.5, 39.5);
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.className = "landing-scene-canvas";
     mount.appendChild(renderer.domElement);
 
@@ -289,7 +290,17 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       glowMarkers.push({ material: markerMaterial, speed: 1.4, baseOpacity: 0.24 });
     }
 
+    const updatePerformanceProfile = () => {
+      const coarsePointer =
+        typeof window.matchMedia === "function" ? window.matchMedia("(pointer: coarse)").matches : false;
+      isCompactScene = coarsePointer || window.innerWidth < 720;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, isCompactScene ? 1.1 : 1.75));
+      renderer.shadowMap.enabled = !isCompactScene;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    };
+
     const updateSize = () => {
+      updatePerformanceProfile();
       const width = mount.clientWidth;
       const height = mount.clientHeight;
       renderer.setSize(width, height, false);
@@ -316,6 +327,11 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     };
 
     const animate = () => {
+      frameId = 0;
+      if (!isSceneVisible || !isDocumentVisible) {
+        return;
+      }
+
       const elapsed = clock.getElapsedTime();
       const motionScale = props.reducedMotion ? 0.2 : 1;
       const boardTilt = props.reducedMotion ? 0.32 : 0.32 + Math.sin(elapsed * 0.32) * 0.015;
@@ -343,24 +359,96 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       frameId = window.requestAnimationFrame(animate);
     };
 
+    const startAnimation = () => {
+      if (frameId !== 0 || !isSceneVisible || !isDocumentVisible) {
+        return;
+      }
+
+      frameId = window.requestAnimationFrame(animate);
+    };
+
+    const stopAnimation = () => {
+      if (frameId === 0) {
+        return;
+      }
+
+      window.cancelAnimationFrame(frameId);
+      frameId = 0;
+    };
+
+    const enableScrollTracking = () => {
+      if (isScrollTracking) {
+        return;
+      }
+
+      window.addEventListener("scroll", updateScrollProgress, { passive: true });
+      isScrollTracking = true;
+      updateScrollProgress();
+    };
+
+    const disableScrollTracking = () => {
+      if (!isScrollTracking) {
+        return;
+      }
+
+      window.removeEventListener("scroll", updateScrollProgress);
+      isScrollTracking = false;
+    };
+
+    const handleVisibilityChange = () => {
+      isDocumentVisible = document.visibilityState !== "hidden";
+      if (isDocumentVisible) {
+        startAnimation();
+        return;
+      }
+
+      stopAnimation();
+    };
+
     updateSize();
     updateScrollProgress();
-    animate();
+    enableScrollTracking();
+    startAnimation();
 
     const supportsFinePointer =
       typeof window.matchMedia === "function" ? window.matchMedia("(pointer: fine)").matches : false;
+    const sceneVisibilityObserver =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(
+            (entries) => {
+              const entry = entries[0];
+              isSceneVisible = entry?.isIntersecting ?? true;
+              if (isSceneVisible) {
+                enableScrollTracking();
+                updateScrollProgress();
+                startAnimation();
+                return;
+              }
+
+              disableScrollTracking();
+              stopAnimation();
+            },
+            {
+              root: null,
+              threshold: 0.02
+            }
+          );
 
     window.addEventListener("resize", updateSize);
-    window.addEventListener("scroll", updateScrollProgress, { passive: true });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    sceneVisibilityObserver?.observe(mount);
     if (supportsFinePointer) {
       mount.addEventListener("pointermove", handlePointerMove);
       mount.addEventListener("pointerleave", handlePointerLeave);
     }
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      stopAnimation();
+      disableScrollTracking();
       window.removeEventListener("resize", updateSize);
-      window.removeEventListener("scroll", updateScrollProgress);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      sceneVisibilityObserver?.disconnect();
       if (supportsFinePointer) {
         mount.removeEventListener("pointermove", handlePointerMove);
         mount.removeEventListener("pointerleave", handlePointerLeave);
