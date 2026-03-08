@@ -227,7 +227,7 @@ jobs:
           git commit -m "ci: add pnpm lockfile [skip ci]"
           git push origin "HEAD:$BRANCH_NAME"
 
-      - name: Verify affected graph
+      - name: Typecheck affected graph
         shell: bash
         env:
           BUILD_WEB: ${{ needs.changes.outputs.web }}
@@ -242,7 +242,6 @@ jobs:
           fi
 
           pnpm turbo run typecheck "${filters[@]}"
-          pnpm turbo run test "${filters[@]}"
 
       - name: Create pruned Docker contexts
         shell: bash

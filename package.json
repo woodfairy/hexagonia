@@ -14,7 +14,9 @@
     "build:server": "turbo run build --filter=@hexagonia/server",
     "build:libs": "turbo run build --filter=@hexagonia/shared --filter=@hexagonia/rules",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "test": "pnpm test:unit && pnpm test:regression",
+    "test:unit": "turbo run test:unit",
+    "test:regression": "turbo run test:regression",
     "lint": "turbo run lint",
     "format": "turbo run format"
   },

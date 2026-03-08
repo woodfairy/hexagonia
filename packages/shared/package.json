@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -b tsconfig.json --pretty false",
-    "test": "echo \"No tests in shared\"",
+    "test": "pnpm run test:unit && pnpm run test:regression",
+    "test:unit": "echo \"No unit tests in shared\"",
+    "test:regression": "echo \"No regression tests in shared\"",
     "lint": "pnpm run typecheck",
     "format": "echo \"Formatting handled at repo level\""
   },

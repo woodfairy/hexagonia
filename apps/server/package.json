@@ -8,7 +8,9 @@
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -b tsconfig.json --pretty false",
     "start": "node dist/index.js",
-    "test": "echo \"Server integration tests pending\"",
+    "test": "pnpm run test:unit && pnpm run test:regression",
+    "test:unit": "echo \"No unit tests in server\"",
+    "test:regression": "echo \"Server regression tests pending\"",
     "lint": "pnpm run typecheck",
     "format": "echo \"Formatting handled at repo level\""
   },
