@@ -589,12 +589,22 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     const body = roomSettingsSchema.parse(request.body ?? {});
-    if (body.setupMode !== undefined) {
-      room.setupMode = body.setupMode;
+    const nextGameConfig = mergeGameConfig(room.gameConfig, body);
+    if (body.startingPlayer?.seatIndex !== undefined) {
+      if (nextGameConfig.startingPlayer.mode !== "manual") {
+        return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewÃ¤hlt werden." });
+      }
+      const seat = room.seats.find((entry) => entry.index === body.startingPlayer?.seatIndex);
+      if (!seat?.userId) {
+        return reply.code(409).send({ error: "Der gewÃ¤hlte Startspieler sitzt nicht im Raum." });
+      }
+    } else if (
+      nextGameConfig.startingPlayer.mode === "manual" &&
+      !room.seats.some((entry) => entry.index === nextGameConfig.startingPlayer.seatIndex && !!entry.userId)
+    ) {
+      return reply.code(409).send({ error: "Der gewÃ¤hlte Startspieler sitzt nicht im Raum." });
     }
-    if (body.startingPlayerMode !== undefined) {
-      room.startingPlayerMode = body.startingPlayerMode;
-    }
+    room.gameConfig = nextGameConfig;
     if (body.startingSeatIndex !== undefined) {
       if ((body.startingPlayerMode ?? room.startingPlayerMode) !== "manual") {
         return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
