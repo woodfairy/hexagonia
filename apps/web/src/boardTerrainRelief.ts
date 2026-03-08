@@ -1,5 +1,6 @@
 import type { MatchSnapshot, Resource } from "@hexagonia/shared";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { UltraTerrainTextureBundle } from "./boardUltraTerrain";
 import { TILE_COLORS } from "./boardVisuals";
 
@@ -28,10 +29,12 @@ interface TerrainBiomeRecipe {
   accentColor: string;
   roughness: number;
   metalness: number;
-  coverKind: "grass" | "stalk" | "tree" | "rock" | "clay" | "pebble";
+  coverKind: "grassPatch" | "wheatPatch" | "tree" | "rockCluster" | "clay" | "dune";
   coverCount: number;
   coverMinScale: number;
   coverMaxScale: number;
+  coverFootprint: number;
+  coverSpacing: number;
   coverEdgePadding: number;
   featureCount: number;
   pathDepth: number;
@@ -89,22 +92,24 @@ interface TerrainPolygon {
 }
 
 const SHARED_RESOURCE_FLAG = "__sharedResource";
-const SURFACE_GRID_RESOLUTION = 28;
-const COVER_ATTEMPT_MULTIPLIER = 7;
+const SURFACE_GRID_RESOLUTION = 34;
+const COVER_ATTEMPT_MULTIPLIER = 9;
 
 const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
   wool: {
-    baseColor: tintColor(TILE_COLORS.wool, -0.08),
+    baseColor: tintColor(TILE_COLORS.wool, -0.03),
     coverColor: "#5b993a",
     accentColor: "#97cb68",
     roughness: 0.82,
     metalness: 0.01,
-    coverKind: "grass",
-    coverCount: 220,
-    coverMinScale: 0.62,
-    coverMaxScale: 1.5,
-    coverEdgePadding: 0.07,
-    featureCount: 11,
+    coverKind: "grassPatch",
+    coverCount: 420,
+    coverMinScale: 0.72,
+    coverMaxScale: 1.48,
+    coverFootprint: 0.11,
+    coverSpacing: 0.42,
+    coverEdgePadding: 0.05,
+    featureCount: 14,
     pathDepth: 0.022
   },
   grain: {
@@ -113,25 +118,29 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     accentColor: "#f1d886",
     roughness: 0.78,
     metalness: 0.01,
-    coverKind: "stalk",
-    coverCount: 170,
-    coverMinScale: 0.7,
-    coverMaxScale: 1.34,
-    coverEdgePadding: 0.08,
-    featureCount: 8,
+    coverKind: "wheatPatch",
+    coverCount: 180,
+    coverMinScale: 0.82,
+    coverMaxScale: 1.46,
+    coverFootprint: 0.16,
+    coverSpacing: 0.66,
+    coverEdgePadding: 0.06,
+    featureCount: 10,
     pathDepth: 0.016
   },
   lumber: {
-    baseColor: tintColor(TILE_COLORS.lumber, -0.12),
+    baseColor: tintColor(TILE_COLORS.lumber, -0.02),
     coverColor: "#2e6c2f",
     accentColor: "#4d8a3d",
     roughness: 0.9,
     metalness: 0.01,
     coverKind: "tree",
-    coverCount: 58,
+    coverCount: 68,
     coverMinScale: 0.8,
     coverMaxScale: 1.3,
-    coverEdgePadding: 0.13,
+    coverFootprint: 0.22,
+    coverSpacing: 0.84,
+    coverEdgePadding: 0.15,
     featureCount: 12,
     pathDepth: 0.02
   },
@@ -141,12 +150,14 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     accentColor: "#bfdcff",
     roughness: 0.88,
     metalness: 0.04,
-    coverKind: "rock",
-    coverCount: 64,
-    coverMinScale: 0.72,
-    coverMaxScale: 1.45,
-    coverEdgePadding: 0.08,
-    featureCount: 10,
+    coverKind: "rockCluster",
+    coverCount: 92,
+    coverMinScale: 0.9,
+    coverMaxScale: 1.9,
+    coverFootprint: 0.17,
+    coverSpacing: 0.74,
+    coverEdgePadding: 0.07,
+    featureCount: 13,
     pathDepth: 0.014
   },
   brick: {
@@ -156,10 +167,12 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     roughness: 0.92,
     metalness: 0.01,
     coverKind: "clay",
-    coverCount: 86,
-    coverMinScale: 0.68,
-    coverMaxScale: 1.38,
-    coverEdgePadding: 0.08,
+    coverCount: 96,
+    coverMinScale: 0.76,
+    coverMaxScale: 1.46,
+    coverFootprint: 0.14,
+    coverSpacing: 0.62,
+    coverEdgePadding: 0.07,
     featureCount: 9,
     pathDepth: 0.02
   },
@@ -169,12 +182,14 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     accentColor: "#edd29d",
     roughness: 0.94,
     metalness: 0,
-    coverKind: "pebble",
-    coverCount: 46,
-    coverMinScale: 0.62,
-    coverMaxScale: 1.26,
-    coverEdgePadding: 0.08,
-    featureCount: 7,
+    coverKind: "dune",
+    coverCount: 54,
+    coverMinScale: 0.9,
+    coverMaxScale: 1.72,
+    coverFootprint: 0.2,
+    coverSpacing: 0.72,
+    coverEdgePadding: 0.06,
+    featureCount: 10,
     pathDepth: 0.012
   }
 };
@@ -216,16 +231,18 @@ function createSurfaceMaterial(
   recipe: TerrainBiomeRecipe
 ): THREE.MeshStandardMaterial {
   if (textured && terrainBundle) {
+    const surfaceTint = resource === "lumber" ? tintColor(terrainBundle.appearance.topTint, 0.08) : terrainBundle.appearance.topTint;
     const material = new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.topTint,
+      color: surfaceTint,
       map: terrainBundle.colorMap,
       ...(terrainBundle.roughnessMap ? { roughnessMap: terrainBundle.roughnessMap } : {}),
       ...(terrainBundle.bumpMap ? { bumpMap: terrainBundle.bumpMap } : {}),
       roughness: Math.max(terrainBundle.appearance.roughness - 0.03, recipe.roughness),
       metalness: terrainBundle.appearance.metalness,
       bumpScale: terrainBundle.appearance.bumpScale * 0.58,
-      emissive: new THREE.Color(active ? tintColor(terrainBundle.appearance.topTint, 0.1) : terrainBundle.appearance.emissive),
-      emissiveIntensity: active ? 0.09 : 0.02
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(active ? tintColor(surfaceTint, 0.1) : tintColor(surfaceTint, -0.18)),
+      emissiveIntensity: active ? 0.09 : resource === "lumber" ? 0.035 : 0.02
     });
     markMaterialTexturesShared(material);
     return material;
@@ -235,6 +252,7 @@ function createSurfaceMaterial(
     color: recipe.baseColor,
     roughness: recipe.roughness,
     metalness: recipe.metalness,
+    side: THREE.DoubleSide,
     emissive: new THREE.Color(active ? tintColor(recipe.baseColor, 0.08) : tintColor(recipe.baseColor, -0.22)),
     emissiveIntensity: active ? 0.08 : 0.02
   });
@@ -286,6 +304,7 @@ interface CoverSpawn {
   scaleY: number;
   scaleZ: number;
   offsetY: number;
+  footprint: number;
 }
 
 function createCoverSpawns(
@@ -304,8 +323,10 @@ function createCoverSpawns(
       continue;
     }
 
+    const scale = THREE.MathUtils.lerp(biome.recipe.coverMinScale, biome.recipe.coverMaxScale, random());
+    const footprint = biome.recipe.coverFootprint * scale;
     const edgeClearance = getPolygonEdgeClearance(x, z, polygon.points);
-    if (edgeClearance < biome.recipe.coverEdgePadding) {
+    if (edgeClearance < footprint + biome.recipe.coverEdgePadding) {
       continue;
     }
 
@@ -314,31 +335,87 @@ function createCoverSpawns(
       continue;
     }
 
-    const scale = THREE.MathUtils.lerp(biome.recipe.coverMinScale, biome.recipe.coverMaxScale, random());
+    const tooCloseToOtherSpawn = spawns.some(
+      (spawn) => Math.hypot(x - spawn.x, z - spawn.z) < (footprint + spawn.footprint) * biome.recipe.coverSpacing
+    );
+    if (tooCloseToOtherSpawn) {
+      continue;
+    }
+
     const alignedY =
-      biome.recipe.coverKind === "stalk" || biome.recipe.coverKind === "grass"
+      biome.recipe.coverKind === "grassPatch" || biome.recipe.coverKind === "wheatPatch" || biome.recipe.coverKind === "dune"
         ? biome.primaryAngle + (random() - 0.5) * 0.6
         : biome.recipe.coverKind === "tree"
           ? biome.secondaryAngle + (random() - 0.5) * 0.4
           : random() * Math.PI * 2;
 
+    let rotX = 0;
+    let rotZ = 0;
+    let scaleX = scale;
+    let scaleY = scale;
+    let scaleZ = scale;
+    let offsetY = 0.03 * scale;
+
+    switch (biome.recipe.coverKind) {
+      case "grassPatch":
+        rotX = (random() - 0.5) * 0.06;
+        rotZ = (random() - 0.5) * 0.08;
+        scaleX = scale * THREE.MathUtils.lerp(0.92, 1.24, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.92, 1.18, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.92, 1.24, random());
+        offsetY = 0.01 * scale;
+        break;
+      case "wheatPatch":
+        rotX = (random() - 0.5) * 0.04;
+        rotZ = (random() - 0.5) * 0.08;
+        scaleX = scale * THREE.MathUtils.lerp(1.08, 1.42, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.94, 1.12, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.74, 0.96, random());
+        offsetY = 0.012 * scale;
+        break;
+      case "tree":
+        scaleX = scale * 0.9;
+        scaleY = scale * THREE.MathUtils.lerp(1.02, 1.18, random());
+        scaleZ = scale * 0.92;
+        offsetY = 0.14 * scale;
+        break;
+      case "rockCluster":
+        rotX = (random() - 0.5) * 0.3;
+        rotZ = (random() - 0.5) * 0.24;
+        scaleX = scale * THREE.MathUtils.lerp(0.94, 1.22, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.92, 1.3, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.92, 1.2, random());
+        offsetY = 0.014 * scale;
+        break;
+      case "clay":
+        rotX = (random() - 0.5) * 0.24;
+        rotZ = (random() - 0.5) * 0.14;
+        scaleX = scale * THREE.MathUtils.lerp(0.96, 1.24, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.84, 1.06, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.84, 1.14, random());
+        offsetY = 0.012 * scale;
+        break;
+      case "dune":
+        rotX = (random() - 0.5) * 0.04;
+        rotZ = (random() - 0.5) * 0.04;
+        scaleX = scale * THREE.MathUtils.lerp(1.2, 1.54, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.8, 1.06, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.78, 1.02, random());
+        offsetY = 0.008 * scale;
+        break;
+    }
+
     spawns.push({
       x,
       z,
-      rotX: biome.recipe.coverKind === "rock" || biome.recipe.coverKind === "clay" || biome.recipe.coverKind === "pebble" ? (random() - 0.5) * 0.34 : 0,
+      rotX,
       rotY: alignedY,
-      rotZ: biome.recipe.coverKind === "grass" || biome.recipe.coverKind === "stalk" ? (random() - 0.5) * 0.22 : (random() - 0.5) * 0.14,
-      scaleX: biome.recipe.coverKind === "tree" ? scale * 0.9 : scale * THREE.MathUtils.lerp(0.8, 1.1, random()),
-      scaleY: scale * (biome.recipe.coverKind === "pebble" ? 0.5 : biome.recipe.coverKind === "rock" || biome.recipe.coverKind === "clay" ? 0.72 : 1.18),
-      scaleZ: biome.recipe.coverKind === "tree" ? scale * 0.92 : scale * THREE.MathUtils.lerp(0.8, 1.1, random()),
-      offsetY:
-        biome.recipe.coverKind === "tree"
-          ? 0.14 * scale
-          : biome.recipe.coverKind === "grass"
-            ? 0.06 * scale
-            : biome.recipe.coverKind === "stalk"
-              ? 0.08 * scale
-              : 0.03 * scale
+      rotZ,
+      scaleX,
+      scaleY,
+      scaleZ,
+      offsetY,
+      footprint
     });
   }
 
@@ -346,32 +423,19 @@ function createCoverSpawns(
 }
 
 function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): THREE.BufferGeometry {
-  let geometry: THREE.BufferGeometry;
   switch (kind) {
-    case "grass":
-      geometry = new THREE.ConeGeometry(0.07, 0.32, 4);
-      geometry.translate(0, 0.16, 0);
-      return geometry;
-    case "stalk":
-      geometry = new THREE.CylinderGeometry(0.016, 0.04, 0.34, 5);
-      geometry.translate(0, 0.17, 0);
-      return geometry;
+    case "grassPatch":
+      return createGrassPatchGeometry();
+    case "wheatPatch":
+      return createWheatPatchGeometry();
     case "tree":
-      geometry = new THREE.ConeGeometry(0.2, 0.52, 5);
-      geometry.translate(0, 0.26, 0);
-      return geometry;
-    case "rock":
-      geometry = new THREE.DodecahedronGeometry(0.11, 0);
-      geometry.translate(0, 0.11, 0);
-      return geometry;
+      return transformCoverGeometry(new THREE.ConeGeometry(0.18, 0.48, 5), 0, 0.24, 0);
+    case "rockCluster":
+      return createRockClusterGeometry();
     case "clay":
-      geometry = new THREE.CylinderGeometry(0.1, 0.14, 0.08, 6);
-      geometry.translate(0, 0.04, 0);
-      return geometry;
-    case "pebble":
-      geometry = new THREE.SphereGeometry(0.09, 7, 6);
-      geometry.translate(0, 0.06, 0);
-      return geometry;
+      return createClayPatchGeometry();
+    case "dune":
+      return createDuneGeometry();
   }
 
   const unsupportedKind: never = kind;
@@ -381,12 +445,155 @@ function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): THREE.Buffe
 function createCoverMaterial(recipe: TerrainBiomeRecipe, active: boolean): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color: recipe.coverColor,
-    roughness: recipe.coverKind === "stalk" ? 0.7 : recipe.coverKind === "rock" ? 0.92 : 0.86,
-    metalness: recipe.coverKind === "rock" ? 0.04 : 0.01,
-    flatShading: recipe.coverKind === "tree" || recipe.coverKind === "rock" || recipe.coverKind === "clay" || recipe.coverKind === "pebble",
+    roughness:
+      recipe.coverKind === "wheatPatch"
+        ? 0.72
+        : recipe.coverKind === "rockCluster"
+          ? 0.92
+          : recipe.coverKind === "dune"
+            ? 0.9
+            : 0.86,
+    metalness: recipe.coverKind === "rockCluster" ? 0.04 : 0.01,
+    flatShading: recipe.coverKind === "tree" || recipe.coverKind === "rockCluster" || recipe.coverKind === "clay",
     emissive: new THREE.Color(active ? recipe.accentColor : tintColor(recipe.coverColor, -0.24)),
     emissiveIntensity: active ? 0.08 : 0.02
   });
+}
+
+function createGrassPatchGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(transformCoverGeometry(new THREE.CylinderGeometry(0.14, 0.2, 0.04, 7), 0, 0.02, 0));
+
+  const bladeLayout = [
+    { x: -0.08, y: 0.13, z: -0.03, rotX: -0.12, rotY: 0.18, rotZ: -0.42, sx: 1, sy: 1.18, sz: 1 },
+    { x: -0.02, y: 0.15, z: 0.05, rotX: -0.08, rotY: -0.24, rotZ: -0.18, sx: 0.92, sy: 1.06, sz: 1 },
+    { x: 0.04, y: 0.16, z: -0.06, rotX: -0.08, rotY: 0.06, rotZ: 0.16, sx: 0.98, sy: 1.14, sz: 1 },
+    { x: 0.1, y: 0.12, z: 0.02, rotX: -0.08, rotY: 0.28, rotZ: 0.36, sx: 0.94, sy: 0.98, sz: 1 },
+    { x: 0.01, y: 0.17, z: 0, rotX: -0.06, rotY: -0.1, rotZ: 0.04, sx: 0.9, sy: 1.24, sz: 1 },
+    { x: -0.11, y: 0.11, z: 0.07, rotX: -0.1, rotY: -0.34, rotZ: -0.3, sx: 0.82, sy: 0.9, sz: 1 }
+  ] as const;
+
+  for (const blade of bladeLayout) {
+    parts.push(
+      transformCoverGeometry(
+        new THREE.BoxGeometry(0.026, 0.22, 0.012),
+        blade.x,
+        blade.y,
+        blade.z,
+        blade.rotX,
+        blade.rotY,
+        blade.rotZ,
+        blade.sx,
+        blade.sy,
+        blade.sz
+      )
+    );
+  }
+
+  return mergeCoverGeometryParts(parts);
+}
+
+function createWheatPatchGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.34, 0.038, 0.14), 0, 0.019, 0));
+
+  const stems = [
+    { x: -0.12, z: -0.04, h: 0.16, lean: -0.14 },
+    { x: -0.04, z: 0.03, h: 0.18, lean: -0.08 },
+    { x: 0.04, z: -0.02, h: 0.19, lean: 0.08 },
+    { x: 0.13, z: 0.04, h: 0.17, lean: 0.16 }
+  ] as const;
+
+  for (const stem of stems) {
+    parts.push(
+      transformCoverGeometry(
+        new THREE.CylinderGeometry(0.01, 0.014, stem.h, 5),
+        stem.x,
+        stem.h * 0.5,
+        stem.z,
+        0,
+        0,
+        stem.lean
+      )
+    );
+    parts.push(
+      transformCoverGeometry(
+        new THREE.ConeGeometry(0.028, 0.1, 5),
+        stem.x + stem.lean * 0.06,
+        stem.h + 0.04,
+        stem.z,
+        0,
+        Math.PI / 5,
+        stem.lean * 1.2,
+        1,
+        1.08,
+        0.92
+      )
+    );
+  }
+
+  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.18, 0.028, 0.06), -0.02, 0.032, 0.05, 0, 0.18, 0.04));
+  return mergeCoverGeometryParts(parts);
+}
+
+function createRockClusterGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.2, 0.08, 0.18), 0, 0.04, 0.02, 0.14, 0.22, -0.1));
+  parts.push(transformCoverGeometry(new THREE.DodecahedronGeometry(0.11, 0), -0.08, 0.12, -0.02, 0.24, 0.18, -0.12));
+  parts.push(transformCoverGeometry(new THREE.DodecahedronGeometry(0.1, 0), 0.09, 0.1, 0.04, -0.1, 0.38, 0.16));
+  parts.push(transformCoverGeometry(new THREE.DodecahedronGeometry(0.08, 0), 0.01, 0.14, -0.08, 0.18, -0.22, 0.08));
+  return mergeCoverGeometryParts(parts);
+}
+
+function createClayPatchGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(transformCoverGeometry(new THREE.CylinderGeometry(0.14, 0.2, 0.06, 6), 0, 0.03, 0));
+  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.12, 0.05, 0.28), -0.04, 0.05, 0.02, 0.18, 0.34, -0.16));
+  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.1, 0.04, 0.18), 0.08, 0.05, -0.03, -0.1, -0.26, 0.12));
+  return mergeCoverGeometryParts(parts);
+}
+
+function createDuneGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(transformCoverGeometry(new THREE.SphereGeometry(0.18, 10, 8), -0.05, 0.035, 0, 0, 0, 0, 1.5, 0.34, 1));
+  parts.push(transformCoverGeometry(new THREE.SphereGeometry(0.14, 10, 8), 0.11, 0.03, 0.02, 0, 0, 0, 1.18, 0.28, 0.92));
+  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.28, 0.018, 0.1), -0.02, 0.012, -0.04, 0.04, 0.12, -0.04));
+  return mergeCoverGeometryParts(parts);
+}
+
+function transformCoverGeometry(
+  geometry: THREE.BufferGeometry,
+  x: number,
+  y: number,
+  z: number,
+  rotX = 0,
+  rotY = 0,
+  rotZ = 0,
+  scaleX = 1,
+  scaleY = 1,
+  scaleZ = 1
+): THREE.BufferGeometry {
+  const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(rotX, rotY, rotZ));
+  geometry.applyMatrix4(
+    new THREE.Matrix4().compose(
+      new THREE.Vector3(x, y, z),
+      quaternion,
+      new THREE.Vector3(scaleX, scaleY, scaleZ)
+    )
+  );
+  return geometry;
+}
+
+function mergeCoverGeometryParts(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const merged = mergeGeometries(parts, false);
+  for (const part of parts) {
+    part.dispose();
+  }
+  if (!merged) {
+    throw new Error("Failed to merge terrain cover geometries.");
+  }
+  merged.computeVertexNormals();
+  return merged;
 }
 
 function createSurfaceGeometry(
@@ -397,49 +604,54 @@ function createSurfaceGeometry(
   const depth = Math.max(polygon.maxZ - polygon.minZ, 0.001);
   const xSegments = Math.max(Math.round((width / Math.max(width, depth)) * SURFACE_GRID_RESOLUTION), 18);
   const zSegments = Math.max(Math.round((depth / Math.max(width, depth)) * SURFACE_GRID_RESOLUTION), 18);
-  const xStep = width / xSegments;
-  const zStep = depth / zSegments;
-
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const grid = new Map<string, number>();
+  const vertexCache = new Map<string, number>();
   let maxHeight = Number.NEGATIVE_INFINITY;
 
-  for (let zIndex = 0; zIndex <= zSegments; zIndex += 1) {
-    const z = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, zIndex / zSegments);
-    for (let xIndex = 0; xIndex <= xSegments; xIndex += 1) {
-      const x = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, xIndex / xSegments);
-      if (!isTerrainPointInside(x, z, polygon.points, Math.max(xStep, zStep) * 0.72)) {
+  for (let zIndex = 0; zIndex < zSegments; zIndex += 1) {
+    const z0 = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, zIndex / zSegments);
+    const z1 = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, (zIndex + 1) / zSegments);
+    for (let xIndex = 0; xIndex < xSegments; xIndex += 1) {
+      const x0 = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, xIndex / xSegments);
+      const x1 = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, (xIndex + 1) / xSegments);
+
+      const clippedCell = clipPolygonAgainstConvexPolygon(
+        [
+          { x: x0, z: z0 },
+          { x: x1, z: z0 },
+          { x: x1, z: z1 },
+          { x: x0, z: z1 }
+        ],
+        polygon.points
+      );
+
+      if (clippedCell.length < 3) {
         continue;
       }
 
-      const y = sampleHeightLocal(x, z);
-      const vertexIndex = positions.length / 3;
-      positions.push(x, y, z);
-      uvs.push((x - polygon.minX) / width, (z - polygon.minZ) / depth);
-      grid.set(`${xIndex}:${zIndex}`, vertexIndex);
-      maxHeight = Math.max(maxHeight, y);
-    }
-  }
+      const getVertexIndex = (point: TerrainPoint): number => {
+        const key = `${point.x.toFixed(5)}:${point.z.toFixed(5)}`;
+        const existing = vertexCache.get(key);
+        if (existing !== undefined) {
+          return existing;
+        }
 
-  for (let zIndex = 0; zIndex < zSegments; zIndex += 1) {
-    for (let xIndex = 0; xIndex < xSegments; xIndex += 1) {
-      const a = grid.get(`${xIndex}:${zIndex}`);
-      const b = grid.get(`${xIndex + 1}:${zIndex}`);
-      const c = grid.get(`${xIndex}:${zIndex + 1}`);
-      const d = grid.get(`${xIndex + 1}:${zIndex + 1}`);
+        const y = sampleHeightLocal(point.x, point.z);
+        const nextIndex = positions.length / 3;
+        positions.push(point.x, y, point.z);
+        uvs.push((point.x - polygon.minX) / width, (point.z - polygon.minZ) / depth);
+        vertexCache.set(key, nextIndex);
+        maxHeight = Math.max(maxHeight, y);
+        return nextIndex;
+      };
 
-      const x0 = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, xIndex / xSegments);
-      const x1 = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, (xIndex + 1) / xSegments);
-      const z0 = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, zIndex / zSegments);
-      const z1 = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, (zIndex + 1) / zSegments);
-
-      if (a !== undefined && b !== undefined && c !== undefined && isPointInsidePolygon((x0 + x1 + x0) / 3, (z0 + z0 + z1) / 3, polygon.points)) {
-        indices.push(a, c, b);
-      }
-      if (b !== undefined && c !== undefined && d !== undefined && isPointInsidePolygon((x1 + x0 + x1) / 3, (z0 + z1 + z1) / 3, polygon.points)) {
-        indices.push(b, c, d);
+      const anchor = getVertexIndex(clippedCell[0]!);
+      for (let pointIndex = 1; pointIndex < clippedCell.length - 1; pointIndex += 1) {
+        const left = getVertexIndex(clippedCell[pointIndex]!);
+        const right = getVertexIndex(clippedCell[pointIndex + 1]!);
+        indices.push(anchor, left, right);
       }
     }
   }
@@ -449,6 +661,7 @@ function createSurfaceGeometry(
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
 
   return {
     geometry,
@@ -588,23 +801,26 @@ function sampleBiomeHeight(
 
   switch (resource) {
     case "wool":
-      macro = 0.052 + broadNoise * 0.028 + featureField * 0.86;
-      micro = Math.abs(Math.sin(rotatedPrimary.x * 6.8 + biome.seed * 0.002)) * 0.024 + fineNoise * 0.012;
-      break;
-    case "grain":
-      macro = 0.048 + broadNoise * 0.018 + featureField * 0.4;
+      macro = 0.044 + broadNoise * 0.024 + featureField * 0.58;
       micro =
-        Math.sin(rotatedPrimary.x * 8.6 + biome.seed * 0.0017) * 0.022 +
-        Math.sin(rotatedPrimary.x * 17.4 + biome.seed * 0.0031) * 0.008 +
+        Math.abs(Math.sin(rotatedPrimary.x * 5.2 + biome.seed * 0.0017)) * 0.016 +
+        Math.abs(Math.sin(rotatedSecondary.z * 4.4 + biome.seed * 0.0012)) * 0.01 +
         fineNoise * 0.008;
       break;
+    case "grain":
+      macro = 0.04 + broadNoise * 0.014 + featureField * 0.24;
+      micro =
+        Math.sin(rotatedPrimary.x * 7.1 + biome.seed * 0.0017) * 0.03 +
+        Math.sin(rotatedPrimary.x * 14.2 + biome.seed * 0.0031) * 0.012 +
+        fineNoise * 0.005;
+      break;
     case "lumber":
-      macro = 0.072 + broadNoise * 0.024 + featureField * 1.18;
-      micro = ridgeNoise * 0.024 + Math.abs(fineNoise) * 0.012;
+      macro = 0.064 + broadNoise * 0.022 + featureField * 0.94;
+      micro = ridgeNoise * 0.02 + Math.abs(fineNoise) * 0.01;
       break;
     case "ore":
-      macro = 0.054 + Math.abs(Math.sin(rotatedPrimary.x * 3.3 + biome.seed * 0.0018)) * 0.07 + featureField * 1.2;
-      micro = ridgeNoise * 0.034 + Math.abs(Math.sin((rotatedPrimary.x + rotatedPrimary.z) * 6.2)) * 0.014;
+      macro = 0.058 + Math.abs(Math.sin(rotatedPrimary.x * 3.1 + biome.seed * 0.0018)) * 0.084 + featureField * 1.38;
+      micro = ridgeNoise * 0.04 + Math.abs(Math.sin((rotatedPrimary.x + rotatedPrimary.z) * 6.2)) * 0.018;
       break;
     case "brick":
       macro = 0.044 + broadNoise * 0.016 + featureField * 0.96;
@@ -615,11 +831,14 @@ function sampleBiomeHeight(
       break;
     case "desert":
       macro =
-        0.05 +
-        (Math.sin(rotatedPrimary.x * 1.8 + biome.seed * 0.0008) * 0.5 + 0.5) * 0.078 +
-        Math.sin(rotatedPrimary.x * 3.9 + biome.seed * 0.0016) * 0.02 +
-        featureField * 0.36;
-      micro = Math.abs(Math.sin(rotatedSecondary.z * 11.4 + biome.seed * 0.0023)) * 0.01 + fineNoise * 0.006;
+        0.048 +
+        (Math.sin(rotatedPrimary.x * 1.46 + biome.seed * 0.0008) * 0.5 + 0.5) * 0.094 +
+        Math.sin(rotatedPrimary.x * 3.3 + biome.seed * 0.0016) * 0.028 +
+        featureField * 0.42;
+      micro =
+        Math.abs(Math.sin(rotatedSecondary.z * 10.8 + biome.seed * 0.0023)) * 0.014 +
+        Math.sin(rotatedPrimary.x * 7.4 + biome.seed * 0.0011) * 0.008 +
+        fineNoise * 0.004;
       break;
   }
 
@@ -685,7 +904,8 @@ function rotatePoint(x: number, z: number, rotation: number): TerrainPoint {
 }
 
 function isTerrainPointInside(x: number, z: number, polygon: readonly TerrainPoint[], edgePadding: number): boolean {
-  return isPointInsidePolygon(x, z, polygon) || getPolygonEdgeClearance(x, z, polygon) <= edgePadding;
+  void edgePadding;
+  return isPointInsidePolygon(x, z, polygon);
 }
 
 function isPointInsidePolygon(x: number, z: number, polygon: readonly TerrainPoint[]): boolean {
@@ -730,6 +950,112 @@ function getDistanceToSegment(x: number, z: number, start: TerrainPoint, end: Te
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = THREE.MathUtils.clamp((value - edge0) / Math.max(edge1 - edge0, 0.00001), 0, 1);
   return t * t * (3 - 2 * t);
+}
+
+function clipPolygonAgainstConvexPolygon(subject: TerrainPoint[], clipPolygon: readonly TerrainPoint[]): TerrainPoint[] {
+  let output = subject.slice();
+  const clipOrientation = Math.sign(getPolygonSignedArea(clipPolygon)) || 1;
+
+  for (let index = 0; index < clipPolygon.length; index += 1) {
+    const clipStart = clipPolygon[index]!;
+    const clipEnd = clipPolygon[(index + 1) % clipPolygon.length]!;
+    const input = output.slice();
+    output = [];
+
+    if (input.length === 0) {
+      break;
+    }
+
+    let startPoint = input[input.length - 1]!;
+    for (const endPoint of input) {
+      const endInside = isPointInsideClipEdge(endPoint, clipStart, clipEnd, clipOrientation);
+      const startInside = isPointInsideClipEdge(startPoint, clipStart, clipEnd, clipOrientation);
+
+      if (endInside) {
+        if (!startInside) {
+          output.push(getSegmentLineIntersection(startPoint, endPoint, clipStart, clipEnd));
+        }
+        output.push(endPoint);
+      } else if (startInside) {
+        output.push(getSegmentLineIntersection(startPoint, endPoint, clipStart, clipEnd));
+      }
+
+      startPoint = endPoint;
+    }
+
+    output = dedupePolygonPoints(output);
+  }
+
+  return output;
+}
+
+function isPointInsideClipEdge(
+  point: TerrainPoint,
+  edgeStart: TerrainPoint,
+  edgeEnd: TerrainPoint,
+  orientation: number
+): boolean {
+  const cross = (edgeEnd.x - edgeStart.x) * (point.z - edgeStart.z) - (edgeEnd.z - edgeStart.z) * (point.x - edgeStart.x);
+  return orientation >= 0 ? cross >= -0.00001 : cross <= 0.00001;
+}
+
+function getSegmentLineIntersection(
+  segmentStart: TerrainPoint,
+  segmentEnd: TerrainPoint,
+  clipStart: TerrainPoint,
+  clipEnd: TerrainPoint
+): TerrainPoint {
+  const segmentDx = segmentEnd.x - segmentStart.x;
+  const segmentDz = segmentEnd.z - segmentStart.z;
+  const clipDx = clipEnd.x - clipStart.x;
+  const clipDz = clipEnd.z - clipStart.z;
+  const denominator = segmentDx * clipDz - segmentDz * clipDx;
+
+  if (Math.abs(denominator) < 0.000001) {
+    return {
+      x: (segmentStart.x + segmentEnd.x) * 0.5,
+      z: (segmentStart.z + segmentEnd.z) * 0.5
+    };
+  }
+
+  const startOffsetX = clipStart.x - segmentStart.x;
+  const startOffsetZ = clipStart.z - segmentStart.z;
+  const ratio = (startOffsetX * clipDz - startOffsetZ * clipDx) / denominator;
+  return {
+    x: segmentStart.x + segmentDx * ratio,
+    z: segmentStart.z + segmentDz * ratio
+  };
+}
+
+function dedupePolygonPoints(points: TerrainPoint[]): TerrainPoint[] {
+  const deduped: TerrainPoint[] = [];
+  for (const point of points) {
+    const previous = deduped[deduped.length - 1];
+    if (previous && Math.hypot(previous.x - point.x, previous.z - point.z) < 0.00001) {
+      continue;
+    }
+    deduped.push(point);
+  }
+
+  if (deduped.length > 1) {
+    const first = deduped[0]!;
+    const last = deduped[deduped.length - 1]!;
+    if (Math.hypot(first.x - last.x, first.z - last.z) < 0.00001) {
+      deduped.pop();
+    }
+  }
+
+  return deduped;
+}
+
+function getPolygonSignedArea(polygon: readonly TerrainPoint[]): number {
+  let area = 0;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index]!;
+    const next = polygon[(index + 1) % polygon.length]!;
+    area += current.x * next.z - next.x * current.z;
+  }
+  return area * 0.5;
 }
 
 function createSeededRandom(seed: string): () => number {
