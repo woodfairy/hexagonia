@@ -923,6 +923,9 @@ function handleCreateTradeOffer(
   want: ResourceMap
 ): void {
   ensurePhase(state.phase === "turn_action");
+  if (isEmptyResourceMap(give)) {
+    throw new GameRuleError("Ein Handel muss mindestens eine angebotene Ressource enthalten.");
+  }
   if (isEmptyResourceMap(want)) {
     throw new GameRuleError("Ein Handel muss mindestens eine gewünschte Ressource enthalten.");
   }
@@ -1791,11 +1794,11 @@ function canUseMaritimeTrade(state: GameState): boolean {
 }
 
 function usesPairedPlayersTurnRule(state: GameState): boolean {
-  return state.players.length >= 5 && state.gameConfig.turnRule === "paired_players";
+  return state.gameConfig.turnRule === "paired_players";
 }
 
 function usesSpecialBuildTurnRule(state: GameState): boolean {
-  return state.players.length >= 5 && state.gameConfig.turnRule === "special_build_phase";
+  return state.gameConfig.turnRule === "special_build_phase";
 }
 
 function getNextPlayerIndex(state: GameState, playerIndex: number, offset = 1): number {
@@ -1803,7 +1806,7 @@ function getNextPlayerIndex(state: GameState, playerIndex: number, offset = 1): 
 }
 
 function getPairedPlayerIndex(state: GameState): number {
-  return getNextPlayerIndex(state, state.turnContext.primaryPlayerIndex, 3);
+  return getNextPlayerIndex(state, state.turnContext.primaryPlayerIndex, Math.min(3, state.players.length - 1));
 }
 
 function ensureRoadPlacement(state: GameState, playerId: string, edgeId: string): void {

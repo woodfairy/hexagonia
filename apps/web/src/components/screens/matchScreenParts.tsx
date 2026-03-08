@@ -69,7 +69,6 @@ export function TradeQuantityControl(props: {
   max?: number;
   disabled?: boolean;
   fixed?: boolean;
-  helper: string;
   onChange: (value: number | string) => void;
 }) {
   const max = props.max ?? 99;
@@ -114,7 +113,6 @@ export function TradeQuantityControl(props: {
           </div>
         </div>
       )}
-      <span className="trade-quantity-helper">{props.helper}</span>
       <span className="trade-quantity-summary">Aktuell: {props.value}x {renderResourceLabel(props.resource)}</span>
     </div>
   );

@@ -413,6 +413,7 @@ export function MatchScreen(props: {
   ];
   const canSubmitTradeOffer =
     props.match.allowedMoves.canCreateTradeOffer &&
+    !isEmptyResourceMap(props.tradeForm.give) &&
     !isEmptyResourceMap(props.tradeForm.want) &&
     hasResources(props.selfPlayer?.resources ?? createEmptyResourceMap(), props.tradeForm.give);
   const canSubmitMaritimeTrade =
@@ -1576,11 +1577,6 @@ export function MatchScreen(props: {
                     min={0}
                     max={selectedTradeGiveMax}
                     disabled={selectedTradeGiveMax <= 0}
-                    helper={
-                      selectedTradeGiveMax > 0
-                        ? `Maximal ${selectedTradeGiveMax} Karten aus deiner Hand.`
-                        : "Von diesem Rohstoff hast du aktuell nichts."
-                    }
                     onChange={(value) =>
                       props.setTradeForm((current) => ({
                         ...current,
@@ -1638,7 +1634,6 @@ export function MatchScreen(props: {
                     resource={selectedTradeWantResource}
                     value={selectedTradeWantCount}
                     min={0}
-                    helper="Lege die gewünschte Kartenanzahl fest."
                     onChange={(value) =>
                       props.setTradeForm((current) => ({
                         ...current,
@@ -1773,7 +1768,6 @@ export function MatchScreen(props: {
                   min={maritimeRatio}
                   max={maritimeRatio}
                   fixed
-                  helper={`${maritimeRatio}:1 Hafenrate`}
                   onChange={() => undefined}
                 />
               </article>
@@ -1803,7 +1797,6 @@ export function MatchScreen(props: {
                   min={1}
                   max={1}
                   fixed
-                  helper="Immer 1 Karte"
                   onChange={() => undefined}
                 />
               </article>

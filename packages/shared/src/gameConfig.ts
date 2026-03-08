@@ -2,7 +2,7 @@ export const SETUP_MODES = ["official_variable", "beginner"] as const;
 export const STARTING_PLAYER_MODES = ["rolled", "manual"] as const;
 export const EXPANSION_IDS = ["seafarers"] as const;
 export const BOARD_SIZES = ["standard", "extended"] as const;
-export const TURN_RULES = ["paired_players", "special_build_phase"] as const;
+export const TURN_RULES = ["standard", "paired_players", "special_build_phase"] as const;
 
 export type SetupMode = (typeof SETUP_MODES)[number];
 export type StartingPlayerMode = (typeof STARTING_PLAYER_MODES)[number];
@@ -34,7 +34,7 @@ export interface GameConfigPatch {
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   boardSize: "standard",
   setupMode: "official_variable",
-  turnRule: "paired_players",
+  turnRule: "standard",
   startingPlayer: {
     mode: "rolled",
     seatIndex: 0

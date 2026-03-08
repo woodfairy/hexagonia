@@ -57,8 +57,7 @@ import {
   getNextAdminUserDraft,
   getReconnectJitter,
   getToastHapticId,
-  sendMessage,
-  StatusSurface
+  sendMessage
 } from "./appSupport";
 import type { InteractionMode } from "./BoardScene";
 import {
@@ -180,7 +179,7 @@ export function App() {
   const [match, setMatch] = useState<MatchSnapshot | null>(null);
   const [myRooms, setMyRooms] = useState<RoomDetails[]>([]);
   const [presence, setPresence] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("Verbindung wird initialisiert.");
+  const [status, setStatus] = useState<string>("Verbindung wird aufgebaut.");
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [socketEpoch, setSocketEpoch] = useState(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -674,7 +673,7 @@ export function App() {
   );
 
   const triggerReconnect = useCallback(
-    (nextStatus = "Realtime-Verbindung wird wiederhergestellt.") => {
+    (nextStatus = "Die Verbindung wird wiederhergestellt.") => {
       if (!sessionRef.current) {
         return;
       }
@@ -706,11 +705,11 @@ export function App() {
     const delay = baseDelay + getReconnectJitter(nextAttempt);
     const seconds = Math.max(1, Math.round(delay / 1000));
     setConnectionState("connecting");
-    setStatus(`Verbindung unterbrochen. Neuer Versuch in ${seconds}s.`);
+    setStatus(`Hier auf der Insel ist der Empfang gerade schwach. Neuer Versuch in ${seconds}s.`);
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
-      triggerReconnect("Realtime-Verbindung wird wiederhergestellt.");
+      triggerReconnect("Die Verbindung wird wiederhergestellt.");
     }, delay);
   }, [triggerReconnect]);
 
@@ -788,7 +787,7 @@ export function App() {
       setAdminMatches([]);
       setAdminUserDrafts({});
     }
-    triggerReconnect("Realtime-Verbindung wird hergestellt.");
+    triggerReconnect("Die Verbindung wird hergestellt.");
   }, [clearHeartbeatTimer, clearReconnectTimer, loadAdminData, loadMyRooms, session, triggerReconnect]);
 
   useEffect(() => {
@@ -798,7 +797,7 @@ export function App() {
       }
 
       reconnectAttemptRef.current = 0;
-      triggerReconnect("Realtime-Verbindung wird nach Rückkehr wiederhergestellt.");
+      triggerReconnect("Die Verbindung wird nach deiner Rueckkehr wiederhergestellt.");
     };
 
     const onVisibilityChange = () => {
@@ -834,7 +833,7 @@ export function App() {
         }
 
         if (Date.now() - lastServerActivityRef.current > HEARTBEAT_TIMEOUT_MS) {
-          setStatus("Realtime-Verbindung antwortet nicht. Neuer Verbindungsversuch folgt.");
+          setStatus("Hier auf der Insel scheint der Empfang schlecht zu sein. Ein neuer Versuch folgt.");
           socket.close();
           return;
         }
@@ -851,7 +850,7 @@ export function App() {
       reconnectAttemptRef.current = 0;
       lastServerActivityRef.current = Date.now();
       setConnectionState("online");
-      setStatus("Realtime-Verbindung aktiv.");
+      setStatus("Verbindung steht.");
       startHeartbeat();
       syncRealtimeSubscriptions(socket);
       void loadMyRooms();
@@ -1007,7 +1006,7 @@ export function App() {
 
     if (route.kind === "room") {
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
-        triggerReconnect("Realtime-Verbindung wird für den Raum wiederhergestellt.");
+        triggerReconnect("Der Raum wird wieder verbunden.");
       }
       void getRoom(route.roomId)
         .then((nextRoom) => {
@@ -1027,7 +1026,7 @@ export function App() {
           matchId: route.matchId
         });
       } else {
-        triggerReconnect("Realtime-Verbindung wird für die Partie wiederhergestellt.");
+        triggerReconnect("Die Partie wird wieder verbunden.");
       }
     }
   }, [loadAdminData, pushToast, route, session, triggerReconnect]);
@@ -1115,8 +1114,12 @@ export function App() {
   const sendCurrent = useCallback(
     (message: ClientMessage) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        triggerReconnect("Realtime-Verbindung wird wiederhergestellt.");
-        pushToast("error", "WebSocket nicht verbunden", "Die Realtime-Verbindung ist gerade nicht verfügbar.");
+        triggerReconnect("Die Verbindung wird wiederhergestellt.");
+        pushToast(
+          "error",
+          "Empfang gerade schlecht",
+          "Hier auf der Insel scheint der Empfang schlecht zu sein. Bitte lade die Seite neu und versuche es erneut."
+        );
         return;
       }
       sendMessage(wsRef.current, message);
@@ -1291,7 +1294,7 @@ export function App() {
     (roomId: string) => {
       playUiFeedback({ haptic: "dialog" });
       navigateTo({ kind: "room", roomId });
-      triggerReconnect("Realtime-Verbindung wird für den Raum wiederhergestellt.");
+      triggerReconnect("Der Raum wird wieder verbunden.");
     },
     [navigateTo, playUiFeedback, triggerReconnect]
   );
@@ -1300,7 +1303,7 @@ export function App() {
     (matchId: string) => {
       playUiFeedback({ haptic: "dialog" });
       navigateTo({ kind: "match", matchId });
-      triggerReconnect("Realtime-Verbindung wird für die Partie wiederhergestellt.");
+      triggerReconnect("Die Partie wird wieder verbunden.");
     },
     [navigateTo, playUiFeedback, triggerReconnect]
   );
@@ -2145,7 +2148,7 @@ export function App() {
               onTurnRuleChange={handleRoomTurnRuleChange}
             />
           ) : (
-            <StatusSurface title="Raum wird geladen" text="Hexagonia verbindet den privaten Raum mit deiner Sitzung." />
+            <DeepLinkBootSkeleton kind="room" />
           )
         ) : null}
 
@@ -2197,7 +2200,7 @@ export function App() {
               onVertexSelect={handleVertexSelect}
             />
           ) : (
-            <StatusSurface title="Partie wird verbunden" text="Die Realtime-Partie wird wieder an dein Gerät angebunden." />
+            <DeepLinkBootSkeleton kind="match" />
           )
         ) : null}
       </div>

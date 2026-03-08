@@ -50,7 +50,7 @@ export function renderConnectionLabel(session: AuthUser | null | undefined, conn
   }
 
   if (connectionState === "connecting") {
-    return "Reconnect...";
+    return "Verbindet...";
   }
 
   return "Offline";
@@ -149,6 +149,7 @@ export function renderBoardSizeLabel(boardSize: BoardSize): string {
 
 export function renderTurnRuleLabel(turnRule: TurnRule): string {
   const labels: Record<TurnRule, string> = {
+    standard: "Standard",
     paired_players: "Paired Players",
     special_build_phase: "Sonderbauphase"
   };
