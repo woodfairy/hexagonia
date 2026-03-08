@@ -253,9 +253,19 @@ jobs:
           rm -rf "$PRUNED_ROOT"
           mkdir -p "$PRUNED_ROOT"
 
+          copy_root_build_files() {
+            local target_dir="$1"
+            for file in tsconfig.base.json tsconfig.json turbo.json; do
+              if [[ -f "$file" ]]; then
+                cp "$file" "$target_dir/$file"
+              fi
+            done
+          }
+
           if [[ "$BUILD_WEB" == "true" ]]; then
             pnpm turbo prune @hexagonia/web --docker --out-dir "$PRUNED_ROOT/web"
             cp apps/web/Dockerfile "$PRUNED_ROOT/web/Dockerfile"
+            copy_root_build_files "$PRUNED_ROOT/web/full"
             mkdir -p "$PRUNED_ROOT/web/full/assets"
             cp -R assets/. "$PRUNED_ROOT/web/full/assets/"
           fi
@@ -263,6 +273,7 @@ jobs:
           if [[ "$BUILD_SERVER" == "true" ]]; then
             pnpm turbo prune @hexagonia/server --docker --out-dir "$PRUNED_ROOT/server"
             cp apps/server/Dockerfile "$PRUNED_ROOT/server/Dockerfile"
+            copy_root_build_files "$PRUNED_ROOT/server/full"
           fi
 
       - name: Upload pruned contexts

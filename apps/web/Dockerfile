@@ -19,7 +19,7 @@ FROM deps AS builder
 COPY full/ ./
 RUN pnpm build:web
 
-FROM --platform=$TARGETPLATFORM nginx:1.27-alpine AS runner
+FROM nginx:1.27-alpine AS runner
 COPY --from=builder /app/apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 COPY --from=builder /app/apps/web/docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
