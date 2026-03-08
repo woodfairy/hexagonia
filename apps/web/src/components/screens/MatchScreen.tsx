@@ -326,6 +326,12 @@ export function MatchScreen(props: {
   const tradeGiveSummary = renderResourceMap(props.tradeForm.give) || "Noch nichts im Angebot";
   const tradeWantSummary = renderResourceMap(props.tradeForm.want) || "Noch nichts angefragt";
   const effectiveTradeTargetPlayer = !isCurrentPlayer ? activePlayer : null;
+  const selectedTradeTargetPlayer =
+    props.tradeForm.targetPlayerId && isCurrentPlayer
+      ? tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId) ?? null
+      : null;
+  const normalizedTradeTargetId = selectedTradeTargetPlayer?.id ?? "";
+  const selectedTradeTargetAccentClass = selectedTradeTargetPlayer ? getPlayerAccentClass(selectedTradeTargetPlayer.color) : "";
   const selectedTradeGiveCount = props.tradeForm.give[selectedTradeGiveResource] ?? 0;
   const selectedTradeWantCount = props.tradeForm.want[selectedTradeWantResource] ?? 0;
   const selectedTradeGiveMax = props.selfPlayer?.resources?.[selectedTradeGiveResource] ?? 0;
@@ -1363,7 +1369,7 @@ export function MatchScreen(props: {
               <button
                 key={action.id}
                 type="button"
-                className={`build-action-card ${action.active ? "is-active" : ""}`}
+                className={`build-action-card ${action.active ? "is-active" : action.disabled ? "is-disabled" : "is-ready"}`}
                 aria-disabled={action.disabled}
                 onPointerEnter={(event) => {
                   if (!action.disabled) {
@@ -1404,6 +1410,11 @@ export function MatchScreen(props: {
                   action.onClick();
                 }}
               >
+                <span
+                  className={`build-action-state ${action.active ? "is-active" : action.disabled ? "is-disabled" : "is-ready"}`}
+                >
+                  {action.active ? "Aktiv" : action.disabled ? "Gesperrt" : "Bereit"}
+                </span>
                 <span className="build-action-head">
                   <strong>{action.label}</strong>
                   <span>{action.costLabel}</span>
@@ -1645,7 +1656,9 @@ export function MatchScreen(props: {
                   </div>
                 </article>
 
-                <article className={`trade-target-card ${isCurrentPlayer ? "" : "trade-target-card-compact"}`.trim()}>
+                <article
+                  className={`trade-target-card ${isCurrentPlayer ? "trade-target-card-dropdown" : "trade-target-card-compact"}`.trim()}
+                >
                   <div className="trade-side-head">
                     <span className="eyebrow">Angebot an</span>
                     <strong>
@@ -1660,7 +1673,27 @@ export function MatchScreen(props: {
                     </strong>
                   </div>
                   {isCurrentPlayer ? (
-                    <div className="trade-target-picker">
+                    <>
+                      <div className={`trade-target-select-shell ${selectedTradeTargetAccentClass}`.trim()}>
+                        <span className="trade-target-select-dot" aria-hidden="true" />
+                        <select
+                          className="trade-target-select"
+                          value={normalizedTradeTargetId}
+                          onChange={(event) =>
+                            props.setTradeForm((current) => ({ ...current, targetPlayerId: event.target.value }))
+                          }
+                          aria-label="Zielspieler für Handelsangebot"
+                        >
+                          <option value="">Offen für alle</option>
+                          {tradeTargetPlayers.map((player) => (
+                            <option key={player.id} value={player.id}>
+                              {`${player.username} · ${renderPlayerColorLabel(player.color)}`}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="trade-target-select-caret" aria-hidden="true" />
+                      </div>
+                      <div className="trade-target-picker">
                       <button
                         type="button"
                         className={`trade-target-option ${props.tradeForm.targetPlayerId === "" ? "is-active" : ""}`}
@@ -1682,7 +1715,8 @@ export function MatchScreen(props: {
                           <span className="trade-target-copy">Nur dieser Spieler kann annehmen.</span>
                         </button>
                       ))}
-                    </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="trade-target-placeholder-copy">
                       Gegenangebote gehen immer direkt an den aktiven Spieler.
