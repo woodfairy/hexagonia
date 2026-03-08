@@ -146,17 +146,15 @@ jobs:
             core.setOutput("docs_only", String(docsOnly));
             core.setOutput("targets", targets);
 
-  verify:
+  prepare-contexts:
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
+    outputs:
+      generated_lockfile: ${{ steps.ensure-lockfile.outputs.generated }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -210,38 +208,15 @@ jobs:
         shell: bash
         run: pnpm install --frozen-lockfile
 
-      - name: Commit generated pnpm lockfile
+      - name: Upload generated pnpm lockfile
         if: steps.ensure-lockfile.outputs.generated == 'true' && github.event_name != 'pull_request'
-        shell: bash
-        env:
-          BRANCH_NAME: ${{ github.ref_name }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pnpm-lock.yaml
-
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-
-          git commit -m "ci: add pnpm lockfile [skip ci]"
-          git push origin "HEAD:$BRANCH_NAME"
-
-      - name: Typecheck affected graph
-        shell: bash
-        env:
-          BUILD_WEB: ${{ needs.changes.outputs.web }}
-          BUILD_SERVER: ${{ needs.changes.outputs.server }}
-        run: |
-          filters=()
-          if [[ "$BUILD_WEB" == "true" ]]; then
-            filters+=("--filter=@hexagonia/web...")
-          fi
-          if [[ "$BUILD_SERVER" == "true" ]]; then
-            filters+=("--filter=@hexagonia/server...")
-          fi
-
-          pnpm turbo run typecheck "${filters[@]}"
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-pnpm-lockfile
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
       - name: Create pruned Docker contexts
         shell: bash
@@ -285,11 +260,48 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  package-amd64:
+  persist-lockfile:
     needs:
       - changes
-      - verify
-    if: needs.changes.outputs.docs_only != 'true'
+      - prepare-contexts
+    if: needs.changes.outputs.docs_only != 'true' && github.event_name != 'pull_request' && needs.prepare-contexts.outputs.generated_lockfile == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download generated pnpm lockfile
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-pnpm-lockfile
+          path: ${{ runner.temp }}/generated-lockfile
+
+      - name: Commit generated pnpm lockfile
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          cp "$RUNNER_TEMP/generated-lockfile/pnpm-lock.yaml" pnpm-lock.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "ci: add pnpm lockfile [skip ci]"
+          git push origin "HEAD:$BRANCH_NAME"
+
+  package-web-amd64:
+    needs:
+      - changes
+      - prepare-contexts
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -316,7 +328,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build web image (amd64)
-        if: needs.changes.outputs.web == 'true'
         id: build-web
         uses: docker/build-push-action@v6
         with:
@@ -328,8 +339,55 @@ jobs:
           cache-to: type=gha,mode=max,scope=hexagonia-linux-amd64
           outputs: ${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
+      - name: Record pushed digests
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests/web"
+          digest='${{ steps.build-web.outputs.digest }}'
+          touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
+
+      - name: Upload digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-web-linux-amd64
+          path: ${{ runner.temp }}/digests/web
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  package-server-amd64:
+    needs:
+      - changes
+      - prepare-contexts
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      DOCKER_BUILD_SUMMARY: "false"
+    steps:
+      - name: Download pruned contexts
+        uses: actions/download-artifact@v4
+        with:
+          name: pruned-contexts
+          path: ${{ runner.temp }}/pruned
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build server image (amd64)
-        if: needs.changes.outputs.server == 'true'
         id: build-server
         uses: docker/build-push-action@v6
         with:
@@ -345,35 +403,25 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/digests"
-
-          if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
-            mkdir -p "$RUNNER_TEMP/digests/web"
-            digest='${{ steps.build-web.outputs.digest }}'
-            touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
-          fi
-
-          if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
-            mkdir -p "$RUNNER_TEMP/digests/server"
-            digest='${{ steps.build-server.outputs.digest }}'
-            touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
-          fi
+          mkdir -p "$RUNNER_TEMP/digests/server"
+          digest='${{ steps.build-server.outputs.digest }}'
+          touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
 
       - name: Upload digests
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: digests-linux-amd64
-          path: ${{ runner.temp }}/digests
+          name: digests-server-linux-amd64
+          path: ${{ runner.temp }}/digests/server
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
 
-  package-arm64:
+  package-web-arm64:
     needs:
       - changes
-      - verify
-    if: needs.changes.outputs.docs_only != 'true'
+      - prepare-contexts
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.web == 'true'
     runs-on: ${{ vars.CI_ARM64_RUNNER != '' && vars.CI_ARM64_RUNNER || 'ubuntu-24.04' }}
     permissions:
       contents: read
@@ -406,7 +454,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build web image (arm64)
-        if: needs.changes.outputs.web == 'true'
         id: build-web
         uses: docker/build-push-action@v6
         with:
@@ -418,8 +465,61 @@ jobs:
           cache-to: type=gha,mode=max,scope=hexagonia-linux-arm64
           outputs: ${{ github.event_name != 'pull_request' && format('type=image,name=ghcr.io/{0}/hexagonia-web,push-by-digest=true,name-canonical=true,push=true', github.repository_owner) || 'type=cacheonly' }}
 
+      - name: Record pushed digests
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests/web"
+          digest='${{ steps.build-web.outputs.digest }}'
+          touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
+
+      - name: Upload digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-web-linux-arm64
+          path: ${{ runner.temp }}/digests/web
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  package-server-arm64:
+    needs:
+      - changes
+      - prepare-contexts
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.server == 'true'
+    runs-on: ${{ vars.CI_ARM64_RUNNER != '' && vars.CI_ARM64_RUNNER || 'ubuntu-24.04' }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      DOCKER_BUILD_SUMMARY: "false"
+    steps:
+      - name: Download pruned contexts
+        uses: actions/download-artifact@v4
+        with:
+          name: pruned-contexts
+          path: ${{ runner.temp }}/pruned
+
+      - name: Set up QEMU fallback
+        if: vars.CI_ARM64_RUNNER == ''
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build server image (arm64)
-        if: needs.changes.outputs.server == 'true'
         id: build-server
         uses: docker/build-push-action@v6
         with:
@@ -435,26 +535,16 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/digests"
-
-          if [[ '${{ needs.changes.outputs.web }}' == 'true' ]]; then
-            mkdir -p "$RUNNER_TEMP/digests/web"
-            digest='${{ steps.build-web.outputs.digest }}'
-            touch "$RUNNER_TEMP/digests/web/${digest#sha256:}"
-          fi
-
-          if [[ '${{ needs.changes.outputs.server }}' == 'true' ]]; then
-            mkdir -p "$RUNNER_TEMP/digests/server"
-            digest='${{ steps.build-server.outputs.digest }}'
-            touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
-          fi
+          mkdir -p "$RUNNER_TEMP/digests/server"
+          digest='${{ steps.build-server.outputs.digest }}'
+          touch "$RUNNER_TEMP/digests/server/${digest#sha256:}"
 
       - name: Upload digests
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: digests-linux-arm64
-          path: ${{ runner.temp }}/digests
+          name: digests-server-linux-arm64
+          path: ${{ runner.temp }}/digests/server
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
@@ -462,9 +552,11 @@ jobs:
   merge:
     needs:
       - changes
-      - package-amd64
-      - package-arm64
-    if: needs.changes.outputs.docs_only != 'true' && github.event_name != 'pull_request'
+      - package-web-amd64
+      - package-server-amd64
+      - package-web-arm64
+      - package-server-arm64
+    if: always() && needs.changes.outputs.docs_only != 'true' && github.event_name != 'pull_request' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -480,17 +572,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download amd64 digests
+      - name: Download web amd64 digests
+        if: needs.changes.outputs.web == 'true'
         uses: actions/download-artifact@v4
         with:
-          name: digests-linux-amd64
-          path: ${{ runner.temp }}/digests/digests-linux-amd64
+          name: digests-web-linux-amd64
+          path: ${{ runner.temp }}/digests/web-linux-amd64
 
-      - name: Download arm64 digests
+      - name: Download web arm64 digests
+        if: needs.changes.outputs.web == 'true'
         uses: actions/download-artifact@v4
         with:
-          name: digests-linux-arm64
-          path: ${{ runner.temp }}/digests/digests-linux-arm64
+          name: digests-web-linux-arm64
+          path: ${{ runner.temp }}/digests/web-linux-arm64
+
+      - name: Download server amd64 digests
+        if: needs.changes.outputs.server == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: digests-server-linux-amd64
+          path: ${{ runner.temp }}/digests/server-linux-amd64
+
+      - name: Download server arm64 digests
+        if: needs.changes.outputs.server == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: digests-server-linux-arm64
+          path: ${{ runner.temp }}/digests/server-linux-arm64
 
       - name: Docker metadata (web)
         if: needs.changes.outputs.web == 'true'
@@ -524,13 +632,12 @@ jobs:
           mapfile -t tags < <(printf '%s\n' "$TAGS" | sed '/^$/d')
           refs=()
 
-          for digest_dir in "$RUNNER_TEMP"/digests/digests-linux-*; do
-            if [[ -d "$digest_dir/web" ]]; then
-              for digest_file in "$digest_dir"/web/*; do
-                [[ -e "$digest_file" ]] || continue
-                refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
-              done
-            fi
+          for digest_dir in "$RUNNER_TEMP"/digests/web-linux-*; do
+            [[ -d "$digest_dir" ]] || continue
+            for digest_file in "$digest_dir"/*; do
+              [[ -e "$digest_file" ]] || continue
+              refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
+            done
           done
 
           if [[ "${#refs[@]}" -eq 0 ]]; then
@@ -556,13 +663,12 @@ jobs:
           mapfile -t tags < <(printf '%s\n' "$TAGS" | sed '/^$/d')
           refs=()
 
-          for digest_dir in "$RUNNER_TEMP"/digests/digests-linux-*; do
-            if [[ -d "$digest_dir/server" ]]; then
-              for digest_file in "$digest_dir"/server/*; do
-                [[ -e "$digest_file" ]] || continue
-                refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
-              done
-            fi
+          for digest_dir in "$RUNNER_TEMP"/digests/server-linux-*; do
+            [[ -d "$digest_dir" ]] || continue
+            for digest_file in "$digest_dir"/*; do
+              [[ -e "$digest_file" ]] || continue
+              refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
+            done
           done
 
           if [[ "${#refs[@]}" -eq 0 ]]; then
