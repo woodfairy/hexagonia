@@ -321,6 +321,14 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
+    if (session !== null) {
+      return;
+    }
+
+    void uiSoundManager.setMusicPlaybackBlocked(true);
+  }, [session]);
+
+  useEffect(() => {
     const onHashChange = () => setRoute(readRoute());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -1813,9 +1821,16 @@ export function App() {
           authForm={authForm}
           authMode={authMode}
           inviteCode={guestInviteCode}
+          musicPaused={session === undefined ? true : musicPaused}
+          musicPlaybackMode={musicPlaybackMode}
+          musicTracks={musicTracks}
+          selectedMusicTrackId={selectedMusicTrackId}
           onAuthFieldChange={(field, value) => setAuthForm((current) => ({ ...current, [field]: value }))}
           onAuthModeChange={setAuthMode}
+          onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
+          onSelectMusicTrack={handleSelectMusicTrack}
           onSubmit={handleAuthSubmit}
+          onToggleMusicPaused={handleToggleMusicPaused}
         />
         <ToastStack onDismiss={removeToast} toasts={toasts} />
       </>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { DEVELOPMENT_CARD_TYPES, SETUP_MODES } from "@hexagonia/shared";
+import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import { HarborIcon, ResourceIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
 import type { AuthMode } from "../../ui";
@@ -115,9 +116,16 @@ export function LandingScreen(props: {
     password: string;
   };
   inviteCode?: string | null;
+  musicTracks: ReadonlyArray<MusicTrack>;
+  selectedMusicTrackId: string | null;
+  musicPaused: boolean;
+  musicPlaybackMode: MusicPlaybackMode;
   onAuthModeChange: (mode: AuthMode) => void;
   onAuthFieldChange: (field: "username" | "password", value: string) => void;
+  onMusicPlaybackModeChange: (mode: MusicPlaybackMode) => void;
+  onSelectMusicTrack: (trackId: string) => void;
   onSubmit: (event: FormEvent) => void;
+  onToggleMusicPaused: () => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -197,6 +205,9 @@ export function LandingScreen(props: {
   };
 
   const authSubmitLabel = props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen";
+  const hasMusicTracks = props.musicTracks.length > 0;
+  const landingTrackId = props.selectedMusicTrackId ?? props.musicTracks[0]?.id ?? "";
+  const landingModeLabel = props.musicPlaybackMode === "cycle" ? "Playlist" : "Loop";
 
   return (
     <div ref={rootRef} className="guest-root landing-root">
@@ -219,13 +230,62 @@ export function LandingScreen(props: {
           ))}
         </nav>
 
-        <div className="landing-header-actions">
-          <button type="button" className="landing-nav-button is-ghost" onClick={() => scrollToSection("zugang")}>
-            Login
-          </button>
-          <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-            Jetzt spielen
-          </button>
+        <div className="landing-header-tools">
+          <div className="landing-music-panel">
+            <div className="landing-music-copy">
+              <strong>Musik</strong>
+              <span>Startet automatisch erst nach Login</span>
+            </div>
+            <div className="landing-music-controls">
+              <label className="landing-music-track-shell">
+                <span className="sr-only">Song waehlen</span>
+                <select
+                  className="landing-music-select"
+                  value={landingTrackId}
+                  onChange={(event) => props.onSelectMusicTrack(event.target.value)}
+                  disabled={!hasMusicTracks}
+                >
+                  {hasMusicTracks ? (
+                    props.musicTracks.map((track) => (
+                      <option key={track.id} value={track.id}>
+                        {track.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Keine Songs gefunden</option>
+                  )}
+                </select>
+              </label>
+              <button
+                type="button"
+                className={`landing-music-chip ${props.musicPaused ? "is-muted" : "is-active"}`}
+                aria-pressed={!props.musicPaused}
+                onClick={() => props.onToggleMusicPaused()}
+                disabled={!hasMusicTracks}
+              >
+                {props.musicPaused ? "Start" : "Pause"}
+              </button>
+              <button
+                type="button"
+                className={`landing-music-chip ${props.musicPlaybackMode === "cycle" ? "is-active" : ""}`}
+                aria-pressed={props.musicPlaybackMode === "cycle"}
+                onClick={() => props.onMusicPlaybackModeChange(props.musicPlaybackMode === "cycle" ? "single" : "cycle")}
+                disabled={props.musicTracks.length <= 1}
+                title="Wiedergabemodus umschalten"
+              >
+                {landingModeLabel}
+              </button>
+            </div>
+          </div>
+
+          <div className="landing-header-actions">
+            <button type="button" className="landing-nav-button is-ghost" onClick={() => scrollToSection("zugang")}>
+              Login
+            </button>
+            <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
+              Jetzt spielen
+            </button>
+          </div>
         </div>
       </header>
 

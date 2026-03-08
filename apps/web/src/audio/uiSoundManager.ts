@@ -156,6 +156,7 @@ class UiSoundManager {
   private musicStateListeners = new Set<MusicStateListener>();
   private musicElement: HTMLAudioElement | null = null;
   private currentMusicTrackId: string | null = null;
+  private musicPlaybackBlocked = false;
   private muted =
     typeof window !== "undefined" && window.localStorage.getItem(UI_SOUND_STORAGE_KEY) === "muted";
   private hasStoredMusicPlaybackPreference =
@@ -178,7 +179,7 @@ class UiSoundManager {
   }
 
   isMusicPaused(): boolean {
-    return this.musicPaused;
+    return this.isMusicEffectivelyPaused();
   }
 
   getMusicPlaybackMode(): MusicPlaybackMode {
@@ -223,7 +224,7 @@ class UiSoundManager {
     }
 
     if (
-      !this.musicPaused &&
+      !this.isMusicEffectivelyPaused() &&
       (this.musicResumePending || this.musicElement?.paused || this.currentMusicTrackId !== this.selectedMusicTrackId)
     ) {
       await this.playSelectedMusic();
@@ -276,6 +277,7 @@ class UiSoundManager {
       return;
     }
 
+    this.musicPlaybackBlocked = false;
     this.selectedMusicTrackId = track.id;
     this.persistMusicTrack();
     this.musicPaused = false;
@@ -290,6 +292,10 @@ class UiSoundManager {
       this.musicPaused = true;
       this.persistMusicPlaybackState();
       return this.musicPaused;
+    }
+
+    if (!nextPaused) {
+      this.musicPlaybackBlocked = false;
     }
 
     this.musicPaused = nextPaused;
@@ -308,7 +314,7 @@ class UiSoundManager {
   }
 
   async toggleMusicPaused(): Promise<boolean> {
-    return this.setMusicPaused(!this.musicPaused);
+    return this.setMusicPaused(!this.isMusicEffectivelyPaused());
   }
 
   async setMusicPlaybackMode(nextMode: MusicPlaybackMode): Promise<void> {
@@ -323,12 +329,21 @@ class UiSoundManager {
   }
 
   async enableMusicByDefault(): Promise<boolean> {
+    const wasPlaybackBlocked = this.musicPlaybackBlocked;
+    this.musicPlaybackBlocked = false;
+
     if (!resolveMusicTrack(this.selectedMusicTrackId)) {
+      if (wasPlaybackBlocked) {
+        this.notifyMusicStateListeners();
+      }
       return false;
     }
 
     if (this.hasStoredMusicPlaybackPreference) {
       if (this.musicPaused) {
+        if (wasPlaybackBlocked) {
+          this.notifyMusicStateListeners();
+        }
         return false;
       }
 
@@ -344,6 +359,25 @@ class UiSoundManager {
     this.notifyMusicStateListeners();
     await this.playSelectedMusic();
     return true;
+  }
+
+  async setMusicPlaybackBlocked(nextBlocked: boolean): Promise<void> {
+    if (this.musicPlaybackBlocked === nextBlocked) {
+      return;
+    }
+
+    this.musicPlaybackBlocked = nextBlocked;
+    if (nextBlocked) {
+      this.musicResumePending = false;
+      this.musicElement?.pause();
+      this.notifyMusicStateListeners();
+      return;
+    }
+
+    this.notifyMusicStateListeners();
+    if (!this.musicPaused) {
+      await this.playSelectedMusic();
+    }
   }
 
   private ensureContext(): AudioContext | null {
@@ -421,7 +455,7 @@ class UiSoundManager {
 
   private async playSelectedMusic(): Promise<void> {
     const track = resolveMusicTrack(this.selectedMusicTrackId);
-    if (!track || this.musicPaused) {
+    if (!track || this.isMusicEffectivelyPaused()) {
       return;
     }
 
@@ -439,7 +473,7 @@ class UiSoundManager {
   }
 
   private async handleMusicEnded(): Promise<void> {
-    if (this.musicPaused || this.shouldLoopMusic()) {
+    if (this.isMusicEffectivelyPaused() || this.shouldLoopMusic()) {
       return;
     }
 
@@ -478,6 +512,10 @@ class UiSoundManager {
     }
 
     this.musicElement.loop = this.shouldLoopMusic();
+  }
+
+  private isMusicEffectivelyPaused(): boolean {
+    return this.musicPaused || this.musicPlaybackBlocked;
   }
 
   private notifyMusicStateListeners(): void {

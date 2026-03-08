@@ -169,6 +169,7 @@ body.guest-landing-mode {
 }
 
 .landing-nav,
+.landing-header-tools,
 .landing-header-actions,
 .landing-hero-actions {
   display: flex;
@@ -179,6 +180,11 @@ body.guest-landing-mode {
 .landing-nav {
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.landing-header-tools {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .landing-nav-button {
@@ -228,6 +234,86 @@ body.guest-landing-mode {
   border: 1px solid var(--landing-line);
   color: var(--landing-text);
   box-shadow: none;
+}
+
+.landing-music-panel {
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.48rem 0.58rem 0.48rem 0.82rem;
+  border: 1px solid var(--landing-line);
+  border-radius: 999px;
+  background: rgba(6, 15, 22, 0.72);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+}
+
+.landing-music-copy,
+.landing-music-track-shell {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.landing-music-copy {
+  min-inline-size: 0;
+}
+
+.landing-music-copy strong {
+  font-family: var(--landing-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing-music-copy span {
+  color: var(--landing-muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.landing-music-controls {
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.landing-music-track-shell {
+  min-inline-size: min(14rem, 32vw);
+}
+
+.landing-music-select {
+  min-block-size: 2.45rem;
+  min-inline-size: 0;
+  padding: 0.62rem 0.82rem;
+  border: 1px solid var(--landing-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--landing-text);
+}
+
+.landing-music-chip {
+  min-block-size: 2.45rem;
+  padding: 0.62rem 0.88rem;
+  border-radius: 999px;
+  border: 1px solid var(--landing-line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--landing-text);
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.landing-music-chip.is-active {
+  border-color: rgba(226, 180, 101, 0.34);
+  background: rgba(226, 180, 101, 0.16);
+}
+
+.landing-music-chip.is-muted {
+  color: var(--landing-muted);
 }
 
 .landing-main {
@@ -790,6 +876,11 @@ body.guest-landing-mode .toast-stack {
     padding-block-end: 0.15rem;
   }
 
+  .landing-header-tools {
+    inline-size: 100%;
+    justify-content: space-between;
+  }
+
   .landing-nav::-webkit-scrollbar {
     display: none;
   }
@@ -813,6 +904,25 @@ body.guest-landing-mode .toast-stack {
 @media (max-width: 719px) {
   .landing-header {
     padding-inline: max(var(--landing-inline-space-mobile), env(safe-area-inset-left)) max(var(--landing-inline-space-mobile), env(safe-area-inset-right));
+  }
+
+  .landing-header-tools,
+  .landing-music-panel {
+    inline-size: 100%;
+  }
+
+  .landing-music-panel,
+  .landing-music-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-music-copy span {
+    white-space: normal;
+  }
+
+  .landing-music-track-shell {
+    min-inline-size: 0;
   }
 
   .landing-header-actions {
