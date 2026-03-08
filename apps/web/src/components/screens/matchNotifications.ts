@@ -620,19 +620,15 @@ function createDevelopmentPlayedNotification(
         emphasis: "warning"
       });
     }
-    default:
-      return createBaseNotification(match, event, {
-        label: "Entwicklung",
-        title: getPlayerPredicate(
-          match,
-          viewerId,
-          event.byPlayerId,
-          `spielt ${renderDevelopmentTypeLabel(event.payload.cardType)}`,
-          `spielst ${renderDevelopmentTypeLabel(event.payload.cardType)}`
-        ),
-        detail: "Der Entwicklungskarteneffekt ist jetzt aktiv."
-      });
   }
+
+  const _exhaustive: never = event.payload;
+  void _exhaustive;
+  return createBaseNotification(match, event, {
+    label: "Entwicklung",
+    title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Entwicklung", "spielst Entwicklung"),
+    detail: "Der Entwicklungskarteneffekt ist jetzt aktiv."
+  });
 }
 
 function createRobberNotification(

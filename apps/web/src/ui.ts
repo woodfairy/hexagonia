@@ -78,6 +78,7 @@ export function renderEventLabel(type: MatchEventType): string {
     trade_declined: "Handelsangebot abgelehnt.",
     trade_cancelled: "Handelsangebot zurückgezogen.",
     trade_completed: "Handel abgeschlossen.",
+    maritime_trade: "Hafenhandel ausgeführt.",
     beginner_setup_applied: "Anfängeraufbau gesetzt.",
     game_won: "Partie gewonnen.",
     turn_ended: "Zug beendet."

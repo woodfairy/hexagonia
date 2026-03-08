@@ -378,7 +378,7 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
     !applyTradeAction(ACTION_HANDLERS, next, playerId, action) &&
     !applyTurnAction(ACTION_HANDLERS, next, playerId, action)
   ) {
-    assertNever(action);
+    throw new GameRuleError(`Unbekannte Aktion: ${action.type}`);
   }
 
   updateAwards(next);
@@ -2103,10 +2103,7 @@ function cloneState(state: GameState): GameState {
       want: cloneResourceMap(trade.want),
       declinedByPlayerIds: [...trade.declinedByPlayerIds]
     })),
-    eventLog: state.eventLog.map((event) => ({
-      ...event,
-      payload: structuredClone(event.payload)
-    })),
+    eventLog: state.eventLog.map((event) => structuredClone(event)),
     setupState: state.setupState ? { ...state.setupState } : null,
     robberState: state.robberState
       ? {
@@ -2164,8 +2161,4 @@ function getEdge(state: GameState, edgeId: string): EdgeView {
     throw new GameRuleError("Unbekannte Kante.");
   }
   return edge;
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled action: ${JSON.stringify(value)}`);
 }

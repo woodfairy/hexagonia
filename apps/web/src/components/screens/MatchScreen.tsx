@@ -47,7 +47,9 @@ import {
   renderDevelopmentLabel
 } from "./matchScreenViewModel";
 import {
+  clampTradeDraftCount,
   DiceFace,
+  type MatchScreenNotification,
   MatchNotificationCard,
   PlayerBadge,
   PlayerStatCard,
@@ -428,7 +430,7 @@ export function MatchScreen(props: {
     ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
   const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
-  const deferredDiceHeroNotification = useMemo<MatchNotification | null>(() => {
+  const deferredDiceHeroNotification = useMemo<MatchScreenNotification | null>(() => {
     if (!deferDiceNotification || !latestDiceEvent) {
       return null;
     }
@@ -451,7 +453,7 @@ export function MatchScreen(props: {
       emphasis: "neutral"
     };
   }, [deferDiceNotification, latestDiceEvent, props.match, props.match.turn, props.match.you]);
-  const displayHeroNotification = useMemo<MatchNotification>(
+  const displayHeroNotification = useMemo<MatchScreenNotification>(
     () =>
       visibleHeroNotification ?? {
         key: `turn-status-${props.match.version}`,

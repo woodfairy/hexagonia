@@ -22,6 +22,10 @@ import {
 
 let dicePreviewCursor = 0;
 
+export type MatchScreenNotification = Omit<MatchNotification, "eventType"> & {
+  eventType: MatchNotification["eventType"] | "dice_pending" | "turn_status";
+};
+
 export function TradeResourceCardGrid(props: {
   value: Resource;
   resources: Array<{
@@ -285,7 +289,7 @@ export function PlayerBadge(props: {
 
 export function MatchNotificationCard(props: {
   match: MatchSnapshot;
-  notification: MatchNotification;
+  notification: MatchScreenNotification;
   variant?: "hero" | "hero-mobile" | "feed" | "mini";
   badgeLimit?: number;
 }) {
@@ -346,7 +350,7 @@ export function rollPreviewValue(): number {
   return dicePreviewCursor;
 }
 
-function clampTradeDraftCount(value: number | string, maxAvailable: number): number {
+export function clampTradeDraftCount(value: number | string, maxAvailable: number): number {
   const numeric = typeof value === "number" ? value : Number(value);
   const sanitized = Number.isFinite(numeric) ? Math.floor(numeric) : 0;
   if (maxAvailable <= 0) {
