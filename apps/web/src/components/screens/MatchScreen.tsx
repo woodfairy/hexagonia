@@ -2664,7 +2664,7 @@ function createOwnActionCue(
     };
   }
 
-  if (interactionMode === "robber" || match.phase === "robber_interrupt") {
+  if (interactionMode === "robber") {
     const tileIds = match.allowedMoves.robberMoveOptions.map((option) => option.tileId);
     if (!tileIds.length) {
       return null;
@@ -2816,7 +2816,7 @@ function createOwnActionCameraCue(
     };
   }
 
-  if (interactionMode === "robber" || match.phase === "robber_interrupt") {
+  if (interactionMode === "robber") {
     const tileIds = match.allowedMoves.robberMoveOptions.map((option) => option.tileId);
     if (!tileIds.length) {
       return null;
