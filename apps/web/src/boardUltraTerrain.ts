@@ -167,11 +167,11 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetSideTint,
         overlayBase,
         emissive,
-        roughness: 0.86,
+        roughness: 0.88,
         metalness: 0.03,
-        bumpScale: 0.18,
-        overlayOpacity: 0.26,
-        overlayScale: 1.12
+        bumpScale: 0.14,
+        overlayOpacity: 0.2,
+        overlayScale: 1.08
       };
     case "ore":
       return {
@@ -181,11 +181,11 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetSideTint,
         overlayBase,
         emissive,
-        roughness: 0.74,
-        metalness: 0.08,
-        bumpScale: 0.22,
-        overlayOpacity: 0.2,
-        overlayScale: 1.04
+        roughness: 0.8,
+        metalness: 0.06,
+        bumpScale: 0.18,
+        overlayOpacity: 0.16,
+        overlayScale: 1.02
       };
     case "grain":
       return {
@@ -253,24 +253,62 @@ function paintLumberTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 340; index += 1) {
+  for (let index = 0; index < 32; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    const radius = 16 + random() * 38;
-    drawSoftBlob(colorContext, x, y, radius, pick(random, ["rgba(38,92,42,0.24)", "rgba(54,112,57,0.26)", "rgba(95,146,76,0.22)"]));
-    drawSoftBlob(bumpContext, x, y, radius * 0.88, `rgba(${120 + Math.round(random() * 60)},${120 + Math.round(random() * 60)},${120 + Math.round(random() * 60)},0.34)`);
-    drawSoftBlob(roughnessContext, x, y, radius * 0.92, "rgba(210,210,210,0.08)");
+    const scale = 32 + random() * 28;
+    const rotation = random() * Math.PI;
+    drawForestCanopyCluster(colorContext, x, y, scale, rotation, [
+      "rgba(34,83,39,0.4)",
+      "rgba(54,111,55,0.38)",
+      "rgba(94,151,78,0.3)"
+    ]);
+    drawForestCanopyCluster(bumpContext, x, y, scale * 0.96, rotation, [
+      "rgba(196,196,196,0.2)",
+      "rgba(156,156,156,0.18)",
+      "rgba(228,228,228,0.14)"
+    ]);
+    drawForestCanopyCluster(roughnessContext, x, y, scale * 0.88, rotation, [
+      "rgba(212,212,212,0.08)",
+      "rgba(168,168,168,0.06)"
+    ]);
+    drawForestCanopyCluster(overlayContext, x, y, scale * 0.82, rotation, [
+      "rgba(255,255,255,0.12)",
+      "rgba(233,250,211,0.1)"
+    ]);
   }
 
-  for (let index = 0; index < 180; index += 1) {
+  for (let index = 0; index < 18; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    const radius = 8 + random() * 18;
-    drawSoftBlob(colorContext, x, y, radius, "rgba(173,216,132,0.12)");
-    drawSoftBlob(overlayContext, x, y, radius * 1.35, "rgba(255,255,255,0.14)");
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 32 + random() * 32, 9 + random() * 12, "rgba(147,187,96,0.08)", rotation);
+    drawEllipse(overlayContext, x, y, 24 + random() * 24, 7 + random() * 9, "rgba(255,255,255,0.08)", rotation);
   }
 
-  drawSpeckles(colorContext, random, 3200, "rgba(18,42,20,0.03)", 0.8, 2.4);
+  for (let index = 0; index < 56; index += 1) {
+    const startX = random() * TERRAIN_TEXTURE_SIZE;
+    const startY = random() * TERRAIN_TEXTURE_SIZE;
+    const endX = startX + (random() - 0.5) * 92;
+    const endY = startY + (random() - 0.5) * 52;
+    colorContext.strokeStyle = "rgba(96,74,42,0.08)";
+    colorContext.lineWidth = 2 + random() * 2.4;
+    colorContext.lineCap = "round";
+    colorContext.beginPath();
+    colorContext.moveTo(startX, startY);
+    colorContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 22, endX, endY);
+    colorContext.stroke();
+
+    bumpContext.strokeStyle = "rgba(222,222,222,0.08)";
+    bumpContext.lineWidth = 1.2 + random() * 1.4;
+    bumpContext.beginPath();
+    bumpContext.moveTo(startX, startY);
+    bumpContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 18, endX, endY);
+    bumpContext.stroke();
+  }
+
+  drawSpeckles(colorContext, random, 1200, "rgba(18,42,20,0.04)", 0.6, 1.8);
+  drawSpeckles(colorContext, random, 420, "rgba(220,240,179,0.04)", 0.5, 1.2);
 }
 
 function paintOreTerrain(
@@ -280,57 +318,76 @@ function paintOreTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let band = 0; band < 13; band += 1) {
-    const y = 18 + band * 38 + random() * 16;
-    const height = 42 + random() * 34;
-    const ridge = new Path2D();
-    ridge.moveTo(-20, y + height);
-    for (let x = 0; x <= TERRAIN_TEXTURE_SIZE + 20; x += 28) {
-      ridge.lineTo(x, y - random() * height);
-      ridge.lineTo(x + 14, y + height * (0.45 + random() * 0.82));
+  for (let index = 0; index < 22; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const scale = 26 + random() * 24;
+    const rotation = random() * Math.PI;
+    drawOreFacetCluster(colorContext, x, y, scale, rotation, [
+      "rgba(103,113,126,0.4)",
+      "rgba(140,151,165,0.34)",
+      "rgba(185,193,202,0.24)"
+    ]);
+    drawOreFacetCluster(bumpContext, x, y, scale * 0.94, rotation, [
+      "rgba(112,112,112,0.18)",
+      "rgba(178,178,178,0.2)",
+      "rgba(228,228,228,0.14)"
+    ]);
+    drawOreFacetCluster(roughnessContext, x, y, scale * 0.9, rotation, [
+      "rgba(162,162,162,0.08)",
+      "rgba(202,202,202,0.06)"
+    ]);
+    if (index % 2 === 0) {
+      drawOreFacetCluster(overlayContext, x, y, scale * 0.84, rotation, [
+        "rgba(255,255,255,0.1)",
+        "rgba(220,236,255,0.08)"
+      ]);
     }
-    ridge.lineTo(TERRAIN_TEXTURE_SIZE + 20, TERRAIN_TEXTURE_SIZE + 20);
-    ridge.lineTo(-20, TERRAIN_TEXTURE_SIZE + 20);
-    ridge.closePath();
-
-    colorContext.fillStyle = pick(random, ["rgba(142,148,156,0.34)", "rgba(170,176,184,0.3)", "rgba(108,116,126,0.38)"]);
-    colorContext.fill(ridge);
-    bumpContext.fillStyle = pick(random, ["rgba(220,220,220,0.12)", "rgba(160,160,160,0.22)", "rgba(90,90,90,0.18)"]);
-    bumpContext.fill(ridge);
-    roughnessContext.fillStyle = "rgba(156,156,156,0.08)";
-    roughnessContext.fill(ridge);
   }
 
   colorContext.lineCap = "round";
   bumpContext.lineCap = "round";
   overlayContext.lineCap = "round";
-  for (let index = 0; index < 38; index += 1) {
+  for (let index = 0; index < 26; index += 1) {
     const startX = random() * TERRAIN_TEXTURE_SIZE;
     const startY = random() * TERRAIN_TEXTURE_SIZE;
-    const endX = startX + (random() - 0.5) * 180;
-    const endY = startY + (random() - 0.5) * 90;
-    const veinWidth = 1.6 + random() * 2.6;
-    colorContext.strokeStyle = index % 2 === 0 ? "rgba(198,206,216,0.34)" : "rgba(226,230,235,0.3)";
+    const endX = startX + (random() - 0.5) * 116;
+    const endY = startY + (random() - 0.5) * 68;
+    const midX = (startX + endX) / 2 + (random() - 0.5) * 18;
+    const midY = (startY + endY) / 2 + (random() - 0.5) * 18;
+    const veinWidth = 1.8 + random() * 2.2;
+
+    colorContext.strokeStyle = index % 3 === 0 ? "rgba(194,223,255,0.22)" : "rgba(210,216,224,0.22)";
     colorContext.lineWidth = veinWidth;
     colorContext.beginPath();
     colorContext.moveTo(startX, startY);
-    colorContext.lineTo(endX, endY);
+    colorContext.quadraticCurveTo(midX, midY, endX, endY);
     colorContext.stroke();
 
-    overlayContext.strokeStyle = "rgba(255,255,255,0.22)";
-    overlayContext.lineWidth = Math.max(1.2, veinWidth - 0.5);
+    overlayContext.strokeStyle = "rgba(255,255,255,0.18)";
+    overlayContext.lineWidth = Math.max(1.2, veinWidth - 0.6);
     overlayContext.beginPath();
     overlayContext.moveTo(startX, startY);
-    overlayContext.lineTo(endX, endY);
+    overlayContext.quadraticCurveTo(midX, midY, endX, endY);
     overlayContext.stroke();
 
-    bumpContext.strokeStyle = "rgba(238,238,238,0.2)";
-    bumpContext.lineWidth = veinWidth * 0.7;
+    bumpContext.strokeStyle = "rgba(236,236,236,0.16)";
+    bumpContext.lineWidth = veinWidth * 0.65;
     bumpContext.beginPath();
     bumpContext.moveTo(startX, startY);
-    bumpContext.lineTo(endX, endY);
+    bumpContext.quadraticCurveTo(midX, midY, endX, endY);
     bumpContext.stroke();
   }
+
+  for (let index = 0; index < 18; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 32 + random() * 28, 7 + random() * 10, "rgba(60,68,78,0.1)", rotation);
+    drawEllipse(overlayContext, x, y, 24 + random() * 16, 4 + random() * 6, "rgba(255,255,255,0.06)", rotation);
+  }
+
+  drawSpeckles(colorContext, random, 900, "rgba(54,60,68,0.05)", 0.7, 1.9);
 }
 
 function paintGrainTerrain(
@@ -674,6 +731,109 @@ function drawEllipse(
   context.beginPath();
   context.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
   context.fill();
+  context.restore();
+}
+
+function drawForestCanopyCluster(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  rotation: number,
+  colors: readonly [string, string, ...string[]] | readonly [string, string]
+): void {
+  const canopyOffsets = [
+    { x: -0.34, y: 0.08, rx: 0.36, ry: 0.28 },
+    { x: -0.08, y: -0.16, rx: 0.3, ry: 0.24 },
+    { x: 0.2, y: 0, rx: 0.32, ry: 0.26 },
+    { x: 0.04, y: 0.22, rx: 0.28, ry: 0.2 },
+    { x: 0.36, y: 0.18, rx: 0.24, ry: 0.18 }
+  ] as const;
+
+  context.save();
+  context.translate(x, y);
+  context.rotate(rotation);
+
+  for (const [index, canopy] of canopyOffsets.entries()) {
+    context.fillStyle = colors[index % colors.length]!;
+    context.beginPath();
+    context.ellipse(
+      canopy.x * scale,
+      canopy.y * scale,
+      canopy.rx * scale,
+      canopy.ry * scale,
+      index * 0.14,
+      0,
+      Math.PI * 2
+    );
+    context.fill();
+  }
+
+  context.fillStyle = colors[Math.max(colors.length - 1, 0)]!;
+  context.beginPath();
+  context.moveTo(-0.06 * scale, 0.1 * scale);
+  context.lineTo(0.04 * scale, 0.1 * scale);
+  context.lineTo(0.02 * scale, 0.34 * scale);
+  context.lineTo(-0.08 * scale, 0.34 * scale);
+  context.closePath();
+  context.fill();
+
+  context.restore();
+}
+
+function drawOreFacetCluster(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  rotation: number,
+  colors: readonly [string, string, ...string[]] | readonly [string, string]
+): void {
+  const facetShapes = [
+    [
+      [-0.52, 0.16],
+      [-0.22, -0.28],
+      [0.08, -0.12],
+      [-0.02, 0.34]
+    ],
+    [
+      [-0.04, 0.3],
+      [0.18, -0.18],
+      [0.48, -0.02],
+      [0.34, 0.38]
+    ],
+    [
+      [0.02, -0.38],
+      [0.24, -0.56],
+      [0.54, -0.18],
+      [0.16, -0.04]
+    ]
+  ] as const;
+
+  context.save();
+  context.translate(x, y);
+  context.rotate(rotation);
+  context.lineJoin = "round";
+
+  for (const [index, points] of facetShapes.entries()) {
+    context.fillStyle = colors[index % colors.length]!;
+    context.beginPath();
+    context.moveTo(points[0][0] * scale, points[0][1] * scale);
+    for (let pointIndex = 1; pointIndex < points.length; pointIndex += 1) {
+      context.lineTo(points[pointIndex][0] * scale, points[pointIndex][1] * scale);
+    }
+    context.closePath();
+    context.fill();
+  }
+
+  context.strokeStyle = colors[colors.length - 1]!;
+  context.lineWidth = Math.max(1, scale * 0.03);
+  context.beginPath();
+  context.moveTo(-0.28 * scale, 0.02 * scale);
+  context.lineTo(0.34 * scale, -0.18 * scale);
+  context.lineTo(0.18 * scale, 0.28 * scale);
+  context.stroke();
+
   context.restore();
 }
 

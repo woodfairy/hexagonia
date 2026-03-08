@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { BUILT_ROAD_ELEVATION, createBuildingPieceModel, createRoadPieceModel } from "./boardPieceModels";
 import { isFirefoxBrowser } from "./browserPerformance";
 import { TILE_COLORS } from "./boardVisuals";
 
@@ -53,6 +54,16 @@ interface ShowcaseBoard {
 type LandingVisualProfile = "classic" | "fancy";
 const SHARED_RESOURCE_FLAG = "__sharedResource";
 const fancyTilePropTemplateCache = new Map<Resource | "desert", THREE.Group>();
+const tileSandGeometryCache = new Map<string, THREE.ShapeGeometry>();
+const tileSandMaterial = markSharedResource(
+  new THREE.MeshStandardMaterial({
+    color: "#e7cf8d",
+    roughness: 0.98,
+    metalness: 0.01,
+    emissive: new THREE.Color("#c6aa62"),
+    emissiveIntensity: 0.08
+  })
+);
 
 const SHOWCASE_PLAYER_COLORS = {
   red: "#cf3b35",
@@ -62,12 +73,16 @@ const SHOWCASE_PLAYER_COLORS = {
 } as const;
 
 const TILE_HEIGHT = 0.82;
-const BUILT_ROAD_RADIUS = 0.24;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
 const TILE_OUTER_BEVEL_THICKNESS = 0.09;
 const TILE_INSET_DEPTH = 0.18;
 const TILE_INSET_BEVEL_SIZE = 0.09;
 const TILE_INSET_BEVEL_THICKNESS = 0.04;
+const TILE_OUTER_RENDER_SCALE = 0.955;
+const TILE_INSET_RENDER_SCALE = 0.918;
+const TILE_OVERLAY_RENDER_SCALE = 0.895;
+const TILE_SAND_UNDERLAY_SCALE = 1;
+const TILE_SAND_UNDERLAY_Y = 0.026;
 const HEX_RADIUS = 1;
 const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS;
 const HEX_HEIGHT = 2 * HEX_RADIUS;
@@ -287,10 +302,14 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       const length = Math.sqrt(dx * dx + dz * dz);
       const road = createRoadPiece(length, roadEntry.color);
       const roadObject = new THREE.Group();
-      roadObject.position.set((left.x + right.x) / 2, TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04, (left.y + right.y) / 2);
-      roadObject.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, 0, dz).normalize());
-      road.castShadow = true;
-      road.receiveShadow = true;
+      roadObject.position.set((left.x + right.x) / 2, TILE_HEIGHT + BUILT_ROAD_ELEVATION, (left.y + right.y) / 2);
+      roadObject.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx, 0, dz).normalize());
+      road.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true;
+          object.receiveShadow = true;
+        }
+      });
       roadObject.add(road);
       boardGroup.add(roadObject);
     }
@@ -920,7 +939,8 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
   const tileSideColor = getTileOuterSideColor(tile.resource);
   const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.04);
   const tileInsetSideColor = shadeColor(TILE_COLORS[tile.resource], -0.04);
-  const outerShape = createTileShape(tile, verticesById);
+  const sandUnderlay = createTileSandUnderlay(tile, verticesById);
+  const outerShape = createTileShape(tile, verticesById, TILE_OUTER_RENDER_SCALE);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
     depth: TILE_HEIGHT,
     bevelEnabled: true,
@@ -932,7 +952,7 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
   });
   outerGeometry.rotateX(-Math.PI / 2);
 
-  const insetShape = createTileShape(tile, verticesById, 0.962);
+  const insetShape = createTileShape(tile, verticesById, TILE_INSET_RENDER_SCALE);
   const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
     depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
@@ -972,13 +992,14 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
   insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
   const tileGroup = new THREE.Group();
-  tileGroup.add(outerMesh, insetMesh);
+  tileGroup.add(sandUnderlay, outerMesh, insetMesh);
   return tileGroup;
 }
 
 function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
   const bundle = createUltraTerrainTextureBundle(tile.resource, "landing");
-  const outerShape = createTileShape(tile, verticesById);
+  const sandUnderlay = createTileSandUnderlay(tile, verticesById);
+  const outerShape = createTileShape(tile, verticesById, TILE_OUTER_RENDER_SCALE);
   const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
     depth: TILE_HEIGHT,
     bevelEnabled: true,
@@ -991,7 +1012,7 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
   outerGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(outerGeometry);
 
-  const insetShape = createTileShape(tile, verticesById, 0.962);
+  const insetShape = createTileShape(tile, verticesById, TILE_INSET_RENDER_SCALE);
   const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
     depth: TILE_INSET_DEPTH,
     bevelEnabled: true,
@@ -1043,7 +1064,7 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
   ]);
   insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
 
-  const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, 0.932));
+  const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_OVERLAY_RENDER_SCALE));
   overlayGeometry.rotateX(-Math.PI / 2);
   remapPlanarTileUvs(overlayGeometry);
   const overlay = new THREE.Mesh(
@@ -1052,7 +1073,7 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
       color: bundle.appearance.overlayBase,
       alphaMap: bundle.overlayMask,
       transparent: true,
-      opacity: tile.resource === "grain" ? 0.2 : 0.12,
+      opacity: bundle.appearance.overlayOpacity,
       depthWrite: false
     })
   );
@@ -1061,8 +1082,30 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
   const tileGroup = new THREE.Group();
   const propGroup = createFancyTileProps(tile.resource);
   propGroup.position.y = TILE_HEIGHT + 0.03;
-  tileGroup.add(outerMesh, insetMesh, overlay, propGroup);
+  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
+  tileGroup.add(sandUnderlay, outerMesh, insetMesh, overlay, propGroup);
   return tileGroup;
+}
+
+function createTileSandUnderlay(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Mesh {
+  const sand = new THREE.Mesh(getTileSandGeometry(tile, verticesById), tileSandMaterial);
+  sand.position.y = TILE_SAND_UNDERLAY_Y;
+  return sand;
+}
+
+function getTileSandGeometry(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.ShapeGeometry {
+  const cacheKey = createTileShapeKey(tile);
+  let geometry = tileSandGeometryCache.get(cacheKey);
+  if (!geometry) {
+    geometry = markSharedResource(new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_SAND_UNDERLAY_SCALE)));
+    geometry.rotateX(-Math.PI / 2);
+    tileSandGeometryCache.set(cacheKey, geometry);
+  }
+  return geometry;
+}
+
+function createTileShapeKey(tile: ShowcaseTile): string {
+  return tile.vertexIds.join(",");
 }
 
 function createTileOutline(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.LineLoop {
@@ -1237,7 +1280,7 @@ function createShowcaseBarn(): THREE.Group {
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.86, 1.1), wallMaterial);
   body.position.y = 0.43;
   const roof = new THREE.Mesh(new THREE.ConeGeometry(1.04, 0.82, 4), roofMaterial);
-  roof.position.y = 1.03;
+  roof.position.y = 1.22;
   roof.rotation.y = Math.PI / 4;
   roof.scale.set(1.12, 1, 0.9);
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.48, 0.08), trimMaterial);
@@ -1710,57 +1753,12 @@ function trimMaterialFromHex(color: string): THREE.MeshStandardMaterial {
   });
 }
 
-function createRoadPiece(length: number, color: string): THREE.Mesh {
-  const roadLength = Math.max(length * 0.84 - BUILT_ROAD_RADIUS * 2, 0.1);
-  return new THREE.Mesh(
-    new THREE.CapsuleGeometry(BUILT_ROAD_RADIUS, roadLength, 4, 10),
-    new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.72,
-      metalness: 0.03,
-      emissive: new THREE.Color(color).multiplyScalar(0.24),
-      emissiveIntensity: 0.16
-    })
-  );
+function createRoadPiece(length: number, color: string): THREE.Group {
+  return createRoadPieceModel(length, color, false);
 }
 
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
-  const material = new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.64,
-    metalness: 0.08
-  });
-
-  if (type === "city") {
-    const group = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.9, 1.35), material);
-    base.position.y = 0.45;
-    const hall = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.15, 0.9), material);
-    hall.position.set(-0.28, 1.02, 0);
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.7, 0.62), material);
-    tower.position.set(0.38, 1.12, 0);
-    const towerRoof = new THREE.Mesh(new THREE.ConeGeometry(0.54, 0.7, 4), material);
-    towerRoof.position.set(0.38, 2.25, 0);
-    towerRoof.rotation.y = Math.PI / 4;
-    group.add(base, hall, tower, towerRoof);
-    return group;
-  }
-
-  const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.82, 1.02), material);
-  body.position.y = 0.41;
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(0.86, 0.7, 4),
-    new THREE.MeshStandardMaterial({
-      color: shadeColor(color, 0.08),
-      roughness: 0.58,
-      metalness: 0.04
-    })
-  );
-  roof.position.y = 1.15;
-  roof.rotation.y = Math.PI / 4;
-  group.add(body, roof);
-  return group;
+  return createBuildingPieceModel(type, color);
 }
 
 function createStarField(): THREE.Points {

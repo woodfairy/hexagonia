@@ -4,6 +4,13 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
 import { isFirefoxBrowser } from "./browserPerformance";
+import {
+  BUILT_ROAD_ELEVATION,
+  GUIDE_ROAD_ELEVATION,
+  createBuildingPieceModel,
+  createRoadGuideModel,
+  createRoadPieceModel
+} from "./boardPieceModels";
 import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
@@ -42,8 +49,6 @@ interface BoardSceneProps {
 }
 
 const TILE_HEIGHT = 0.82;
-const BUILT_ROAD_RADIUS = 0.24;
-const GUIDE_ROAD_RADIUS = 0.14;
 const PORT_MARKER_DISTANCE = 2.25;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
 const TILE_OUTER_BEVEL_THICKNESS = 0.09;
@@ -63,11 +68,9 @@ const modernTileShellCache = new Map<string, SharedModernTileShell>();
 const texturedTileShellCache = new Map<string, SharedTexturedTileShell>();
 const tileOutlineCache = new Map<string, SharedTileOutline>();
 const tileSandGeometryCache = new Map<string, THREE.ShapeGeometry>();
-const buildingTemplateCache = new Map<string, THREE.Group>();
 const tokenSpriteMaterialCache = new Map<string, THREE.SpriteMaterial>();
 const portSpriteMaterialCache = new Map<PortType, THREE.SpriteMaterial>();
-const roadGeometryCache = new Map<string, THREE.CapsuleGeometry>();
-const roadHitProxyGeometryCache = new Map<string, THREE.CapsuleGeometry>();
+const roadHitProxyGeometryCache = new Map<string, THREE.BoxGeometry>();
 const tileProxyGeometryCache = new Map<string, THREE.CylinderGeometry>();
 const TOKEN_PIP_COUNT_BY_NUMBER: Record<number, number> = {
   2: 1,
@@ -1149,16 +1152,17 @@ export function BoardScene(props: BoardSceneProps) {
       const road = edge.ownerId
         ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected)
         : createRoadGuide(length, selected);
-      const roadHeight = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_RADIUS + 0.04 : TILE_HEIGHT + GUIDE_ROAD_RADIUS;
+      const roadHeight = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_ELEVATION : TILE_HEIGHT + GUIDE_ROAD_ELEVATION;
       const roadObject = new THREE.Group();
       roadObject.position.set(centerX, roadHeight, centerZ);
-      roadObject.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        new THREE.Vector3(dx, 0, dz).normalize()
-      );
+      roadObject.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx, 0, dz).normalize());
       road.position.y = 0;
-      road.castShadow = !!edge.ownerId;
-      road.receiveShadow = false;
+      road.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = !!edge.ownerId;
+          object.receiveShadow = false;
+        }
+      });
       roadObject.add(road);
 
       if (active) {
@@ -1297,14 +1301,6 @@ function markMaterialTexturesShared(material: THREE.Material): void {
   }
 }
 
-function cloneSharedTemplate<T extends THREE.Object3D>(template: T): T {
-  const clone = template.clone(true);
-  clone.traverse((object) => {
-    object.userData = { ...object.userData };
-  });
-  return clone;
-}
-
 function freezeStaticTransforms(root: THREE.Object3D): void {
   root.updateMatrixWorld(true);
   root.traverse((object) => {
@@ -1407,44 +1403,7 @@ function createBoardWaterBackdrop(board: MatchSnapshot["board"]): THREE.Group {
 }
 
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
-  const cacheKey = `${type}:${color}`;
-  const cached = buildingTemplateCache.get(cacheKey);
-  if (cached) {
-    return cloneSharedTemplate(cached);
-  }
-
-  const material = markSharedResource(new THREE.MeshStandardMaterial({
-    color: colorToHex(color),
-    roughness: 0.64,
-    metalness: 0.08
-  }));
-  markMaterialTexturesShared(material);
-
-  let group: THREE.Group;
-  if (type === "city") {
-    group = new THREE.Group();
-    const base = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(1.35, 0.9, 1.35)), material);
-    base.position.y = 0.45;
-    const hall = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(0.9, 1.15, 0.9)), material);
-    hall.position.set(-0.28, 1.02, 0);
-    const tower = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(0.62, 1.7, 0.62)), material);
-    tower.position.set(0.38, 1.12, 0);
-    const towerRoof = new THREE.Mesh(markSharedResource(new THREE.ConeGeometry(0.54, 0.7, 4)), material);
-    towerRoof.position.set(0.38, 2.25, 0);
-    towerRoof.rotation.y = Math.PI / 4;
-    group.add(base, hall, tower, towerRoof);
-  } else {
-    group = new THREE.Group();
-    const body = new THREE.Mesh(markSharedResource(new THREE.BoxGeometry(1.02, 0.82, 1.02)), material);
-    body.position.y = 0.41;
-    const roof = new THREE.Mesh(markSharedResource(new THREE.ConeGeometry(0.86, 0.7, 4)), material);
-    roof.position.y = 1.15;
-    roof.rotation.y = Math.PI / 4;
-    group.add(body, roof);
-  }
-
-  buildingTemplateCache.set(cacheKey, group);
-  return cloneSharedTemplate(group);
+  return createBuildingPieceModel(type, colorToHex(color));
 }
 
 function createVertexMarker(): THREE.Mesh {
@@ -4790,46 +4749,12 @@ function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvValues, 2));
 }
 
-function createRoadPiece(length: number, color: string, selected: boolean): THREE.Mesh {
-  const roadLength = Math.max(length * 0.84 - BUILT_ROAD_RADIUS * 2, 0.1);
-  const geometryKey = `${BUILT_ROAD_RADIUS}:${roadLength.toFixed(4)}`;
-  let geometry = roadGeometryCache.get(geometryKey);
-  if (!geometry) {
-    geometry = markSharedResource(new THREE.CapsuleGeometry(BUILT_ROAD_RADIUS, roadLength, 4, 10));
-    roadGeometryCache.set(geometryKey, geometry);
-  }
-  return new THREE.Mesh(
-    geometry,
-    new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.72,
-      metalness: 0.03,
-      emissive: selected ? new THREE.Color("#ffbf4d") : new THREE.Color("#000000"),
-      emissiveIntensity: selected ? 0.42 : 0
-    })
-  );
+function createRoadPiece(length: number, color: string, selected: boolean): THREE.Group {
+  return createRoadPieceModel(length, color, selected);
 }
 
-function createRoadGuide(length: number, selected: boolean): THREE.Mesh {
-  const guideLength = Math.max(length * 0.8 - GUIDE_ROAD_RADIUS * 2, 0.1);
-  const geometryKey = `${GUIDE_ROAD_RADIUS}:${guideLength.toFixed(4)}`;
-  let geometry = roadGeometryCache.get(geometryKey);
-  if (!geometry) {
-    geometry = markSharedResource(new THREE.CapsuleGeometry(GUIDE_ROAD_RADIUS, guideLength, 4, 10));
-    roadGeometryCache.set(geometryKey, geometry);
-  }
-  return new THREE.Mesh(
-    geometry,
-    new THREE.MeshStandardMaterial({
-      color: selected ? "#ffd68a" : "#f5d06f",
-      roughness: 0.48,
-      metalness: 0.02,
-      transparent: true,
-      opacity: selected ? 0.98 : 0.76,
-      emissive: new THREE.Color("#f0a93a"),
-      emissiveIntensity: selected ? 0.48 : 0.28
-    })
-  );
+function createRoadGuide(length: number, selected: boolean): THREE.Group {
+  return createRoadGuideModel(length, selected);
 }
 
 function createRoadHitArea(length: number): THREE.Mesh {
@@ -4837,7 +4762,7 @@ function createRoadHitArea(length: number): THREE.Mesh {
   const geometryKey = hitLength.toFixed(4);
   let geometry = roadHitProxyGeometryCache.get(geometryKey);
   if (!geometry) {
-    geometry = markSharedResource(new THREE.CapsuleGeometry(0.62, hitLength, 4, 10));
+    geometry = markSharedResource(new THREE.BoxGeometry(hitLength, 1.18, 1.02));
     roadHitProxyGeometryCache.set(geometryKey, geometry);
   }
   const hitArea = new THREE.Mesh(geometry, interactiveProxyMaterial);
