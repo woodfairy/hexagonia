@@ -1121,6 +1121,14 @@ function startPairedPlayerAction(state: GameState): void {
   state.currentPlayerIndex = secondaryPlayerIndex;
   state.phase = "paired_player_action";
   state.previousPhase = "turn_action";
+  appendEvent(state, {
+    type: "paired_player_started",
+    byPlayerId: state.players[secondaryPlayerIndex]?.id,
+    payload: {
+      primaryPlayerId: state.players[state.turnContext.primaryPlayerIndex]?.id ?? "",
+      secondaryPlayerId: state.players[secondaryPlayerIndex]?.id ?? ""
+    }
+  });
 }
 
 function startSpecialBuildPhase(state: GameState): void {
@@ -1131,12 +1139,19 @@ function startSpecialBuildPhase(state: GameState): void {
     .map((_, offset) => getNextPlayerIndex(state, primaryPlayerIndex, offset + 1));
 
   resetTurnFlags(state);
-  state.dice = null;
   state.turnContext.primaryPlayerIndex = primaryPlayerIndex;
   state.turnContext.specialBuildQueue = queue.slice(1);
   state.currentPlayerIndex = queue[0] ?? getNextPlayerIndex(state, primaryPlayerIndex);
   state.phase = "special_build";
   state.previousPhase = "turn_action";
+  appendEvent(state, {
+    type: "special_build_started",
+    byPlayerId: state.players[state.currentPlayerIndex]?.id,
+    payload: {
+      primaryPlayerId: state.players[primaryPlayerIndex]?.id ?? "",
+      builderPlayerId: state.players[state.currentPlayerIndex]?.id ?? ""
+    }
+  });
 }
 
 function continueOrFinishSpecialBuildPhase(state: GameState, playerId: string): void {
@@ -1144,6 +1159,14 @@ function continueOrFinishSpecialBuildPhase(state: GameState, playerId: string): 
   if (nextBuilderIndex !== undefined) {
     state.currentPlayerIndex = nextBuilderIndex;
     state.previousPhase = "special_build";
+    appendEvent(state, {
+      type: "special_build_started",
+      byPlayerId: state.players[nextBuilderIndex]?.id,
+      payload: {
+        primaryPlayerId: state.players[state.turnContext.primaryPlayerIndex]?.id ?? "",
+        builderPlayerId: state.players[nextBuilderIndex]?.id ?? ""
+      }
+    });
     return;
   }
 

@@ -621,6 +621,127 @@ describe("rules engine", () => {
     expect(nextState.phase).toBe("game_over");
   });
 
+  it("starts and finishes the paired players action between regular turns", () => {
+    const state = createMatchState({
+      matchId: "match-paired-players",
+      roomId: "room-1",
+      seed: "paired-players",
+      gameConfig: createGameConfig({
+        turnRule: "paired_players",
+        startingPlayer: {
+          mode: "manual",
+          seatIndex: 0
+        }
+      }),
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 1);
+
+    const pairedState = applyAction(state, "p1", { type: "end_turn" });
+    const pairedSnapshot = createSnapshot(pairedState, "p3");
+
+    expect(pairedState.phase).toBe("paired_player_action");
+    expect(pairedState.turn).toBe(1);
+    expect(pairedState.currentPlayerIndex).toBe(2);
+    expect(pairedState.eventLog.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "paired_player_started",
+        byPlayerId: "p3",
+        payload: expect.objectContaining({
+          primaryPlayerId: "p1",
+          secondaryPlayerId: "p3"
+        })
+      })
+    );
+    expect(pairedSnapshot.currentPlayerId).toBe("p3");
+    expect(pairedSnapshot.allowedMoves.canEndTurn).toBe(true);
+    expect(pairedSnapshot.allowedMoves.canMaritimeTrade).toBe(true);
+    expect(pairedSnapshot.allowedMoves.canCreateTradeOffer).toBe(false);
+
+    const nextTurnState = applyAction(pairedState, "p3", { type: "end_turn" });
+
+    expect(nextTurnState.phase).toBe("turn_roll");
+    expect(nextTurnState.turn).toBe(2);
+    expect(nextTurnState.currentPlayerIndex).toBe(1);
+    expect(nextTurnState.players[nextTurnState.currentPlayerIndex]?.id).toBe("p2");
+    expect(nextTurnState.eventLog.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "turn_ended",
+        byPlayerId: "p3",
+        payload: expect.objectContaining({
+          nextPlayerId: "p2",
+          turn: 2
+        })
+      })
+    );
+  });
+
+  it("keeps the rolled dice visible and rotates builders during the special build phase", () => {
+    const state = createMatchState({
+      matchId: "match-special-build",
+      roomId: "room-1",
+      seed: "special-build",
+      gameConfig: createGameConfig({
+        turnRule: "special_build_phase",
+        startingPlayer: {
+          mode: "manual",
+          seatIndex: 0
+        }
+      }),
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    prepareTurnState(state, "p1", "turn_action", 1);
+    state.dice = [4, 3];
+
+    const firstBuilderState = applyAction(state, "p1", { type: "end_turn" });
+    const firstBuilderSnapshot = createSnapshot(firstBuilderState, "p2");
+
+    expect(firstBuilderState.phase).toBe("special_build");
+    expect(firstBuilderState.turn).toBe(1);
+    expect(firstBuilderState.dice).toEqual([4, 3]);
+    expect(firstBuilderState.currentPlayerIndex).toBe(1);
+    expect(firstBuilderState.eventLog.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "special_build_started",
+        byPlayerId: "p2",
+        payload: expect.objectContaining({
+          primaryPlayerId: "p1",
+          builderPlayerId: "p2"
+        })
+      })
+    );
+    expect(firstBuilderSnapshot.allowedMoves.canRoll).toBe(false);
+    expect(firstBuilderSnapshot.allowedMoves.canEndTurn).toBe(true);
+    expect(firstBuilderSnapshot.allowedMoves.canMaritimeTrade).toBe(false);
+    expect(firstBuilderSnapshot.allowedMoves.canCreateTradeOffer).toBe(false);
+
+    const secondBuilderState = applyAction(firstBuilderState, "p2", { type: "end_turn" });
+
+    expect(secondBuilderState.phase).toBe("special_build");
+    expect(secondBuilderState.turn).toBe(1);
+    expect(secondBuilderState.currentPlayerIndex).toBe(2);
+    expect(secondBuilderState.dice).toEqual([4, 3]);
+    expect(secondBuilderState.eventLog.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "special_build_started",
+        byPlayerId: "p3",
+        payload: expect.objectContaining({
+          primaryPlayerId: "p1",
+          builderPlayerId: "p3"
+        })
+      })
+    );
+
+    const nextTurnState = applyAction(secondBuilderState, "p3", { type: "end_turn" });
+
+    expect(nextTurnState.phase).toBe("turn_roll");
+    expect(nextTurnState.turn).toBe(2);
+    expect(nextTurnState.currentPlayerIndex).toBe(1);
+    expect(nextTurnState.players[nextTurnState.currentPlayerIndex]?.id).toBe("p2");
+  });
+
   it("wins immediately when buying a victory point card for the tenth point", () => {
     const state = createMatchState({
       matchId: "match-victory-point-buy-win",

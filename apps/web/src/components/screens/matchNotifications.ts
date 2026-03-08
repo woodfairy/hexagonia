@@ -199,6 +199,10 @@ function createNotification(context: NotificationBuildContext, event: MatchEvent
       return createTradeCancelledNotification(context, event);
     case "maritime_trade":
       return createMaritimeTradeNotification(context.currentMatch, event, context.viewerId);
+    case "special_build_started":
+      return createSpecialBuildStartedNotification(context.currentMatch, event, context.viewerId);
+    case "paired_player_started":
+      return createPairedPlayerStartedNotification(context.currentMatch, event, context.viewerId);
     case "turn_ended":
       return createTurnEndedNotification(context.currentMatch, event, context.viewerId);
     case "longest_road_awarded":
@@ -813,6 +817,102 @@ function createTurnEndedNotification(
   });
 }
 
+function createSpecialBuildStartedNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"special_build_started">,
+  viewerId: string
+): MatchNotification {
+  const { primaryPlayerId, builderPlayerId } = event.payload;
+  return createBaseNotification(match, event, {
+    label: "Sonderbauphase",
+    title: getPlayerPredicate(
+      match,
+      viewerId,
+      builderPlayerId,
+      "ist jetzt in der Sonderbauphase dran",
+      "bist jetzt in der Sonderbauphase dran"
+    ),
+    detail: `${getPlayerPredicate(match, viewerId, primaryPlayerId, "hat den Hauptzug beendet", "hast den Hauptzug beendet")}. ${getPlayerPredicate(
+      match,
+      viewerId,
+      builderPlayerId,
+      "darf jetzt bauen oder eine Entwicklung kaufen",
+      "darfst jetzt bauen oder eine Entwicklung kaufen"
+    )}. Kein Würfeln, kein Spielerhandel, kein Hafenhandel und keine Entwicklungskarte spielen.`,
+    badges: [
+      ...(primaryPlayerId
+        ? [{ label: getDisplayPlayerName(match, viewerId, primaryPlayerId), playerId: primaryPlayerId, tone: "player" as const }]
+        : []),
+      ...(builderPlayerId
+        ? [{ label: getDisplayPlayerName(match, viewerId, builderPlayerId), playerId: builderPlayerId, tone: "player" as const }]
+        : []),
+      { label: "Kein Würfeln", tone: "warning" }
+    ],
+    ...(builderPlayerId ? { accentPlayerId: builderPlayerId } : {}),
+    cue: {
+      key: `event-${event.id}-special-build`,
+      mode: "event",
+      title: "Sonderbauphase",
+      detail: "Jetzt ist nur Bauen oder Entwicklung kaufen erlaubt.",
+      vertexIds: [],
+      edgeIds: [],
+      tileIds: [],
+      scale: "wide",
+      zoomPreset: "distribution"
+    },
+    autoFocus: true,
+    emphasis: "warning"
+  });
+}
+
+function createPairedPlayerStartedNotification(
+  match: MatchSnapshot,
+  event: MatchEventOf<"paired_player_started">,
+  viewerId: string
+): MatchNotification {
+  const { primaryPlayerId, secondaryPlayerId } = event.payload;
+  return createBaseNotification(match, event, {
+    label: "Paired Players",
+    title: getPlayerPredicate(
+      match,
+      viewerId,
+      secondaryPlayerId,
+      "ist jetzt als Spieler 2 am Zug",
+      "bist jetzt als Spieler 2 am Zug"
+    ),
+    detail: `${getPlayerPredicate(match, viewerId, primaryPlayerId, "beendet die Hauptaktion", "beendest die Hauptaktion")}. ${getPlayerPredicate(
+      match,
+      viewerId,
+      secondaryPlayerId,
+      "darf jetzt bauen, Hafenhandel machen und Entwicklungskarten spielen",
+      "darfst jetzt bauen, Hafenhandel machen und Entwicklungskarten spielen"
+    )}. Kein Handel mit Mitspielern.`,
+    badges: [
+      ...(primaryPlayerId
+        ? [{ label: getDisplayPlayerName(match, viewerId, primaryPlayerId), playerId: primaryPlayerId, tone: "player" as const }]
+        : []),
+      ...(secondaryPlayerId
+        ? [{ label: getDisplayPlayerName(match, viewerId, secondaryPlayerId), playerId: secondaryPlayerId, tone: "player" as const }]
+        : []),
+      { label: "Kein Spielerhandel", tone: "warning" }
+    ],
+    ...(secondaryPlayerId ? { accentPlayerId: secondaryPlayerId } : {}),
+    cue: {
+      key: `event-${event.id}-paired-player`,
+      mode: "event",
+      title: "Paired Players",
+      detail: "Spieler 2 führt jetzt seine Zusatzaktion aus.",
+      vertexIds: [],
+      edgeIds: [],
+      tileIds: [],
+      scale: "wide",
+      zoomPreset: "distribution"
+    },
+    autoFocus: true,
+    emphasis: "warning"
+  });
+}
+
 function createLongestRoadAwardedNotification(
   match: MatchSnapshot,
   event: MatchEventOf<"longest_road_awarded">,
@@ -1202,6 +1302,9 @@ function getTileLabel(match: MatchSnapshot, tileId: string): string {
 
 function getNotificationLabel(event: MatchEvent): string {
   switch (event.type) {
+    case "special_build_started":
+    case "paired_player_started":
+      return "Spielerwechsel";
     case "turn_ended":
       return "Spielerwechsel";
     case "dice_rolled":

@@ -5,7 +5,7 @@ import type {
   PlayerColor,
   Resource
 } from "@hexagonia/shared";
-import { RESOURCES } from "@hexagonia/shared";
+import { BUILD_COSTS, RESOURCES } from "@hexagonia/shared";
 import type { BoardFocusCue, InteractionMode } from "../../BoardScene";
 import { renderResourceLabel } from "../../ui";
 
@@ -730,11 +730,18 @@ export function getTurnStatus(
   }
 
   if (match.phase === "special_build") {
+    const canBuildOrBuy =
+      !!selfPlayer &&
+      (match.allowedMoves.canBuyDevelopmentCard ||
+        (match.allowedMoves.roadEdgeIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.road)) ||
+        (match.allowedMoves.settlementVertexIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.settlement)) ||
+        (match.allowedMoves.cityVertexIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.city)));
     return isCurrentPlayer
       ? withPlayer(
           "Aktion von dir",
           "Sonderbauphase: Baue oder kaufe eine Entwicklung. Kein Handel, kein Hafenhandel, keine Entwicklungskarte spielen.",
-          selfId
+          selfId,
+          canBuildOrBuy ? undefined : "Kein legaler Bau oder Kauf moeglich. Du kannst direkt weitergeben."
         )
       : withPlayer(
           `Warte auf ${activePlayerName}`,

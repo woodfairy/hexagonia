@@ -81,6 +81,8 @@ export function renderEventLabel(type: MatchEventType): string {
     trade_cancelled: "Handelsangebot zurückgezogen.",
     trade_completed: "Handel abgeschlossen.",
     maritime_trade: "Hafenhandel ausgeführt.",
+    special_build_started: "Sonderbauphase gestartet.",
+    paired_player_started: "Paired-Players-Phase gestartet.",
     beginner_setup_applied: "Anfängeraufbau gesetzt.",
     game_won: "Partie gewonnen.",
     turn_ended: "Zug beendet."

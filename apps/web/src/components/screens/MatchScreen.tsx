@@ -436,7 +436,11 @@ export function MatchScreen(props: {
   const mobileHudSummary = props.selfPlayer
     ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
-  const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
+  const boardDiceLabel = props.match.dice
+    ? `${props.match.dice[0]} + ${props.match.dice[1]}`
+    : latestDiceEvent?.payload.dice
+      ? `${latestDiceEvent.payload.dice[0]} + ${latestDiceEvent.payload.dice[1]}`
+      : "Wurf offen";
   const deferredDiceHeroNotification = useMemo<MatchScreenNotification | null>(() => {
     if (!deferDiceNotification || !latestDiceEvent) {
       return null;
@@ -836,32 +840,40 @@ export function MatchScreen(props: {
     }
   };
   const primaryActions = [
-    {
-      id: "roll",
-      label: "Würfeln",
-      className: "primary-button",
-      disabled: !props.match.allowedMoves.canRoll,
-      onClick: () =>
-        props.onAction({
-          type: "match.action",
-          matchId: props.match.matchId,
-          action: { type: "roll_dice" }
-        })
-    },
-    {
-      id: "end-turn",
-      label: "Zug beenden",
-      className: "primary-button",
-      disabled: !props.match.allowedMoves.canEndTurn,
-      onClick: () =>
-        props.onAction({
-          type: "match.action",
-          matchId: props.match.matchId,
-          action: { type: "end_turn" }
-        })
-    }
+    ...(props.match.phase === "turn_roll" || props.match.allowedMoves.canRoll
+      ? [
+          {
+            id: "roll",
+            label: "Würfeln",
+            className: "primary-button",
+            disabled: !props.match.allowedMoves.canRoll,
+            onClick: () =>
+              props.onAction({
+                type: "match.action",
+                matchId: props.match.matchId,
+                action: { type: "roll_dice" }
+              })
+          }
+        ]
+      : []),
+    ...(props.match.allowedMoves.canEndTurn
+      ? [
+          {
+            id: "end-turn",
+            label: "Zug beenden",
+            className: "primary-button",
+            disabled: false,
+            onClick: () =>
+              props.onAction({
+                type: "match.action",
+                matchId: props.match.matchId,
+                action: { type: "end_turn" }
+              })
+          }
+        ]
+      : [])
   ];
-  const hasQuickActions = primaryActions.some((action) => !action.disabled);
+  const hasQuickActions = primaryActions.length > 0;
   const hasDisconnectCountdown = props.match.players.some(
     (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
   );

@@ -123,6 +123,20 @@ export type MatchEvent =
       }
     >
   | BaseMatchEvent<
+      "special_build_started",
+      {
+        primaryPlayerId: string;
+        builderPlayerId: string;
+      }
+    >
+  | BaseMatchEvent<
+      "paired_player_started",
+      {
+        primaryPlayerId: string;
+        secondaryPlayerId: string;
+      }
+    >
+  | BaseMatchEvent<
       "turn_ended",
       {
         nextPlayerId: string;
