@@ -398,7 +398,7 @@ body.guest-landing-mode {
   display: grid;
   gap: var(--landing-section-gap);
   padding:
-    2.2rem max(var(--landing-inline-space), env(safe-area-inset-right))
+    1.1rem max(var(--landing-inline-space), env(safe-area-inset-right))
     6rem max(var(--landing-inline-space), env(safe-area-inset-left));
 }
 
@@ -413,7 +413,7 @@ body.guest-landing-mode {
   min-block-size: min(52rem, calc(100svh - 5rem));
   grid-template-columns: minmax(0, 1.02fr) minmax(20rem, 0.98fr);
   align-items: center;
-  padding-block-start: 1.35rem;
+  padding-block-start: 0.35rem;
 }
 
 .landing-kicker,
@@ -831,7 +831,13 @@ body.guest-landing-mode {
 
 .landing-auth-head {
   grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem 1rem;
   align-items: start;
+}
+
+.landing-auth-head > div:first-child {
+  display: grid;
+  gap: 0.42rem;
 }
 
 .landing-auth-toggle.segmented-control {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
-import { HarborIcon, ResourceIcon } from "../../resourceIcons";
+import { HarborIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import type { AuthMode } from "../../ui";
@@ -8,19 +8,19 @@ import hexaLogo from "../../../../../assets/img/hexa.png";
 
 const FLOW_STEPS = [
   {
-    title: "Privaten Tisch eröffnen",
-    body: "Ein Raum ist in Sekunden bereit. Der Ersteller sitzt direkt auf Platz 1 und steuert Setup und Start.",
-    meta: "Privat, kompakt, sofort startklar"
+    title: "Eine Runde starten",
+    body: "Ein Tisch ist in Sekunden bereit. Der Ersteller sitzt direkt auf Platz 1 und steuert Setup und Start.",
+    meta: "Schnell drin, sofort startklar"
   },
   {
     title: "Code oder Link teilen",
-    body: "Freunde kommen per Raumcode oder Invite-Link genau in dieselbe Lobby. Kein Matchmaking, kein unnötiger Overhead.",
+    body: "Freunde kommen per Raumcode oder Invite-Link direkt an denselben Tisch. Kein Matchmaking, kein unnötiger Overhead.",
     meta: "Invite-Code oder Direktlink"
   },
   {
-    title: "Setup festlegen",
-    body: "Beginner-Aufbau oder variable Verteilung, manueller Startspieler oder Auswürfeln: die Runde startet mit klaren Regeln.",
-    meta: "Beginner oder variabel"
+    title: "Partie konfigurieren",
+    body: "Beginner-Aufbau oder dynamisch generiertes Brett, manueller Startspieler oder Auswürfeln: die Partie startet mit klaren Regeln.",
+    meta: "Beginner oder dynamisch"
   },
   {
     title: "Gemeinsam starten und losspielen",
@@ -38,9 +38,9 @@ const BUILD_FEATURES = [
   },
   {
     icon: "rooms",
-    title: "Private Räume für deine Runde",
-    body: "Raum erstellen, Code oder Link teilen, Plätze füllen und gemeinsam starten, ohne öffentliche Lobby dazwischen.",
-    detail: "Schnell eingeladen, schnell am Tisch"
+    title: "Mit Freunden direkt am Tisch",
+    body: "Runde eröffnen, Code oder Link teilen, Plätze füllen und gemeinsam starten, ohne Umwege bis zur Partie.",
+    detail: "Schnell eingeladen, schnell im Spiel"
   },
   {
     icon: "trade",
@@ -71,8 +71,8 @@ const MECHANICS = [
   },
   {
     icon: "robber",
-    title: "Räuberphase mit klaren Entscheidungen",
-    body: "Der Räuber bringt die Partie sofort zum Kippen: Karten werden knapp, starke Felder blockiert und ein gut gesetzter Zug trifft genau den richtigen Gegner.",
+    title: "Der Räuber kippt die Lage",
+    body: "Wenn der Räuber kommt, werden Karten knapp, starke Felder blockiert und ein gut gesetzter Zug trifft genau den richtigen Gegner.",
     accent: "Räuber, Abwurf und Zielwahl"
   },
   {
@@ -83,9 +83,9 @@ const MECHANICS = [
   },
   {
     icon: "rooms",
-    title: "Private Räume ohne Umwege",
-    body: "Du eröffnest eine Runde, teilst Code oder Link und sitzt ohne öffentliche Lobby direkt mit deinen Leuten am Tisch.",
-    accent: "Code, Link, private Runde"
+    title: "Mit Freunden ohne Umwege spielen",
+    body: "Du eröffnest eine Runde, teilst Code oder Link und sitzt direkt mit deinen Leuten am Tisch.",
+    accent: "Code, Link, gemeinsame Runde"
   },
   {
     icon: "build",
@@ -345,7 +345,7 @@ export function LandingScreen(props: {
             <span className="landing-kicker">Modernes Tabletop-Strategy im Browser</span>
             <h1 id="landing-hero-title">Hexagonia bringt Strategie und Handel in den Browser.</h1>
             <p className="landing-lead">
-              Eröffne private Räume, hol Freunde per Code oder Link an den Tisch und spiel direkt los. Handel,
+              Hol Freunde per Code oder Link an den Tisch und spiel direkt los. Handel,
               Bauentscheidungen, Räuberphase und Entwicklungskarten bringen sofort Druck und echte Brettspielspannung in
               den Browser.
             </p>
@@ -386,11 +386,11 @@ export function LandingScreen(props: {
               </div>
               <div className="landing-scene-badge is-bottom">
                 <span className="landing-badge-label">Deine Runde</span>
-                <strong>Privat einladen und direkt losspielen</strong>
+                <strong>Freunde einladen und direkt losspielen</strong>
               </div>
               <div className="landing-scene-badge is-side">
                 <span className="landing-badge-label">Einladung</span>
-                <strong>Private Räume mit Code oder Link</strong>
+                <strong>Gemeinsam spielen per Code oder Link</strong>
               </div>
             </div>
           </div>
@@ -401,8 +401,8 @@ export function LandingScreen(props: {
             <span className="landing-kicker">So läuft eine Runde</span>
             <h2 id="landing-flow-title">Schnell in die Partie.</h2>
             <p>
-              Hexagonia setzt auf einen klaren privaten Ablauf: Runde anlegen, Mitspieler reinholen, Setup festlegen und
-              ohne Umwege gemeinsam starten.
+              Hexagonia setzt auf einen klaren Ablauf: Runde anlegen, Freunde reinholen, Setup festlegen und ohne
+              Umwege gemeinsam starten.
             </p>
           </div>
 
@@ -454,11 +454,11 @@ export function LandingScreen(props: {
           <div className="landing-mechanics-layout">
             <aside className="landing-mechanics-sticky" data-reveal style={revealStyle(0)}>
               <span className="landing-kicker">Mechaniken im Fokus</span>
-              <h2 id="landing-mechanics-title">Die Partie ist auf Interaktion gebaut, nicht auf Screen-Tapete.</h2>
+              <h2 id="landing-mechanics-title">Die Partie lebt von Interaktion, nicht von Deko.</h2>
               <p>Hexagonia lebt von direkten Entscheidungen: bauen, handeln, blockieren, kontern und die Partie Zug für Zug zu deinen Gunsten kippen.</p>
 
               <ul className="landing-capability-list">
-                <li>Private Räume mit Sitzplätzen und Ready-State</li>
+                <li>Runden mit Sitzplätzen und Ready-State</li>
                 <li>Setup-Modi mit kontrolliertem Spielstart</li>
                 <li>Handel zwischen Spielern und über Häfen</li>
                 <li>Räuber- und Abwurfphasen mit klarem Ablauf</li>
@@ -486,14 +486,13 @@ export function LandingScreen(props: {
 
         <section id="zugang" className="landing-section landing-access-section" aria-labelledby="landing-access-title">
           <div className="landing-access-copy" data-reveal style={revealStyle(0)}>
-            <span className="landing-kicker">Zugang</span>
             <h2 id="landing-access-title">Melde dich an und geh direkt an deinen Tisch.</h2>
             <p>
               Erstelle ein Konto oder logg dich ein. Wenn du mit einer Einladung gekommen bist, landest du danach direkt
               in der passenden Runde.
             </p>
             <article className="landing-access-point landing-access-point-highlight">
-              <strong>{props.inviteCode ? "Einladung wird direkt geöffnet" : "Private Runde ohne Umwege"}</strong>
+              <strong>{props.inviteCode ? "Einladung wird direkt geöffnet" : "Direkt mit Freunden losspielen"}</strong>
               <span>
                 {props.inviteCode
                   ? `Der erkannte Code ${props.inviteCode} wird nach dem Login automatisch geöffnet.`
@@ -506,7 +505,7 @@ export function LandingScreen(props: {
             <div className="landing-auth-head">
               <div>
                 <span className="landing-kicker">Konto</span>
-                <h3>{props.authMode === "login" ? "Wieder anmelden" : "Neues Konto anlegen"}</h3>
+                <h3>{props.authMode === "login" ? "Anmelden" : "Neues Konto anlegen"}</h3>
               </div>
               <div className="segmented-control landing-auth-toggle">
                 <button
@@ -521,7 +520,7 @@ export function LandingScreen(props: {
                   className={props.authMode === "register" ? "is-active" : ""}
                   onClick={() => props.onAuthModeChange("register")}
                 >
-                  Konto
+                  Registrieren
                 </button>
               </div>
             </div>
@@ -583,7 +582,7 @@ export function LandingScreen(props: {
       <footer className="landing-footer">
         <div className="landing-footer-copy">
           <strong>Hexagonia</strong>
-          <span>Browser-Strategie für private Runden. Kostenlos, ohne Abo und ohne Paywalls.</span>
+          <span>Browser-Strategie für gemeinsame Runden mit Freunden. Kostenlos, ohne Abo und ohne Paywalls.</span>
         </div>
         <span>Einladen, aufbauen, handeln und direkt gemeinsam spielen.</span>
       </footer>
@@ -600,18 +599,61 @@ function revealStyle(delayMs: number): CSSProperties {
 function renderFeatureIcon(icon: (typeof BUILD_FEATURES)[number]["icon"] | (typeof MECHANICS)[number]["icon"]) {
   switch (icon) {
     case "board":
-      return <ResourceIcon resource="grain" shell size={18} tone="light" />;
+      return (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7.2 5.2h9.6l4.4 6.8-4.4 6.8H7.2L2.8 12z" />
+          <path d="M7.2 5.2 12 12l-4.8 6.8" />
+          <path d="M16.8 5.2 12 12l4.8 6.8" />
+          <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case "rooms":
-      return <ResourceIcon resource="lumber" shell size={18} tone="light" />;
+      return (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="8.1" cy="9" r="2.3" />
+          <circle cx="15.9" cy="9" r="2.3" />
+          <path d="M4.8 17.4c.86-2.08 2.74-3.2 5.16-3.2s4.3 1.12 5.16 3.2" />
+          <path d="M10.8 9h2.4" />
+        </svg>
+      );
     case "trade":
       return <HarborIcon shell size={18} color="#f8f0de" />;
     case "robber":
-      return <ResourceIcon resource="ore" shell size={18} tone="light" />;
+      return (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7.2 9.4 9.4 5.6h5.2l2.2 3.8v7.8H7.2z" />
+          <path d="M9.4 5.6 12 8l2.6-2.4" />
+          <path d="M7.2 14.8 9.8 13l2.2 1.5 2.2-1.5 2.6 1.8" />
+          <circle cx="9.7" cy="11.6" r="0.8" fill="currentColor" stroke="none" />
+          <circle cx="14.3" cy="11.6" r="0.8" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case "cards":
-      return <ResourceIcon resource="wool" shell size={18} tone="light" />;
+      return (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5.2" y="6.2" width="10.8" height="13" rx="1.9" transform="rotate(-8 5.2 6.2)" />
+          <rect x="8.2" y="4.8" width="10.8" height="13.4" rx="1.9" />
+          <path d="m12 9.2 1 1.7 1.95.34-1.38 1.35.3 1.9L12 13.7l-1.87.79.3-1.9-1.38-1.35 1.95-.34z" />
+        </svg>
+      );
     case "build":
-      return <ResourceIcon resource="brick" shell size={18} tone="light" />;
+      return (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="7" y="3.8" width="10" height="16.4" rx="2.4" />
+          <path d="M10.2 6.8h3.6" />
+          <path d="M9.6 15.1h4.8" />
+          <path d="M10.1 17.6h3.8" />
+          <circle cx="12" cy="18.5" r="0.7" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
-      return <ResourceIcon resource="grain" shell size={18} tone="light" />;
+      return (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7.2 5.2h9.6l4.4 6.8-4.4 6.8H7.2L2.8 12z" />
+          <path d="M7.2 5.2 12 12l-4.8 6.8" />
+          <path d="M16.8 5.2 12 12l4.8 6.8" />
+          <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+        </svg>
+      );
   }
 }

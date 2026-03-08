@@ -87,7 +87,7 @@ import {
 
 const TEXT = {
   title: "Hexagonia",
-  subtitle: "Privat spielen, einladen und direkt loslegen"
+  subtitle: "Mit Freunden spielen, handeln und direkt loslegen"
 } as const;
 
 const HEARTBEAT_INTERVAL_MS = 15000;
