@@ -398,14 +398,15 @@ export class Database {
       color,
       ready: false
     }));
+    const gameConfig = createGameConfig();
 
     const result = await this.pool.query(
       `
-      insert into rooms (id, code, owner_user_id, setup_mode, starting_player_mode, starting_seat_index, status, match_id, seats)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
-      returning id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      insert into rooms (id, code, owner_user_id, game_config, status, match_id, seats)
+      values ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb)
+      returning ${ROOM_SELECT_COLUMNS}
       `,
-      [roomId, code, owner.id, "official_variable", "rolled", 0, "open", null, JSON.stringify(seats)]
+      [roomId, code, owner.id, JSON.stringify(gameConfig), "open", null, JSON.stringify(seats)]
     );
 
     return normalizeRoom(result.rows[0]);
@@ -414,7 +415,7 @@ export class Database {
   async getRoom(roomId: string): Promise<RoomDetails | null> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      select ${ROOM_SELECT_COLUMNS}
       from rooms
       where id = $1
       limit 1
@@ -428,7 +429,7 @@ export class Database {
   async getRoomByCode(code: string): Promise<RoomDetails | null> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      select ${ROOM_SELECT_COLUMNS}
       from rooms
       where upper(code) = upper($1)
       limit 1
@@ -442,7 +443,7 @@ export class Database {
   async listUserRooms(userId: string): Promise<RoomDetails[]> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      select ${ROOM_SELECT_COLUMNS}
       from rooms
       where status <> 'closed'
         and (
@@ -464,28 +465,13 @@ export class Database {
       [userId, userId]
     );
 
-    return result.rows.map((row) =>
-      normalizeRoom(
-        row as {
-          id: string;
-          code: string;
-          ownerUserId: string;
-          setupMode: SetupMode;
-          startingPlayerMode: StartingPlayerMode;
-          startingSeatIndex: number;
-          status: "open" | "in_match" | "closed";
-          matchId: string | null;
-          seats: SeatState[] | string;
-          createdAt: Date | string;
-        }
-      )
-    );
+    return result.rows.map((row) => normalizeRoom(row as StoredRoomRow));
   }
 
   async listRooms(): Promise<RoomDetails[]> {
     const result = await this.pool.query(
       `
-        select id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      select ${ROOM_SELECT_COLUMNS}
       from rooms
       order by
         case status
@@ -497,22 +483,7 @@ export class Database {
       `
     );
 
-    return result.rows.map((row) =>
-      normalizeRoom(
-        row as {
-          id: string;
-          code: string;
-          ownerUserId: string;
-          setupMode: SetupMode;
-          startingPlayerMode: StartingPlayerMode;
-          startingSeatIndex: number;
-          status: "open" | "in_match" | "closed";
-          matchId: string | null;
-          seats: SeatState[] | string;
-          createdAt: Date | string;
-        }
-      )
-    );
+    return result.rows.map((row) => normalizeRoom(row as StoredRoomRow));
   }
 
   async deleteRoom(roomId: string): Promise<boolean> {
@@ -552,21 +523,17 @@ export class Database {
       `
       update rooms
       set owner_user_id = $2,
-          setup_mode = $3,
-          starting_player_mode = $4,
-          starting_seat_index = $5,
-          status = $6,
-          match_id = $7,
-          seats = $8::jsonb
+          game_config = $3::jsonb,
+          status = $4,
+          match_id = $5,
+          seats = $6::jsonb
       where id = $1
-      returning id, code, owner_user_id as "ownerUserId", setup_mode as "setupMode", starting_player_mode as "startingPlayerMode", starting_seat_index as "startingSeatIndex", status, match_id as "matchId", seats, created_at as "createdAt"
+      returning ${ROOM_SELECT_COLUMNS}
       `,
       [
         normalizedRoom.id,
         normalizedRoom.ownerUserId,
-        normalizedRoom.setupMode,
-        normalizedRoom.startingPlayerMode,
-        normalizedRoom.startingSeatIndex,
+        JSON.stringify(normalizedRoom.gameConfig),
         normalizedRoom.status,
         normalizedRoom.matchId,
         JSON.stringify(normalizedRoom.seats)
@@ -686,26 +653,32 @@ export class Database {
   }
 }
 
-function normalizeRoom(row: {
+interface StoredRoomRow {
   id: string;
   code: string;
   ownerUserId: string;
-  setupMode: SetupMode;
-  startingPlayerMode: StartingPlayerMode;
-  startingSeatIndex: number;
+  gameConfig: GameConfig | string | null;
+  legacySetupMode?: string | null;
+  legacyStartingPlayerMode?: string | null;
+  legacyStartingSeatIndex?: number | null;
   status: "open" | "in_match" | "closed";
   matchId: string | null;
   seats: SeatState[] | string;
   createdAt: Date | string;
-}): RoomDetails {
+}
+
+function normalizeRoom(row: StoredRoomRow): RoomDetails {
   const seats = typeof row.seats === "string" ? (JSON.parse(row.seats) as SeatState[]) : row.seats;
   return {
     id: row.id,
     code: row.code,
     ownerUserId: row.ownerUserId,
-    setupMode: row.setupMode,
-    startingPlayerMode: row.startingPlayerMode,
-    startingSeatIndex: row.startingSeatIndex,
+    gameConfig: resolveGameConfigFromLegacy({
+      gameConfig: typeof row.gameConfig === "string" ? JSON.parse(row.gameConfig) : row.gameConfig,
+      setupMode: row.legacySetupMode,
+      startingPlayerMode: row.legacyStartingPlayerMode,
+      startingSeatIndex: row.legacyStartingSeatIndex
+    }),
     status: row.status,
     matchId: row.matchId,
     seats,
@@ -753,13 +726,21 @@ function normalizeAdminMatch(row: AdminMatchSummaryRow): AdminMatchSummary {
 
 function normalizeRoomBeforeSave(room: RoomDetails): RoomDetails {
   const occupiedSeats = room.seats.filter((seat) => !!seat.userId);
-  const startingSeatStillOccupied = occupiedSeats.some((seat) => seat.index === room.startingSeatIndex);
+  const startingSeatStillOccupied = occupiedSeats.some(
+    (seat) => seat.index === room.gameConfig.startingPlayer.seatIndex
+  );
   const nextStartingSeatIndex = startingSeatStillOccupied
-    ? room.startingSeatIndex
-    : (occupiedSeats[0]?.index ?? room.startingSeatIndex);
+    ? room.gameConfig.startingPlayer.seatIndex
+    : (occupiedSeats[0]?.index ?? room.gameConfig.startingPlayer.seatIndex);
 
   return {
     ...room,
-    startingSeatIndex: nextStartingSeatIndex
+    gameConfig: {
+      ...room.gameConfig,
+      startingPlayer: {
+        ...room.gameConfig.startingPlayer,
+        seatIndex: nextStartingSeatIndex
+      }
+    }
   };
 }
