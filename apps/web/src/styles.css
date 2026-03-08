@@ -5448,8 +5448,7 @@ select {
   .triple-select,
   .trade-builder,
   .trade-builder.maritime-builder,
-  .admin-form-grid,
-  .sheet-quick-actions .quick-action-grid {
+  .admin-form-grid {
     grid-template-columns: 1fr;
   }
 
