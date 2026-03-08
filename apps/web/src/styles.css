@@ -1099,17 +1099,17 @@ select {
 }
 
 .player-accent-blue {
-  --player-accent: #7ca4f7;
-  --player-accent-soft: rgba(124, 164, 247, 0.14);
-  --player-accent-border: rgba(124, 164, 247, 0.4);
-  --player-text: #dce7ff;
+  --player-accent: #8db7ff;
+  --player-accent-soft: rgba(141, 183, 255, 0.22);
+  --player-accent-border: rgba(141, 183, 255, 0.56);
+  --player-text: #eef4ff;
 }
 
 .player-accent-white {
-  --player-accent: #eceef0;
-  --player-accent-soft: rgba(236, 238, 240, 0.12);
-  --player-accent-border: rgba(236, 238, 240, 0.28);
-  --player-text: #f4f7fb;
+  --player-accent: #ffffff;
+  --player-accent-soft: rgba(255, 255, 255, 0.2);
+  --player-accent-border: rgba(255, 255, 255, 0.46);
+  --player-text: #ffffff;
 }
 
 .player-accent-orange {
