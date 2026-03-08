@@ -7,8 +7,9 @@ import type {
   StartingPlayerMode,
   TurnRule
 } from "@hexagonia/shared";
+import { PlayerColorBadge } from "../shared/PlayerIdentity";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
-import { renderBoardSizeLabel, renderTurnRuleLabel } from "../../ui";
+import { renderBoardSizeLabel, renderPlayerColorLabel, renderTurnRuleLabel } from "../../ui";
 
 export function RoomScreen(props: {
   room: RoomDetails;
@@ -130,7 +131,6 @@ export function RoomScreen(props: {
                 occupied;
               const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Frei";
               const seatTitle = occupied ? seat.username ?? `Spieler ${seat.index + 1}` : "Freier Platz";
-              const statusLabel = isStartingSeat ? "Startspieler" : stateLabel;
               const indicatorClass = occupied ? (online ? "is-online" : "is-offline") : "is-empty";
 
               return (
@@ -146,7 +146,11 @@ export function RoomScreen(props: {
                       {mine ? <span className="status-pill muted">Du</span> : null}
                     </div>
                     <div className="seat-status-meta">
-                      <span className={`status-pill ${seat.ready ? "is-ready" : "muted"}`}>{statusLabel}</span>
+                      {occupied ? (
+                        <PlayerColorBadge color={seat.color} label={renderPlayerColorLabel(seat.color)} compact />
+                      ) : (
+                        <span className="status-pill muted">Frei</span>
+                      )}
                       <span className={`online-indicator ${indicatorClass}`} aria-hidden="true" />
                     </div>
                   </div>
