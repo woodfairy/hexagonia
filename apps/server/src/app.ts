@@ -125,7 +125,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     await verifyRegistrationRecaptcha({
       config,
       log: request.log,
-      recaptchaToken: body.recaptchaToken,
+      ...(body.recaptchaToken === undefined ? {} : { recaptchaToken: body.recaptchaToken }),
       remoteIp: request.ip
     });
 
