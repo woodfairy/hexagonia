@@ -189,11 +189,11 @@ const DEFAULT_FOCUS_DISTANCE_PROFILE = {
 const DISTRIBUTION_FOCUS_DISTANCE_PROFILE = {
   tightBase: 24,
   mediumBase: 30,
-  wideBase: 39,
+  wideBase: 35,
   tightMultiplier: 1.78,
   mediumMultiplier: 1.68,
-  wideMultiplier: 1.58,
-  padding: 12
+  wideMultiplier: 1.46,
+  padding: 10
 } as const;
 const ROLL_FOCUS_DISTANCE_PROFILE = {
   tightBase: 22,

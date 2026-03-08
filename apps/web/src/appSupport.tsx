@@ -94,18 +94,31 @@ export function DeepLinkBootSkeleton(props: {
             </div>
             <article className="surface deep-link-board-skeleton">
               <div className="deep-link-board-glow" />
-              <div className="deep-link-board-hex-row is-top">
+              <div className="deep-link-board-hex-row is-row-1">
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />
               </div>
-              <div className="deep-link-board-hex-row is-mid">
+              <div className="deep-link-board-hex-row is-row-2">
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />
               </div>
-              <div className="deep-link-board-hex-row is-bottom">
+              <div className="deep-link-board-hex-row is-row-3">
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+              </div>
+              <div className="deep-link-board-hex-row is-row-4">
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+              </div>
+              <div className="deep-link-board-hex-row is-row-5">
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />
                 <span className="skeleton-shape deep-link-board-hex" />

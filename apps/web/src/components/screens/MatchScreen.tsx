@@ -840,7 +840,7 @@ export function MatchScreen(props: {
     }
   };
   const primaryActions = [
-    ...(props.match.phase === "turn_roll" || props.match.allowedMoves.canRoll
+    ...(props.match.allowedMoves.canRoll
       ? [
           {
             id: "roll",
@@ -880,7 +880,7 @@ export function MatchScreen(props: {
 
   const renderQuickActions = (showPlaceholder = true) =>
     hasQuickActions ? (
-      <div className="quick-action-grid">
+      <div className={`quick-action-grid ${primaryActions.length === 1 ? "is-single" : ""}`.trim()}>
         {primaryActions.map((action) => (
           <button
             key={action.id}
@@ -1049,17 +1049,20 @@ export function MatchScreen(props: {
     const actualDice = latestDiceEvent.payload.dice ?? props.match.dice;
     const total = latestDiceEvent.payload.total ?? (actualDice ? actualDice[0] + actualDice[1] : null);
     const actorName = getPlayerName(props.match, latestDiceEvent.byPlayerId);
+    const previousLatestDiceEvent = previousMatchRef.current ? getLatestDiceRollEvent(previousMatchRef.current) : null;
 
     if (seenDiceEventIdRef.current === null) {
-      seenDiceEventIdRef.current = latestDiceEvent.id;
-      setDiceDisplay({
-        left: actualDice?.[0] ?? null,
-        right: actualDice?.[1] ?? null,
-        total,
-        phase: "idle",
-        actorName
-      });
-      return;
+      if (!previousMatchRef.current || previousLatestDiceEvent?.id === latestDiceEvent.id) {
+        seenDiceEventIdRef.current = latestDiceEvent.id;
+        setDiceDisplay({
+          left: actualDice?.[0] ?? null,
+          right: actualDice?.[1] ?? null,
+          total,
+          phase: "idle",
+          actorName
+        });
+        return;
+      }
     }
 
     if (seenDiceEventIdRef.current === latestDiceEvent.id) {
