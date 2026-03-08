@@ -1783,7 +1783,7 @@ select {
 
 .deep-link-board-skeleton {
   --deep-link-hex-width: clamp(4.85rem, 8vw, 6.5rem);
-  --deep-link-hex-height: clamp(5.55rem, 9.2vw, 7.45rem);
+  --deep-link-hex-height: clamp(4.2rem, 7vw, 5.65rem);
   position: relative;
   min-block-size: clamp(24rem, 56vh, 38rem);
   display: grid;
@@ -1808,21 +1808,21 @@ select {
 .deep-link-board-hex-row {
   position: relative;
   display: flex;
-  gap: 0;
+  gap: calc(var(--deep-link-hex-width) * -0.25);
 }
 
 .deep-link-board-hex-row + .deep-link-board-hex-row {
-  margin-block-start: calc(var(--deep-link-hex-height) * -0.25);
+  margin-block-start: calc(var(--deep-link-hex-height) * -0.5);
 }
 
 .deep-link-board-hex-row.is-row-1,
 .deep-link-board-hex-row.is-row-5 {
-  margin-inline-start: var(--deep-link-hex-width);
+  margin-inline-start: calc(var(--deep-link-hex-width) * 0.75);
 }
 
 .deep-link-board-hex-row.is-row-2,
 .deep-link-board-hex-row.is-row-4 {
-  margin-inline-start: calc(var(--deep-link-hex-width) / 2);
+  margin-inline-start: calc(var(--deep-link-hex-width) * 0.375);
 }
 
 .deep-link-board-hex-row.is-row-3 {
@@ -1832,7 +1832,7 @@ select {
 .deep-link-board-hex {
   inline-size: var(--deep-link-hex-width);
   block-size: var(--deep-link-hex-height);
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%);
   border-radius: 0.85rem;
   opacity: 0.9;
 }
