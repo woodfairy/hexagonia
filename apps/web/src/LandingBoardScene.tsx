@@ -1050,8 +1050,8 @@ function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, Showc
 
   const tileGroup = new THREE.Group();
   const propGroup = createFancyTileProps(tile.resource);
-  propGroup.position.y = TILE_HEIGHT + 0.03;
-  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
+  propGroup.position.y = TILE_HEIGHT + 0.02;
+  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.86);
   tileGroup.add(sandUnderlay, outerMesh, insetMesh, overlay, propGroup);
   return tileGroup;
 }
