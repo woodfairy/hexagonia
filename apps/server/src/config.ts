@@ -6,7 +6,7 @@ const envSchema = z.object({
   SESSION_COOKIE_SECRET: z.string().min(16),
   RECAPTCHA_SECRET_KEY: z.string().min(1).optional(),
   RECAPTCHA_SITE_KEY: z.string().min(1).optional(),
-  RECAPTCHA_ENABLED: z.preprocess(
+  RECAPTCHA_FAIL_OPEN: z.preprocess(
     (value) => (value === "" || value === undefined ? undefined : value),
     z
       .enum(["true", "false"])

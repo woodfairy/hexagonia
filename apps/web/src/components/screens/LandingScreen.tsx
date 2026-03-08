@@ -209,7 +209,8 @@ export function LandingScreen(props: {
   }, [trackMenuOpen]);
 
   const scrollToSection = (sectionId: string) => {
-    const node = document.getElementById(sectionId);
+    const section = document.getElementById(sectionId);
+    const node = section?.querySelector(".landing-auth-panel") ?? section;
     if (!node) {
       return;
     }

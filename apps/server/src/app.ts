@@ -727,19 +727,19 @@ async function verifyRegistrationRecaptcha(input: {
   recaptchaToken?: string;
   remoteIp?: string;
 }): Promise<void> {
-  const recaptchaEnabled = input.config.RECAPTCHA_ENABLED ?? Boolean(input.config.RECAPTCHA_SECRET_KEY);
-  if (!recaptchaEnabled) {
+  if (!input.config.RECAPTCHA_SECRET_KEY) {
     return;
   }
 
-  if (!input.config.RECAPTCHA_SECRET_KEY) {
-    input.log.warn("reCAPTCHA is enabled but RECAPTCHA_SECRET_KEY is missing; allowing registration");
-    return;
-  }
+  const failOpen = input.config.RECAPTCHA_FAIL_OPEN === true;
 
   if (!input.recaptchaToken) {
-    input.log.warn("reCAPTCHA token missing for registration; allowing registration");
-    return;
+    if (failOpen) {
+      input.log.warn("reCAPTCHA token missing for registration; allowing registration");
+      return;
+    }
+
+    throw new Error("reCAPTCHA-Token fehlt.");
   }
 
   const controller = new AbortController();
@@ -765,19 +765,33 @@ async function verifyRegistrationRecaptcha(input: {
     });
 
     if (!response.ok) {
-      input.log.warn({ statusCode: response.status }, "reCAPTCHA verification failed upstream; allowing registration");
-      return;
+      if (failOpen) {
+        input.log.warn({ statusCode: response.status }, "reCAPTCHA verification failed upstream; allowing registration");
+        return;
+      }
+
+      throw new Error("reCAPTCHA-Pruefung ist fehlgeschlagen.");
     }
 
     const verification = (await response.json()) as RecaptchaVerificationResponse;
     if (!verification.success) {
-      input.log.warn(
-        { errorCodes: verification["error-codes"] ?? [] },
-        "reCAPTCHA verification was not successful; allowing registration"
-      );
+      if (failOpen) {
+        input.log.warn(
+          { errorCodes: verification["error-codes"] ?? [] },
+          "reCAPTCHA verification was not successful; allowing registration"
+        );
+        return;
+      }
+
+      throw new Error("reCAPTCHA-Pruefung ist fehlgeschlagen.");
     }
   } catch (error) {
-    input.log.warn({ err: error }, "reCAPTCHA verification could not be completed; allowing registration");
+    if (failOpen) {
+      input.log.warn({ err: error }, "reCAPTCHA verification could not be completed; allowing registration");
+      return;
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
