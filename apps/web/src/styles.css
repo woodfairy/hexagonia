@@ -1103,14 +1103,17 @@ select {
 }
 
 .room-shell {
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .room-main-grid {
   display: grid;
   grid-template-columns: 1.24fr 0.92fr;
   gap: var(--gap-section);
-  block-size: 100%;
+  block-size: auto;
+  min-block-size: 100%;
   align-items: start;
 }
 
@@ -1377,6 +1380,12 @@ select {
 }
 
 .room-control-card {
+  display: grid;
+  gap: var(--gap-stack);
+  align-content: start;
+}
+
+.room-action-card {
   display: grid;
   gap: var(--gap-stack);
   align-content: start;

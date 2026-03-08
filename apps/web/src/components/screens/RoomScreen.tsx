@@ -189,6 +189,78 @@ export function RoomScreen(props: {
         </article>
 
         <div className="room-side-stack">
+          <article className="surface room-action-card">
+            <div className="eyebrow">Aktionen</div>
+            <h2>Spielerstatus</h2>
+            <div className="room-action-stack">
+              {!currentSeat ? (
+                canJoinRoom ? (
+                  <>
+                    <p className="muted-copy room-action-hint">
+                      Beim Beitritt bekommst du automatisch den naechsten freien Platz.
+                    </p>
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={props.onJoinRoom}
+                      disabled={props.joinRoomPending}
+                    >
+                      <LoadingButtonContent
+                        loading={props.joinRoomPending}
+                        idleLabel="Beitreten"
+                        loadingLabel="Beitritt laeuft..."
+                      />
+                    </button>
+                  </>
+                ) : (
+                  <button className="secondary-button" type="button" disabled>
+                    {joinUnavailableLabel}
+                  </button>
+                )
+              ) : null}
+              {currentSeat ? (
+                <button
+                  className={currentSeat.ready ? "secondary-button is-accent" : "primary-button"}
+                  type="button"
+                  disabled={props.readyPending}
+                  onClick={() => props.onReady(!currentSeat.ready)}
+                >
+                  <LoadingButtonContent
+                    loading={props.readyPending}
+                    idleLabel={currentSeat.ready ? "Nicht mehr bereit" : "Bereit"}
+                    loadingLabel="Status wird gespeichert..."
+                  />
+                </button>
+              ) : null}
+              {canStart ? (
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={props.onStart}
+                  disabled={props.startPending}
+                >
+                  <LoadingButtonContent
+                    loading={props.startPending}
+                    idleLabel="Partie starten"
+                    loadingLabel="Partie startet..."
+                  />
+                </button>
+              ) : null}
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={props.onLeave}
+                disabled={props.leavePending}
+              >
+                <LoadingButtonContent
+                  loading={props.leavePending}
+                  idleLabel="Raum verlassen"
+                  loadingLabel="Raum wird verlassen..."
+                />
+              </button>
+            </div>
+          </article>
+
           <article className="surface room-control-card">
             <div className="eyebrow">Steuerung</div>
             <h2>Startklar machen</h2>
@@ -259,39 +331,36 @@ export function RoomScreen(props: {
               </p>
             ) : null}
 
-            <div className="room-settings-block">
-              <div className="room-setting-head">
-                <span className="eyebrow">Zugregel</span>
-                <strong>
-                  {props.room.gameConfig.turnRule === "paired_players"
-                    ? "Paired Players"
-                    : "Sonderbauphase"}
-                </strong>
+            {seatedPlayers.length >= 5 ? (
+              <div className="room-settings-block">
+                <div className="room-setting-head">
+                  <span className="eyebrow">Zugregel</span>
+                  <strong>
+                    {props.room.gameConfig.turnRule === "paired_players"
+                      ? "Paired Players"
+                      : "Sonderbauphase"}
+                  </strong>
+                </div>
+                <div className="mini-segmented room-starting-mode">
+                  <button
+                    type="button"
+                    className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
+                    disabled={!canEditSettings}
+                    onClick={() => props.onTurnRuleChange("paired_players")}
+                  >
+                    Paired Players
+                  </button>
+                  <button
+                    type="button"
+                    className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
+                    disabled={!canEditSettings}
+                    onClick={() => props.onTurnRuleChange("special_build_phase")}
+                  >
+                    Sonderbauphase
+                  </button>
+                </div>
               </div>
-              <div className="mini-segmented room-starting-mode">
-                <button
-                  type="button"
-                  className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
-                  disabled={!canEditSettings}
-                  onClick={() => props.onTurnRuleChange("paired_players")}
-                >
-                  Paired Players
-                </button>
-                <button
-                  type="button"
-                  className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
-                  disabled={!canEditSettings}
-                  onClick={() => props.onTurnRuleChange("special_build_phase")}
-                >
-                  Sonderbauphase
-                </button>
-              </div>
-              <p className="muted-copy room-action-hint">
-                {seatedPlayers.length >= 5
-                  ? "Die gewaehlte Zugregel wird fuer diese 5-6-Spieler-Partie aktiv."
-                  : "Die Zugregel ist bereits vorkonfigurierbar und greift automatisch ab 5 Spielern."}
-              </p>
-            </div>
+            ) : null}
 
             <div className="room-settings-block">
               <div className="room-setting-head">
@@ -347,73 +416,6 @@ export function RoomScreen(props: {
               ) : null}
             </div>
 
-            <div className="room-action-stack">
-              {!currentSeat ? (
-                canJoinRoom ? (
-                  <>
-                    <p className="muted-copy room-action-hint">
-                      Beim Beitritt bekommst du automatisch den naechsten freien Platz.
-                    </p>
-                    <button
-                      className="primary-button"
-                      type="button"
-                      onClick={props.onJoinRoom}
-                      disabled={props.joinRoomPending}
-                    >
-                      <LoadingButtonContent
-                        loading={props.joinRoomPending}
-                        idleLabel="Beitreten"
-                        loadingLabel="Beitritt laeuft..."
-                      />
-                    </button>
-                  </>
-                ) : (
-                  <button className="secondary-button" type="button" disabled>
-                    {joinUnavailableLabel}
-                  </button>
-                )
-              ) : null}
-              {currentSeat ? (
-                <button
-                  className={currentSeat.ready ? "secondary-button is-accent" : "primary-button"}
-                  type="button"
-                  disabled={props.readyPending}
-                  onClick={() => props.onReady(!currentSeat.ready)}
-                >
-                  <LoadingButtonContent
-                    loading={props.readyPending}
-                    idleLabel={currentSeat.ready ? "Nicht mehr bereit" : "Bereit"}
-                    loadingLabel="Status wird gespeichert..."
-                  />
-                </button>
-              ) : null}
-              {canStart ? (
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={props.onStart}
-                  disabled={props.startPending}
-                >
-                  <LoadingButtonContent
-                    loading={props.startPending}
-                    idleLabel="Partie starten"
-                    loadingLabel="Partie startet..."
-                  />
-                </button>
-              ) : null}
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={props.onLeave}
-                disabled={props.leavePending}
-              >
-                <LoadingButtonContent
-                  loading={props.leavePending}
-                  idleLabel="Raum verlassen"
-                  loadingLabel="Raum wird verlassen..."
-                />
-              </button>
-            </div>
           </article>
         </div>
       </div>
