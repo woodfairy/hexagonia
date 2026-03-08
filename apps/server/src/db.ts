@@ -689,7 +689,7 @@ function normalizeRoom(row: StoredRoomRow): RoomDetails {
     }),
     seats
   );
-  const gameConfig = hasExplicitRulesPreset
+  const gameConfig: RoomGameConfig = hasExplicitRulesPreset
     ? sanitizedGameConfig
     : {
         ...sanitizedGameConfig,
