@@ -322,7 +322,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const affectedRooms = await db.listUserRooms(targetUser.id);
     for (const room of affectedRooms) {
       if (room.matchId) {
-        await resetMatchToRoom(db, hub, room.matchId, `Partie durch Admin beendet, weil ${targetUser.username} entfernt wurde.`);
+        await lifecycle.resetMatchToRoom(
+          room.matchId,
+          `Partie durch Admin beendet, weil ${targetUser.username} entfernt wurde.`
+        );
       }
 
       const refreshedRoom = await db.getRoom(room.id);
@@ -330,29 +333,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
         continue;
       }
 
-      for (const seat of refreshedRoom.seats) {
-        if (seat.userId === targetUser.id) {
-          seat.userId = null;
-          seat.username = null;
-          seat.ready = false;
-        }
-      }
-
-      const remainingSeatOwner = refreshedRoom.seats.find((seat) => seat.userId)?.userId ?? null;
-      if (refreshedRoom.ownerUserId === targetUser.id) {
-        refreshedRoom.ownerUserId = remainingSeatOwner ?? admin.id;
-      }
-
-      if (!remainingSeatOwner) {
-        refreshedRoom.status = "closed";
-        refreshedRoom.matchId = null;
-        await hub.broadcastRoom(refreshedRoom);
-        await db.deleteRoom(refreshedRoom.id);
-        continue;
-      }
-
-      const saved = await db.saveRoom(refreshedRoom);
-      await hub.broadcastRoom(saved);
+      await lifecycle.removeUserFromOpenRoom(refreshedRoom, targetUser.id);
     }
 
     await db.deleteSessionsByUserId(targetUser.id);
@@ -382,7 +363,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     if (room.matchId) {
-      await resetMatchToRoom(db, hub, room.matchId, "Partie wurde vom Admin gestoppt.");
+      await lifecycle.resetMatchToRoom(room.matchId, "Partie wurde vom Admin gestoppt.");
     }
 
     const refreshedRoom = (await db.getRoom(room.id)) ?? room;
@@ -418,7 +399,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     const matchId = (request.params as { matchId: string }).matchId;
-    const room = await resetMatchToRoom(db, hub, matchId, "Partie wurde vom Admin zur Reparatur entfernt.");
+    const room = await lifecycle.resetMatchToRoom(
+      matchId,
+      "Partie wurde vom Admin zur Reparatur entfernt."
+    );
     if (!room) {
       return reply.code(404).send({ error: "Partie nicht gefunden." });
     }
@@ -526,7 +510,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return { room };
     }
 
-    const saved = await removeUserFromOpenRoom(db, hub, room, user.id);
+    const saved = await lifecycle.removeUserFromOpenRoom(room, user.id);
     return { room: saved };
   });
 
@@ -557,7 +541,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply.code(404).send({ error: "Dieser Spieler sitzt nicht in diesem Raum." });
     }
 
-    const saved = await removeUserFromOpenRoom(db, hub, room, body.userId);
+    const saved = await lifecycle.removeUserFromOpenRoom(room, body.userId);
     return { room: saved };
   });
 
