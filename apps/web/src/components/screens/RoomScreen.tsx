@@ -132,6 +132,7 @@ export function RoomScreen(props: {
               const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Frei";
               const seatTitle = occupied ? seat.username ?? `Spieler ${seat.index + 1}` : "Freier Platz";
               const indicatorClass = occupied ? (online ? "is-online" : "is-offline") : "is-empty";
+              const presenceLabel = occupied ? (online ? "Online im Raum" : "Nicht verbunden") : "Wartet auf Spieler";
 
               return (
                 <article
@@ -154,19 +155,13 @@ export function RoomScreen(props: {
                       <span className={`online-indicator ${indicatorClass}`} aria-hidden="true" />
                     </div>
                   </div>
-                  <div className="seat-card-state">
-                    {isStartingSeat ? (
-                      <span className="status-pill seat-start-pill">Startspieler</span>
-                    ) : occupied ? (
-                      <span className="seat-card-state-label">
-                        {online ? "Online im Raum" : "Nicht verbunden"}
-                      </span>
-                    ) : (
-                      <span className="seat-card-state-label">Wartet auf Spieler</span>
-                    )}
+                  <div className="seat-card-summary">
+                    {seat.ready ? <span className="status-pill seat-ready-pill">{stateLabel}</span> : null}
+                    {isStartingSeat ? <span className="status-pill seat-start-pill">Startspieler</span> : null}
+                    <span className="seat-card-state-label">{presenceLabel}</span>
                   </div>
-                  <div className="seat-card-action">
-                    {canKick ? (
+                  {canKick ? (
+                    <div className="seat-card-action">
                       <button
                         className="ghost-button is-danger"
                         type="button"
@@ -174,12 +169,8 @@ export function RoomScreen(props: {
                       >
                         Spieler entfernen
                       </button>
-                    ) : (
-                      <span className="seat-card-action-spacer" aria-hidden="true">
-                        Spieler entfernen
-                      </span>
-                    )}
-                  </div>
+                    </div>
+                  ) : null}
                 </article>
               );
             })}
