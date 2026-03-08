@@ -959,6 +959,12 @@ export function App() {
       return;
     }
 
+    if (interactionMode === "robber") {
+      setInteractionMode(null);
+      setSelectedRoadEdges([]);
+      return;
+    }
+
     if (match.pendingDevelopmentEffect?.type === "road_building" && match.currentPlayerId === match.you) {
       if (interactionMode !== "road_building") {
         setInteractionMode("road_building");
