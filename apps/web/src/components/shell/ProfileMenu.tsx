@@ -31,6 +31,8 @@ export interface ProfileMenuProps {
   onLogout: () => void | Promise<void>;
 }
 
+type ToggleableBoardVisualSetting = "props" | "textures" | "terrainRelief" | "resourceIcons";
+
 export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; onRequestClose?: () => void }) {
   const selectedMusicTrack =
     props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
@@ -41,10 +43,21 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
         ? `Alle ${props.musicTracks.length} Songs laufen nacheinander`
         : `${selectedMusicTrack?.name ?? "Kein Song"} in Dauerschleife`;
   const playSoftMenuHaptic = () => void uiHapticsManager.play("soft");
-  const toggleBoardVisualSetting = (setting: keyof BoardVisualSettings) => {
+  const toggleBoardVisualSetting = (setting: ToggleableBoardVisualSetting) => {
     props.onBoardVisualSettingsChange({
       ...props.boardVisualSettings,
       [setting]: !props.boardVisualSettings[setting]
+    });
+    playSoftMenuHaptic();
+  };
+  const setBoardPieceStyle = (pieceStyle: BoardVisualSettings["pieceStyle"]) => {
+    if (props.boardVisualSettings.pieceStyle === pieceStyle) {
+      return;
+    }
+
+    props.onBoardVisualSettingsChange({
+      ...props.boardVisualSettings,
+      pieceStyle
     });
     playSoftMenuHaptic();
   };
@@ -184,6 +197,16 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <strong>Feldstil</strong>
             <span>Wähle, welche Elemente auf dem Spielfeld angezeigt werden.</span>
           </div>
+          <label className="profile-music-select-shell">
+            <span>Figurenstil</span>
+            <select
+              value={props.boardVisualSettings.pieceStyle}
+              onChange={(event) => setBoardPieceStyle(event.target.value as BoardVisualSettings["pieceStyle"])}
+            >
+              <option value="minimal">Minimalistisch wie Brettspiel</option>
+              <option value="stylized">Detailliert stilisiert</option>
+            </select>
+          </label>
           <div className="profile-board-toggle-grid" role="group" aria-label="Feldstil">
             <button
               type="button"

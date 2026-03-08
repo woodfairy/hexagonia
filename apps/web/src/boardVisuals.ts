@@ -1,10 +1,13 @@
 import type { Resource } from "@hexagonia/shared";
 
+export type BoardPieceStyle = "minimal" | "stylized";
+
 export interface BoardVisualSettings {
   textures: boolean;
   props: boolean;
   terrainRelief: boolean;
   resourceIcons: boolean;
+  pieceStyle: BoardPieceStyle;
 }
 
 export const BOARD_VISUAL_SETTINGS_STORAGE_KEY = "hexagonia:board-visual-profile";
@@ -13,7 +16,8 @@ export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
   textures: true,
   props: true,
   terrainRelief: false,
-  resourceIcons: false
+  resourceIcons: false,
+  pieceStyle: "minimal"
 };
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
@@ -71,7 +75,10 @@ function normalizeBoardVisualSettings(value: unknown): BoardVisualSettings {
     ...(typeof candidate.textures === "boolean" ? { textures: candidate.textures } : {}),
     ...(typeof candidate.props === "boolean" ? { props: candidate.props } : {}),
     ...(typeof candidate.terrainRelief === "boolean" ? { terrainRelief: candidate.terrainRelief } : {}),
-    ...(typeof candidate.resourceIcons === "boolean" ? { resourceIcons: candidate.resourceIcons } : {})
+    ...(typeof candidate.resourceIcons === "boolean" ? { resourceIcons: candidate.resourceIcons } : {}),
+    ...(candidate.pieceStyle === "minimal" || candidate.pieceStyle === "stylized"
+      ? { pieceStyle: candidate.pieceStyle }
+      : {})
   });
 }
 

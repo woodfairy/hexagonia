@@ -162,6 +162,8 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     }
 
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#156c97");
+    scene.fog = new THREE.Fog("#156c97", 92, 210);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 220);
     const clock = new THREE.Clock(false);
     const boardGroup = new THREE.Group();
@@ -216,54 +218,18 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     rimLight.position.set(0, 8, 0);
     scene.add(rimLight);
 
-    const table = new THREE.Mesh(
-      new THREE.CylinderGeometry(28, 31, 1.6, 64),
-      new THREE.MeshStandardMaterial({
-        color: "#0f2230",
-        roughness: 0.95,
-        metalness: 0.08
-      })
-    );
-    table.position.y = -1.05;
-    table.receiveShadow = false;
-    boardGroup.add(table);
-
-    const tableInset = new THREE.Mesh(
-      new THREE.CylinderGeometry(25.2, 26.4, 0.24, 64),
-      new THREE.MeshBasicMaterial({
-        color: "#12374b",
-        transparent: true,
-        opacity: 0.22
-      })
-    );
-    tableInset.position.y = -0.12;
-    boardGroup.add(tableInset);
-
-    const outerRing = new THREE.Mesh(
-      new THREE.TorusGeometry(28.5, 0.24, 12, 88),
-      new THREE.MeshBasicMaterial({
-        color: "#ddd0ff",
-        transparent: true,
-        opacity: 0.42
-      })
-    );
-    outerRing.rotation.x = Math.PI / 2;
-    outerRing.position.y = -0.16;
-    boardGroup.add(outerRing);
+    boardGroup.add(createLandingWaterBackdrop());
 
     const haloRingMaterial = new THREE.MeshBasicMaterial({
-      color: "#1f88b3",
+      color: "#0f82ad",
       transparent: true,
-      opacity: 0.15
+      opacity: 0.19
     });
     const haloRing = new THREE.Mesh(new THREE.TorusGeometry(26.1, 0.14, 12, 88), haloRingMaterial);
     haloRing.rotation.x = Math.PI / 2;
     haloRing.position.y = 0.01;
     boardGroup.add(haloRing);
     glowMarkers.push({ material: haloRingMaterial, speed: 0.9, baseOpacity: 0.15 });
-
-    const stars = createStarField();
-    scene.add(stars);
 
     const verticesById = new Map(showcaseBoard.vertices.map((vertex) => [vertex.id, vertex]));
     const edgesById = new Map(showcaseBoard.edges.map((edge) => [edge.id, edge]));
@@ -1745,6 +1711,52 @@ function createShowcaseRockScatter(): THREE.Group {
   return group;
 }
 
+function createLandingWaterBackdrop(): THREE.Group {
+  const backdrop = new THREE.Group();
+
+  const deepWater = new THREE.Mesh(
+    new THREE.CylinderGeometry(40.8, 42.6, 0.96, 72),
+    new THREE.MeshStandardMaterial({
+      color: "#0d6188",
+      roughness: 0.38,
+      metalness: 0.06,
+      emissive: new THREE.Color("#0a4e70"),
+      emissiveIntensity: 0.16
+    })
+  );
+  deepWater.position.y = -0.9;
+
+  const shallowWater = new THREE.Mesh(
+    new THREE.CylinderGeometry(31.2, 32.3, 0.12, 72),
+    new THREE.MeshStandardMaterial({
+      color: "#6ebed8",
+      roughness: 0.26,
+      metalness: 0.03,
+      transparent: true,
+      opacity: 0.72,
+      emissive: new THREE.Color("#8edaf0"),
+      emissiveIntensity: 0.18
+    })
+  );
+  shallowWater.position.y = -0.08;
+
+  const foamRing = new THREE.Mesh(
+    new THREE.TorusGeometry(29.8, 1.75, 10, 104),
+    new THREE.MeshBasicMaterial({
+      color: "#e6fbff",
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      toneMapped: false
+    })
+  );
+  foamRing.position.y = 0.01;
+  foamRing.rotation.x = Math.PI / 2;
+
+  backdrop.add(deepWater, shallowWater, foamRing);
+  return backdrop;
+}
+
 function trimMaterialFromHex(color: string): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color,
@@ -1754,11 +1766,11 @@ function trimMaterialFromHex(color: string): THREE.MeshStandardMaterial {
 }
 
 function createRoadPiece(length: number, color: string): THREE.Group {
-  return createRoadPieceModel(length, color, false);
+  return createRoadPieceModel(length, color, false, "stylized");
 }
 
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
-  return createBuildingPieceModel(type, color);
+  return createBuildingPieceModel(type, color, "stylized");
 }
 
 function createStarField(): THREE.Points {

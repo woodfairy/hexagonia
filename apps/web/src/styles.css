@@ -3535,6 +3535,12 @@ select {
 
 .dock-section-fill {
   min-block-size: 0;
+  block-size: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.dock-section-fill > .scroll-list {
+  min-block-size: 0;
 }
 
 .dock-section-head {

@@ -253,7 +253,8 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
     visualSettings.textures,
     visualSettings.props,
     visualSettings.terrainRelief,
-    visualSettings.resourceIcons
+    visualSettings.resourceIcons,
+    visualSettings.pieceStyle
   ].join("~");
 }
 
@@ -1150,8 +1151,8 @@ export function BoardScene(props: BoardSceneProps) {
       }
 
       const road = edge.ownerId
-        ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected)
-        : createRoadGuide(length, selected);
+        ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected, props.visualSettings.pieceStyle)
+        : createRoadGuide(length, selected, props.visualSettings.pieceStyle);
       const roadHeight = edge.ownerId ? TILE_HEIGHT + BUILT_ROAD_ELEVATION : TILE_HEIGHT + GUIDE_ROAD_ELEVATION;
       const roadObject = new THREE.Group();
       roadObject.position.set(centerX, roadHeight, centerZ);
@@ -1185,7 +1186,9 @@ export function BoardScene(props: BoardSceneProps) {
         continue;
       }
 
-      const mesh = building ? createBuildingMesh(building.type, building.color) : createVertexMarker();
+      const mesh = building
+        ? createBuildingMesh(building.type, building.color, props.visualSettings.pieceStyle)
+        : createVertexMarker();
       mesh.position.set(vertex.x, building ? TILE_HEIGHT + 0.02 : TILE_HEIGHT + 0.08, vertex.y);
       if (building) {
         mesh.traverse((object) => {
@@ -1402,8 +1405,12 @@ function createBoardWaterBackdrop(board: MatchSnapshot["board"]): THREE.Group {
   return backdrop;
 }
 
-function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
-  return createBuildingPieceModel(type, colorToHex(color));
+function createBuildingMesh(
+  type: "settlement" | "city",
+  color: string,
+  style: BoardVisualSettings["pieceStyle"]
+): THREE.Object3D {
+  return createBuildingPieceModel(type, colorToHex(color), style);
 }
 
 function createVertexMarker(): THREE.Mesh {
@@ -4821,12 +4828,17 @@ function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvValues, 2));
 }
 
-function createRoadPiece(length: number, color: string, selected: boolean): THREE.Group {
-  return createRoadPieceModel(length, color, selected);
+function createRoadPiece(
+  length: number,
+  color: string,
+  selected: boolean,
+  style: BoardVisualSettings["pieceStyle"]
+): THREE.Group {
+  return createRoadPieceModel(length, color, selected, style);
 }
 
-function createRoadGuide(length: number, selected: boolean): THREE.Group {
-  return createRoadGuideModel(length, selected);
+function createRoadGuide(length: number, selected: boolean, style: BoardVisualSettings["pieceStyle"]): THREE.Group {
+  return createRoadGuideModel(length, selected, style);
 }
 
 function createRoadHitArea(length: number): THREE.Mesh {
