@@ -31,6 +31,15 @@ import {
   subtractResources,
   totalResources
 } from "@hexagonia/shared";
+import {
+  applyBuildAction,
+  applyDevelopmentAction,
+  applyRobberAction,
+  applySetupAction,
+  applyTradeAction,
+  applyTurnAction,
+  type ActionHandlerSet
+} from "./actionDispatch.js";
 import { generateBaseBoard, type GeneratedBoard } from "./board.js";
 import { SeededRandom } from "./random.js";
 import { CURRENT_MATCH_SCHEMA_VERSION } from "./schema.js";
@@ -178,6 +187,30 @@ const DEVELOPMENT_DECK_COUNTS: Record<DevelopmentCardType, number> = {
 };
 
 export class GameRuleError extends Error {}
+
+const ACTION_HANDLERS: ActionHandlerSet<GameState> = {
+  handleInitialSettlement,
+  handleInitialRoad,
+  handleDiscardResources,
+  handleRollDice,
+  handleBuildRoad,
+  handleBuildSettlement,
+  handleBuildCity,
+  handleBuyDevelopmentCard,
+  handlePlayKnight,
+  handlePlayRoadBuilding,
+  handlePlaceFreeRoad,
+  handleFinishRoadBuilding,
+  handlePlayYearOfPlenty,
+  handlePlayMonopoly,
+  handleMoveRobber,
+  handleCreateTradeOffer,
+  handleAcceptTradeOffer,
+  handleDeclineTradeOffer,
+  handleWithdrawTradeOffer,
+  handleMaritimeTrade,
+  handleEndTurn
+};
 
 export function createMatchState(input: {
   matchId: string;
@@ -337,72 +370,15 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
     throw new GameRuleError("Der laufende Entwicklungskarten-Effekt muss zuerst abgeschlossen werden.");
   }
 
-  switch (action.type) {
-    case "place_initial_settlement":
-      handleInitialSettlement(next, playerId, action.vertexId);
-      break;
-    case "place_initial_road":
-      handleInitialRoad(next, playerId, action.edgeId);
-      break;
-    case "discard_resources":
-      handleDiscardResources(next, playerId, action.resources);
-      break;
-    case "roll_dice":
-      handleRollDice(next, playerId);
-      break;
-    case "build_road":
-      handleBuildRoad(next, playerId, action.edgeId, false);
-      break;
-    case "build_settlement":
-      handleBuildSettlement(next, playerId, action.vertexId);
-      break;
-    case "build_city":
-      handleBuildCity(next, playerId, action.vertexId);
-      break;
-    case "buy_development_card":
-      handleBuyDevelopmentCard(next, playerId);
-      break;
-    case "play_knight":
-      handlePlayKnight(next, playerId);
-      break;
-    case "play_road_building":
-      handlePlayRoadBuilding(next, playerId);
-      break;
-    case "place_free_road":
-      handlePlaceFreeRoad(next, playerId, action.edgeId);
-      break;
-    case "finish_road_building":
-      handleFinishRoadBuilding(next, playerId);
-      break;
-    case "play_year_of_plenty":
-      handlePlayYearOfPlenty(next, playerId, action.resources);
-      break;
-    case "play_monopoly":
-      handlePlayMonopoly(next, playerId, action.resource);
-      break;
-    case "move_robber":
-      handleMoveRobber(next, playerId, action.tileId, action.targetPlayerId);
-      break;
-    case "create_trade_offer":
-      handleCreateTradeOffer(next, playerId, action.toPlayerId, action.give, action.want);
-      break;
-    case "accept_trade_offer":
-      handleAcceptTradeOffer(next, playerId, action.tradeId);
-      break;
-    case "decline_trade_offer":
-      handleDeclineTradeOffer(next, playerId, action.tradeId);
-      break;
-    case "withdraw_trade_offer":
-      handleWithdrawTradeOffer(next, playerId, action.tradeId);
-      break;
-    case "maritime_trade":
-      handleMaritimeTrade(next, playerId, action.give, action.receive, action.giveCount);
-      break;
-    case "end_turn":
-      handleEndTurn(next, playerId);
-      break;
-    default:
-      assertNever(action);
+  if (
+    !applySetupAction(ACTION_HANDLERS, next, playerId, action) &&
+    !applyRobberAction(ACTION_HANDLERS, next, playerId, action) &&
+    !applyBuildAction(ACTION_HANDLERS, next, playerId, action) &&
+    !applyDevelopmentAction(ACTION_HANDLERS, next, playerId, action) &&
+    !applyTradeAction(ACTION_HANDLERS, next, playerId, action) &&
+    !applyTurnAction(ACTION_HANDLERS, next, playerId, action)
+  ) {
+    assertNever(action);
   }
 
   updateAwards(next);

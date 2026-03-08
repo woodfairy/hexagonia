@@ -8,6 +8,11 @@ export interface GeneratedBoard {
   ports: PortView[];
 }
 
+export interface BoardGenerationInput {
+  setupMode: GameConfig["setupMode"];
+  enabledExpansions: GameConfig["enabledExpansions"];
+}
+
 const LAND_RESOURCES: Array<Resource | "desert"> = [
   "brick",
   "brick",
@@ -104,11 +109,19 @@ const CORNER_OFFSETS = [
 ] as const;
 const OFFICIAL_PORT_SLOT_EDGE_INDICES = [0, 3, 6, 10, 13, 16, 20, 23, 26] as const;
 
-export function generateBaseBoard(
-  seed: string,
-  gameConfig: GameConfig
-): GeneratedBoard {
-  const setupMode = gameConfig.setupMode;
+export function createBoardGenerationInput(gameConfig: GameConfig): BoardGenerationInput {
+  return {
+    setupMode: gameConfig.setupMode,
+    enabledExpansions: [...gameConfig.enabledExpansions]
+  };
+}
+
+export function generateBaseBoard(seed: string, gameConfig: GameConfig): GeneratedBoard {
+  return generateBoard(seed, createBoardGenerationInput(gameConfig));
+}
+
+function generateBoard(seed: string, boardInput: BoardGenerationInput): GeneratedBoard {
+  const setupMode = boardInput.setupMode;
   const rng = new SeededRandom(seed);
   const tileCoords = createRadiusTwoCoords();
   const vertexByKey = new Map<string, MutableVertex>();
@@ -218,7 +231,7 @@ export function generateBaseBoard(
     }
   }
 
-  const ports = assignPorts(rng, edges, verticesById, setupMode);
+  const ports = assignPorts(rng, edges, verticesById, boardInput);
   const portByVertexId = new Map<string, PortType>();
   for (const port of ports) {
     for (const vertexId of port.vertexIds) {
@@ -355,7 +368,7 @@ function assignPorts(
   rng: SeededRandom,
   edges: MutableEdge[],
   verticesById: Map<string, MutableVertex>,
-  setupMode: SetupMode
+  boardInput: BoardGenerationInput
 ): PortView[] {
   const boundaryEdges = edges
     .filter((edge) => edge.tileIds.length === 1)
@@ -367,7 +380,10 @@ function assignPorts(
       return leftAngle - rightAngle;
     });
 
-  const portTypes = setupMode === "beginner" ? BEGINNER_PORT_DISTRIBUTION : rng.shuffle(PORT_DISTRIBUTION);
+  const portTypes =
+    boardInput.setupMode === "beginner"
+      ? BEGINNER_PORT_DISTRIBUTION
+      : rng.shuffle(PORT_DISTRIBUTION);
 
   return [...OFFICIAL_PORT_SLOT_EDGE_INDICES]
     .map((edgeIndex, portIndex) => {
