@@ -7,6 +7,7 @@ import { TILE_COLORS } from "./boardVisuals";
 type TerrainTile = MatchSnapshot["board"]["tiles"][number];
 type TerrainVertex = MatchSnapshot["board"]["vertices"][number];
 type TerrainEdge = MatchSnapshot["board"]["edges"][number];
+type TerrainPort = MatchSnapshot["board"]["ports"][number];
 type TerrainResource = Resource | "desert";
 
 interface TerrainPoint {
@@ -61,6 +62,12 @@ export interface TerrainStructureMask {
     radius: number;
     falloff: number;
   }>;
+  ports: Array<{
+    x: number;
+    z: number;
+    radius: number;
+    falloff: number;
+  }>;
 }
 
 export interface TileTerrainSurfaceBundle {
@@ -75,6 +82,7 @@ interface CreateTileTerrainSurfaceParams {
   verticesById: Map<string, TerrainVertex>;
   boardEdges: readonly TerrainEdge[];
   boardVertices: readonly TerrainVertex[];
+  boardPorts: readonly TerrainPort[];
   active: boolean;
   textured: boolean;
   terrainBundle?: UltraTerrainTextureBundle;
@@ -103,12 +111,12 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     roughness: 0.82,
     metalness: 0.01,
     coverKind: "grassPatch",
-    coverCount: 420,
-    coverMinScale: 0.72,
-    coverMaxScale: 1.48,
-    coverFootprint: 0.11,
-    coverSpacing: 0.42,
-    coverEdgePadding: 0.05,
+    coverCount: 520,
+    coverMinScale: 0.52,
+    coverMaxScale: 0.92,
+    coverFootprint: 0.078,
+    coverSpacing: 0.34,
+    coverEdgePadding: 0.035,
     featureCount: 14,
     pathDepth: 0.022
   },
@@ -119,12 +127,12 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     roughness: 0.78,
     metalness: 0.01,
     coverKind: "wheatPatch",
-    coverCount: 180,
-    coverMinScale: 0.82,
-    coverMaxScale: 1.46,
-    coverFootprint: 0.16,
-    coverSpacing: 0.66,
-    coverEdgePadding: 0.06,
+    coverCount: 248,
+    coverMinScale: 0.72,
+    coverMaxScale: 1.14,
+    coverFootprint: 0.125,
+    coverSpacing: 0.48,
+    coverEdgePadding: 0.045,
     featureCount: 10,
     pathDepth: 0.016
   },
@@ -197,7 +205,14 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
 export function createTileTerrainSurface(params: CreateTileTerrainSurfaceParams): TileTerrainSurfaceBundle {
   const biome = createBiomeState(params.tile);
   const polygon = createTerrainPolygon(params.tile, params.verticesById, params.tileScale);
-  const structureMask = createStructureMask(params.tile, params.verticesById, params.boardEdges, params.boardVertices, polygon.scale);
+  const structureMask = createStructureMask(
+    params.tile,
+    params.verticesById,
+    params.boardEdges,
+    params.boardVertices,
+    params.boardPorts,
+    polygon.scale
+  );
   const sampleHeightLocal = (localX: number, localZ: number) =>
     sampleBiomeHeight(params.tile.resource, biome, structureMask, localX, localZ, params.baseY);
   const sampleHeight = (offsetX: number, offsetZ: number) => sampleHeightLocal(offsetX * polygon.scale, offsetZ * polygon.scale);
@@ -360,18 +375,18 @@ function createCoverSpawns(
       case "grassPatch":
         rotX = (random() - 0.5) * 0.06;
         rotZ = (random() - 0.5) * 0.08;
-        scaleX = scale * THREE.MathUtils.lerp(0.92, 1.24, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.92, 1.18, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.92, 1.24, random());
-        offsetY = 0.01 * scale;
+        scaleX = scale * THREE.MathUtils.lerp(0.86, 1.08, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.72, 0.94, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.86, 1.08, random());
+        offsetY = 0.002 * scale;
         break;
       case "wheatPatch":
         rotX = (random() - 0.5) * 0.04;
         rotZ = (random() - 0.5) * 0.08;
-        scaleX = scale * THREE.MathUtils.lerp(1.08, 1.42, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.94, 1.12, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.74, 0.96, random());
-        offsetY = 0.012 * scale;
+        scaleX = scale * THREE.MathUtils.lerp(0.96, 1.2, random());
+        scaleY = scale * THREE.MathUtils.lerp(0.9, 1.06, random());
+        scaleZ = scale * THREE.MathUtils.lerp(0.86, 1.04, random());
+        offsetY = 0.004 * scale;
         break;
       case "tree":
         scaleX = scale * 0.9;
@@ -462,30 +477,33 @@ function createCoverMaterial(recipe: TerrainBiomeRecipe, active: boolean): THREE
 
 function createGrassPatchGeometry(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
-  parts.push(transformCoverGeometry(new THREE.CylinderGeometry(0.14, 0.2, 0.04, 7), 0, 0.02, 0));
-
   const bladeLayout = [
-    { x: -0.08, y: 0.13, z: -0.03, rotX: -0.12, rotY: 0.18, rotZ: -0.42, sx: 1, sy: 1.18, sz: 1 },
-    { x: -0.02, y: 0.15, z: 0.05, rotX: -0.08, rotY: -0.24, rotZ: -0.18, sx: 0.92, sy: 1.06, sz: 1 },
-    { x: 0.04, y: 0.16, z: -0.06, rotX: -0.08, rotY: 0.06, rotZ: 0.16, sx: 0.98, sy: 1.14, sz: 1 },
-    { x: 0.1, y: 0.12, z: 0.02, rotX: -0.08, rotY: 0.28, rotZ: 0.36, sx: 0.94, sy: 0.98, sz: 1 },
-    { x: 0.01, y: 0.17, z: 0, rotX: -0.06, rotY: -0.1, rotZ: 0.04, sx: 0.9, sy: 1.24, sz: 1 },
-    { x: -0.11, y: 0.11, z: 0.07, rotX: -0.1, rotY: -0.34, rotZ: -0.3, sx: 0.82, sy: 0.9, sz: 1 }
+    { x: -0.1, z: -0.04, width: 0.008, depth: 0.004, height: 0.13, rotX: -0.08, rotY: 0.18, rotZ: -0.28 },
+    { x: -0.08, z: 0.03, width: 0.008, depth: 0.004, height: 0.11, rotX: -0.04, rotY: -0.2, rotZ: -0.16 },
+    { x: -0.05, z: -0.09, width: 0.007, depth: 0.003, height: 0.1, rotX: -0.06, rotY: 0.38, rotZ: -0.22 },
+    { x: -0.03, z: 0.08, width: 0.009, depth: 0.004, height: 0.12, rotX: -0.05, rotY: -0.34, rotZ: -0.1 },
+    { x: -0.01, z: -0.01, width: 0.007, depth: 0.003, height: 0.145, rotX: -0.02, rotY: 0.02, rotZ: 0.06 },
+    { x: 0.02, z: -0.07, width: 0.008, depth: 0.004, height: 0.118, rotX: -0.04, rotY: 0.14, rotZ: 0.14 },
+    { x: 0.04, z: 0.05, width: 0.008, depth: 0.004, height: 0.122, rotX: -0.06, rotY: -0.18, rotZ: 0.18 },
+    { x: 0.06, z: -0.01, width: 0.007, depth: 0.003, height: 0.096, rotX: -0.04, rotY: 0.3, rotZ: 0.24 },
+    { x: 0.08, z: 0.09, width: 0.008, depth: 0.004, height: 0.112, rotX: -0.06, rotY: -0.3, rotZ: 0.18 },
+    { x: 0.1, z: -0.05, width: 0.009, depth: 0.004, height: 0.124, rotX: -0.08, rotY: 0.22, rotZ: 0.26 },
+    { x: 0, z: 0.09, width: 0.007, depth: 0.003, height: 0.102, rotX: -0.03, rotY: 0.44, rotZ: -0.08 },
+    { x: -0.11, z: 0.08, width: 0.008, depth: 0.004, height: 0.108, rotX: -0.06, rotY: -0.4, rotZ: -0.2 },
+    { x: 0.11, z: 0.01, width: 0.007, depth: 0.003, height: 0.104, rotX: -0.05, rotY: 0.48, rotZ: 0.12 },
+    { x: 0.01, z: 0.01, width: 0.007, depth: 0.003, height: 0.138, rotX: -0.02, rotY: -0.12, rotZ: -0.04 }
   ] as const;
 
   for (const blade of bladeLayout) {
     parts.push(
       transformCoverGeometry(
-        new THREE.BoxGeometry(0.026, 0.22, 0.012),
+        new THREE.BoxGeometry(blade.width, blade.height, blade.depth),
         blade.x,
-        blade.y,
+        blade.height * 0.52,
         blade.z,
         blade.rotX,
         blade.rotY,
-        blade.rotZ,
-        blade.sx,
-        blade.sy,
-        blade.sz
+        blade.rotZ
       )
     );
   }
@@ -495,44 +513,70 @@ function createGrassPatchGeometry(): THREE.BufferGeometry {
 
 function createWheatPatchGeometry(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
-  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.34, 0.038, 0.14), 0, 0.019, 0));
-
-  const stems = [
-    { x: -0.12, z: -0.04, h: 0.16, lean: -0.14 },
-    { x: -0.04, z: 0.03, h: 0.18, lean: -0.08 },
-    { x: 0.04, z: -0.02, h: 0.19, lean: 0.08 },
-    { x: 0.13, z: 0.04, h: 0.17, lean: 0.16 }
+  const stalks = [
+    { x: -0.16, z: -0.05, height: 0.18, lean: -0.18, yaw: -0.08, headScale: 1.04 },
+    { x: -0.11, z: 0.03, height: 0.166, lean: -0.12, yaw: 0.04, headScale: 0.96 },
+    { x: -0.07, z: -0.01, height: 0.194, lean: -0.08, yaw: 0.08, headScale: 1.08 },
+    { x: -0.02, z: 0.06, height: 0.176, lean: -0.04, yaw: -0.1, headScale: 0.94 },
+    { x: 0.03, z: -0.06, height: 0.202, lean: 0.06, yaw: 0.02, headScale: 1.1 },
+    { x: 0.08, z: 0.02, height: 0.186, lean: 0.1, yaw: -0.04, headScale: 1.02 },
+    { x: 0.12, z: -0.01, height: 0.172, lean: 0.16, yaw: 0.12, headScale: 0.98 },
+    { x: 0.16, z: 0.05, height: 0.182, lean: 0.22, yaw: -0.06, headScale: 1.06 }
   ] as const;
 
-  for (const stem of stems) {
+  for (const [index, stalk] of stalks.entries()) {
+    const headOffsetX = Math.sin(stalk.lean) * stalk.height * 0.34;
+    const headOffsetY = stalk.height + 0.02;
+    const leafDirection = index % 2 === 0 ? -1 : 1;
+
     parts.push(
       transformCoverGeometry(
-        new THREE.CylinderGeometry(0.01, 0.014, stem.h, 5),
-        stem.x,
-        stem.h * 0.5,
-        stem.z,
+        new THREE.CylinderGeometry(0.0055, 0.0075, stalk.height, 4),
+        stalk.x,
+        stalk.height * 0.48,
+        stalk.z,
         0,
-        0,
-        stem.lean
+        stalk.yaw,
+        stalk.lean
       )
     );
     parts.push(
       transformCoverGeometry(
-        new THREE.ConeGeometry(0.028, 0.1, 5),
-        stem.x + stem.lean * 0.06,
-        stem.h + 0.04,
-        stem.z,
+        new THREE.CylinderGeometry(0.012, 0.017, 0.1, 5),
+        stalk.x + headOffsetX,
+        headOffsetY,
+        stalk.z,
         0,
-        Math.PI / 5,
-        stem.lean * 1.2,
-        1,
-        1.08,
-        0.92
+        stalk.yaw + Math.PI / 7,
+        stalk.lean * 1.08,
+        0.7,
+        1.16 * stalk.headScale,
+        0.7
+      )
+    );
+    parts.push(
+      transformCoverGeometry(
+        new THREE.BoxGeometry(0.004, 0.074, 0.018),
+        stalk.x + 0.016 * leafDirection,
+        stalk.height * 0.36,
+        stalk.z + 0.01 * leafDirection,
+        0,
+        stalk.yaw + leafDirection * 0.16,
+        stalk.lean - leafDirection * 0.54
+      )
+    );
+    parts.push(
+      transformCoverGeometry(
+        new THREE.BoxGeometry(0.003, 0.056, 0.016),
+        stalk.x - 0.012 * leafDirection,
+        stalk.height * 0.54,
+        stalk.z - 0.008,
+        0,
+        stalk.yaw - leafDirection * 0.12,
+        stalk.lean + leafDirection * 0.32
       )
     );
   }
-
-  parts.push(transformCoverGeometry(new THREE.BoxGeometry(0.18, 0.028, 0.06), -0.02, 0.032, 0.05, 0, 0.18, 0.04));
   return mergeCoverGeometryParts(parts);
 }
 
@@ -755,8 +799,10 @@ function createStructureMask(
   verticesById: Map<string, TerrainVertex>,
   boardEdges: readonly TerrainEdge[],
   boardVertices: readonly TerrainVertex[],
+  boardPorts: readonly TerrainPort[],
   scale: number
 ): TerrainStructureMask {
+  const edgesById = new Map(boardEdges.map((edge) => [edge.id, edge]));
   const buildingsById = new Map(boardVertices.filter((vertex) => vertex.building).map((vertex) => [vertex.id, vertex]));
   const roads = boardEdges
     .filter((edge) => !!edge.ownerId && edge.tileIds.includes(tile.id))
@@ -786,10 +832,65 @@ function createStructureMask(
       radius: 0.42,
       falloff: 0.36
     }));
+  const ports = boardPorts
+    .filter((port) => edgesById.get(port.edgeId)?.tileIds.includes(tile.id))
+    .flatMap((port) => {
+      const [leftId, rightId] = port.vertexIds;
+      const left = verticesById.get(leftId);
+      const right = verticesById.get(rightId);
+      if (!left || !right) {
+        return [];
+      }
+
+      const leftLocal = {
+        x: (left.x - tile.x) * scale,
+        z: (left.y - tile.y) * scale
+      };
+      const rightLocal = {
+        x: (right.x - tile.x) * scale,
+        z: (right.y - tile.y) * scale
+      };
+      const edgeCenter = {
+        x: (leftLocal.x + rightLocal.x) * 0.5,
+        z: (leftLocal.z + rightLocal.z) * 0.5
+      };
+      const normalizePoint = (point: TerrainPoint): TerrainPoint => {
+        const length = Math.hypot(point.x, point.z);
+        if (length < 0.0001) {
+          return { x: 0, z: 1 };
+        }
+        return {
+          x: point.x / length,
+          z: point.z / length
+        };
+      };
+      const outwardLeft = normalizePoint(leftLocal);
+      const outwardRight = normalizePoint(rightLocal);
+      const outward = normalizePoint({
+        x: outwardLeft.x + outwardRight.x,
+        z: outwardLeft.z + outwardRight.z
+      });
+
+      return [
+        {
+          x: edgeCenter.x + outward.x * 0.38,
+          z: edgeCenter.z + outward.z * 0.38,
+          radius: 0.96,
+          falloff: 0.5
+        },
+        {
+          x: edgeCenter.x + outward.x * 0.08,
+          z: edgeCenter.z + outward.z * 0.08,
+          radius: 0.44,
+          falloff: 0.22
+        }
+      ];
+    });
 
   return {
     roads,
-    buildings
+    buildings,
+    ports
   };
 }
 
@@ -873,6 +974,12 @@ function sampleStructureInfluence(mask: TerrainStructureMask, localX: number, lo
     const distance = Math.hypot(localX - building.x, localZ - building.z);
     const buildingInfluence = 1 - smoothstep(building.radius, building.radius + building.falloff, distance);
     influence = Math.max(influence, buildingInfluence);
+  }
+
+  for (const port of mask.ports) {
+    const distance = Math.hypot(localX - port.x, localZ - port.z);
+    const portInfluence = 1 - smoothstep(port.radius, port.radius + port.falloff, distance);
+    influence = Math.max(influence, portInfluence);
   }
 
   return THREE.MathUtils.clamp(influence, 0, 1);

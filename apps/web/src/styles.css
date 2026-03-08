@@ -2740,6 +2740,13 @@ select {
   .board-legend-toggle:hover:not(:disabled) {
     border-color: rgba(var(--accent-rgb), 0.28);
   }
+
+  .board-spotlight-toggle:hover:not(:disabled) {
+    border-color: rgba(var(--accent-rgb), 0.24);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+      rgba(6, 15, 23, 0.9);
+  }
 }
 
 .board-legend-panel {
@@ -2876,9 +2883,15 @@ select {
   inset-inline-end: 0.95rem;
   z-index: 2;
   display: grid;
+  justify-items: end;
   gap: 0.55rem;
   inline-size: min(22rem, calc(100% - 2rem));
   pointer-events: none;
+}
+
+.board-spotlight.is-collapsed {
+  inline-size: auto;
+  gap: 0;
 }
 
 .board-spotlight.is-event {
@@ -2888,6 +2901,69 @@ select {
 .board-spotlight.is-compact {
   inline-size: min(14.5rem, calc(100% - 1.5rem));
   gap: 0.4rem;
+}
+
+.board-spotlight-toggle {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.52rem;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding: 0.5rem 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018)),
+    rgba(6, 15, 23, 0.88);
+  color: var(--text);
+  text-align: left;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-md);
+}
+
+.board-spotlight.is-open .board-spotlight-toggle {
+  inline-size: 100%;
+}
+
+.board-spotlight-toggle.is-open {
+  border-color: rgba(var(--accent-rgb), 0.22);
+}
+
+.board-spotlight-toggle-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-inline-size: 0;
+}
+
+.board-spotlight-toggle-copy strong {
+  line-height: 1.04;
+  font-size: 0.82rem;
+}
+
+.board-spotlight-toggle-copy span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.2;
+}
+
+.board-spotlight-toggle-icon {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+  flex: none;
+}
+
+.board-spotlight > #board-spotlight-card {
+  inline-size: 100%;
 }
 
 .match-notification-card {
@@ -5018,6 +5094,103 @@ select {
   .tab-panel-shell:not(.mobile) {
     padding-inline: 0.82rem;
     scrollbar-gutter: stable both-edges;
+  }
+
+  .board-spotlight {
+    inset-block-start: 0.7rem;
+    inset-inline-end: 0.7rem;
+    gap: 0.24rem;
+  }
+
+  .board-spotlight.is-open {
+    inline-size: min(12.75rem, calc(100% - 1.35rem));
+  }
+
+  .board-spotlight.is-compact.is-open {
+    inline-size: min(11.2rem, calc(100% - 1.2rem));
+    gap: 0.18rem;
+  }
+
+  .board-spotlight-toggle {
+    padding: 0.34rem 0.42rem;
+    gap: 0.34rem;
+  }
+
+  .board-spotlight-toggle-copy strong {
+    font-size: 0.56rem;
+  }
+
+  .board-spotlight-toggle-copy span {
+    font-size: 0.44rem;
+  }
+
+  .board-spotlight-toggle-icon {
+    inline-size: 1.12rem;
+    block-size: 1.12rem;
+    font-size: 0.76rem;
+  }
+
+  .board-spotlight .match-notification-card.is-hero {
+    gap: 0.24rem;
+    padding: 0.44rem 0.5rem;
+    border-radius: 1rem;
+    box-shadow:
+      0 0.48rem 0.96rem rgba(3, 8, 13, 0.22),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+  }
+
+  .board-spotlight .match-notification-head {
+    gap: 0.3rem;
+    align-items: center;
+  }
+
+  .board-spotlight .eyebrow {
+    font-size: 0.46rem;
+    letter-spacing: 0.14em;
+  }
+
+  .board-spotlight .player-badge,
+  .board-spotlight .player-badge.is-compact {
+    min-block-size: 1.18rem;
+    padding: 0.14rem 0.34rem;
+    font-size: 0.54rem;
+    gap: 0.28rem;
+  }
+
+  .board-spotlight .player-swatch {
+    inline-size: 0.44rem;
+    block-size: 0.44rem;
+    box-shadow:
+      0 0 0 0.08rem var(--player-accent-soft, rgba(255, 255, 255, 0.08)),
+      0 0 0.45rem rgba(0, 0, 0, 0.16);
+  }
+
+  .board-spotlight .match-notification-card strong {
+    font-size: 0.9rem;
+    line-height: 1.05;
+  }
+
+  .board-spotlight .match-notification-detail {
+    font-size: 0.58rem;
+    line-height: 1.22;
+  }
+
+  .board-spotlight .match-notification-badges {
+    gap: 0.18rem 0.22rem;
+  }
+
+  .board-spotlight .match-notification-badge {
+    min-block-size: 1.06rem;
+    padding: 0.08rem 0.28rem;
+    gap: 0.22rem;
+    font-size: 0.54rem;
+    line-height: 1.14;
+  }
+
+  .board-spotlight .match-notification-badge-swatch {
+    inline-size: 0.36rem;
+    block-size: 0.36rem;
+    box-shadow: 0 0 0 0.08rem var(--player-accent-soft, rgba(255, 255, 255, 0.08));
   }
 
   .trade-side-head {

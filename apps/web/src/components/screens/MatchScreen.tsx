@@ -104,6 +104,7 @@ const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
 const AUTO_FOCUS_STORAGE_KEY = "hexagonia:auto-focus";
 const BOARD_LEGEND_STORAGE_KEY = "hexagonia:board-legend";
 const BOARD_HUD_STORAGE_KEY = "hexagonia:board-hud";
+const BOARD_SPOTLIGHT_STORAGE_KEY = "hexagonia:board-spotlight";
 const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
   { resource: "brick", note: "Lehm für Straßen und Siedlungen." },
   { resource: "lumber", note: "Holz für Straßen und Siedlungen." },
@@ -263,6 +264,18 @@ export function MatchScreen(props: {
     }
 
     return window.innerWidth > 1023;
+  });
+  const [boardSpotlightOpen, setBoardSpotlightOpen] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    const stored = window.localStorage.getItem(BOARD_SPOTLIGHT_STORAGE_KEY);
+    if (stored) {
+      return stored === "open";
+    }
+
+    return false;
   });
   const [buildActionTooltip, setBuildActionTooltip] = useState<BuildActionTooltipState | null>(null);
   const latestDiceEvent = useMemo(() => getLatestDiceRollEvent(props.match), [props.match]);
@@ -973,6 +986,14 @@ export function MatchScreen(props: {
 
     window.localStorage.setItem(BOARD_HUD_STORAGE_KEY, boardHudOpen ? "open" : "closed");
   }, [boardHudOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(BOARD_SPOTLIGHT_STORAGE_KEY, boardSpotlightOpen ? "open" : "closed");
+  }, [boardSpotlightOpen]);
 
   useEffect(() => {
     if (!buildActionTooltip) {
@@ -1946,6 +1967,13 @@ export function MatchScreen(props: {
               <>
                 <span className="board-chip">Zug {props.match.turn}</span>
                 <span className="board-chip">{formatPhase(props.match.phase)}</span>
+                {props.selfPlayer ? (
+                  <PlayerColorBadge
+                    color={props.selfPlayer.color}
+                    label={`Du · ${props.selfPlayer.username} · ${renderPlayerColorLabel(props.selfPlayer.color)}`}
+                    compact
+                  />
+                ) : null}
                 {activePlayer ? (
                   <PlayerColorBadge
                     color={activePlayer.color}
@@ -2000,14 +2028,6 @@ export function MatchScreen(props: {
               ) : null}
               {!isMobileViewport || boardHudOpen ? (
                 <div className={`board-hud-panel ${isMobileViewport ? "is-mobile" : ""}`}>
-                  {!isMobileViewport && props.selfPlayer ? (
-                    <div className="board-hud-row">
-                      <PlayerColorBadge
-                        color={props.selfPlayer.color}
-                        label={`Du · ${props.selfPlayer.username} · ${renderPlayerColorLabel(props.selfPlayer.color)}`}
-                      />
-                    </div>
-                  ) : null}
                   <div className="board-hud-row board-hud-resources">
                     {RESOURCES.map((resource) => (
                       <span
@@ -2075,14 +2095,38 @@ export function MatchScreen(props: {
               </div>
             ) : null}
             {!isMobileViewport ? (
-              <div className={`board-spotlight ${isCompactViewport ? "is-compact" : ""}`.trim()}>
-                <MatchNotificationCard
-                  key={`desktop-${displayHeroNotification.key}`}
-                  match={props.match}
-                  notification={displayHeroNotification}
-                  variant="hero"
-                  badgeLimit={isCompactViewport ? 2 : 4}
-                />
+              <div
+                className={`board-spotlight ${isCompactViewport ? "is-compact" : ""} ${
+                  boardSpotlightOpen ? "is-open" : "is-collapsed"
+                }`.trim()}
+              >
+                <button
+                  type="button"
+                  className={`board-spotlight-toggle ${boardSpotlightOpen ? "is-open" : ""}`}
+                  aria-expanded={boardSpotlightOpen}
+                  aria-controls="board-spotlight-card"
+                  aria-label={boardSpotlightOpen ? "Info schließen" : "Info öffnen"}
+                  onClick={() => setBoardSpotlightOpen((current) => !current)}
+                >
+                  <span className="board-spotlight-toggle-copy">
+                    <strong>Info</strong>
+                    <span>{displayHeroNotification.label}</span>
+                  </span>
+                  <span className="board-spotlight-toggle-icon" aria-hidden="true">
+                    i
+                  </span>
+                </button>
+                {boardSpotlightOpen ? (
+                  <div id="board-spotlight-card">
+                    <MatchNotificationCard
+                      key={`desktop-${displayHeroNotification.key}`}
+                      match={props.match}
+                      notification={displayHeroNotification}
+                      variant="hero"
+                      badgeLimit={isCompactViewport ? 2 : 4}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <div

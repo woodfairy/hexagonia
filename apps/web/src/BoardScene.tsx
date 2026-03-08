@@ -210,6 +210,8 @@ interface ReliefAnchorOptions {
   stretchZ?: number;
   candidatesPerAnchor?: number;
   radialWeight?: number;
+  clearanceFootprintMultiplier?: number;
+  edgePadding?: number;
 }
 
 interface TileDecorationOptions {
@@ -1046,6 +1048,7 @@ export function BoardScene(props: BoardSceneProps) {
             verticesById,
             boardEdges: props.snapshot.board.edges,
             boardVertices: props.snapshot.board.vertices,
+            boardPorts: props.snapshot.board.ports,
             active: false,
             textured: useTexturedTiles,
             ...(useTexturedTiles ? { terrainBundle: texturedTerrainBundles.get(tile.resource)! } : {}),
@@ -1940,13 +1943,15 @@ function appendTileDecorations(
   terrainSurface: TileTerrainSurfaceBundle | null
 ): void {
   if (options.includeTerrainRelief && terrainSurface) {
+    applyTileObjectClipPlanes(terrainSurface.object, tile, verticesById);
     tileGroup.add(terrainSurface.object);
   }
 
   if (options.includeProps) {
     const propGroup = createLandingFancyTileProps(tile.resource);
+    applyMatchTilePropPlacement(propGroup, tile, verticesById);
     propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
-    propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.86);
+    propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.74);
     applyTileObjectClipPlanes(propGroup, tile, verticesById);
     propGroup.traverse((entry) => {
       entry.userData.castTileShadow = true;
@@ -1957,7 +1962,6 @@ function appendTileDecorations(
   if (options.includeObjects) {
     const objectGroup = createUltraTerrainRelief(tile, verticesById, active, "terrain");
     objectGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.018;
-    applyTileObjectClipPlanes(objectGroup, tile, verticesById);
     objectGroup.traverse((entry) => {
       entry.userData.castTileShadow = true;
     });
@@ -1992,6 +1996,32 @@ function applyTileObjectClipPlanes(root: THREE.Object3D, tile: BoardTile, vertic
       ? entry.material.map((material) => getClippedMaterial(material))
       : getClippedMaterial(entry.material);
   });
+}
+
+function applyMatchTilePropPlacement(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {
+  const random = createTileRandom(`${tile.id}:${tile.resource}:match-props`);
+  const anchors = createReliefAnchors(tile, verticesById, 1, 1.62, 2.36, 1, 1, "match-props", {
+    occupied: createReliefOccupancy(1.62),
+    minGap: 0.42,
+    footprintScale: 1.34,
+    radialBias: 0.9,
+    stretchZ: 0.96,
+    candidatesPerAnchor: 30,
+    radialWeight: 0.42,
+    clearanceFootprintMultiplier: 1.3,
+    edgePadding: 0.2
+  });
+  const anchor = anchors[0];
+  if (!anchor) {
+    root.position.set(0, root.position.y, -1.76);
+    root.rotation.y = Math.PI;
+    return;
+  }
+
+  const outwardAngle = Math.atan2(anchor.z, anchor.x);
+  root.position.x = anchor.x;
+  root.position.z = anchor.z;
+  root.rotation.y = outwardAngle + Math.PI + (random() - 0.5) * 0.22;
 }
 
 function createTileClipPlanes(tile: BoardTile, verticesById: BoardVerticesById): THREE.Plane[] {
@@ -4619,6 +4649,8 @@ function createReliefAnchors(
   const stretchZ = options.stretchZ ?? 0.9;
   const candidatesPerAnchor = options.candidatesPerAnchor ?? 12;
   const radialWeight = options.radialWeight ?? 0.1;
+  const clearanceFootprintMultiplier = options.clearanceFootprintMultiplier ?? 1.16;
+  const edgePadding = options.edgePadding ?? Math.max(minGap * 0.2, 0.08);
   const softenedMinRadius = minRadius * (0.14 + radialBias * 0.18);
   const candidateBudget = Math.max(Math.round(candidatesPerAnchor * (1.7 + radialBias * 0.35)), candidatesPerAnchor);
 
@@ -4628,13 +4660,14 @@ function createReliefAnchors(
     for (let candidateIndex = 0; candidateIndex < candidateBudget; candidateIndex += 1) {
       const scale = minScale + random() * (maxScale - minScale);
       const footprint = Math.max(scale * footprintScale, 0.12);
+      const clearanceFootprint = footprint * clearanceFootprintMultiplier;
       const x = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, random());
       const z = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, random());
       if (!isPointInReliefPolygon(x, z, polygon.points)) {
         continue;
       }
 
-      const edgeClearance = getReliefPolygonEdgeClearance(x, z, polygon.points) - footprint - Math.max(minGap * 0.08, 0.03);
+      const edgeClearance = getReliefPolygonEdgeClearance(x, z, polygon.points) - clearanceFootprint - edgePadding;
       if (edgeClearance < 0) {
         continue;
       }
@@ -4642,7 +4675,7 @@ function createReliefAnchors(
       let nearestClearance = Number.POSITIVE_INFINITY;
 
       for (const area of occupied) {
-        const clearance = Math.hypot(x - area.x, z - area.z) - area.radius - footprint;
+        const clearance = Math.hypot(x - area.x, z - area.z) - area.radius - clearanceFootprint;
         if (clearance < nearestClearance) {
           nearestClearance = clearance;
         }
@@ -4693,7 +4726,7 @@ function createReliefAnchors(
       occupied.push({
         x: chosen.x,
         z: chosen.z,
-        radius: chosen.footprint + Math.max(minGap * 0.08, 0.03)
+        radius: chosen.footprint * clearanceFootprintMultiplier + edgePadding * 0.5
       });
     }
   }
