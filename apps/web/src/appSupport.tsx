@@ -46,6 +46,234 @@ export function StatusSurface(props: { title: string; text: string }) {
   );
 }
 
+export function AppHeaderSkeleton(props: { eyebrow: string }) {
+  return (
+    <header className="app-header app-header-skeleton" aria-hidden="true">
+      <div className="brand-cluster">
+        <div className="brand-mark app-skeleton-brand-mark" />
+        <div className="brand-copy">
+          <span className="eyebrow">{props.eyebrow}</span>
+          <div className="brand-title-row">
+            <span className="skeleton-shape app-skeleton-title" />
+            <span className="skeleton-shape app-skeleton-meta" />
+          </div>
+        </div>
+      </div>
+
+      <div className="header-utilities">
+        <div className="connection-indicator app-skeleton-connection">
+          <span className="connection-dot" aria-hidden="true" />
+          <span className="skeleton-shape app-skeleton-connection-label" />
+        </div>
+        <div className="profile-trigger app-skeleton-profile">
+          <span className="profile-avatar" aria-hidden="true">
+            <span className="skeleton-shape app-skeleton-avatar-core" />
+          </span>
+          <span className="profile-trigger-copy">
+            <span className="skeleton-shape app-skeleton-profile-name" />
+            <span className="skeleton-shape app-skeleton-profile-role" />
+          </span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export function DeepLinkBootSkeleton(props: {
+  kind: "home" | "room" | "invite" | "match" | "admin";
+}) {
+  if (props.kind === "match") {
+    return (
+      <section className="screen-shell match-shell deep-link-boot-shell" aria-busy="true" aria-live="polite">
+        <div className="match-screen deep-link-match-skeleton">
+          <div className="match-stage">
+            <div className="board-topbar deep-link-skeleton-topbar">
+              <span className="skeleton-shape deep-link-chip" />
+              <span className="skeleton-shape deep-link-chip is-wide" />
+              <span className="skeleton-shape deep-link-chip" />
+            </div>
+            <article className="surface deep-link-board-skeleton">
+              <div className="deep-link-board-glow" />
+              <div className="deep-link-board-hex-row is-top">
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+              </div>
+              <div className="deep-link-board-hex-row is-mid">
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+              </div>
+              <div className="deep-link-board-hex-row is-bottom">
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+                <span className="skeleton-shape deep-link-board-hex" />
+              </div>
+            </article>
+            <div className="board-bottom-hint deep-link-skeleton-bottom">
+              <span className="skeleton-shape deep-link-line is-short" />
+            </div>
+          </div>
+
+          <aside className="surface match-dock deep-link-dock-skeleton">
+            <div className="match-dock-head">
+              <div className="match-dock-head-copy">
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-medium" />
+              </div>
+              <div className="match-dock-context">
+                <span className="skeleton-shape deep-link-chip" />
+                <span className="skeleton-shape deep-link-chip" />
+              </div>
+            </div>
+            <div className="dock-card-grid">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="mini-card deep-link-mini-card">
+                  <span className="skeleton-shape deep-link-line is-short" />
+                  <span className="skeleton-shape deep-link-line is-tiny" />
+                </div>
+              ))}
+            </div>
+            <div className="quick-action-grid">
+              <span className="skeleton-shape deep-link-button" />
+              <span className="skeleton-shape deep-link-button" />
+              <span className="skeleton-shape deep-link-button" />
+            </div>
+            <div className="dock-section">
+              <span className="skeleton-shape deep-link-line is-short" />
+              <span className="skeleton-shape deep-link-line" />
+              <span className="skeleton-shape deep-link-line is-medium" />
+              <span className="skeleton-shape deep-link-line" />
+            </div>
+          </aside>
+        </div>
+      </section>
+    );
+  }
+
+  if (props.kind === "admin") {
+    return (
+      <section className="screen-shell admin-shell deep-link-boot-shell" aria-busy="true" aria-live="polite">
+        <article className="surface action-surface deep-link-admin-main">
+          <span className="skeleton-shape deep-link-line is-short" />
+          <span className="skeleton-shape deep-link-line is-medium" />
+          <div className="dock-card-grid">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="summary-card deep-link-mini-card">
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-tiny" />
+              </div>
+            ))}
+          </div>
+        </article>
+        <div className="admin-side-stack">
+          <article className="surface status-surface deep-link-admin-side">
+            <span className="skeleton-shape deep-link-line is-short" />
+            <span className="skeleton-shape deep-link-line" />
+            <span className="skeleton-shape deep-link-button" />
+          </article>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="screen-shell room-shell deep-link-boot-shell" aria-busy="true" aria-live="polite">
+      <div className="room-main-grid deep-link-room-skeleton">
+        <article className="surface room-hero">
+          <div className="surface-head room-surface-head">
+            <div className="room-title-stack">
+              <span className="skeleton-shape deep-link-line is-short" />
+              <div className="room-code-row">
+                <span className="skeleton-shape deep-link-room-code" />
+                <span className="skeleton-shape deep-link-chip" />
+              </div>
+              <span className="skeleton-shape deep-link-line is-medium" />
+            </div>
+            <div className="room-share-actions">
+              <span className="skeleton-shape deep-link-button is-compact" />
+              <span className="skeleton-shape deep-link-button is-compact" />
+            </div>
+          </div>
+
+          <div className="room-meta-strip">
+            <span className="skeleton-shape deep-link-chip" />
+            <span className="skeleton-shape deep-link-chip" />
+            <span className="skeleton-shape deep-link-chip is-wide" />
+            <span className="skeleton-shape deep-link-chip is-wide" />
+          </div>
+
+          <div className="seat-grid">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <article key={index} className="seat-card deep-link-seat-card">
+                <div className="seat-card-head">
+                  <div className="seat-slot-meta">
+                    <span className="skeleton-shape deep-link-chip" />
+                    <span className="skeleton-shape deep-link-chip is-short" />
+                  </div>
+                </div>
+                <div className="seat-card-identity deep-link-seat-identity">
+                  <span className="skeleton-shape deep-link-seat-avatar" />
+                  <div className="seat-identity-copy">
+                    <span className="skeleton-shape deep-link-line is-short" />
+                    <span className="skeleton-shape deep-link-line is-tiny" />
+                  </div>
+                </div>
+                <div className="seat-card-state">
+                  <span className="skeleton-shape deep-link-line is-short" />
+                </div>
+                <div className="seat-card-detail">
+                  <span className="skeleton-shape deep-link-line is-medium" />
+                </div>
+                <div className="seat-card-action">
+                  <span className="skeleton-shape deep-link-button" />
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
+
+        <div className="room-side-stack">
+          <article className="surface room-control-card">
+            <span className="skeleton-shape deep-link-line is-short" />
+            <span className="skeleton-shape deep-link-line is-medium" />
+            <div className="room-action-stack">
+              <span className="skeleton-shape deep-link-button" />
+              <span className="skeleton-shape deep-link-button" />
+            </div>
+            <span className="skeleton-shape deep-link-line" />
+            <div className="room-settings-block">
+              <div className="room-setting-head">
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-short" />
+              </div>
+              <span className="skeleton-shape deep-link-segmented" />
+              <span className="skeleton-shape deep-link-line" />
+            </div>
+            <div className="room-settings-block">
+              <div className="room-setting-head">
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-short" />
+              </div>
+              <span className="skeleton-shape deep-link-segmented" />
+              <span className="skeleton-shape deep-link-line is-medium" />
+            </div>
+            <div className="room-settings-block">
+              <div className="room-setting-head">
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-short" />
+              </div>
+              <span className="skeleton-shape deep-link-segmented is-short" />
+              <span className="skeleton-shape deep-link-segmented is-medium" />
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function sendMessage(socket: WebSocket, message: ClientMessage) {
   socket.send(JSON.stringify(message));
 }

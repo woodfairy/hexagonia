@@ -1588,6 +1588,258 @@ select {
   align-content: center;
 }
 
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-shape,
+.app-skeleton-brand-mark,
+.app-skeleton-avatar-core,
+.deep-link-board-skeleton {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.45s ease-in-out infinite;
+}
+
+.app-header-skeleton,
+.deep-link-boot-shell {
+  pointer-events: none;
+}
+
+.app-header-skeleton .eyebrow {
+  color: rgba(226, 216, 255, 0.78);
+}
+
+.app-skeleton-brand-mark {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+}
+
+.app-skeleton-title {
+  inline-size: clamp(10rem, 25vw, 16rem);
+  block-size: 1.5rem;
+  border-radius: 0.7rem;
+}
+
+.app-skeleton-meta {
+  inline-size: clamp(7rem, 16vw, 11rem);
+  block-size: 0.92rem;
+  border-radius: 0.55rem;
+}
+
+.app-skeleton-connection {
+  color: rgba(255, 214, 140, 0.9);
+}
+
+.app-skeleton-connection-label {
+  inline-size: 3.8rem;
+  block-size: 0.82rem;
+  border-radius: 0.55rem;
+}
+
+.app-skeleton-profile .profile-avatar {
+  background: linear-gradient(135deg, rgba(244, 202, 124, 0.2), rgba(135, 167, 213, 0.2));
+}
+
+.app-skeleton-avatar-core {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+}
+
+.app-skeleton-profile-name {
+  inline-size: 4.9rem;
+  block-size: 0.9rem;
+  border-radius: 0.55rem;
+}
+
+.app-skeleton-profile-role {
+  inline-size: 6rem;
+  block-size: 0.72rem;
+  border-radius: 0.55rem;
+}
+
+.deep-link-line {
+  inline-size: 100%;
+  max-inline-size: 22rem;
+  block-size: 0.96rem;
+  border-radius: 0.6rem;
+}
+
+.deep-link-line.is-short {
+  max-inline-size: 7rem;
+}
+
+.deep-link-line.is-medium {
+  max-inline-size: 14rem;
+}
+
+.deep-link-line.is-tiny {
+  max-inline-size: 5rem;
+  block-size: 0.8rem;
+}
+
+.deep-link-chip {
+  inline-size: 6.4rem;
+  block-size: 2.05rem;
+  border-radius: var(--radius-pill);
+}
+
+.deep-link-chip.is-wide {
+  inline-size: 8.8rem;
+}
+
+.deep-link-chip.is-short {
+  inline-size: 4.3rem;
+}
+
+.deep-link-button {
+  display: block;
+  inline-size: 100%;
+  block-size: 3.15rem;
+  border-radius: var(--radius-pill);
+}
+
+.deep-link-button.is-compact {
+  inline-size: 10.25rem;
+}
+
+.deep-link-room-code {
+  inline-size: clamp(10rem, 22vw, 14rem);
+  block-size: clamp(3rem, 5vw, 4rem);
+  border-radius: 1rem;
+}
+
+.deep-link-segmented {
+  display: block;
+  inline-size: min(100%, 16.8rem);
+  block-size: 3.2rem;
+  border-radius: var(--radius-pill);
+}
+
+.deep-link-segmented.is-short {
+  inline-size: min(100%, 13.2rem);
+}
+
+.deep-link-segmented.is-medium {
+  inline-size: min(100%, 15.6rem);
+}
+
+.deep-link-seat-card {
+  overflow: hidden;
+}
+
+.deep-link-seat-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+}
+
+.deep-link-seat-avatar {
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 999px;
+}
+
+.deep-link-match-skeleton .match-stage,
+.deep-link-dock-skeleton,
+.deep-link-room-skeleton .room-hero,
+.deep-link-room-skeleton .room-control-card,
+.deep-link-admin-main,
+.deep-link-admin-side {
+  overflow: hidden;
+}
+
+.deep-link-skeleton-topbar,
+.deep-link-skeleton-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-stack-tight);
+}
+
+.deep-link-board-skeleton {
+  position: relative;
+  min-block-size: clamp(24rem, 56vh, 38rem);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-surface);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(181, 150, 255, 0.15), transparent 40%),
+    linear-gradient(180deg, rgba(9, 17, 26, 0.96), rgba(12, 24, 37, 0.88));
+}
+
+.deep-link-board-glow {
+  position: absolute;
+  inset: 12% 18%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(109, 176, 255, 0.14), transparent 68%);
+  filter: blur(28px);
+}
+
+.deep-link-board-hex-row {
+  position: relative;
+  display: flex;
+  gap: 0.9rem;
+}
+
+.deep-link-board-hex-row.is-mid {
+  margin-inline-start: 0;
+}
+
+.deep-link-board-hex-row.is-top,
+.deep-link-board-hex-row.is-bottom {
+  margin-inline-start: 3rem;
+}
+
+.deep-link-board-hex {
+  inline-size: clamp(4.8rem, 8vw, 6.6rem);
+  block-size: clamp(5.2rem, 8.8vw, 7rem);
+  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%);
+  border-radius: 0.85rem;
+  opacity: 0.9;
+}
+
+.deep-link-dock-skeleton {
+  display: grid;
+  gap: var(--gap-stack);
+}
+
+.deep-link-mini-card {
+  display: grid;
+  gap: var(--gap-stack-tight);
+}
+
+.deep-link-admin-main,
+.deep-link-admin-side {
+  display: grid;
+  gap: var(--gap-stack);
+  align-content: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shape,
+  .app-skeleton-brand-mark,
+  .app-skeleton-avatar-core,
+  .deep-link-board-skeleton {
+    animation: none;
+  }
+}
+
 .match-shell {
   overflow: hidden;
 }

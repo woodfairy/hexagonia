@@ -50,6 +50,8 @@ import {
 import { uiHapticsManager } from "./audio/uiHapticsManager";
 import { bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
 import {
+  AppHeaderSkeleton,
+  DeepLinkBootSkeleton,
   getActionableTradeCount,
   getMatchActionConfirmation,
   getNextAdminUserDraft,
@@ -1978,28 +1980,20 @@ export function App() {
   }, [isGuestLanding]);
 
   if (isBootingDeepLink) {
-    const statusTitle =
-      route.kind === "match"
-        ? "Partie wird verbunden"
-        : route.kind === "admin"
-          ? "Adminbereich wird geladen"
-          : route.kind === "invite"
-            ? "Einladung wird geprueft"
-            : "Raum wird geladen";
-    const statusText =
-      route.kind === "match"
-        ? "Hexagonia verbindet die laufende Partie mit deiner Sitzung."
-        : route.kind === "admin"
-          ? "Hexagonia prueft deine Sitzung fuer den Adminbereich."
-          : route.kind === "invite"
-            ? "Hexagonia prueft die Einladung und verbindet sie mit deiner Sitzung."
-            : "Hexagonia verbindet den privaten Raum mit deiner Sitzung.";
-
     return (
       <>
-        <main className="app-shell">
+        <main className={`app-shell ${route.kind === "match" ? "is-match-screen" : ""}`.trim()}>
+          <AppHeaderSkeleton
+            eyebrow={
+              route.kind === "match"
+                ? "Laufende Partie"
+                : route.kind === "admin"
+                  ? "Administration"
+                  : "Privater Raum"
+            }
+          />
           <div className="app-stage">
-            <StatusSurface title={statusTitle} text={statusText} />
+            <DeepLinkBootSkeleton kind={route.kind} />
           </div>
         </main>
         <ToastStack onDismiss={removeToast} toasts={toasts} />
