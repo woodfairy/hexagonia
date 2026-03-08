@@ -504,7 +504,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
           entry.baseOpacity + (props.reducedMotion ? 0 : (Math.sin(elapsed * entry.speed + index * 0.7) + 1) * 0.05);
       });
 
-      outerRing.rotation.z = elapsed * 0.045 * motionScale;
+      haloRing.rotation.z = elapsed * 0.045 * motionScale;
       stars.rotation.y = elapsed * 0.025 * motionScale;
 
       if (!isUserInteracting) {
