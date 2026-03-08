@@ -204,7 +204,16 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
   const vertexKey = board.vertices.map((vertex) => `${vertex.id}:${vertex.x.toFixed(3)}:${vertex.y.toFixed(3)}`).join("|");
   const edgeKey = board.edges.map((edge) => `${edge.id}:${edge.vertexIds.join(",")}:${edge.tileIds.join(",")}`).join("|");
   const portKey = board.ports.map((port) => `${port.id}:${port.type}:${port.edgeId}`).join("|");
-  return [tileKey, vertexKey, edgeKey, portKey, visualSettings.textures, visualSettings.props, visualSettings.terrainRelief].join("~");
+  return [
+    tileKey,
+    vertexKey,
+    edgeKey,
+    portKey,
+    visualSettings.textures,
+    visualSettings.props,
+    visualSettings.terrainRelief,
+    visualSettings.resourceIcons
+  ].join("~");
 }
 
 function createDynamicBoardKey(
@@ -957,7 +966,7 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(outline);
 
       if (tile.token !== null) {
-        const tokenSprite = createTokenSprite(tile.resource, tile.token, false);
+        const tokenSprite = createTokenSprite(tile.resource, tile.token, false, props.visualSettings.resourceIcons);
         tokenSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
         tokenSprite.visible = !tile.robber;
         staticTokenSpritesRef.current.set(tile.id, tokenSprite);
@@ -1059,7 +1068,7 @@ export function BoardScene(props: BoardSceneProps) {
           baseTokenSprite.visible = false;
         }
 
-        const robberSprite = createTokenSprite(tile.resource, tile.token, true);
+        const robberSprite = createTokenSprite(tile.resource, tile.token, true, props.visualSettings.resourceIcons);
         robberSprite.position.set(tile.x, TILE_HEIGHT + 0.72, tile.y);
         group.add(robberSprite);
       }
@@ -1350,8 +1359,13 @@ function createVertexMarker(): THREE.Mesh {
   );
 }
 
-function createTokenSprite(resource: Resource | "desert", token: number | null, robber: boolean): THREE.Sprite {
-  const materialKey = `${resource}:${token ?? "x"}:${robber ? 1 : 0}`;
+function createTokenSprite(
+  resource: Resource | "desert",
+  token: number | null,
+  robber: boolean,
+  showResourceIcon: boolean
+): THREE.Sprite {
+  const materialKey = `${resource}:${token ?? "x"}:${robber ? 1 : 0}:${showResourceIcon ? 1 : 0}`;
   const cachedMaterial = tokenSpriteMaterialCache.get(materialKey);
   if (cachedMaterial) {
     const sprite = new THREE.Sprite(cachedMaterial);
@@ -1380,20 +1394,22 @@ function createTokenSprite(resource: Resource | "desert", token: number | null, 
   context.strokeStyle = robber ? "#f3cf83" : "#6b4a1b";
   context.stroke();
 
-  context.beginPath();
-  context.fillStyle = resourceBadgeFill;
-  context.arc(center, 69, 36, 0, Math.PI * 2);
-  context.shadowColor = "rgba(5, 10, 15, 0.34)";
-  context.shadowBlur = 12;
-  context.shadowOffsetY = 2;
-  context.fill();
-  context.shadowColor = "transparent";
-  context.shadowBlur = 0;
-  context.shadowOffsetY = 0;
-  context.lineWidth = 5;
-  context.strokeStyle = resourceBadgeStroke;
-  context.stroke();
-  drawResourceIcon(context, resource, center, 69, 42, resourceIconColor);
+  if (showResourceIcon) {
+    context.beginPath();
+    context.fillStyle = resourceBadgeFill;
+    context.arc(center, 69, 36, 0, Math.PI * 2);
+    context.shadowColor = "rgba(5, 10, 15, 0.34)";
+    context.shadowBlur = 12;
+    context.shadowOffsetY = 2;
+    context.fill();
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
+    context.shadowOffsetY = 0;
+    context.lineWidth = 5;
+    context.strokeStyle = resourceBadgeStroke;
+    context.stroke();
+    drawResourceIcon(context, resource, center, 69, 42, resourceIconColor);
+  }
 
   if (token !== null) {
     context.fillStyle = token === 6 || token === 8 ? "#b83e2f" : "#203240";

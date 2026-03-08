@@ -2669,20 +2669,16 @@ function createOwnActionCameraCue(
   }
 
   if (match.allowedMoves.initialSettlementVertexIds.length > 0) {
-    const [vertexId] = match.allowedMoves.initialSettlementVertexIds;
-    if (!vertexId) {
-      return null;
-    }
-
     return {
-      key: `camera-initial-settlement-${match.version}-${vertexId}`,
+      key: `camera-initial-settlement-${match.version}-${match.allowedMoves.initialSettlementVertexIds.join(",")}`,
       mode: "action",
       title: "Setze deine Start-Siedlung",
       detail: "Die Kamera startet auf einem gültigen Startplatz.",
-      vertexIds: [vertexId],
+      vertexIds: match.allowedMoves.initialSettlementVertexIds,
       edgeIds: [],
       tileIds: [],
-      scale: "tight"
+      scale: "wide",
+      zoomPreset: "distribution"
     };
   }
 

@@ -165,13 +165,13 @@ function createNotification(context: NotificationBuildContext, event: MatchEvent
     case "match_started":
       return createMatchStartedNotification(context.currentMatch, event, context.viewerId);
     case "initial_settlement_placed":
-      return createSettlementNotification(context.currentMatch, event, true);
+      return createSettlementNotification(context.currentMatch, event, context.viewerId, true);
     case "settlement_built":
-      return createSettlementNotification(context.currentMatch, event, false);
+      return createSettlementNotification(context.currentMatch, event, context.viewerId, false);
     case "initial_road_placed":
-      return createRoadNotification(context.currentMatch, event, true);
+      return createRoadNotification(context.currentMatch, event, context.viewerId, context.previousMatch, true);
     case "road_built":
-      return createRoadNotification(context.currentMatch, event, false);
+      return createRoadNotification(context.currentMatch, event, context.viewerId, context.previousMatch, false);
     case "city_built":
       return createCityNotification(context.currentMatch, event);
     case "initial_resources_granted":
@@ -243,18 +243,26 @@ function createMatchStartedNotification(match: MatchSnapshot, event: MatchEvent,
   });
 }
 
-function createSettlementNotification(match: MatchSnapshot, event: MatchEvent, initial: boolean): MatchNotification | null {
+function createSettlementNotification(
+  match: MatchSnapshot,
+  event: MatchEvent,
+  viewerId: string,
+  initial: boolean
+): MatchNotification | null {
   const vertexId = getPayloadString(event.payload, "vertexId");
   if (!vertexId) {
     return createFallbackNotification(match, event);
   }
 
+  const followUp = initial ? describeInitialSettlementFollowUp(match, viewerId) : null;
   return createBaseNotification(match, event, {
     label: initial ? "Startaufbau" : "Bau",
     title: initial
-      ? getPlayerPredicate(match, match.you, event.byPlayerId, "setzt eine Start-Siedlung")
-      : getPlayerPredicate(match, match.you, event.byPlayerId, "baut eine Siedlung", "baust eine Siedlung"),
-    detail: initial ? "Der neue Startplatz ist auf dem Brett markiert." : "Der neue Siedlungsplatz ist auf dem Brett markiert.",
+      ? getPlayerPredicate(match, viewerId, event.byPlayerId, "setzt eine Start-Siedlung")
+      : getPlayerPredicate(match, viewerId, event.byPlayerId, "baut eine Siedlung", "baust eine Siedlung"),
+    detail: followUp?.detail ?? (initial ? "Der neue Startplatz ist auf dem Brett markiert." : "Der neue Siedlungsplatz ist auf dem Brett markiert."),
+    badges: followUp?.badges,
+    ...(followUp?.accentPlayerId ? { accentPlayerId: followUp.accentPlayerId } : {}),
     cue: {
       key: `event-${event.id}-${vertexId}`,
       mode: "event",
@@ -269,13 +277,20 @@ function createSettlementNotification(match: MatchSnapshot, event: MatchEvent, i
   });
 }
 
-function createRoadNotification(match: MatchSnapshot, event: MatchEvent, initial: boolean): MatchNotification | null {
+function createRoadNotification(
+  match: MatchSnapshot,
+  event: MatchEvent,
+  viewerId: string,
+  previousMatch: MatchSnapshot | null,
+  initial: boolean
+): MatchNotification | null {
   const edgeId = getPayloadString(event.payload, "edgeId");
   if (!edgeId) {
     return createFallbackNotification(match, event);
   }
 
   const freeBuild = getPayloadBoolean(event.payload, "freeBuild");
+  const followUp = initial ? describeInitialRoadFollowUp(match, previousMatch, viewerId, event.byPlayerId) : null;
   const title = initial
     ? getPlayerPredicate(match, match.you, event.byPlayerId, "setzt eine Start-Straße")
     : freeBuild

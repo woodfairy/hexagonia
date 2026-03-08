@@ -61,6 +61,62 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
         </div>
       </div>
       <div className="profile-dropdown-actions">
+        <div className="profile-music-panel">
+          <div className="profile-music-copy">
+            <strong>Musikplayer</strong>
+            <span>{musicSummary}</span>
+          </div>
+          <label className="profile-music-select-shell">
+            <span>Modus</span>
+            <select
+              value={props.musicPlaybackMode}
+              onChange={(event) => props.onMusicPlaybackModeChange(event.target.value as MusicPlaybackMode)}
+              disabled={props.musicTracks.length === 0}
+            >
+              <option value="single">Ein Song loopen</option>
+              <option value="cycle">Alle Songs abwechselnd</option>
+            </select>
+          </label>
+          <label className="profile-music-select-shell">
+            <span>{props.musicPlaybackMode === "cycle" ? "Aktueller Song" : "Song"}</span>
+            <select
+              value={props.selectedMusicTrackId ?? ""}
+              onChange={(event) => props.onSelectMusicTrack(event.target.value)}
+              disabled={props.musicTracks.length === 0}
+            >
+              {props.musicTracks.length === 0 ? (
+                <option value="">Keine Songs gefunden</option>
+              ) : (
+                props.musicTracks.map((track) => (
+                  <option key={track.id} value={track.id}>
+                    {track.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          <button
+            type="button"
+            className={`menu-action menu-toggle-action profile-music-toggle ${props.musicPaused ? "is-muted" : "is-active"}`}
+            aria-pressed={!props.musicPaused}
+            onClick={() => props.onToggleMusicPaused()}
+            disabled={props.musicTracks.length === 0}
+          >
+            <span className="menu-toggle-copy">
+              <strong>{props.musicPaused ? "Musik starten" : "Musik pausieren"}</strong>
+              <span>
+                {props.musicPlaybackMode === "cycle"
+                  ? selectedMusicTrack
+                    ? `Gerade: ${selectedMusicTrack.name}`
+                    : "Keine Songs verfuegbar"
+                  : selectedMusicTrack?.name ?? "Keine Songs verfuegbar"}
+              </span>
+            </span>
+            <span className={`status-pill ${props.musicPaused ? "muted" : ""}`}>
+              {props.musicPaused ? "Pausiert" : props.musicPlaybackMode === "cycle" ? "Playlist" : "Loop"}
+            </span>
+          </button>
+        </div>
         <button
           type="button"
           className={`menu-action menu-toggle-action ${props.soundMuted ? "is-muted" : "is-active"}`}
@@ -117,67 +173,25 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
                 <strong>3D-Terrain</strong>
                 <span>Berge, Baume, Duenen und andere Hoehenformen kommen oben drauf.</span>
               </span>
-              <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>
-                {props.boardVisualSettings.terrainRelief ? "An" : "Aus"}
-              </span>
-            </button>
+                <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>
+                  {props.boardVisualSettings.terrainRelief ? "An" : "Aus"}
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`menu-action menu-toggle-action ${props.boardVisualSettings.resourceIcons ? "is-active" : "is-muted"}`}
+                aria-pressed={props.boardVisualSettings.resourceIcons}
+                onClick={() => toggleBoardVisualSetting("resourceIcons")}
+              >
+                <span className="menu-toggle-copy">
+                  <strong>Ressourcen-Icons</strong>
+                  <span>Zeigt die Ressourcensymbole direkt auf den Feldmarkern an.</span>
+                </span>
+                <span className={`status-pill ${props.boardVisualSettings.resourceIcons ? "" : "muted"}`}>
+                  {props.boardVisualSettings.resourceIcons ? "An" : "Aus"}
+                </span>
+              </button>
           </div>
-        </div>
-        <div className="profile-music-panel">
-          <div className="profile-music-copy">
-            <strong>Musikplayer</strong>
-            <span>{musicSummary}</span>
-          </div>
-          <label className="profile-music-select-shell">
-            <span>Modus</span>
-            <select
-              value={props.musicPlaybackMode}
-              onChange={(event) => props.onMusicPlaybackModeChange(event.target.value as MusicPlaybackMode)}
-              disabled={props.musicTracks.length === 0}
-            >
-              <option value="single">Ein Song loopen</option>
-              <option value="cycle">Alle Songs abwechselnd</option>
-            </select>
-          </label>
-          <label className="profile-music-select-shell">
-            <span>{props.musicPlaybackMode === "cycle" ? "Aktueller Song" : "Song"}</span>
-            <select
-              value={props.selectedMusicTrackId ?? ""}
-              onChange={(event) => props.onSelectMusicTrack(event.target.value)}
-              disabled={props.musicTracks.length === 0}
-            >
-              {props.musicTracks.length === 0 ? (
-                <option value="">Keine Songs gefunden</option>
-              ) : (
-                props.musicTracks.map((track) => (
-                  <option key={track.id} value={track.id}>
-                    {track.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-          <button
-            type="button"
-            className={`menu-action menu-toggle-action profile-music-toggle ${props.musicPaused ? "is-muted" : "is-active"}`}
-            aria-pressed={!props.musicPaused}
-            onClick={() => props.onToggleMusicPaused()}
-            disabled={props.musicTracks.length === 0}
-          >
-            <span className="menu-toggle-copy">
-              <strong>{props.musicPaused ? "Musik starten" : "Musik pausieren"}</strong>
-              <span>
-                {props.musicPlaybackMode === "cycle"
-                  ? selectedMusicTrack
-                    ? `Gerade: ${selectedMusicTrack.name}`
-                    : "Keine Songs verfuegbar"
-                  : selectedMusicTrack?.name ?? "Keine Songs verfuegbar"}
-              </span>
-            </span>
-            <span className={`status-pill ${props.musicPaused ? "muted" : ""}`}>
-              {props.musicPaused ? "Pausiert" : props.musicPlaybackMode === "cycle" ? "Playlist" : "Loop"}
-            </span>
-          </button>
         </div>
         <button
           type="button"
