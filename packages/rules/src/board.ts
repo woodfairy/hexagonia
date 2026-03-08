@@ -1,4 +1,4 @@
-import type { EdgeView, PortType, PortView, Resource, SetupMode, TileView, VertexView } from "@hexagonia/shared";
+import type { EdgeView, GameConfig, PortType, PortView, Resource, TileView, VertexView } from "@hexagonia/shared";
 import { SeededRandom } from "./random.js";
 
 export interface GeneratedBoard {
@@ -106,8 +106,9 @@ const OFFICIAL_PORT_SLOT_EDGE_INDICES = [0, 3, 6, 10, 13, 16, 20, 23, 26] as con
 
 export function generateBaseBoard(
   seed: string,
-  setupMode: SetupMode = "official_variable"
+  gameConfig: GameConfig
 ): GeneratedBoard {
+  const setupMode = gameConfig.setupMode;
   const rng = new SeededRandom(seed);
   const tileCoords = createRadiusTwoCoords();
   const vertexByKey = new Map<string, MutableVertex>();

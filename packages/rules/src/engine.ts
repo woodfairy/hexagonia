@@ -3,7 +3,9 @@ import type {
   AllowedMoves,
   DevelopmentCardType,
   EdgeView,
+  GameConfig,
   MatchEvent,
+  MatchEventInput,
   MatchPhase,
   MatchSnapshot,
   PlayerColor,
@@ -11,13 +13,14 @@ import type {
   Resource,
   ResourceMap,
   RoomDetails,
-  SetupMode,
-  StartingPlayerMode,
+  StartingPlayerRollRound,
+  StartingPlayerRollResult,
   TileView,
   TradeOfferView,
   VertexView
 } from "@hexagonia/shared";
 import {
+  BUILD_COSTS,
   DEVELOPMENT_CARD_TYPES,
   RESOURCES,
   addResources,
@@ -30,6 +33,7 @@ import {
 } from "@hexagonia/shared";
 import { generateBaseBoard, type GeneratedBoard } from "./board.js";
 import { SeededRandom } from "./random.js";
+import { CURRENT_MATCH_SCHEMA_VERSION } from "./schema.js";
 
 interface InternalDevelopmentCard {
   id: string;
@@ -97,34 +101,13 @@ interface AwardUpdateResult {
   valuesByPlayerId: Record<string, number>;
 }
 
-export interface StartingPlayerRollRound {
-  contenderPlayerIds: string[];
-  leaderPlayerIds: string[];
-  highestTotal: number;
-  rolls: Array<{
-    playerId: string;
-    username: string;
-    seatIndex: number;
-    dice: [number, number];
-    total: number;
-  }>;
-}
-
-export interface StartingPlayerRollResult {
-  winnerPlayerId: string;
-  winnerSeatIndex: number;
-  rounds: StartingPlayerRollRound[];
-  summary: string;
-}
-
 export interface GameState {
   matchId: string;
   roomId: string;
   seed: string;
   schemaVersion: number;
   version: number;
-  setupMode: SetupMode;
-  startingSeatIndex: number;
+  gameConfig: GameConfig;
   phase: MatchPhase;
   previousPhase: MatchPhase | null;
   turn: number;
@@ -150,13 +133,6 @@ export interface MatchPlayerInput {
   seatIndex: number;
   connected?: boolean;
 }
-
-const BUILD_COSTS = {
-  road: { brick: 1, lumber: 1 },
-  settlement: { brick: 1, lumber: 1, grain: 1, wool: 1 },
-  city: { ore: 3, grain: 2 },
-  development: { ore: 1, grain: 1, wool: 1 }
-} as const;
 
 const RESOURCE_BANK_START = 19;
 const BEGINNER_PLAYER_COLORS: Record<3 | 4, PlayerColor[]> = {
@@ -207,14 +183,12 @@ export function createMatchState(input: {
   matchId: string;
   roomId: string;
   seed: string;
-  setupMode: SetupMode;
-  startingPlayerMode?: StartingPlayerMode;
-  startingSeatIndex: number;
+  gameConfig: GameConfig;
   startingPlayerRoll?: StartingPlayerRollResult;
   players: MatchPlayerInput[];
 }): GameState {
   const rng = new SeededRandom(input.seed);
-  const board = generateBaseBoard(input.seed, input.setupMode);
+  const board = generateBaseBoard(input.seed, input.gameConfig);
   const developmentDeck = createDevelopmentDeck(rng);
 
   const seatedPlayers = [...input.players]
@@ -222,13 +196,15 @@ export function createMatchState(input: {
     .map((player, index) => ({
       ...player,
       color:
-        input.setupMode === "beginner"
+        input.gameConfig.setupMode === "beginner"
           ? BEGINNER_PLAYER_COLORS[seatedPlayersColorKey(input.players.length)][index] ?? player.color
           : player.color
     }));
   const startingPlayerIndex = Math.max(
     0,
-    seatedPlayers.findIndex((player) => player.seatIndex === input.startingSeatIndex)
+    seatedPlayers.findIndex(
+      (player) => player.seatIndex === input.gameConfig.startingPlayer.seatIndex
+    )
   );
   const players = rotatePlayers(seatedPlayers, startingPlayerIndex).map((player) => ({
       id: player.id,
@@ -252,10 +228,9 @@ export function createMatchState(input: {
     matchId: input.matchId,
     roomId: input.roomId,
     seed: input.seed,
-    schemaVersion: 3,
+    schemaVersion: CURRENT_MATCH_SCHEMA_VERSION,
     version: 1,
-    setupMode: input.setupMode,
-    startingSeatIndex: input.startingSeatIndex,
+    gameConfig: input.gameConfig,
     phase: "setup_forward",
     previousPhase: null,
     turn: 0,
@@ -298,7 +273,7 @@ export function createMatchState(input: {
     });
   }
 
-  if (input.setupMode === "beginner") {
+  if (input.gameConfig.setupMode === "beginner") {
     applyBeginnerSetup(state);
     state.phase = "turn_roll";
     state.turn = 1;
@@ -313,9 +288,7 @@ export function createMatchState(input: {
         username: player.username,
         color: player.color
       })),
-      setupMode: input.setupMode,
-      startingPlayerMode: input.startingPlayerMode ?? "manual",
-      startingSeatIndex: input.startingSeatIndex,
+      gameConfig: input.gameConfig,
       startingPlayerId: players[0]?.id ?? null
     }
   });
@@ -330,7 +303,7 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
     seed: state.seed,
     schemaVersion: state.schemaVersion,
     version: state.version,
-    setupMode: state.setupMode,
+    gameConfig: state.gameConfig,
     you: viewerId,
     phase: state.phase,
     previousPhase: state.previousPhase,
@@ -1981,22 +1954,13 @@ function getPendingRoadBuildingEffect(state: GameState): PendingRoadBuildingEffe
 
 function appendEvent(
   state: GameState,
-  input: {
-    type: string;
-    payload: Record<string, unknown>;
-    byPlayerId?: string;
-  }
+  input: MatchEventInput
 ): void {
   const event: MatchEvent = {
     id: `event-${state.eventLog.length + 1}`,
-    type: input.type,
     atTurn: state.turn,
-    payload: input.payload
+    ...input
   };
-
-  if (input.byPlayerId) {
-    event.byPlayerId = input.byPlayerId;
-  }
 
   state.eventLog.push(event);
 }
@@ -2141,6 +2105,11 @@ function cloneBoard(board: GeneratedBoard): GeneratedBoard {
 function cloneState(state: GameState): GameState {
   return {
     ...state,
+    gameConfig: {
+      ...state.gameConfig,
+      startingPlayer: { ...state.gameConfig.startingPlayer },
+      enabledExpansions: [...state.gameConfig.enabledExpansions]
+    },
     board: cloneBoard(state.board),
     players: state.players.map((player) => ({
       ...player,

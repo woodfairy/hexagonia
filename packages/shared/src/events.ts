@@ -167,4 +167,8 @@ export type MatchEvent =
 
 export type MatchEventType = MatchEvent["type"];
 export type MatchEventOf<TType extends MatchEventType> = Extract<MatchEvent, { type: TType }>;
-export type MatchEventInput = Omit<MatchEvent, "id" | "atTurn">;
+export type MatchEventInput = MatchEvent extends infer TEvent
+  ? TEvent extends MatchEvent
+    ? Omit<TEvent, "id" | "atTurn">
+    : never
+  : never;

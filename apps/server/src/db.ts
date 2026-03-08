@@ -5,14 +5,13 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
+  GameConfig,
   MatchEvent,
   RoomDetails,
   SeatState,
-  SetupMode,
-  StartingPlayerMode,
   UserRole
 } from "@hexagonia/shared";
-import { PLAYER_COLORS } from "@hexagonia/shared";
+import { PLAYER_COLORS, createGameConfig, resolveGameConfigFromLegacy } from "@hexagonia/shared";
 
 interface StoredUser extends AuthUser {
   email: string;
@@ -46,6 +45,7 @@ create table if not exists rooms (
   id uuid primary key,
   code text unique not null,
   owner_user_id uuid not null references users(id) on delete cascade,
+  game_config jsonb not null default '{}'::jsonb,
   setup_mode text not null default 'official_variable',
   starting_player_mode text not null default 'rolled',
   starting_seat_index integer not null default 0,
@@ -83,9 +83,34 @@ create table if not exists match_events (
 
 const MIGRATION_SQL = `
 alter table users add column if not exists role text not null default 'user';
+alter table rooms add column if not exists game_config jsonb;
 alter table rooms add column if not exists setup_mode text not null default 'official_variable';
 alter table rooms add column if not exists starting_player_mode text not null default 'rolled';
 alter table rooms add column if not exists starting_seat_index integer not null default 0;
+update rooms
+set game_config = jsonb_build_object(
+  'setupMode', setup_mode,
+  'startingPlayer', jsonb_build_object(
+    'mode', starting_player_mode,
+    'seatIndex', starting_seat_index
+  ),
+  'enabledExpansions', '[]'::jsonb
+)
+where game_config is null;
+`;
+
+const ROOM_SELECT_COLUMNS = `
+  id,
+  code,
+  owner_user_id as "ownerUserId",
+  game_config as "gameConfig",
+  setup_mode as "legacySetupMode",
+  starting_player_mode as "legacyStartingPlayerMode",
+  starting_seat_index as "legacyStartingSeatIndex",
+  status,
+  match_id as "matchId",
+  seats,
+  created_at as "createdAt"
 `;
 
 export class Database {

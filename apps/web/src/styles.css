@@ -2871,16 +2871,6 @@ select {
   pointer-events: none;
 }
 
-.tab-strip::before {
-  content: "";
-  position: absolute;
-  inset-inline: 0.62rem;
-  inset-block-end: 0.3rem;
-  block-size: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  pointer-events: none;
-}
-
 .tab-strip.mobile {
   --tab-columns: 2;
   --tab-grid-columns: 4;
