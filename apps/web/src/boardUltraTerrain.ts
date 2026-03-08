@@ -479,7 +479,7 @@ function paintDesertTerrain(
 ): void {
   for (let dune = 0; dune < 28; dune += 1) {
     const baseY = dune * 20 + random() * 12;
-    colorContext.strokeStyle = pick(random, ["rgba(244,210,142,0.2)", "rgba(214,172,106,0.16)", "rgba(255,238,202,0.14)"]);
+    colorContext.strokeStyle = pick(random, ["rgba(248,218,154,0.22)", "rgba(226,186,120,0.16)", "rgba(255,242,212,0.16)"]);
     bumpContext.strokeStyle = "rgba(198,198,198,0.1)";
     roughnessContext.strokeStyle = "rgba(230,230,230,0.05)";
     colorContext.lineWidth = 7 + random() * 10;
@@ -509,10 +509,10 @@ function paintDesertTerrain(
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     drawEllipse(bumpContext, x, y, 8 + random() * 14, 1.2 + random() * 2.4, "rgba(220,220,220,0.08)", random() * Math.PI);
-    drawEllipse(overlayContext, x, y, 12 + random() * 18, 2 + random() * 3, "rgba(255,255,255,0.06)", random() * Math.PI);
+    drawEllipse(overlayContext, x, y, 12 + random() * 18, 2 + random() * 3, "rgba(255,250,238,0.07)", random() * Math.PI);
   }
 
-  drawSpeckles(colorContext, random, 2300, "rgba(107,76,37,0.06)", 0.8, 2.2);
+  drawSpeckles(colorContext, random, 2300, "rgba(143,108,62,0.045)", 0.8, 2.2);
 }
 
 function drawBaseGradients(
@@ -525,12 +525,12 @@ function drawBaseGradients(
     resource === "lumber"
       ? tint(TILE_COLORS[resource], 0.03)
       : resource === "desert"
-        ? tint(TILE_COLORS[resource], 0.05)
+        ? tint(TILE_COLORS[resource], 0.08)
         : TILE_COLORS[resource];
   const colorGradient = colorContext.createLinearGradient(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
-  colorGradient.addColorStop(0, tint(base, 0.08));
+  colorGradient.addColorStop(0, tint(base, resource === "desert" ? 0.1 : 0.08));
   colorGradient.addColorStop(0.52, base);
-  colorGradient.addColorStop(1, tint(base, -0.06));
+  colorGradient.addColorStop(1, tint(base, resource === "desert" ? -0.03 : -0.06));
   colorContext.fillStyle = colorGradient;
   colorContext.fillRect(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
 
