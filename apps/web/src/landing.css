@@ -499,8 +499,8 @@ body.guest-landing-mode {
 
 .landing-free-promise {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.95rem 1rem;
   max-inline-size: 37rem;
   padding: 1.08rem 1.15rem;
@@ -593,11 +593,16 @@ body.guest-landing-mode {
 .landing-free-promise-actions {
   display: flex;
   align-items: center;
-  margin-top: 0.2rem;
+  justify-content: flex-end;
+  align-self: center;
 }
 
 .landing-free-promise-actions .landing-button {
-  inline-size: fit-content;
+  min-block-size: 2.7rem;
+  padding: 0.72rem 1.02rem;
+  border-radius: 0.92rem;
+  inline-size: auto;
+  white-space: nowrap;
 }
 
 .landing-stat-card,
@@ -1221,6 +1226,10 @@ body.guest-landing-mode .toast-stack {
     align-items: baseline;
     gap: 0.45rem;
     padding: 0.7rem 0.85rem;
+  }
+
+  .landing-free-promise-actions {
+    justify-content: flex-start;
   }
 
   .landing-scene-shell {
