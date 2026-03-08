@@ -1,13 +1,29 @@
 import { WebHaptics, type HapticPattern } from "web-haptics";
 
-export type UiHapticId = "dialog" | "nudge" | "success" | "error";
+export type UiHapticId = "dialog" | "nudge" | "success" | "error" | "event" | "dice" | "robber" | "soft";
 
 const UI_HAPTICS_STORAGE_KEY = "hexagonia:ui-haptics-muted";
 const HAPTIC_LIBRARY: Record<UiHapticId, HapticPattern> = {
   dialog: "nudge",
   nudge: "nudge",
+  soft: "soft",
   success: "success",
-  error: "error"
+  error: "error",
+  event: [
+    { duration: 16, intensity: 0.34 },
+    { delay: 28, duration: 24, intensity: 0.48 }
+  ],
+  dice: [
+    { duration: 14, intensity: 0.22 },
+    { delay: 18, duration: 18, intensity: 0.34 },
+    { delay: 22, duration: 28, intensity: 0.54 },
+    { delay: 24, duration: 46, intensity: 0.78 }
+  ],
+  robber: [
+    { duration: 24, intensity: 0.68 },
+    { delay: 34, duration: 18, intensity: 0.28 },
+    { delay: 24, duration: 56, intensity: 0.92 }
+  ]
 };
 
 class UiHapticsManager {

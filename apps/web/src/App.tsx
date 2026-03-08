@@ -98,6 +98,7 @@ const DICE_EXPAND_MS = 0;
 const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
 const ROBBER_UI_DELAY_MS = DICE_EXPAND_MS + DICE_ROLL_MS + DICE_SETTLE_MS;
+type MatchEvent = MatchSnapshot["eventLog"][number];
 
 interface PendingMatchConfirmation {
   title: string;
@@ -115,6 +116,58 @@ interface PendingRobberTargetSelection {
 interface UiFeedbackRequest {
   sound?: Parameters<typeof uiSoundManager.play>;
   haptic?: Parameters<typeof uiHapticsManager.play>[0];
+}
+
+function getMatchEventHapticId(event: MatchEvent): Parameters<typeof uiHapticsManager.play>[0] | null {
+  switch (event.type) {
+    case "dice_rolled":
+      return "dice";
+    case "resources_discarded":
+    case "robber_moved":
+      return "robber";
+    case "development_card_played":
+      return event.payload.cardType === "knight" ? "robber" : "event";
+    case "resources_distributed":
+    case "trade_offered":
+    case "turn_ended":
+    case "game_won":
+      return null;
+    default:
+      return "event";
+  }
+}
+
+function getMatchEventHapticPriority(haptic: Parameters<typeof uiHapticsManager.play>[0]): number {
+  switch (haptic) {
+    case "robber":
+      return 4;
+    case "dice":
+      return 3;
+    case "event":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function getNewMatchEventHaptic(events: MatchEvent[]): Parameters<typeof uiHapticsManager.play>[0] | null {
+  let bestHaptic: Parameters<typeof uiHapticsManager.play>[0] | null = null;
+  let bestPriority = 0;
+
+  for (const event of events) {
+    const haptic = getMatchEventHapticId(event);
+    if (!haptic) {
+      continue;
+    }
+
+    const priority = getMatchEventHapticPriority(haptic);
+    if (priority >= bestPriority) {
+      bestHaptic = haptic;
+      bestPriority = priority;
+    }
+  }
+
+  return bestHaptic;
 }
 
 export function App() {
@@ -197,11 +250,13 @@ export function App() {
     currentPlayerId: string | null;
     actionableTradeCount: number;
     winnerId: string | null;
+    eventCount: number;
   }>({
     matchId: null,
     currentPlayerId: null,
     actionableTradeCount: 0,
-    winnerId: null
+    winnerId: null,
+    eventCount: 0
   });
 
   const selfPlayer = useMemo(
@@ -369,7 +424,8 @@ export function App() {
         matchId: null,
         currentPlayerId: null,
         actionableTradeCount: 0,
-        winnerId: null
+        winnerId: null,
+        eventCount: 0
       };
       return;
     }
@@ -378,6 +434,13 @@ export function App() {
     const previous = matchFeedbackStateRef.current;
 
     if (previous.matchId === match.matchId) {
+      const newEvents =
+        match.eventLog.length > previous.eventCount ? match.eventLog.slice(previous.eventCount) : [];
+      const eventHaptic = getNewMatchEventHaptic(newEvents);
+      if (eventHaptic) {
+        playUiFeedback({ haptic: eventHaptic });
+      }
+
       if (previous.currentPlayerId !== match.currentPlayerId && match.currentPlayerId === match.you) {
         playUiFeedback({ haptic: "nudge" });
       }
@@ -395,7 +458,8 @@ export function App() {
       matchId: match.matchId,
       currentPlayerId: match.currentPlayerId,
       actionableTradeCount,
-      winnerId: match.winnerId
+      winnerId: match.winnerId,
+      eventCount: match.eventLog.length
     };
   }, [match, playUiFeedback]);
 
@@ -1236,12 +1300,9 @@ export function App() {
     setHapticsMuted((current) => {
       const next = !current;
       uiHapticsManager.setMuted(next);
-      if (!next) {
-        playUiFeedback({ haptic: "dialog" });
-      }
       return next;
     });
-  }, [hapticsSupported, playUiFeedback]);
+  }, [hapticsSupported]);
 
   const syncMusicPlayerState = useCallback(() => {
     setSelectedMusicTrackId(uiSoundManager.getSelectedMusicTrackId());

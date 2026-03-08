@@ -852,20 +852,9 @@ export function MatchScreen(props: {
           matchId: props.match.matchId,
           action: { type: "end_turn" }
         })
-    },
-    {
-      id: "cancel-mode",
-      label: "Auswahl aufheben",
-      className: "ghost-button",
-      disabled: !props.interactionMode,
-      onClick: () => {
-        props.setInteractionMode(null);
-        props.setSelectedRoadEdges([]);
-      }
     }
   ];
-  const visiblePrimaryActions = primaryActions.filter((action) => action.id !== "cancel-mode" || !action.disabled);
-  const hasQuickActions = visiblePrimaryActions.some((action) => !action.disabled);
+  const hasQuickActions = primaryActions.some((action) => !action.disabled);
   const hasDisconnectCountdown = props.match.players.some(
     (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
   );
@@ -873,7 +862,7 @@ export function MatchScreen(props: {
   const renderQuickActions = (showPlaceholder = true) =>
     hasQuickActions ? (
       <div className="quick-action-grid">
-        {visiblePrimaryActions.map((action) => (
+        {primaryActions.map((action) => (
           <button
             key={action.id}
             type="button"

@@ -176,6 +176,7 @@ interface TileDecorationOptions {
 interface TexturedTileOptions extends TileDecorationOptions {}
 
 const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
+const RELIEF_CENTER_CLEAR_PADDING = 0.22;
 const DEFAULT_FOCUS_DISTANCE_PROFILE = {
   tightBase: 26,
   mediumBase: 34,
@@ -1741,10 +1742,10 @@ function nudgeFancyPropsAwayFromTileCenter(group: THREE.Group): void {
       continue;
     }
 
-    const offsetScale = 1.34;
-    const extraOffset = 0.5;
-    const minRadius = 1.9;
-    const maxRadius = 2.36;
+    const offsetScale = 1.4;
+    const extraOffset = 0.58;
+    const minRadius = 2.08;
+    const maxRadius = 2.54;
     const nextLength = THREE.MathUtils.clamp(length * offsetScale + extraOffset, minRadius, maxRadius);
     child.position.x = (child.position.x / length) * nextLength;
     child.position.z = (child.position.z / length) * nextLength;
@@ -4209,7 +4210,7 @@ function createReliefAnchors(
 }
 
 function createReliefOccupancy(centerClearRadius = RELIEF_TOKEN_CLEAR_RADIUS): ReliefOccupiedArea[] {
-  return [{ x: 0, z: 0, radius: centerClearRadius }];
+  return [{ x: 0, z: 0, radius: centerClearRadius + RELIEF_CENTER_CLEAR_PADDING }];
 }
 
 function markTileShadow<T extends THREE.Object3D>(object: T): T {

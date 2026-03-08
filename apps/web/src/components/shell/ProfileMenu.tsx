@@ -40,11 +40,34 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
       : props.musicPlaybackMode === "cycle"
         ? `Alle ${props.musicTracks.length} Songs laufen nacheinander`
         : `${selectedMusicTrack?.name ?? "Kein Song"} in Dauerschleife`;
+  const playSoftMenuHaptic = () => void uiHapticsManager.play("soft");
   const toggleBoardVisualSetting = (setting: keyof BoardVisualSettings) => {
     props.onBoardVisualSettingsChange({
       ...props.boardVisualSettings,
       [setting]: !props.boardVisualSettings[setting]
     });
+    playSoftMenuHaptic();
+  };
+  const toggleMusicPaused = () => {
+    props.onToggleMusicPaused();
+    playSoftMenuHaptic();
+  };
+  const toggleSoundMuted = () => {
+    props.onToggleSoundMuted();
+    playSoftMenuHaptic();
+  };
+  const toggleHapticsMuted = () => {
+    if (!props.hapticsSupported) {
+      return;
+    }
+
+    if (!props.hapticsMuted) {
+      playSoftMenuHaptic();
+    }
+    props.onToggleHapticsMuted();
+    if (props.hapticsMuted) {
+      playSoftMenuHaptic();
+    }
   };
   const closePanel = () => props.onRequestClose?.();
 
@@ -103,7 +126,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             type="button"
             className={`menu-action menu-toggle-action profile-music-toggle ${props.musicPaused ? "is-muted" : "is-active"}`}
             aria-pressed={!props.musicPaused}
-            onClick={() => props.onToggleMusicPaused()}
+            onClick={toggleMusicPaused}
             disabled={props.musicTracks.length === 0}
           >
             <span className="menu-toggle-copy">
@@ -125,7 +148,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           type="button"
           className={`menu-action menu-toggle-action ${props.soundMuted ? "is-muted" : "is-active"}`}
           aria-pressed={!props.soundMuted}
-          onClick={() => props.onToggleSoundMuted()}
+          onClick={toggleSoundMuted}
         >
           <span className="menu-toggle-copy">
             <strong>UI-Sounds</strong>
@@ -139,7 +162,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             !props.hapticsSupported || props.hapticsMuted ? "is-muted" : "is-active"
           }`}
           aria-pressed={props.hapticsSupported && !props.hapticsMuted}
-          onClick={() => props.onToggleHapticsMuted()}
+          onClick={toggleHapticsMuted}
           disabled={!props.hapticsSupported}
         >
           <span className="menu-toggle-copy">
@@ -292,7 +315,7 @@ export function ProfileMenu(props: ProfileMenuProps) {
       return;
     }
 
-    void uiHapticsManager.play("dialog");
+    void uiHapticsManager.play("soft");
   }, [open]);
 
   useEffect(() => {
