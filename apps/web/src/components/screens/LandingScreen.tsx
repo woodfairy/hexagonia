@@ -160,6 +160,14 @@ export function LandingScreen(props: {
 
     revealNodes.forEach((node) => node.classList.remove("is-visible"));
 
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    revealNodes.forEach((node) => {
+      const rect = node.getBoundingClientRect();
+      if (rect.top < viewportHeight * 0.96 && rect.bottom > 0) {
+        node.classList.add("is-visible");
+      }
+    });
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -338,7 +346,7 @@ export function LandingScreen(props: {
 
       <main className="landing-main">
         <section className="landing-hero" aria-labelledby="landing-hero-title">
-          <div className="landing-hero-copy" data-reveal style={revealStyle(40)}>
+          <div className="landing-hero-copy">
             <span className="landing-kicker">Modernes Tabletop-Strategy im Browser</span>
             <h1 id="landing-hero-title">Hexagonia bringt Strategie und Handel in den Browser.</h1>
             <p className="landing-lead">
@@ -368,7 +376,7 @@ export function LandingScreen(props: {
             </div>
           </div>
 
-          <div className="landing-hero-scene-column" data-reveal style={revealStyle(140)}>
+          <div className="landing-hero-scene-column">
             <div className="landing-scene-shell">
               <LandingBoardScene reducedMotion={prefersReducedMotion} visualProfile="fancy" />
               <div className="landing-scene-badge is-top">
