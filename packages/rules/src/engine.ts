@@ -766,7 +766,12 @@ function handlePlayRoadBuilding(state: GameState, playerId: string): void {
   state.pendingDevelopmentEffect = {
     type: "road_building",
     remainingRoads: 2,
-    resumePhase: state.phase === "turn_roll" ? "turn_roll" : state.phase
+    resumePhase:
+      state.phase === "turn_roll"
+        ? "turn_roll"
+        : state.phase === "paired_player_action"
+          ? "paired_player_action"
+          : "turn_action"
   };
 
   appendEvent(state, {
