@@ -57,6 +57,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function register(payload: {
   username: string;
   password: string;
+  recaptchaToken?: string;
 }): Promise<AuthUser> {
   const response = await request<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",

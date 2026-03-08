@@ -17,7 +17,8 @@ const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
 
 const registerSchema = z.object({
   username: z.string().min(3).max(24),
-  password: z.string().min(8).max(128)
+  password: z.string().min(8).max(128),
+  recaptchaToken: z.string().min(1).max(4096).optional()
 });
 
 const loginSchema = z.object({
@@ -121,6 +122,12 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
   app.post("/api/auth/register", async (request, reply) => {
     const body = registerSchema.parse(request.body);
+    await verifyRegistrationRecaptcha({
+      config,
+      log: request.log,
+      recaptchaToken: body.recaptchaToken,
+      remoteIp: request.ip
+    });
 
     try {
       const passwordHash = await argon2.hash(body.password, {
@@ -705,6 +712,75 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
   });
 
   return app;
+}
+
+type RecaptchaVerificationResponse = {
+  success?: boolean;
+  challenge_ts?: string;
+  hostname?: string;
+  "error-codes"?: string[];
+};
+
+async function verifyRegistrationRecaptcha(input: {
+  config: AppConfig;
+  log: FastifyRequest["log"];
+  recaptchaToken?: string;
+  remoteIp?: string;
+}): Promise<void> {
+  const recaptchaEnabled = input.config.RECAPTCHA_ENABLED ?? Boolean(input.config.RECAPTCHA_SECRET_KEY);
+  if (!recaptchaEnabled) {
+    return;
+  }
+
+  if (!input.config.RECAPTCHA_SECRET_KEY) {
+    input.log.warn("reCAPTCHA is enabled but RECAPTCHA_SECRET_KEY is missing; allowing registration");
+    return;
+  }
+
+  if (!input.recaptchaToken) {
+    input.log.warn("reCAPTCHA token missing for registration; allowing registration");
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const payload = new URLSearchParams({
+      secret: input.config.RECAPTCHA_SECRET_KEY,
+      response: input.recaptchaToken
+    });
+
+    if (input.remoteIp) {
+      payload.set("remoteip", input.remoteIp);
+    }
+
+    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: payload,
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      input.log.warn({ statusCode: response.status }, "reCAPTCHA verification failed upstream; allowing registration");
+      return;
+    }
+
+    const verification = (await response.json()) as RecaptchaVerificationResponse;
+    if (!verification.success) {
+      input.log.warn(
+        { errorCodes: verification["error-codes"] ?? [] },
+        "reCAPTCHA verification was not successful; allowing registration"
+      );
+    }
+  } catch (error) {
+    input.log.warn({ err: error }, "reCAPTCHA verification could not be completed; allowing registration");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function createSession(reply: FastifyReply, db: Database, userId: string): Promise<void> {

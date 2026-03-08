@@ -58,6 +58,7 @@ import { RoomScreen } from "./components/screens/RoomScreen";
 import { PlayerIdentity } from "./components/shared/PlayerIdentity";
 import { PlayerMention, renderMatchPlayerText } from "./components/shared/PlayerText";
 import { ResourceIcon } from "./resourceIcons";
+import { getRecaptchaRegisterToken } from "./recaptcha";
 import {
   type AuthMode,
   type ConnectionState,
@@ -1258,6 +1259,7 @@ export function App() {
     event.preventDefault();
 
     try {
+      const recaptchaToken = authMode === "register" ? await getRecaptchaRegisterToken() : null;
       const user =
         authMode === "login"
           ? await login({
@@ -1266,7 +1268,8 @@ export function App() {
             })
           : await register({
               username: authForm.username,
-              password: authForm.password
+              password: authForm.password,
+              ...(recaptchaToken ? { recaptchaToken } : {})
             });
 
       setSession(user);

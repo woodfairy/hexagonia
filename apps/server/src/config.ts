@@ -4,6 +4,15 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string().min(1),
   SESSION_COOKIE_SECRET: z.string().min(16),
+  RECAPTCHA_SECRET_KEY: z.string().min(1).optional(),
+  RECAPTCHA_SITE_KEY: z.string().min(1).optional(),
+  RECAPTCHA_ENABLED: z.preprocess(
+    (value) => (value === "" || value === undefined ? undefined : value),
+    z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value === "true"))
+  ),
   ADMIN_EMAIL: z.string().email().optional(),
   ADMIN_USERNAME: z.string().min(3).max(24).optional(),
   ADMIN_PASSWORD: z.string().min(12).max(128).optional()
