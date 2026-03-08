@@ -112,8 +112,8 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
                 {props.musicPlaybackMode === "cycle"
                   ? selectedMusicTrack
                     ? `Gerade: ${selectedMusicTrack.name}`
-                    : "Keine Songs verfuegbar"
-                  : selectedMusicTrack?.name ?? "Keine Songs verfuegbar"}
+                    : "Keine Songs verfügbar"
+                  : selectedMusicTrack?.name ?? "Keine Songs verfügbar"}
               </span>
             </span>
             <span className={`status-pill ${props.musicPaused ? "muted" : ""}`}>
@@ -146,20 +146,20 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <strong>Haptik</strong>
             <span>
               {!props.hapticsSupported
-                ? "Auf diesem Geraet nicht verfuegbar"
+                ? "Auf diesem Gerät nicht verfügbar"
                 : props.hapticsMuted
                   ? "Deaktiviert"
-                  : "Aktiv fuer relevantes Feedback"}
+                  : "Aktiv für relevantes Feedback"}
             </span>
           </span>
           <span className={`status-pill ${!props.hapticsSupported || props.hapticsMuted ? "muted" : ""}`}>
-            {!props.hapticsSupported ? "Nicht verfuegbar" : props.hapticsMuted ? "Aus" : "An"}
+            {!props.hapticsSupported ? "Nicht verfügbar" : props.hapticsMuted ? "Aus" : "An"}
           </span>
         </button>
         <div className="profile-board-panel">
           <div className="profile-music-copy">
             <strong>Feldstil</strong>
-            <span>Additiv statt Presets: Props bleiben aktiv, wenn du Texturen oder 3D-Terrain dazuschaltest.</span>
+            <span>Wähle, welche Elemente auf dem Spielfeld angezeigt werden.</span>
           </div>
           <div className="profile-board-toggle-grid" role="group" aria-label="Feldstil">
             <button
@@ -184,7 +184,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             >
               <span className="menu-toggle-copy">
                 <strong>Texturen</strong>
-                <span>Detaillierte Boden- und Oberflaechenstrukturen auf den Feldern.</span>
+                <span>Detaillierte Boden- und Oberflächenstrukturen auf den Feldern.</span>
               </span>
               <span className={`status-pill ${props.boardVisualSettings.textures ? "" : "muted"}`}>
                 {props.boardVisualSettings.textures ? "An" : "Aus"}
@@ -198,7 +198,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             >
               <span className="menu-toggle-copy">
                 <strong>3D-Terrain</strong>
-                <span>Berge, Baume, Duenen und andere Hoehenformen kommen oben drauf.</span>
+                <span>Berge, Bäume, Dünen und andere Höhenformen kommen oben drauf.</span>
               </span>
                 <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>
                   {props.boardVisualSettings.terrainRelief ? "An" : "Aus"}

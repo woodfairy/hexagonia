@@ -1084,7 +1084,7 @@ export function MatchScreen(props: {
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-pulse" aria-hidden="true" />
-        <span>Blau zeigt gueltige Klicks und aktuelle Bauziele.</span>
+        <span>Blau zeigt gültige Klicks und aktuelle Bauziele.</span>
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-port" aria-hidden="true">&#9875;</span>
@@ -1226,7 +1226,7 @@ export function MatchScreen(props: {
         <section className="dock-section dock-section-fill">
           <div className="dock-section-head">
             <h3>Live-Geschehen</h3>
-            <span>{notificationState.historyNotifications.length} Eintraege</span>
+            <span>{notificationState.historyNotifications.length} Einträge</span>
           </div>
           <div className="scroll-list event-list">
             {notificationState.historyNotifications.map((notification) => (
