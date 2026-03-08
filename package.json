@@ -5,13 +5,20 @@
     "packages/*",
     "apps/*"
   ],
-  "packageManager": "npm@11.9.0",
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
-    "dev:server": "npm run dev -w @hexagonia/server",
-    "dev:web": "npm run dev -w @hexagonia/web",
-    "build": "npm run build -w @hexagonia/shared && npm run build -w @hexagonia/rules && npm run build -w @hexagonia/server && npm run build -w @hexagonia/web",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "format": "npm run format --workspaces --if-present"
+    "dev:server": "turbo run dev --filter=@hexagonia/server",
+    "dev:web": "turbo run dev --filter=@hexagonia/web",
+    "build": "turbo run build",
+    "build:web": "turbo run build --filter=@hexagonia/web",
+    "build:server": "turbo run build --filter=@hexagonia/server",
+    "build:libs": "turbo run build --filter=@hexagonia/shared --filter=@hexagonia/rules",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "turbo run format"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4"
   }
 }

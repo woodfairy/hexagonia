@@ -2,6 +2,8 @@
 .github
 node_modules
 **/node_modules
+.turbo
+.cache
 dist
 **/dist
 coverage

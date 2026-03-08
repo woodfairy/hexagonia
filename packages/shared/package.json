@@ -6,9 +6,10 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No tests in shared\"",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "lint": "pnpm run typecheck",
     "format": "echo \"Formatting handled at repo level\""
   },
   "devDependencies": {

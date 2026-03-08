@@ -9,12 +9,12 @@ Monorepo for a browser-based, real-time, Catan-like strategy game with:
 
 ## Development
 
-1. Install Node.js 20+ and `npm`.
+1. Install Node.js 20+ and `pnpm`.
 2. Copy `.env.example` to `.env`.
 3. Start PostgreSQL with `docker compose up postgres -d`.
-4. Install dependencies with `npm install`.
-5. Start the backend with `npm run dev:server`.
-6. Start the frontend in a second terminal with `npm run dev:web`.
+4. Install dependencies with `pnpm install`.
+5. Start the backend with `pnpm dev:server`.
+6. Start the frontend in a second terminal with `pnpm dev:web`.
 
 ## Docker
 

@@ -12,9 +12,10 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@hexagonia/shared": ["packages/shared/src/index.ts"],
+      "@hexagonia/rules": ["packages/rules/src/index.ts"]
+    }
   }
 }

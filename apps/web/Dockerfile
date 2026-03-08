@@ -1,12 +1,19 @@
 FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS builder
+ENV PNPM_HOME="/pnpm"
+ENV PNPM_STORE_DIR="/pnpm/store"
+ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
-COPY package.json tsconfig.base.json ./
+RUN corepack enable
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/server/package.json ./apps/server/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/rules/package.json ./packages/rules/package.json
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install
 COPY apps/web ./apps/web
 COPY assets ./assets
 COPY packages/shared ./packages/shared
-RUN npm install
-RUN npm run build -w @hexagonia/shared
-RUN npm run build -w @hexagonia/web
+RUN pnpm build:web
 
 FROM --platform=$TARGETPLATFORM nginx:1.27-alpine AS runner
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

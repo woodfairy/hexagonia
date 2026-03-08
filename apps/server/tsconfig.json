@@ -3,9 +3,12 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "incremental": true,
+    "tsBuildInfoFile": "../../.cache/tsc/server.tsbuildinfo",
     "rootDir": "src",
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "../../packages/shared" }, { "path": "../../packages/rules" }]
 }
