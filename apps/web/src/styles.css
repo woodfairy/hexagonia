@@ -1134,14 +1134,19 @@ select {
 
 .seat-card {
   display: grid;
-  grid-template-rows: auto minmax(3rem, auto) auto minmax(3.25rem, auto) auto;
+  grid-template-rows: auto minmax(2.5rem, auto) auto;
   gap: var(--gap-stack-tight);
   align-content: stretch;
   padding: var(--gap-section);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.04);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--player-accent-soft, rgba(255, 255, 255, 0.04)) 140%, transparent), rgba(255, 255, 255, 0.035)),
+    rgba(255, 255, 255, 0.05);
   block-size: 100%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 42px rgba(0, 0, 0, 0.18);
 }
 
 .seat-card.is-mine {
@@ -1151,51 +1156,16 @@ select {
 
 .seat-card.is-open {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.028)),
-    rgba(255, 255, 255, 0.032);
+    linear-gradient(180deg, rgba(164, 173, 186, 0.12), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+  border-color: rgba(164, 173, 186, 0.24);
 }
 
 .seat-card-head {
-  display: grid;
-  align-content: start;
-}
-
-.seat-chip {
-  display: inline-flex;
-  inline-size: fit-content;
-  align-items: center;
-  padding: 0.28rem 0.58rem;
-  border-radius: var(--radius-pill);
-  color: #0c1622;
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: capitalize;
-  white-space: nowrap;
-  flex: none;
-}
-
-.seat-red {
-  background: #cf3b35;
-}
-
-.seat-blue {
-  background: #7ca4f7;
-}
-
-.seat-white {
-  background: #eceef0;
-}
-
-.seat-orange {
-  background: #efab65;
-}
-
-.seat-green {
-  background: #46a55c;
-}
-
-.seat-purple {
-  background: #9d74e8;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--gap-inline);
 }
 
 .player-accent-red {
@@ -1259,7 +1229,6 @@ select {
 
 .player-identity,
 .player-badge,
-.seat-slot-meta,
 .resume-card-meta-row,
 .event-card-head,
 .turn-status-card-head {
@@ -1375,6 +1344,11 @@ select {
   box-shadow: 0 0 0 0.2rem rgba(240, 142, 133, 0.12);
 }
 
+.online-indicator.is-empty {
+  background: rgba(164, 173, 186, 0.72);
+  box-shadow: 0 0 0 0.2rem rgba(164, 173, 186, 0.12);
+}
+
 .room-action-stack {
   display: grid;
   gap: var(--gap-stack-tight);
@@ -1484,14 +1458,6 @@ select {
   justify-content: flex-end;
 }
 
-.seat-slot-meta {
-  inline-size: 100%;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--gap-inline);
-  flex-wrap: nowrap;
-}
-
 .seat-status-meta {
   display: inline-flex;
   align-items: center;
@@ -1500,17 +1466,13 @@ select {
   flex: none;
 }
 
-.seat-status-badge-placeholder {
-  visibility: hidden;
-  display: inline-flex;
-  min-inline-size: 4.9rem;
-  min-block-size: 1.78rem;
-}
-
-.online-indicator.is-hidden {
-  visibility: hidden;
-  background: transparent;
-  box-shadow: none;
+.seat-slot-meta {
+  inline-size: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--gap-inline);
+  flex-wrap: nowrap;
 }
 
 .seat-card-identity {
@@ -1519,78 +1481,52 @@ select {
   align-content: start;
 }
 
-.seat-card-identity .player-identity {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: var(--gap-inline);
-  flex-wrap: nowrap;
-  min-inline-size: 0;
-}
-
-.seat-card-identity .player-swatch {
-  margin-block-start: 0.16rem;
-}
-
-.seat-card-identity .player-identity-copy {
-  min-block-size: 2.8rem;
-}
-
-.seat-open-copy {
-  min-block-size: 2.8rem;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: var(--gap-inline);
-  min-inline-size: 0;
-}
-
-.seat-open-copy .player-swatch {
-  margin-block-start: 0.16rem;
-  opacity: 0.82;
-}
-
-.seat-open-copy .seat-identity-copy {
+.seat-identity-copy {
   min-inline-size: 0;
   display: grid;
   gap: var(--gap-copy-tight);
 }
 
-.seat-identity-meta {
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.2;
+.seat-card-title-block {
+  display: grid;
+  gap: 0.35rem;
+  min-inline-size: 0;
+}
+
+.seat-card-title {
+  font-size: 1.2rem;
+  line-height: 1.08;
+  color: var(--player-text, var(--text));
+  overflow-wrap: anywhere;
 }
 
 .seat-card-state {
-  min-block-size: 1.5rem;
+  min-block-size: 2.75rem;
   display: flex;
-  align-items: center;
+  align-items: start;
 }
 
 .seat-card-state-label {
-  font-size: 1.05rem;
-  line-height: 1.1;
-}
-
-.seat-card-detail {
-  min-block-size: 3.25rem;
-  display: grid;
-  align-content: start;
-}
-
-.seat-card-detail-copy {
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  font-size: 0.94rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--player-text, var(--text)) 72%, var(--muted));
 }
 
 .seat-card-action {
   min-block-size: 2.95rem;
   display: grid;
   align-content: end;
+}
+
+.seat-card-detail {
+  min-block-size: 0;
+  display: grid;
+  align-content: start;
+}
+
+.seat-card-detail-copy,
+.seat-identity-meta {
+  line-height: 1.3;
 }
 
 .seat-card-action-spacer {
@@ -1609,29 +1545,25 @@ select {
   max-inline-size: 38rem;
 }
 
-.seat-card-identity strong,
-.seat-card-state-label {
-  font-size: 1.05rem;
-  line-height: 1.1;
-}
-
-.seat-open-label {
-  font-size: 1.05rem;
-  line-height: 1.1;
-}
-
-.seat-card.is-open .seat-card-state-label {
-  color: var(--player-text, var(--text));
-}
-
-.seat-card.is-open .seat-card-detail-copy {
-  color: color-mix(in srgb, var(--player-text, var(--text)) 38%, var(--muted));
-}
-
 .seat-card button {
   inline-size: 100%;
   margin-block-start: 0;
   white-space: nowrap;
+}
+
+.seat-card.is-open .seat-card-title {
+  color: var(--text);
+}
+
+.seat-card.is-open .seat-card-state-label {
+  color: color-mix(in srgb, var(--text) 68%, var(--muted));
+}
+
+.seat-start-pill,
+.seat-status-meta .status-pill.is-ready {
+  border-color: color-mix(in srgb, var(--player-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--player-accent-soft) 85%, rgba(255, 255, 255, 0.05));
+  color: var(--player-text, var(--text));
 }
 
 .status-shell {

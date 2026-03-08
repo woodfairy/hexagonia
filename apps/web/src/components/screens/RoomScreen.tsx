@@ -7,9 +7,8 @@ import type {
   StartingPlayerMode,
   TurnRule
 } from "@hexagonia/shared";
-import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
-import { renderBoardSizeLabel, renderPlayerColorLabel, renderTurnRuleLabel } from "../../ui";
+import { renderBoardSizeLabel, renderTurnRuleLabel } from "../../ui";
 
 export function RoomScreen(props: {
   room: RoomDetails;
@@ -129,14 +128,10 @@ export function RoomScreen(props: {
                 !usesRolledStart &&
                 props.room.gameConfig.startingPlayer.seatIndex === seat.index &&
                 occupied;
-              const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfuegbar";
-              const detailLabel = occupied
-                ? isStartingSeat
-                  ? "Startspieler dieser Partie"
-                  : online
-                    ? "Online im Raum"
-                    : "Nicht verbunden"
-                : "Der naechste Beitritt erhaelt automatisch diesen Platz.";
+              const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Frei";
+              const seatTitle = occupied ? seat.username ?? `Spieler ${seat.index + 1}` : "Freier Platz";
+              const statusLabel = isStartingSeat ? "Startspieler" : stateLabel;
+              const indicatorClass = occupied ? (online ? "is-online" : "is-offline") : "is-empty";
 
               return (
                 <article
@@ -146,44 +141,25 @@ export function RoomScreen(props: {
                   } ${occupied ? "is-occupied" : "is-open"}`}
                 >
                   <div className="seat-card-head">
-                    <div className="seat-slot-meta">
-                      <span className={`seat-chip seat-${seat.color}`}>Platz {seat.index + 1}</span>
-                      <div className="seat-status-meta">
-                        <PlayerColorBadge color={seat.color} compact />
-                        <span
-                          className={`online-indicator ${
-                            occupied ? (online ? "is-online" : "is-offline") : "is-hidden"
-                          }`}
-                        />
-                      </div>
+                    <div className="seat-card-title-block">
+                      <strong className="seat-card-title">{seatTitle}</strong>
+                      {mine ? <span className="status-pill muted">Du</span> : null}
+                    </div>
+                    <div className="seat-status-meta">
+                      <span className={`status-pill ${seat.ready ? "is-ready" : "muted"}`}>{statusLabel}</span>
+                      <span className={`online-indicator ${indicatorClass}`} aria-hidden="true" />
                     </div>
                   </div>
-                  <div className="seat-card-identity">
-                    {occupied && seat.username ? (
-                      <PlayerIdentity
-                        username={seat.username}
-                        color={seat.color}
-                        compact
-                        isSelf={mine}
-                        {...(mine ? { meta: `Deine Farbe: ${renderPlayerColorLabel(seat.color)}` } : {})}
-                      />
-                    ) : (
-                      <div className="seat-open-copy">
-                        <span className="player-swatch" aria-hidden="true" />
-                        <div className="seat-identity-copy">
-                          <strong className="seat-open-label">Freier Platz</strong>
-                          <span className="seat-identity-meta">
-                            Reservierte Farbe: {renderPlayerColorLabel(seat.color)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                   <div className="seat-card-state">
-                    <strong className="seat-card-state-label">{stateLabel}</strong>
-                  </div>
-                  <div className="seat-card-detail">
-                    <span className="muted-copy seat-card-detail-copy">{detailLabel}</span>
+                    {isStartingSeat ? (
+                      <span className="status-pill seat-start-pill">Startspieler</span>
+                    ) : occupied ? (
+                      <span className="seat-card-state-label">
+                        {online ? "Online im Raum" : "Nicht verbunden"}
+                      </span>
+                    ) : (
+                      <span className="seat-card-state-label">Wartet auf Spieler</span>
+                    )}
                   </div>
                   <div className="seat-card-action">
                     {canKick ? (
