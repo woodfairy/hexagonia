@@ -214,9 +214,13 @@ export function LandingScreen(props: {
       return;
     }
 
-    node.scrollIntoView({
-      behavior: prefersReducedMotion ? "auto" : "smooth",
-      block: "start"
+    const header = document.querySelector(".landing-header");
+    const headerHeight = header instanceof HTMLElement ? header.getBoundingClientRect().height : 0;
+    const targetTop = window.scrollY + node.getBoundingClientRect().top - headerHeight - 18;
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: prefersReducedMotion ? "auto" : "smooth"
     });
   };
 
@@ -554,6 +558,20 @@ export function LandingScreen(props: {
               <button className="landing-button landing-auth-submit" type="submit">
                 {authSubmitLabel}
               </button>
+
+              {props.authMode === "register" ? (
+                <p className="landing-recaptcha-note">
+                  Diese Seite ist durch reCAPTCHA geschuetzt. Es gelten die Google{" "}
+                  <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+                    Datenschutzerklaerung
+                  </a>{" "}
+                  und{" "}
+                  <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">
+                    Nutzungsbedingungen
+                  </a>
+                  .
+                </p>
+              ) : null}
             </form>
           </article>
         </section>

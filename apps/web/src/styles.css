@@ -25,13 +25,13 @@
   --gap-copy: 0.2rem;
   --gap-inline-tight: 0.35rem;
   --gap-inline: 0.5rem;
-  --gap-stack-tight: 0.55rem;
-  --gap-stack: 0.75rem;
-  --gap-section: 0.95rem;
-  --gap-surface: 1.2rem;
+  --gap-stack-tight: 0.7rem;
+  --gap-stack: 0.95rem;
+  --gap-section: 1.15rem;
+  --gap-surface: 1.45rem;
   --pad-app-edge: 0.85rem;
-  --pad-surface: 1.2rem;
-  --pad-card-block: 0.9rem;
+  --pad-surface: 1.4rem;
+  --pad-card-block: 1.05rem;
   --pad-card-inline: 1rem;
   --pad-control-block: 0.72rem;
   --pad-control-inline: 0.95rem;
@@ -184,6 +184,7 @@ select {
 .mini-card span,
 .summary-card span {
   color: var(--muted);
+  line-height: 1.45;
 }
 
 .app-header {
@@ -648,6 +649,15 @@ select {
 }
 
 .hero-surface {
+  display: grid;
+  gap: var(--gap-surface);
+  align-content: start;
+}
+
+.action-surface,
+.status-surface {
+  display: grid;
+  gap: var(--gap-surface);
   align-content: start;
 }
 
@@ -660,6 +670,21 @@ select {
 
 .auth-form {
   align-content: start;
+}
+
+.recaptcha-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.recaptcha-note a {
+  color: inherit;
+}
+
+.grecaptcha-badge {
+  visibility: hidden;
 }
 
 .hero-surface h1,
@@ -973,6 +998,12 @@ select {
 .match-dock-head {
   align-items: center;
   justify-content: space-between;
+}
+
+.surface-head > div {
+  display: grid;
+  gap: 0.42rem;
+  align-content: start;
 }
 
 .segmented-control,
@@ -4268,10 +4299,10 @@ select {
 
 @media (max-width: 1023px) {
   :root {
-    --gap-section: 0.85rem;
-    --gap-surface: 1rem;
-    --pad-surface: 1rem;
-    --pad-card-block: 0.84rem;
+    --gap-section: 0.98rem;
+    --gap-surface: 1.16rem;
+    --pad-surface: 1.12rem;
+    --pad-card-block: 0.92rem;
     --pad-card-inline: 0.9rem;
     --pad-control-block: 0.66rem;
     --pad-control-inline: 0.86rem;
@@ -4667,11 +4698,11 @@ select {
 @media (max-width: 719px) {
   :root {
     --pad-app-edge: 0.7rem;
-    --gap-stack: 0.65rem;
-    --gap-section: 0.75rem;
-    --gap-surface: 0.9rem;
-    --pad-surface: 0.95rem;
-    --pad-card-block: 0.78rem;
+    --gap-stack: 0.78rem;
+    --gap-section: 0.88rem;
+    --gap-surface: 1.05rem;
+    --pad-surface: 1.02rem;
+    --pad-card-block: 0.84rem;
     --pad-card-inline: 0.82rem;
     --pad-control-block: 0.62rem;
     --pad-control-inline: 0.78rem;

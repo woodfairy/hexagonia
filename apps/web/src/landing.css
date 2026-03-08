@@ -767,6 +767,17 @@ body.guest-landing-mode {
   justify-content: center;
 }
 
+.landing-recaptcha-note {
+  margin: 0;
+  color: var(--landing-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.landing-recaptcha-note a {
+  color: inherit;
+}
+
 .landing-invite-banner {
   margin: 0 max(var(--landing-inline-space), env(safe-area-inset-right)) 0 max(var(--landing-inline-space), env(safe-area-inset-left));
   padding: 1.2rem 1.35rem;

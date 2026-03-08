@@ -1,37 +1,27 @@
-import { WebHaptics, type HapticPattern, type HapticPatternStep } from "web-haptics";
-
 export type UiHapticId = "dialog" | "nudge" | "success" | "error";
 
 const UI_HAPTICS_STORAGE_KEY = "hexagonia:ui-haptics-muted";
-const DIALOG_TAP_PATTERN: HapticPatternStep[] = [
-  { duration: 24, intensity: 0.42 },
-  { delay: 18 },
-  { duration: 18, intensity: 0.2 }
-];
-
-const HAPTIC_LIBRARY: Record<UiHapticId, HapticPattern> = {
-  dialog: DIALOG_TAP_PATTERN,
-  nudge: "nudge",
-  success: "success",
-  error: "error"
+const HAPTIC_LIBRARY: Record<UiHapticId, number | number[]> = {
+  dialog: [24, 18, 18],
+  nudge: 16,
+  success: [18, 24, 30],
+  error: [42, 24, 42]
 };
 
 function detectHapticsSupport(): boolean {
-  return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  return typeof navigator !== "undefined" && "vibrate" in navigator && typeof navigator.vibrate === "function";
 }
 
 class UiHapticsManager {
-  private engine: WebHaptics | null = null;
   private muted =
     typeof window !== "undefined" && window.localStorage.getItem(UI_HAPTICS_STORAGE_KEY) === "muted";
-  private supported = detectHapticsSupport();
 
   isMuted(): boolean {
     return this.muted;
   }
 
   isSupported(): boolean {
-    return this.supported;
+    return detectHapticsSupport();
   }
 
   setMuted(nextMuted: boolean): void {
@@ -43,38 +33,15 @@ class UiHapticsManager {
   }
 
   async play(hapticId: UiHapticId): Promise<void> {
-    if (this.muted || !this.supported) {
-      return;
-    }
-
-    const engine = this.ensureEngine();
-    if (!engine) {
+    if (this.muted || !detectHapticsSupport()) {
       return;
     }
 
     try {
-      await engine.trigger(HAPTIC_LIBRARY[hapticId]);
+      navigator.vibrate(HAPTIC_LIBRARY[hapticId]);
     } catch {
       // Ignore unsupported or blocked vibration attempts.
     }
-  }
-
-  private ensureEngine(): WebHaptics | null {
-    if (this.engine || !this.supported || typeof window === "undefined") {
-      return this.engine;
-    }
-
-    try {
-      this.engine = new WebHaptics({
-        debug: false,
-        showSwitch: false
-      });
-    } catch {
-      this.engine = null;
-      this.supported = false;
-    }
-
-    return this.engine;
   }
 }
 

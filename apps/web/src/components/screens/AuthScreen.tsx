@@ -81,6 +81,20 @@ export function AuthScreen(props: {
           <button className="primary-button auth-submit" type="submit">
             {props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen und loslegen"}
           </button>
+
+          {props.authMode === "register" ? (
+            <p className="recaptcha-note">
+              Diese Seite ist durch reCAPTCHA geschuetzt. Es gelten die Google{" "}
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+                Datenschutzerklaerung
+              </a>{" "}
+              und{" "}
+              <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">
+                Nutzungsbedingungen
+              </a>
+              .
+            </p>
+          ) : null}
         </form>
       </article>
     </section>
