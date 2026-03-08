@@ -62,6 +62,7 @@ interface InternalTradeOffer {
   give: ResourceMap;
   want: ResourceMap;
   createdAtTurn: number;
+  declinedByPlayerIds: string[];
 }
 
 interface SetupState {
@@ -339,7 +340,7 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
     players: state.players.map((player) => createPlayerView(state, player.id, viewerId)),
     bank: cloneResourceMap(state.bank),
     dice: state.dice,
-    tradeOffers: state.tradeOffers.map((trade) => toTradeView(trade)),
+    tradeOffers: state.tradeOffers.filter((trade) => canPlayerSeeTradeOffer(state, viewerId, trade)).map((trade) => toTradeView(trade)),
     robberDiscardStatus: getRobberDiscardStatusView(state),
     pendingDevelopmentEffect: state.pendingDevelopmentEffect
       ? {
@@ -968,7 +969,8 @@ function handleCreateTradeOffer(
     toPlayerId,
     give: cloneResourceMap(give),
     want: cloneResourceMap(want),
-    createdAtTurn: state.turn
+    createdAtTurn: state.turn,
+    declinedByPlayerIds: []
   };
   state.tradeOffers.push(trade);
 
@@ -1019,7 +1021,14 @@ function handleDeclineTradeOffer(state: GameState, playerId: string, tradeId: st
     throw new GameRuleError("Dieses Angebot kann von dir nicht abgelehnt werden.");
   }
 
-  state.tradeOffers = state.tradeOffers.filter((offer) => offer.id !== tradeId);
+  if (trade.toPlayerId) {
+    state.tradeOffers = state.tradeOffers.filter((offer) => offer.id !== tradeId);
+  } else if (!trade.declinedByPlayerIds.includes(playerId)) {
+    trade.declinedByPlayerIds.push(playerId);
+    if (getOpenTradeRecipientIds(state, trade).length === 0) {
+      state.tradeOffers = state.tradeOffers.filter((offer) => offer.id !== tradeId);
+    }
+  }
 
   appendEvent(state, {
     type: "trade_declined",
@@ -2013,6 +2022,9 @@ function canPlayerAcceptTradeOffer(state: GameState, playerId: string, trade: In
   if (trade.fromPlayerId === playerId) {
     return false;
   }
+  if (trade.declinedByPlayerIds.includes(playerId)) {
+    return false;
+  }
 
   if (playerId === currentPlayerId) {
     return trade.toPlayerId === currentPlayerId;
@@ -2024,6 +2036,9 @@ function canPlayerAcceptTradeOffer(state: GameState, playerId: string, trade: In
 function canPlayerDeclineTradeOffer(state: GameState, playerId: string, trade: InternalTradeOffer): boolean {
   const currentPlayerId = getCurrentPlayer(state).id;
   if (trade.fromPlayerId === playerId) {
+    return false;
+  }
+  if (trade.declinedByPlayerIds.includes(playerId)) {
     return false;
   }
 
@@ -2052,7 +2067,11 @@ function reconcileTradeOffers(state: GameState): void {
     }
 
     if (trade.fromPlayerId === currentPlayerId) {
-      return trade.toPlayerId === null || (trade.toPlayerId !== currentPlayerId && state.players.some((player) => player.id === trade.toPlayerId));
+      if (trade.toPlayerId === null) {
+        return getOpenTradeRecipientIds(state, trade).length > 0;
+      }
+
+      return trade.toPlayerId !== currentPlayerId && state.players.some((player) => player.id === trade.toPlayerId);
     }
 
     return trade.toPlayerId === currentPlayerId;
@@ -2069,6 +2088,28 @@ function toTradeView(trade: InternalTradeOffer): TradeOfferView {
     want: cloneResourceMap(trade.want),
     createdAtTurn: trade.createdAtTurn
   };
+}
+
+function canPlayerSeeTradeOffer(state: GameState, playerId: string, trade: InternalTradeOffer): boolean {
+  if (trade.fromPlayerId === playerId) {
+    return true;
+  }
+
+  if (trade.toPlayerId) {
+    return trade.toPlayerId === playerId;
+  }
+
+  return getOpenTradeRecipientIds(state, trade).includes(playerId);
+}
+
+function getOpenTradeRecipientIds(state: GameState, trade: InternalTradeOffer): string[] {
+  if (trade.toPlayerId) {
+    return trade.declinedByPlayerIds.includes(trade.toPlayerId) ? [] : [trade.toPlayerId];
+  }
+
+  return state.players
+    .filter((player) => player.id !== trade.fromPlayerId && !trade.declinedByPlayerIds.includes(player.id))
+    .map((player) => player.id);
 }
 
 function cloneBoard(board: GeneratedBoard): GeneratedBoard {
@@ -2114,7 +2155,8 @@ function cloneState(state: GameState): GameState {
     tradeOffers: state.tradeOffers.map((trade) => ({
       ...trade,
       give: cloneResourceMap(trade.give),
-      want: cloneResourceMap(trade.want)
+      want: cloneResourceMap(trade.want),
+      declinedByPlayerIds: [...trade.declinedByPlayerIds]
     })),
     eventLog: state.eventLog.map((event) => ({
       ...event,

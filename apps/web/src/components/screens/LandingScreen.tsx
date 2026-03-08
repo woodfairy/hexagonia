@@ -128,7 +128,9 @@ export function LandingScreen(props: {
   onToggleMusicPaused: () => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const trackMenuRef = useRef<HTMLDivElement | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [trackMenuOpen, setTrackMenuOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -185,6 +187,31 @@ export function LandingScreen(props: {
     return () => observer.disconnect();
   }, [prefersReducedMotion]);
 
+  useEffect(() => {
+    if (!trackMenuOpen) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (trackMenuRef.current && !trackMenuRef.current.contains(event.target as Node)) {
+        setTrackMenuOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setTrackMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [trackMenuOpen]);
+
   const scrollToSection = (sectionId: string) => {
     const node = document.getElementById(sectionId);
     if (!node) {
@@ -206,7 +233,7 @@ export function LandingScreen(props: {
 
   const authSubmitLabel = props.authMode === "login" ? "Jetzt anmelden" : "Konto anlegen";
   const hasMusicTracks = props.musicTracks.length > 0;
-  const landingTrackId = props.selectedMusicTrackId ?? props.musicTracks[0]?.id ?? "";
+  const selectedTrack = props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
   const landingModeLabel = props.musicPlaybackMode === "cycle" ? "Playlist" : "Loop";
 
   return (
@@ -237,25 +264,40 @@ export function LandingScreen(props: {
               <span>Startet automatisch erst nach Login</span>
             </div>
             <div className="landing-music-controls">
-              <label className="landing-music-track-shell">
-                <span className="sr-only">Song waehlen</span>
-                <select
-                  className="landing-music-select"
-                  value={landingTrackId}
-                  onChange={(event) => props.onSelectMusicTrack(event.target.value)}
+              <div className="landing-music-track-shell" ref={trackMenuRef}>
+                <button
+                  type="button"
+                  className={`landing-music-select-button ${trackMenuOpen ? "is-open" : ""}`}
+                  aria-expanded={trackMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setTrackMenuOpen((current) => !current)}
                   disabled={!hasMusicTracks}
                 >
-                  {hasMusicTracks ? (
-                    props.musicTracks.map((track) => (
-                      <option key={track.id} value={track.id}>
+                  <span className="landing-music-track-label">{selectedTrack?.name ?? "Keine Songs gefunden"}</span>
+                  <span className="landing-music-select-caret" aria-hidden="true">
+                    v
+                  </span>
+                </button>
+                {trackMenuOpen ? (
+                  <div className="landing-music-menu" role="menu" aria-label="Song waehlen">
+                    {props.musicTracks.map((track) => (
+                      <button
+                        key={track.id}
+                        type="button"
+                        className={`landing-music-menu-item ${track.id === selectedTrack?.id ? "is-active" : ""}`}
+                        role="menuitemradio"
+                        aria-checked={track.id === selectedTrack?.id}
+                        onClick={() => {
+                          props.onSelectMusicTrack(track.id);
+                          setTrackMenuOpen(false);
+                        }}
+                      >
                         {track.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">Keine Songs gefunden</option>
-                  )}
-                </select>
-              </label>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="button"
                 className={`landing-music-chip ${props.musicPaused ? "is-muted" : "is-active"}`}

@@ -347,17 +347,24 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     updateScrollProgress();
     animate();
 
+    const supportsFinePointer =
+      typeof window.matchMedia === "function" ? window.matchMedia("(pointer: fine)").matches : false;
+
     window.addEventListener("resize", updateSize);
     window.addEventListener("scroll", updateScrollProgress, { passive: true });
-    mount.addEventListener("pointermove", handlePointerMove);
-    mount.addEventListener("pointerleave", handlePointerLeave);
+    if (supportsFinePointer) {
+      mount.addEventListener("pointermove", handlePointerMove);
+      mount.addEventListener("pointerleave", handlePointerLeave);
+    }
 
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", updateSize);
       window.removeEventListener("scroll", updateScrollProgress);
-      mount.removeEventListener("pointermove", handlePointerMove);
-      mount.removeEventListener("pointerleave", handlePointerLeave);
+      if (supportsFinePointer) {
+        mount.removeEventListener("pointermove", handlePointerMove);
+        mount.removeEventListener("pointerleave", handlePointerLeave);
+      }
       disposeObjectTree(scene);
       renderer.dispose();
       mount.replaceChildren();

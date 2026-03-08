@@ -955,6 +955,74 @@ describe("rules engine", () => {
     expect(resolved.tradeOffers).toHaveLength(0);
     expect(resolved.phase).toBe("turn_action");
   });
+
+  it("keeps an open trade offer active for other players after one player declines", () => {
+    const state = createMatchState({
+      matchId: "match-open-trade",
+      roomId: "room-1",
+      seed: "trade-open-seed",
+      setupMode: "official_variable",
+      startingSeatIndex: 0,
+      players: createPlayers(["p1", "p2", "p3"], ["Alice", "Bob", "Cara"])
+    });
+
+    state.phase = "turn_action";
+    state.setupState = null;
+    state.turn = 3;
+    state.currentPlayerIndex = 0;
+
+    const p1 = state.players.find((entry) => entry.id === "p1")!;
+    const p2 = state.players.find((entry) => entry.id === "p2")!;
+    const p3 = state.players.find((entry) => entry.id === "p3")!;
+    p1.resources.brick = 1;
+    p2.resources.wool = 1;
+    p3.resources.wool = 1;
+
+    const offered = applyAction(state, "p1", {
+      type: "create_trade_offer",
+      toPlayerId: null,
+      give: {
+        brick: 1,
+        lumber: 0,
+        ore: 0,
+        grain: 0,
+        wool: 0
+      },
+      want: {
+        brick: 0,
+        lumber: 0,
+        ore: 0,
+        grain: 0,
+        wool: 1
+      }
+    });
+
+    const declined = applyAction(offered, "p2", {
+      type: "decline_trade_offer",
+      tradeId: offered.tradeOffers[0]!.id
+    });
+
+    expect(declined.tradeOffers).toHaveLength(1);
+
+    const p2Snapshot = createSnapshot(declined, "p2");
+    expect(p2Snapshot.tradeOffers).toHaveLength(0);
+    expect(p2Snapshot.allowedMoves.acceptableTradeOfferIds).toHaveLength(0);
+    expect(p2Snapshot.allowedMoves.declineableTradeOfferIds).toHaveLength(0);
+
+    const p3Snapshot = createSnapshot(declined, "p3");
+    expect(p3Snapshot.tradeOffers).toHaveLength(1);
+    expect(p3Snapshot.allowedMoves.acceptableTradeOfferIds).toEqual([declined.tradeOffers[0]!.id]);
+    expect(p3Snapshot.allowedMoves.declineableTradeOfferIds).toEqual([declined.tradeOffers[0]!.id]);
+
+    const resolved = applyAction(declined, "p3", {
+      type: "accept_trade_offer",
+      tradeId: declined.tradeOffers[0]!.id
+    });
+
+    expect(resolved.players.find((entry) => entry.id === "p1")!.resources.wool).toBe(1);
+    expect(resolved.players.find((entry) => entry.id === "p3")!.resources.brick).toBe(1);
+    expect(resolved.tradeOffers).toHaveLength(0);
+  });
 });
 
 function findRandomStateForTotal(total: number): string {
