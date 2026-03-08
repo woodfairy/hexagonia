@@ -467,16 +467,18 @@ function createDiceNotification(match: MatchSnapshot, event: MatchEvent): MatchN
   }
 
   const pendingPlayers = match.robberDiscardStatus.filter((entry) => !entry.done).length;
+  const detail =
+    pendingPlayers > 0
+      ? `${pendingPlayers} Spieler müssen jetzt Karten abwerfen. Danach ${getRobberPlacementInstruction(match, match.you, match.currentPlayerId, true)}`
+      : getRobberPlacementInstruction(match, match.you);
   return createBaseNotification(match, event, {
     label: "Räuberphase",
     title: getPlayerPredicate(match, match.you, event.byPlayerId, "würfelt 7", "würfelst 7"),
-    detail:
-      pendingPlayers > 0
-        ? `${pendingPlayers} Spieler müssen jetzt Karten abwerfen, danach wird der Räuber bewegt.`
-        : "Niemand muss abwerfen. Der Räuber wird jetzt bewegt.",
+    detail,
     badges: [
       ...(dice ? [{ label: `Wurf ${dice[0]} + ${dice[1]} = 7` }] : []),
-      { label: "Räuber aktiv", tone: "warning" }
+      { label: "Räuber aktiv", tone: "warning" },
+      { label: "Jetzt Feld wählen", tone: "warning" }
     ],
     emphasis: "warning",
     autoFocus: true
@@ -560,14 +562,17 @@ function createDevelopmentPlayedNotification(
   const cardType = getPayloadString(event.payload, "cardType");
   switch (cardType) {
     case "knight":
-      return createBaseNotification(match, event, {
-        label: "Räuberphase",
-        title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Ritter", "spielst Ritter"),
-        detail: "Die Räuberphase startet sofort.",
-        badges: [{ label: "Ritter", tone: "warning" }],
-        emphasis: "warning",
-        autoFocus: true
-      });
+      return {
+        ...createBaseNotification(match, event, {
+          label: "Räuberphase",
+          title: getPlayerPredicate(match, viewerId, event.byPlayerId, "spielt Ritter", "spielst Ritter"),
+          detail: "Die Räuberphase startet sofort.",
+          badges: [{ label: "Ritter", tone: "warning" }],
+          emphasis: "warning",
+          autoFocus: true
+        }),
+        detail: getRobberPlacementInstruction(match, viewerId, event.byPlayerId)
+      };
     case "road_building":
       return createBaseNotification(match, event, {
         label: "Entwicklung",
@@ -1209,6 +1214,25 @@ function getDisplayPlayerName(match: MatchSnapshot, viewerId: string, playerId?:
   }
 
   return getPlayerById(match, playerId)?.username ?? "Ein Spieler";
+}
+
+function getRobberPlacementInstruction(
+  match: MatchSnapshot,
+  viewerId: string,
+  playerId: string | null | undefined = match.currentPlayerId,
+  lowerCaseSelf = false
+): string {
+  if (!playerId) {
+    return "Jetzt muss ein markiertes Feld für den Räuber gewählt werden.";
+  }
+
+  if (playerId === viewerId) {
+    return lowerCaseSelf
+      ? "musst du jetzt ein markiertes Feld anklicken und den Räuber setzen."
+      : "Du musst jetzt ein markiertes Feld anklicken und den Räuber setzen.";
+  }
+
+  return `${getDisplayPlayerName(match, viewerId, playerId)} muss jetzt ein markiertes Feld anklicken und den Räuber setzen.`;
 }
 
 function getPlayerPredicate(

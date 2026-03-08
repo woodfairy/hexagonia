@@ -119,6 +119,7 @@ interface TurnStatus {
   title: string;
   detail: string;
   playerId?: string;
+  callout?: string;
 }
 
 interface DiceDisplayState {
@@ -756,6 +757,7 @@ export function MatchScreen(props: {
       <div className="action-placeholder">
         <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
         <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
+        {turnStatus.callout ? <span className="status-pill is-warning">{turnStatus.callout}</span> : null}
       </div>
     ) : null;
 
@@ -1263,6 +1265,7 @@ export function MatchScreen(props: {
           <div className="action-placeholder">
             <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
             <span>{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
+            {turnStatus.callout ? <span className="status-pill is-warning">{turnStatus.callout}</span> : null}
           </div>
         </section>
         <section className="dock-section">
@@ -1977,6 +1980,9 @@ export function MatchScreen(props: {
               {effectiveSheetState !== "peek" ? (
                 <span className="match-sheet-summary-detail">{renderMatchPlayerText(props.match, turnStatus.detail)}</span>
               ) : null}
+              {effectiveSheetState !== "peek" && turnStatus.callout ? (
+                <span className="status-pill is-warning">{turnStatus.callout}</span>
+              ) : null}
             </div>
           </div>
           {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
@@ -2667,8 +2673,8 @@ function createOwnActionCue(
     return {
       key: `action-robber-${match.version}-${tileIds.join(",")}`,
       mode: "action",
-      title: "Bewege den Räuber",
-      detail: "Alle gültigen Zielfelder für den Räuber sind markiert.",
+      title: "Setze jetzt den Räuber",
+      detail: "Klicke jetzt ein markiertes Feld an, um den Räuber dorthin zu setzen.",
       vertexIds: [],
       edgeIds: [],
       tileIds,
@@ -2998,8 +3004,12 @@ function getTurnStatus(
     ) ?? null;
   const trade = ownTrade ?? actionableTrade ?? match.tradeOffers[0] ?? null;
   const selfId = selfPlayer?.id ?? match.you;
-  const withPlayer = (title: string, detail: string, playerId?: string): TurnStatus =>
-    playerId ? { title, detail, playerId } : { title, detail };
+  const withPlayer = (title: string, detail: string, playerId?: string, callout?: string): TurnStatus => ({
+    title,
+    detail,
+    ...(playerId ? { playerId } : {}),
+    ...(callout ? { callout } : {})
+  });
 
   if (match.winnerId) {
     const winner = match.players.find((player) => player.id === match.winnerId)?.username ?? "Unbekannt";
@@ -3060,7 +3070,12 @@ function getTurnStatus(
       );
     }
     if (isCurrentPlayer && interactionMode === "robber") {
-      return withPlayer("Aktion von dir", "Alle Abwürfe sind erledigt. Wähle jetzt das Zielfeld für den Räuber.", selfId);
+      return withPlayer(
+        "Setze jetzt den Räuber",
+        "Klicke jetzt ein markiertes Feld an, um den Räuber dorthin zu setzen. Erst danach geht die Räuberphase weiter.",
+        selfId,
+        "Jetzt Feld anklicken"
+      );
     }
     if (pending.length > 0) {
       return withPlayer(

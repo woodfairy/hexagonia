@@ -600,6 +600,11 @@ select:focus-visible {
   line-height: 1.32;
 }
 
+.match-sheet-summary-copy .status-pill,
+.action-placeholder .status-pill {
+  justify-self: start;
+}
+
 .field span {
   font-size: 0.86rem;
   color: var(--muted);
