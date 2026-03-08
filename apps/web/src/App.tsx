@@ -1484,11 +1484,6 @@ export function App() {
       const nextRoom = await updateRoomSettings(room.id, { setupMode });
       setRoom(nextRoom);
       await loadMyRooms();
-      pushToast(
-        "success",
-        "Aufbau aktualisiert",
-        setupMode === "beginner" ? "Der Anfängeraufbau ist für den nächsten Start vorgemerkt." : "Der variable Aufbau ist für den nächsten Start vorgemerkt."
-      );
     } catch (settingsError) {
       pushToast("error", "Aufbau konnte nicht geändert werden", (settingsError as Error).message);
     }
@@ -1503,13 +1498,6 @@ export function App() {
       const nextRoom = await updateRoomSettings(room.id, { boardSize });
       setRoom(nextRoom);
       await loadMyRooms();
-      pushToast(
-        "success",
-        "Spielfeld aktualisiert",
-        boardSize === "extended"
-          ? "Das erweiterte 5-6-Spieler-Brett ist für den nächsten Start aktiv."
-          : "Das Standardbrett ist für den nächsten Start aktiv."
-      );
     } catch (settingsError) {
       pushToast("error", "Spielfeld konnte nicht geändert werden", (settingsError as Error).message);
     }
@@ -1524,13 +1512,6 @@ export function App() {
       const nextRoom = await updateRoomSettings(room.id, { turnRule });
       setRoom(nextRoom);
       await loadMyRooms();
-      pushToast(
-        "success",
-        "Zugregel aktualisiert",
-        turnRule === "paired_players"
-          ? "Paired Players ist für 5-6 Spieler vorgemerkt."
-          : "Sonderbauphase ist für 5-6 Spieler vorgemerkt."
-      );
     } catch (settingsError) {
       pushToast("error", "Zugregel konnte nicht geändert werden", (settingsError as Error).message);
     }
@@ -1549,13 +1530,6 @@ export function App() {
       });
       setRoom(nextRoom);
       await loadMyRooms();
-      pushToast(
-        "success",
-        "Startmodus aktualisiert",
-        startingPlayerMode === "rolled"
-          ? "Der erste Spieler wird vor Spielstart ausgewürfelt."
-          : "Der erste Spieler wird wieder manuell durch den Host festgelegt."
-      );
     } catch (settingsError) {
       pushToast("error", "Startmodus konnte nicht geändert werden", (settingsError as Error).message);
     }
@@ -1578,16 +1552,6 @@ export function App() {
       });
       setRoom(nextRoom);
       await loadMyRooms();
-      const startingSeat = nextRoom.seats.find(
-        (seat) => seat.index === nextRoom.gameConfig.startingPlayer.seatIndex
-      );
-      pushToast(
-        "success",
-        "Startspieler aktualisiert",
-        startingSeat?.username
-          ? `${startingSeat.username} eröffnet die Partie.`
-          : `Platz ${nextRoom.gameConfig.startingPlayer.seatIndex + 1} eröffnet die Partie.`
-      );
     } catch (settingsError) {
       pushToast("error", "Startspieler konnte nicht geändert werden", (settingsError as Error).message);
     }
