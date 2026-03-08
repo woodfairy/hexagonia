@@ -158,7 +158,7 @@ interface BuildActionTooltipState {
   placement: "above" | "below";
 }
 
-const DICE_EXPAND_MS = 150;
+const DICE_EXPAND_MS = 0;
 const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
 
