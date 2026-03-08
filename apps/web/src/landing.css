@@ -994,6 +994,10 @@ body.guest-landing-mode .toast-stack {
 }
 
 @media (max-width: 719px) {
+  .landing-scene-badge {
+    display: none;
+  }
+
   .landing-header {
     padding-inline: max(var(--landing-inline-space-mobile), env(safe-area-inset-left)) max(var(--landing-inline-space-mobile), env(safe-area-inset-right));
   }
