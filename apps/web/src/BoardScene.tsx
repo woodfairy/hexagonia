@@ -48,6 +48,10 @@ interface BoardSceneProps {
   onTileSelect: (tileId: string) => void;
 }
 
+type BoardTile = MatchSnapshot["board"]["tiles"][number];
+type BoardVertex = MatchSnapshot["board"]["vertices"][number];
+type BoardVerticesById = Map<string, BoardVertex>;
+
 const TILE_HEIGHT = 0.82;
 const PORT_MARKER_DISTANCE = 2.25;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
@@ -189,6 +193,14 @@ interface ReliefOccupiedArea {
   radius: number;
 }
 
+interface ReliefTilePolygon {
+  points: Array<{ x: number; z: number }>;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
 interface ReliefAnchorOptions {
   occupied?: ReliefOccupiedArea[];
   minGap?: number;
@@ -196,6 +208,7 @@ interface ReliefAnchorOptions {
   radialBias?: number;
   stretchZ?: number;
   candidatesPerAnchor?: number;
+  radialWeight?: number;
 }
 
 interface TileDecorationOptions {
@@ -205,8 +218,9 @@ interface TileDecorationOptions {
 
 interface TexturedTileOptions extends TileDecorationOptions {}
 
-const RELIEF_TOKEN_CLEAR_RADIUS = 1.56;
-const RELIEF_CENTER_CLEAR_PADDING = 0.22;
+const RELIEF_TOKEN_CLEAR_RADIUS = 1.18;
+const RELIEF_CENTER_CLEAR_PADDING = 0.1;
+const RELIEF_TILE_INSET_SCALE = TILE_OUTER_RENDER_SCALE * 0.9;
 const DEFAULT_FOCUS_DISTANCE_PROFILE = {
   tightBase: 26,
   mediumBase: 34,
@@ -1767,8 +1781,8 @@ function getSharedTexturedTileShell(
 }
 
 function createModernTileMesh(
-  tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   options: TileDecorationOptions = {
     includeProps: false,
@@ -1798,13 +1812,13 @@ function createModernTileMesh(
 
   const tileGroup = new THREE.Group();
   tileGroup.add(sandUnderlay, outerMesh, insetMesh);
-  appendTileDecorations(tileGroup, tile, active, options);
+  appendTileDecorations(tileGroup, tile, verticesById, active, options);
   return tileGroup;
 }
 
 function createTexturedTileMesh(
-  tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   terrainBundle: UltraTerrainTextureBundle,
   options: TexturedTileOptions
@@ -1839,19 +1853,20 @@ function createTexturedTileMesh(
 
   const tileGroup = new THREE.Group();
   tileGroup.add(sandUnderlay, outerMesh, insetMesh, overlay);
-  appendTileDecorations(tileGroup, tile, active, options);
+  appendTileDecorations(tileGroup, tile, verticesById, active, options);
   return tileGroup;
 }
 
 function appendTileDecorations(
   tileGroup: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   options: TileDecorationOptions
 ): void {
   if (options.includeTerrainRelief) {
     const reliefMode: Exclude<UltraTileReliefMode, "none"> = options.includeProps ? "full" : "terrain";
-    const reliefGroup = createUltraTerrainRelief(tile, active, reliefMode);
+    const reliefGroup = createUltraTerrainRelief(tile, verticesById, active, reliefMode);
     reliefGroup.position.y = TILE_HEIGHT + 0.006;
     reliefGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
     tileGroup.add(reliefGroup);
@@ -1862,34 +1877,30 @@ function appendTileDecorations(
   }
 
   const propGroup = createLandingFancyTileProps(tile.resource);
-  nudgeFancyPropsAwayFromTileCenter(propGroup);
-  propGroup.position.y = TILE_HEIGHT + 0.03;
-  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE);
+  settleFancyPropsIntoTerrain(propGroup);
+  propGroup.position.y = TILE_HEIGHT + 0.018;
+  propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.84);
   propGroup.traverse((entry) => {
     entry.userData.castTileShadow = true;
   });
   tileGroup.add(propGroup);
 }
 
-function nudgeFancyPropsAwayFromTileCenter(group: THREE.Group): void {
+function settleFancyPropsIntoTerrain(group: THREE.Group): void {
   for (const child of group.children) {
     const length = Math.hypot(child.position.x, child.position.z);
-    if (length < 0.04) {
-      continue;
+    if (length >= 0.04) {
+      const nextLength = THREE.MathUtils.clamp(length * 0.8 + 0.08, 0.5, 1.64);
+      child.position.x = (child.position.x / length) * nextLength;
+      child.position.z = (child.position.z / length) * nextLength;
     }
-
-    const offsetScale = 1.4;
-    const extraOffset = 0.58;
-    const minRadius = 2.08;
-    const maxRadius = 2.54;
-    const nextLength = THREE.MathUtils.clamp(length * offsetScale + extraOffset, minRadius, maxRadius);
-    child.position.x = (child.position.x / length) * nextLength;
-    child.position.z = (child.position.z / length) * nextLength;
+    child.scale.multiplyScalar(0.88);
   }
 }
 
 function createUltraTerrainRelief(
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): THREE.Group {
@@ -1897,22 +1908,22 @@ function createUltraTerrainRelief(
 
   switch (tile.resource) {
     case "lumber":
-      buildLumberRelief(group, tile, active, reliefMode);
+      buildLumberRelief(group, tile, verticesById, active, reliefMode);
       break;
     case "ore":
-      buildOreRelief(group, tile, active, reliefMode);
+      buildOreRelief(group, tile, verticesById, active, reliefMode);
       break;
     case "grain":
-      buildGrainRelief(group, tile, active, reliefMode);
+      buildGrainRelief(group, tile, verticesById, active, reliefMode);
       break;
     case "brick":
-      buildBrickRelief(group, tile, active, reliefMode);
+      buildBrickRelief(group, tile, verticesById, active, reliefMode);
       break;
     case "wool":
-      buildWoolRelief(group, tile, active, reliefMode);
+      buildWoolRelief(group, tile, verticesById, active, reliefMode);
       break;
     case "desert":
-      buildDesertRelief(group, tile, active, reliefMode);
+      buildDesertRelief(group, tile, verticesById, active, reliefMode);
       break;
   }
 
@@ -1921,73 +1932,73 @@ function createUltraTerrainRelief(
 
 function buildLumberRelief(
   group: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): void {
-  const occupied = createReliefOccupancy(1.62);
+  const occupied = createReliefOccupancy(1.3);
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full" || reliefMode === "terrain") {
-    const anchors = createReliefAnchors(tile, 7, 1.88, 3.26, 0.82, 1.2, "forest-main", {
-      occupied,
-      minGap: 0.42,
-      footprintScale: 0.94,
-      radialBias: 0.66,
-      stretchZ: 0.94,
-      candidatesPerAnchor: 16
-    });
-    for (const [index, anchor] of anchors.entries()) {
-      const cluster = createTreeCluster(anchor.scale, active, index % 2 === 0);
-      cluster.position.set(anchor.x, 0, anchor.z);
-      cluster.rotation.y = anchor.angle;
-      group.add(cluster);
-    }
-
-    const accentAnchors = createReliefAnchors(
-      tile,
-      12,
-      1.42,
-      3.18,
-      0.42 * accentScaleBoost,
-      0.78 * accentScaleBoost,
-      "forest-accent",
-      {
-        occupied,
-        minGap: 0.24,
-        footprintScale: 0.58,
-        radialBias: 0.84,
-        stretchZ: 0.94,
-        candidatesPerAnchor: 14
-      }
-    );
-    for (const [index, anchor] of accentAnchors.entries()) {
-      const accent = applyReliefPropPresentation(createForestAccent(anchor.scale, active, index % 3 === 0), reliefMode, "accent");
-      accent.position.set(anchor.x, 0, anchor.z);
-      accent.rotation.y = anchor.angle;
-      group.add(accent);
-    }
+  const anchors = createReliefAnchors(tile, verticesById, 9, 0.78, 3.14, 0.82, 1.18, "forest-main", {
+    occupied,
+    minGap: 0.34,
+    footprintScale: 0.92,
+    radialBias: 0.52,
+    stretchZ: 0.94,
+    candidatesPerAnchor: 22,
+    radialWeight: 0.18
+  });
+  for (const [index, anchor] of anchors.entries()) {
+    const cluster = createTreeCluster(anchor.scale, active, index % 3 !== 1);
+    cluster.position.set(anchor.x, 0, anchor.z);
+    cluster.rotation.y = anchor.angle;
+    group.add(cluster);
   }
 
-  if (reliefMode === "terrain") {
-    return;
+  const accentAnchors = createReliefAnchors(
+    tile,
+    verticesById,
+    reliefMode === "full" ? 15 : 12,
+    0.48,
+    3.08,
+    0.38 * accentScaleBoost,
+    0.72 * accentScaleBoost,
+    reliefMode === "full" ? "forest-accent" : "forest-understory",
+    {
+      occupied,
+      minGap: 0.18,
+      footprintScale: 0.56,
+      radialBias: 0.62,
+      stretchZ: 0.94,
+      candidatesPerAnchor: 18,
+      radialWeight: 0.12
+    }
+  );
+  for (const [index, anchor] of accentAnchors.entries()) {
+    const accent = applyReliefPropPresentation(createForestAccent(anchor.scale, active, index % 4 === 0), reliefMode, "accent");
+    accent.position.set(anchor.x, 0, anchor.z);
+    accent.rotation.y = anchor.angle;
+    group.add(accent);
   }
 
   const fillAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 14 : 10,
-    reliefMode === "full" ? 1.18 : 1.26,
-    reliefMode === "full" ? 3.18 : 3.04,
-    (reliefMode === "full" ? 0.24 : 0.28) * detailScaleBoost,
-    (reliefMode === "full" ? 0.5 : 0.58) * detailScaleBoost,
-    reliefMode === "full" ? "forest-scatter" : "forest-props",
+    verticesById,
+    reliefMode === "full" ? 20 : 15,
+    reliefMode === "full" ? 0.24 : 0.34,
+    reliefMode === "full" ? 3.04 : 2.96,
+    (reliefMode === "full" ? 0.22 : 0.26) * detailScaleBoost,
+    (reliefMode === "full" ? 0.46 : 0.54) * detailScaleBoost,
+    reliefMode === "full" ? "forest-floor" : "forest-floor-terrain",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.14 : 0.16,
-      footprintScale: reliefMode === "full" ? 0.32 : 0.36,
-      radialBias: 0.92,
+      minGap: reliefMode === "full" ? 0.12 : 0.14,
+      footprintScale: reliefMode === "full" ? 0.3 : 0.34,
+      radialBias: 0.64,
       stretchZ: 0.95,
-      candidatesPerAnchor: 12
+      candidatesPerAnchor: 16,
+      radialWeight: 0.08
     }
   );
   const fillVariants = reliefMode === "full" ? (["fern", "log", "stones"] as const) : (["log", "stones", "fern"] as const);
@@ -2005,81 +2016,91 @@ function buildLumberRelief(
 
 function buildOreRelief(
   group: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): void {
-  const occupied = createReliefOccupancy(1.7);
+  const occupied = createReliefOccupancy(1.34);
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full" || reliefMode === "terrain") {
-    const anchors = createReliefAnchors(tile, 6, 1.96, 3.18, 0.94, 1.36, "ore-main", {
-      occupied,
-      minGap: 0.5,
-      footprintScale: 0.98,
-      radialBias: 0.62,
-      stretchZ: 0.94,
-      candidatesPerAnchor: 18
-    });
-    for (const [index, anchor] of anchors.entries()) {
-      const cluster = createMountainCluster(anchor.scale * (index === 0 ? 1.18 : 1), active);
-      cluster.scale.y = index === 0 ? 1.22 : index % 2 === 0 ? 1.14 : 1.06;
-      cluster.position.set(anchor.x, 0, anchor.z);
-      cluster.rotation.y = anchor.angle;
-      group.add(cluster);
-    }
-
-    const accentAnchors = createReliefAnchors(tile, 9, 1.56, 3.12, 0.42 * accentScaleBoost, 0.84 * accentScaleBoost, "ore-accent", {
-      occupied,
-      minGap: 0.26,
-      footprintScale: 0.6,
-      radialBias: 0.78,
-      stretchZ: 0.94,
-      candidatesPerAnchor: 14
-    });
-    for (const [index, anchor] of accentAnchors.entries()) {
-      const accent = applyReliefPropPresentation(createOreOutcrop(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
-      accent.position.set(anchor.x, 0, anchor.z);
-      accent.rotation.y = anchor.angle;
-      group.add(accent);
-    }
-
-    const heroAnchors = createReliefAnchors(tile, 2, 2.24, 2.88, 1.18, 1.44, "ore-hero", {
-      occupied,
-      minGap: 0.62,
-      footprintScale: 1.08,
-      radialBias: 0.7,
-      stretchZ: 0.94,
-      candidatesPerAnchor: 20
-    });
-    for (const [index, anchor] of heroAnchors.entries()) {
-      const massif = createMountainCluster(anchor.scale, active);
-      massif.scale.y = index === 0 ? 1.32 : 1.2;
-      massif.position.set(anchor.x, 0, anchor.z);
-      massif.rotation.y = anchor.angle;
-      group.add(massif);
-    }
+  const anchors = createReliefAnchors(tile, verticesById, 7, 0.92, 3.06, 0.94, 1.28, "ore-main", {
+    occupied,
+    minGap: 0.42,
+    footprintScale: 1,
+    radialBias: 0.58,
+    stretchZ: 0.94,
+    candidatesPerAnchor: 24,
+    radialWeight: 0.2
+  });
+  for (const [index, anchor] of anchors.entries()) {
+    const cluster = createMountainCluster(anchor.scale * (index === 0 ? 1.14 : 1), active);
+    cluster.scale.y = index === 0 ? 1.2 : index % 2 === 0 ? 1.12 : 1.04;
+    cluster.position.set(anchor.x, 0, anchor.z);
+    cluster.rotation.y = anchor.angle;
+    group.add(cluster);
   }
 
-  if (reliefMode === "terrain") {
-    return;
+  const accentAnchors = createReliefAnchors(
+    tile,
+    verticesById,
+    reliefMode === "full" ? 12 : 10,
+    0.54,
+    3.02,
+    0.4 * accentScaleBoost,
+    0.82 * accentScaleBoost,
+    reliefMode === "full" ? "ore-accent" : "ore-rubble",
+    {
+      occupied,
+      minGap: 0.22,
+      footprintScale: 0.6,
+      radialBias: 0.66,
+      stretchZ: 0.94,
+      candidatesPerAnchor: 18,
+      radialWeight: 0.14
+    }
+  );
+  for (const [index, anchor] of accentAnchors.entries()) {
+    const accent = applyReliefPropPresentation(createOreOutcrop(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
+    accent.position.set(anchor.x, 0, anchor.z);
+    accent.rotation.y = anchor.angle;
+    group.add(accent);
+  }
+
+  const heroAnchors = createReliefAnchors(tile, verticesById, 3, 1.18, 2.7, 1.04, 1.32, "ore-hero", {
+    occupied,
+    minGap: 0.5,
+    footprintScale: 1.06,
+    radialBias: 0.62,
+    stretchZ: 0.94,
+    candidatesPerAnchor: 24,
+    radialWeight: 0.18
+  });
+  for (const [index, anchor] of heroAnchors.entries()) {
+    const massif = createMountainCluster(anchor.scale, active);
+    massif.scale.y = index === 0 ? 1.28 : 1.16;
+    massif.position.set(anchor.x, 0, anchor.z);
+    massif.rotation.y = anchor.angle;
+    group.add(massif);
   }
 
   const fillAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 12 : 8,
-    reliefMode === "full" ? 1.42 : 1.5,
-    reliefMode === "full" ? 3.04 : 2.96,
-    (reliefMode === "full" ? 0.26 : 0.32) * detailScaleBoost,
-    (reliefMode === "full" ? 0.52 : 0.62) * detailScaleBoost,
-    reliefMode === "full" ? "ore-scatter" : "ore-props",
+    verticesById,
+    reliefMode === "full" ? 16 : 12,
+    reliefMode === "full" ? 0.38 : 0.48,
+    reliefMode === "full" ? 2.98 : 2.92,
+    (reliefMode === "full" ? 0.24 : 0.28) * detailScaleBoost,
+    (reliefMode === "full" ? 0.48 : 0.56) * detailScaleBoost,
+    reliefMode === "full" ? "ore-scatter" : "ore-scatter-terrain",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.16 : 0.18,
+      minGap: reliefMode === "full" ? 0.12 : 0.14,
       footprintScale: reliefMode === "full" ? 0.34 : 0.38,
-      radialBias: 0.88,
+      radialBias: 0.64,
       stretchZ: 0.95,
-      candidatesPerAnchor: 12
+      candidatesPerAnchor: 16,
+      radialWeight: 0.08
     }
   );
   const fillVariants = reliefMode === "full" ? (["rubble", "crystal", "ledge"] as const) : (["crystal", "rubble", "crystal"] as const);
@@ -2097,42 +2118,63 @@ function buildOreRelief(
 
 function buildGrainRelief(
   group: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): void {
-  const occupied = createReliefOccupancy(1.58);
+  const occupied = createReliefOccupancy(1.22);
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full" || reliefMode === "terrain") {
-    const anchors = createReliefAnchors(tile, 7, 1.72, 3.02, 0.82, 1.12, "grain-main", {
-      occupied,
-      minGap: 0.34,
-      footprintScale: 0.74,
-      radialBias: 0.74,
-      stretchZ: 0.95,
-      candidatesPerAnchor: 16
-    });
-    for (const [index, anchor] of anchors.entries()) {
-      const patch = createWheatPatch(anchor.scale, active);
-      patch.position.set(anchor.x, 0, anchor.z);
-      patch.rotation.y = anchor.angle + Math.PI / 2 + (index % 2 === 0 ? 0.12 : -0.08);
-      group.add(patch);
-    }
+  const anchors = createReliefAnchors(tile, verticesById, 10, 0.52, 3.02, 0.88, 1.18, "grain-main", {
+    occupied,
+    minGap: 0.28,
+    footprintScale: 0.78,
+    radialBias: 0.6,
+    stretchZ: 0.95,
+    candidatesPerAnchor: 24,
+    radialWeight: 0.08
+  });
+  for (const [index, anchor] of anchors.entries()) {
+    const patch = createWheatPatch(anchor.scale, active);
+    patch.position.set(anchor.x, 0, anchor.z);
+    patch.rotation.y = anchor.angle + Math.PI / 2 + (index % 2 === 0 ? 0.08 : -0.06);
+    group.add(patch);
   }
 
   if (reliefMode === "terrain") {
+    const terrainFillAnchors = createReliefAnchors(tile, verticesById, 18, 0.24, 2.98, 0.22 * detailScaleBoost, 0.54 * detailScaleBoost, "grain-terrain-fill", {
+      occupied,
+      minGap: 0.1,
+      footprintScale: 0.28,
+      radialBias: 0.58,
+      stretchZ: 0.96,
+      candidatesPerAnchor: 16,
+      radialWeight: 0.04
+    });
+    const terrainVariants = ["furrow", "tuft", "furrow"] as const;
+    for (const [index, anchor] of terrainFillAnchors.entries()) {
+      const detail = applyReliefPropPresentation(
+        createFieldDetail(anchor.scale, active, getCyclicVariant(terrainVariants, index)),
+        reliefMode,
+        "detail"
+      );
+      detail.position.set(anchor.x, 0, anchor.z);
+      detail.rotation.y = anchor.angle + Math.PI / 2;
+      group.add(detail);
+    }
     return;
   }
 
-  const heroAnchors = createReliefAnchors(tile, 2, 2.02, 2.78, 0.68 * heroScaleBoost, 0.88 * heroScaleBoost, "grain-hero", {
+  const heroAnchors = createReliefAnchors(tile, verticesById, 2, 1.24, 2.62, 0.6 * heroScaleBoost, 0.82 * heroScaleBoost, "grain-hero", {
     occupied,
-    minGap: 0.42,
-    footprintScale: 0.84,
-    radialBias: 0.8,
+    minGap: 0.36,
+    footprintScale: 0.82,
+    radialBias: 0.68,
     stretchZ: 0.95,
-    candidatesPerAnchor: 18
+    candidatesPerAnchor: 20,
+    radialWeight: 0.16
   });
   const heroVariants = ["barn", "scarecrow"] as const;
   for (const [index, anchor] of heroAnchors.entries()) {
@@ -2148,19 +2190,21 @@ function buildGrainRelief(
 
   const accentAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 8 : 6,
-    1.54,
-    3.04,
-    0.4 * accentScaleBoost,
-    0.78 * accentScaleBoost,
-    reliefMode === "full" ? "grain-accent" : "grain-fancy",
+    verticesById,
+    8,
+    0.96,
+    2.96,
+    0.34 * accentScaleBoost,
+    0.72 * accentScaleBoost,
+    "grain-accent",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.22 : 0.24,
-      footprintScale: reliefMode === "full" ? 0.5 : 0.54,
-      radialBias: 0.86,
+      minGap: 0.18,
+      footprintScale: 0.5,
+      radialBias: 0.68,
       stretchZ: 0.95,
-      candidatesPerAnchor: 14
+      candidatesPerAnchor: 16,
+      radialWeight: 0.1
     }
   );
   for (const [index, anchor] of accentAnchors.entries()) {
@@ -2172,22 +2216,24 @@ function buildGrainRelief(
 
   const fillAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 14 : 8,
-    reliefMode === "full" ? 1.28 : 1.34,
-    reliefMode === "full" ? 3.1 : 2.9,
+    verticesById,
+    18,
+    0.3,
+    2.98,
     0.24 * detailScaleBoost,
-    (reliefMode === "full" ? 0.46 : 0.54) * detailScaleBoost,
-    reliefMode === "full" ? "grain-scatter" : "grain-props",
+    0.48 * detailScaleBoost,
+    "grain-scatter",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.14 : 0.16,
-      footprintScale: reliefMode === "full" ? 0.3 : 0.34,
-      radialBias: 0.94,
+      minGap: 0.12,
+      footprintScale: 0.3,
+      radialBias: 0.6,
       stretchZ: 0.96,
-      candidatesPerAnchor: 12
+      candidatesPerAnchor: 16,
+      radialWeight: 0.04
     }
   );
-  const fillVariants = reliefMode === "full" ? (["furrow", "tuft", "stook"] as const) : (["stook", "tuft", "stook"] as const);
+  const fillVariants = ["furrow", "tuft", "stook"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
     const detail = applyReliefPropPresentation(
       createFieldDetail(anchor.scale, active, getCyclicVariant(fillVariants, index)),
@@ -2202,42 +2248,78 @@ function buildGrainRelief(
 
 function buildBrickRelief(
   group: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): void {
-  const occupied = createReliefOccupancy(1.6);
+  const occupied = createReliefOccupancy(1.22);
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full" || reliefMode === "terrain") {
-    const anchors = createReliefAnchors(tile, 7, 1.8, 3.08, 0.84, 1.12, "brick-main", {
-      occupied,
-      minGap: 0.36,
-      footprintScale: 0.8,
-      radialBias: 0.72,
-      stretchZ: 0.94,
-      candidatesPerAnchor: 16
-    });
-    for (const [index, anchor] of anchors.entries()) {
-      const mesa = createClayMesa(anchor.scale * (index % 2 === 0 ? 1.08 : 0.92), active);
-      mesa.position.set(anchor.x, 0, anchor.z);
-      mesa.rotation.y = anchor.angle;
-      group.add(mesa);
-    }
+  const anchors = createReliefAnchors(tile, verticesById, 9, 0.7, 3.02, 0.88, 1.18, "brick-main", {
+    occupied,
+    minGap: 0.3,
+    footprintScale: 0.82,
+    radialBias: 0.6,
+    stretchZ: 0.94,
+    candidatesPerAnchor: 22,
+    radialWeight: 0.1
+  });
+  for (const [index, anchor] of anchors.entries()) {
+    const mesa = createClayMesa(anchor.scale * (index % 2 === 0 ? 1.06 : 0.94), active);
+    mesa.position.set(anchor.x, 0, anchor.z);
+    mesa.rotation.y = anchor.angle;
+    group.add(mesa);
   }
 
   if (reliefMode === "terrain") {
+    const terrainAccentAnchors = createReliefAnchors(tile, verticesById, 11, 0.36, 2.94, 0.34 * accentScaleBoost, 0.72 * accentScaleBoost, "brick-terrain-accent", {
+      occupied,
+      minGap: 0.16,
+      footprintScale: 0.42,
+      radialBias: 0.6,
+      stretchZ: 0.95,
+      candidatesPerAnchor: 16,
+      radialWeight: 0.08
+    });
+    for (const [index, anchor] of terrainAccentAnchors.entries()) {
+      const accent = applyReliefPropPresentation(createClayAccent(anchor.scale, active, index % 2 === 0), reliefMode, "accent");
+      accent.position.set(anchor.x, 0, anchor.z);
+      accent.rotation.y = anchor.angle;
+      group.add(accent);
+    }
+    const terrainFillAnchors = createReliefAnchors(tile, verticesById, 16, 0.24, 2.92, 0.22 * detailScaleBoost, 0.5 * detailScaleBoost, "brick-terrain-fill", {
+      occupied,
+      minGap: 0.1,
+      footprintScale: 0.28,
+      radialBias: 0.56,
+      stretchZ: 0.95,
+      candidatesPerAnchor: 16,
+      radialWeight: 0.04
+    });
+    const terrainVariants = ["cut", "rubble", "pit"] as const;
+    for (const [index, anchor] of terrainFillAnchors.entries()) {
+      const detail = applyReliefPropPresentation(
+        createClayScatter(anchor.scale, active, getCyclicVariant(terrainVariants, index)),
+        reliefMode,
+        "detail"
+      );
+      detail.position.set(anchor.x, 0, anchor.z);
+      detail.rotation.y = anchor.angle;
+      group.add(detail);
+    }
     return;
   }
 
-  const heroAnchors = createReliefAnchors(tile, 2, 2.0, 2.74, 0.62 * heroScaleBoost, 0.84 * heroScaleBoost, "brick-hero", {
+  const heroAnchors = createReliefAnchors(tile, verticesById, 2, 1.18, 2.58, 0.58 * heroScaleBoost, 0.8 * heroScaleBoost, "brick-hero", {
     occupied,
-    minGap: 0.4,
-    footprintScale: 0.82,
-    radialBias: 0.8,
+    minGap: 0.34,
+    footprintScale: 0.78,
+    radialBias: 0.66,
     stretchZ: 0.94,
-    candidatesPerAnchor: 18
+    candidatesPerAnchor: 18,
+    radialWeight: 0.14
   });
   const heroVariants = ["kiln", "stack"] as const;
   for (const [index, anchor] of heroAnchors.entries()) {
@@ -2253,19 +2335,21 @@ function buildBrickRelief(
 
   const accentAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 8 : 6,
-    1.52,
-    3.06,
+    verticesById,
+    9,
+    0.7,
+    3,
     0.42 * accentScaleBoost,
-    0.8 * accentScaleBoost,
-    reliefMode === "full" ? "brick-accent" : "brick-fancy",
+    0.76 * accentScaleBoost,
+    "brick-accent",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.22 : 0.24,
-      footprintScale: reliefMode === "full" ? 0.5 : 0.54,
-      radialBias: 0.86,
+      minGap: 0.18,
+      footprintScale: 0.48,
+      radialBias: 0.62,
       stretchZ: 0.95,
-      candidatesPerAnchor: 14
+      candidatesPerAnchor: 16,
+      radialWeight: 0.08
     }
   );
   for (const [index, anchor] of accentAnchors.entries()) {
@@ -2277,22 +2361,24 @@ function buildBrickRelief(
 
   const fillAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 13 : 8,
-    reliefMode === "full" ? 1.26 : 1.34,
-    reliefMode === "full" ? 3.08 : 2.88,
+    verticesById,
+    18,
+    0.26,
+    2.94,
     0.24 * detailScaleBoost,
-    (reliefMode === "full" ? 0.46 : 0.54) * detailScaleBoost,
-    reliefMode === "full" ? "brick-scatter" : "brick-props",
+    0.48 * detailScaleBoost,
+    "brick-scatter",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.14 : 0.16,
-      footprintScale: reliefMode === "full" ? 0.32 : 0.36,
-      radialBias: 0.92,
+      minGap: 0.12,
+      footprintScale: 0.3,
+      radialBias: 0.58,
       stretchZ: 0.95,
-      candidatesPerAnchor: 12
+      candidatesPerAnchor: 16,
+      radialWeight: 0.04
     }
   );
-  const fillVariants = reliefMode === "full" ? (["rubble", "cut", "pit"] as const) : (["cut", "rubble", "cut"] as const);
+  const fillVariants = ["rubble", "cut", "pit"] as const;
   for (const [index, anchor] of fillAnchors.entries()) {
     const detail = applyReliefPropPresentation(
       createClayScatter(anchor.scale, active, getCyclicVariant(fillVariants, index)),
@@ -2307,42 +2393,79 @@ function buildBrickRelief(
 
 function buildWoolRelief(
   group: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): void {
-  const occupied = createReliefOccupancy(1.58);
+  const occupied = createReliefOccupancy(1.2);
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full" || reliefMode === "terrain") {
-    const anchors = createReliefAnchors(tile, 8, 1.82, 3.12, 0.86, 1.16, "wool-main", {
-      occupied,
-      minGap: 0.36,
-      footprintScale: 0.82,
-      radialBias: 0.72,
-      stretchZ: 0.95,
-      candidatesPerAnchor: 16
-    });
-    for (const [index, anchor] of anchors.entries()) {
-      const tuft = createPastureTuft(anchor.scale, active);
-      tuft.position.set(anchor.x, 0, anchor.z);
-      tuft.rotation.y = anchor.angle + (index % 2 === 0 ? 0.12 : -0.08);
-      group.add(tuft);
-    }
+  const anchors = createReliefAnchors(tile, verticesById, 16, 0.34, 3.04, 0.94, 1.28, "wool-main", {
+    occupied,
+    minGap: 0.22,
+    footprintScale: 0.72,
+    radialBias: 0.54,
+    stretchZ: 0.95,
+    candidatesPerAnchor: 28,
+    radialWeight: 0.02
+  });
+  for (const [index, anchor] of anchors.entries()) {
+    const tuft = createPastureTuft(anchor.scale * (index % 5 === 0 ? 1.08 : 1), active);
+    tuft.position.set(anchor.x, 0, anchor.z);
+    tuft.rotation.y = anchor.angle + (index % 2 === 0 ? 0.08 : -0.06);
+    group.add(tuft);
   }
 
   if (reliefMode === "terrain") {
+    const terrainAccentAnchors = createReliefAnchors(tile, verticesById, 16, 0.26, 2.98, 0.38 * accentScaleBoost, 0.7 * accentScaleBoost, "wool-terrain-accent", {
+      occupied,
+      minGap: 0.1,
+      footprintScale: 0.24,
+      radialBias: 0.52,
+      stretchZ: 0.96,
+      candidatesPerAnchor: 18,
+      radialWeight: 0.02
+    });
+    for (const [index, anchor] of terrainAccentAnchors.entries()) {
+      const variant = index % 5 === 0 ? "flowers" : "shrub";
+      const accent = applyReliefPropPresentation(createPastureGroundDetail(anchor.scale, active, variant), reliefMode, "accent");
+      accent.position.set(anchor.x, 0, anchor.z);
+      accent.rotation.y = anchor.angle;
+      group.add(accent);
+    }
+    const terrainFillAnchors = createReliefAnchors(tile, verticesById, 26, 0.18, 2.94, 0.24 * detailScaleBoost, 0.52 * detailScaleBoost, "wool-terrain-fill", {
+      occupied,
+      minGap: 0.08,
+      footprintScale: 0.24,
+      radialBias: 0.5,
+      stretchZ: 0.96,
+      candidatesPerAnchor: 18,
+      radialWeight: 0
+    });
+    const terrainVariants = ["flowers", "shrub", "shrub"] as const;
+    for (const [index, anchor] of terrainFillAnchors.entries()) {
+      const detail = applyReliefPropPresentation(
+        createPastureGroundDetail(anchor.scale, active, getCyclicVariant(terrainVariants, index)),
+        reliefMode,
+        "detail"
+      );
+      detail.position.set(anchor.x, 0, anchor.z);
+      detail.rotation.y = anchor.angle;
+      group.add(detail);
+    }
     return;
   }
 
-  const heroAnchors = createReliefAnchors(tile, 2, 1.92, 2.62, 0.72 * heroScaleBoost, 0.94 * heroScaleBoost, "wool-hero", {
+  const heroAnchors = createReliefAnchors(tile, verticesById, 2, 1.08, 2.44, 0.68 * heroScaleBoost, 0.88 * heroScaleBoost, "wool-hero", {
     occupied,
-    minGap: 0.42,
-    footprintScale: 0.88,
-    radialBias: 0.82,
+    minGap: 0.34,
+    footprintScale: 0.84,
+    radialBias: 0.64,
     stretchZ: 0.95,
-    candidatesPerAnchor: 18
+    candidatesPerAnchor: 18,
+    radialWeight: 0.14
   });
   for (const anchor of heroAnchors) {
     const feature = applyReliefPropPresentation(createSheepfoldFeature(anchor.scale, active), reliefMode, "hero");
@@ -2353,19 +2476,21 @@ function buildWoolRelief(
 
   const accentAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 10 : 8,
-    1.52,
-    3.08,
-    0.42 * accentScaleBoost,
+    verticesById,
+    12,
+    0.54,
+    3.02,
+    0.46 * accentScaleBoost,
     0.78 * accentScaleBoost,
-    reliefMode === "full" ? "wool-accent" : "wool-fancy",
+    "wool-accent",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.22 : 0.24,
-      footprintScale: reliefMode === "full" ? 0.5 : 0.54,
-      radialBias: 0.88,
+      minGap: 0.12,
+      footprintScale: 0.4,
+      radialBias: 0.56,
       stretchZ: 0.96,
-      candidatesPerAnchor: 14
+      candidatesPerAnchor: 18,
+      radialWeight: 0.04
     }
   );
   const accentVariants = ["fence", "lamb", "shrub", "trough", "flowers"] as const;
@@ -2382,19 +2507,21 @@ function buildWoolRelief(
 
   const fillAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 14 : 10,
-    reliefMode === "full" ? 1.22 : 1.3,
-    reliefMode === "full" ? 3.06 : 2.88,
+    verticesById,
+    24,
+    0.18,
+    2.94,
     0.24 * detailScaleBoost,
-    (reliefMode === "full" ? 0.42 : 0.5) * detailScaleBoost,
-    reliefMode === "full" ? "wool-scatter" : "wool-props",
+    0.5 * detailScaleBoost,
+    "wool-scatter",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.14 : 0.16,
-      footprintScale: reliefMode === "full" ? 0.3 : 0.34,
-      radialBias: 0.94,
+      minGap: 0.08,
+      footprintScale: 0.24,
+      radialBias: 0.5,
       stretchZ: 0.96,
-      candidatesPerAnchor: 12
+      candidatesPerAnchor: 18,
+      radialWeight: 0
     }
   );
   const fillVariants = ["flowers", "trough", "shrub"] as const;
@@ -2412,42 +2539,39 @@ function buildWoolRelief(
 
 function buildDesertRelief(
   group: THREE.Group,
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   active: boolean,
   reliefMode: Exclude<UltraTileReliefMode, "none">
 ): void {
-  const occupied = createReliefOccupancy(1.62);
+  const occupied = createReliefOccupancy(1.24);
   const heroScaleBoost = getReliefPropScaleBoost(reliefMode, "hero");
   const accentScaleBoost = getReliefPropScaleBoost(reliefMode, "accent");
   const detailScaleBoost = getReliefPropScaleBoost(reliefMode, "detail");
-  if (reliefMode === "full" || reliefMode === "terrain") {
-    const anchors = createReliefAnchors(tile, 7, 1.84, 3.08, 0.9, 1.18, "desert-main", {
-      occupied,
-      minGap: 0.38,
-      footprintScale: 0.84,
-      radialBias: 0.72,
-      stretchZ: 0.94,
-      candidatesPerAnchor: 16
-    });
-    for (const [index, anchor] of anchors.entries()) {
-      const dune = createDuneCluster(anchor.scale * (index === 0 ? 1.14 : 0.96), active, index % 2 === 0);
-      dune.position.set(anchor.x, 0, anchor.z);
-      dune.rotation.y = anchor.angle;
-      group.add(dune);
-    }
-  }
-
-  if (reliefMode === "terrain") {
-    return;
-  }
-
-  const heroAnchors = createReliefAnchors(tile, 2, 1.98, 2.74, 0.64 * heroScaleBoost, 0.88 * heroScaleBoost, "desert-hero", {
+  const anchors = createReliefAnchors(tile, verticesById, 9, 0.68, 3.06, 0.92, 1.22, "desert-main", {
     occupied,
-    minGap: 0.42,
+    minGap: 0.3,
     footprintScale: 0.84,
-    radialBias: 0.8,
+    radialBias: 0.58,
     stretchZ: 0.94,
-    candidatesPerAnchor: 18
+    candidatesPerAnchor: 22,
+    radialWeight: 0.08
+  });
+  for (const [index, anchor] of anchors.entries()) {
+    const dune = createDuneCluster(anchor.scale * (index === 0 ? 1.1 : 0.98), active, index % 2 === 0);
+    dune.position.set(anchor.x, 0, anchor.z);
+    dune.rotation.y = anchor.angle;
+    group.add(dune);
+  }
+
+  const heroAnchors = createReliefAnchors(tile, verticesById, 2, 1.02, 2.52, 0.58 * heroScaleBoost, 0.82 * heroScaleBoost, "desert-hero", {
+    occupied,
+    minGap: 0.32,
+    footprintScale: 0.8,
+    radialBias: 0.62,
+    stretchZ: 0.94,
+    candidatesPerAnchor: 18,
+    radialWeight: 0.12
   });
   for (const [index, anchor] of heroAnchors.entries()) {
     const cactus = applyReliefPropPresentation(createCactusCluster(anchor.scale, active, index % 2 === 0), reliefMode, "hero");
@@ -2458,19 +2582,21 @@ function buildDesertRelief(
 
   const accentAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 8 : 6,
-    1.54,
-    3.08,
+    verticesById,
+    reliefMode === "full" ? 10 : 8,
+    0.56,
+    3.02,
     0.42 * accentScaleBoost,
-    0.8 * accentScaleBoost,
-    reliefMode === "full" ? "desert-accent" : "desert-fancy",
+    0.78 * accentScaleBoost,
+    reliefMode === "full" ? "desert-accent" : "desert-natural",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.22 : 0.24,
-      footprintScale: reliefMode === "full" ? 0.5 : 0.54,
-      radialBias: 0.86,
+      minGap: reliefMode === "full" ? 0.16 : 0.18,
+      footprintScale: reliefMode === "full" ? 0.48 : 0.5,
+      radialBias: 0.62,
       stretchZ: 0.95,
-      candidatesPerAnchor: 14
+      candidatesPerAnchor: 16,
+      radialWeight: 0.08
     }
   );
   for (const [index, anchor] of accentAnchors.entries()) {
@@ -2482,19 +2608,21 @@ function buildDesertRelief(
 
   const fillAnchors = createReliefAnchors(
     tile,
-    reliefMode === "full" ? 13 : 8,
-    reliefMode === "full" ? 1.24 : 1.34,
-    reliefMode === "full" ? 3.04 : 2.88,
-    0.24 * detailScaleBoost,
-    (reliefMode === "full" ? 0.44 : 0.52) * detailScaleBoost,
+    verticesById,
+    reliefMode === "full" ? 17 : 13,
+    reliefMode === "full" ? 0.26 : 0.32,
+    reliefMode === "full" ? 2.96 : 2.9,
+    0.22 * detailScaleBoost,
+    (reliefMode === "full" ? 0.42 : 0.48) * detailScaleBoost,
     reliefMode === "full" ? "desert-scatter" : "desert-props",
     {
       occupied,
-      minGap: reliefMode === "full" ? 0.14 : 0.16,
-      footprintScale: reliefMode === "full" ? 0.32 : 0.36,
-      radialBias: 0.92,
+      minGap: reliefMode === "full" ? 0.1 : 0.12,
+      footprintScale: reliefMode === "full" ? 0.28 : 0.3,
+      radialBias: 0.54,
       stretchZ: 0.95,
-      candidatesPerAnchor: 12
+      candidatesPerAnchor: 16,
+      radialWeight: 0.04
     }
   );
   const fillVariants = reliefMode === "full" ? (["ripple", "scrub", "bones"] as const) : (["scrub", "bones", "scrub"] as const);
@@ -2995,33 +3123,33 @@ function createClayMesa(scale: number, active: boolean): THREE.Group {
 function createPastureTuft(scale: number, active: boolean): THREE.Group {
   const group = new THREE.Group();
   const turfMaterial = new THREE.MeshStandardMaterial({
-    color: "#6ca44a",
+    color: "#5f9340",
     roughness: 0.94,
     metalness: 0.01
   });
   const grassMaterial = new THREE.MeshStandardMaterial({
-    color: "#88bf5d",
+    color: "#79b552",
     roughness: 0.88,
     metalness: 0.01,
     emissive: new THREE.Color(active ? "#d8f5a7" : "#203016"),
-    emissiveIntensity: active ? 0.06 : 0.01
+    emissiveIntensity: active ? 0.08 : 0.01
   });
   const grassHighlightMaterial = new THREE.MeshStandardMaterial({
-    color: "#a8d676",
+    color: "#a2d56d",
     roughness: 0.82,
     metalness: 0.01
   });
 
   const turf = markTileShadow(
-    new THREE.Mesh(new THREE.CylinderGeometry(0.64 * scale, 0.74 * scale, 0.032 * scale, 7), turfMaterial)
+    new THREE.Mesh(new THREE.CylinderGeometry(0.76 * scale, 0.88 * scale, 0.04 * scale, 7), turfMaterial)
   );
-  turf.position.y = 0.016 * scale;
+  turf.position.y = 0.02 * scale;
   group.add(turf);
 
   const underPatch = markTileShadow(
-    new THREE.Mesh(new THREE.CylinderGeometry(0.5 * scale, 0.58 * scale, 0.02 * scale, 7), grassMaterial)
+    new THREE.Mesh(new THREE.CylinderGeometry(0.58 * scale, 0.68 * scale, 0.024 * scale, 7), grassMaterial)
   );
-  underPatch.position.set(-0.02 * scale, 0.028 * scale, 0.02 * scale);
+  underPatch.position.set(-0.02 * scale, 0.034 * scale, 0.02 * scale);
   group.add(underPatch);
 
   const flowerPatch = createPastureGroundDetail(scale * 0.82, active, "flowers");
@@ -3035,7 +3163,9 @@ function createPastureTuft(scale: number, active: boolean): THREE.Group {
     { x: 0.02, z: -0.26, s: 0.18, r: 0.08 },
     { x: 0.24, z: -0.04, s: 0.22, r: -0.18 },
     { x: 0.28, z: 0.22, s: 0.2, r: 0.14 },
-    { x: -0.04, z: 0.3, s: 0.18, r: -0.08 }
+    { x: -0.04, z: 0.3, s: 0.18, r: -0.08 },
+    { x: -0.22, z: -0.02, s: 0.18, r: -0.12 },
+    { x: 0.08, z: 0.14, s: 0.16, r: 0.2 }
   ] as const;
   for (const entry of clumpOffsets) {
     const clump = createPastureGrassClump(scale * entry.s, grassMaterial, grassHighlightMaterial);
@@ -4342,7 +4472,8 @@ function createSheepFigure(
 }
 
 function createReliefAnchors(
-  tile: MatchSnapshot["board"]["tiles"][number],
+  tile: BoardTile,
+  verticesById: BoardVerticesById,
   count: number,
   minRadius: number,
   maxRadius: number,
@@ -4352,6 +4483,7 @@ function createReliefAnchors(
   options: ReliefAnchorOptions = {}
 ): ReliefAnchor[] {
   const random = createTileRandom(`${tile.id}:${tile.q}:${tile.r}:${tile.resource}:${seedSuffix}`);
+  const polygon = getReliefTilePolygon(tile, verticesById);
   const anchors: ReliefAnchor[] = [];
   const occupied = options.occupied ?? [];
   const minGap = options.minGap ?? 0.18;
@@ -4359,17 +4491,27 @@ function createReliefAnchors(
   const radialBias = options.radialBias ?? 0.78;
   const stretchZ = options.stretchZ ?? 0.9;
   const candidatesPerAnchor = options.candidatesPerAnchor ?? 12;
+  const radialWeight = options.radialWeight ?? 0.1;
+  const softenedMinRadius = minRadius * (0.34 + radialBias * 0.3);
+  const candidateBudget = Math.max(Math.round(candidatesPerAnchor * (1.4 + radialBias * 0.6)), candidatesPerAnchor);
 
   for (let index = 0; index < count; index += 1) {
-    let bestAnchor: (ReliefAnchor & { footprint: number; clearance: number }) | null = null;
+    let bestAnchor: (ReliefAnchor & { footprint: number; clearance: number; score: number }) | null = null;
 
-    for (let candidateIndex = 0; candidateIndex < candidatesPerAnchor; candidateIndex += 1) {
-      const angle = random() * Math.PI * 2;
-      const radius = minRadius + Math.pow(random(), radialBias) * (maxRadius - minRadius);
+    for (let candidateIndex = 0; candidateIndex < candidateBudget; candidateIndex += 1) {
       const scale = minScale + random() * (maxScale - minScale);
       const footprint = Math.max(scale * footprintScale, 0.12);
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius * stretchZ;
+      const x = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, random());
+      const z = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, random());
+      if (!isPointInReliefPolygon(x, z, polygon.points)) {
+        continue;
+      }
+
+      const edgeClearance = getReliefPolygonEdgeClearance(x, z, polygon.points) - footprint - Math.max(minGap * 0.08, 0.03);
+      if (edgeClearance < 0) {
+        continue;
+      }
+
       let nearestClearance = Number.POSITIVE_INFINITY;
 
       for (const area of occupied) {
@@ -4383,14 +4525,22 @@ function createReliefAnchors(
         continue;
       }
 
-      if (!bestAnchor || nearestClearance > bestAnchor.clearance) {
+      const effectiveRadius = Math.hypot(x, stretchZ === 0 ? z : z / stretchZ);
+      const preferredRadius = THREE.MathUtils.clamp(effectiveRadius, softenedMinRadius, maxRadius);
+      const radiusOvershoot = Math.abs(effectiveRadius - preferredRadius);
+      const radiusAffinity =
+        1 - THREE.MathUtils.clamp(radiusOvershoot / Math.max(maxRadius - softenedMinRadius, 0.001), 0, 1);
+      const score = nearestClearance * 1.25 + edgeClearance * 0.75 + radiusAffinity * radialWeight;
+
+      if (!bestAnchor || score > bestAnchor.score) {
         bestAnchor = {
           x,
           z,
           scale,
-          angle: angle + (random() - 0.5) * 0.6,
+          angle: random() * Math.PI * 2 + (random() - 0.5) * 0.36,
           footprint,
-          clearance: nearestClearance
+          clearance: nearestClearance,
+          score
         };
       }
     }
@@ -4419,6 +4569,79 @@ function createReliefAnchors(
 
 function createReliefOccupancy(centerClearRadius = RELIEF_TOKEN_CLEAR_RADIUS): ReliefOccupiedArea[] {
   return [{ x: 0, z: 0, radius: centerClearRadius + RELIEF_CENTER_CLEAR_PADDING }];
+}
+
+function getReliefTilePolygon(tile: BoardTile, verticesById: BoardVerticesById): ReliefTilePolygon {
+  const points = tile.vertexIds.map((vertexId) => {
+    const vertex = verticesById.get(vertexId)!;
+    return {
+      x: (vertex.x - tile.x) * RELIEF_TILE_INSET_SCALE,
+      z: (vertex.y - tile.y) * RELIEF_TILE_INSET_SCALE
+    };
+  });
+  const bounds = points.reduce(
+    (current, point) => ({
+      minX: Math.min(current.minX, point.x),
+      maxX: Math.max(current.maxX, point.x),
+      minZ: Math.min(current.minZ, point.z),
+      maxZ: Math.max(current.maxZ, point.z)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minZ: Number.POSITIVE_INFINITY,
+      maxZ: Number.NEGATIVE_INFINITY
+    }
+  );
+
+  return {
+    points,
+    ...bounds
+  };
+}
+
+function isPointInReliefPolygon(x: number, z: number, polygon: Array<{ x: number; z: number }>): boolean {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const current = polygon[index]!;
+    const prior = polygon[previous]!;
+    const intersects =
+      (current.z > z) !== (prior.z > z) &&
+      x < ((prior.x - current.x) * (z - current.z)) / Math.max(prior.z - current.z, 0.00001) + current.x;
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function getReliefPolygonEdgeClearance(x: number, z: number, polygon: Array<{ x: number; z: number }>): number {
+  let nearest = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index]!;
+    const next = polygon[(index + 1) % polygon.length]!;
+    nearest = Math.min(nearest, getDistanceToReliefSegment(x, z, current, next));
+  }
+  return nearest;
+}
+
+function getDistanceToReliefSegment(
+  x: number,
+  z: number,
+  start: { x: number; z: number },
+  end: { x: number; z: number }
+): number {
+  const dx = end.x - start.x;
+  const dz = end.z - start.z;
+  const segmentLengthSquared = dx * dx + dz * dz;
+  if (segmentLengthSquared < 0.000001) {
+    return Math.hypot(x - start.x, z - start.z);
+  }
+
+  const projection = THREE.MathUtils.clamp(((x - start.x) * dx + (z - start.z) * dz) / segmentLengthSquared, 0, 1);
+  const closestX = start.x + dx * projection;
+  const closestZ = start.z + dz * projection;
+  return Math.hypot(x - closestX, z - closestZ);
 }
 
 function markTileShadow<T extends THREE.Object3D>(object: T): T {

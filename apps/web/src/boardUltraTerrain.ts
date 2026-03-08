@@ -150,12 +150,17 @@ function createTerrainMaps(resource: TerrainResource, profile: TerrainTexturePro
 
 function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
   const base = TILE_COLORS[resource];
-  const adjustedBase = resource === "lumber" ? tint(base, 0.03) : base;
+  const adjustedBase =
+    resource === "lumber"
+      ? tint(base, 0.03)
+      : resource === "wool"
+        ? tint(base, -0.08)
+        : base;
   const topTint = adjustedBase;
   const insetTint = tint(adjustedBase, 0.05);
   const sideTint = tint(adjustedBase, -0.1);
   const insetSideTint = tint(adjustedBase, -0.05);
-  const overlayBase = tint(adjustedBase, 0.06);
+  const overlayBase = tint(adjustedBase, resource === "wool" ? 0.16 : 0.06);
   const emissive = tint(adjustedBase, -0.22);
 
   switch (resource) {
@@ -223,11 +228,11 @@ function createAppearance(resource: TerrainResource): UltraTerrainAppearance {
         insetSideTint,
         overlayBase,
         emissive,
-        roughness: 0.82,
+        roughness: 0.78,
         metalness: 0.02,
-        bumpScale: 0.12,
-        overlayOpacity: 0.2,
-        overlayScale: 1.1
+        bumpScale: 0.2,
+        overlayOpacity: 0.34,
+        overlayScale: 1.2
       };
     case "desert":
       return {
@@ -253,7 +258,20 @@ function paintLumberTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 32; index += 1) {
+  for (let index = 0; index < 18; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 54 + random() * 42, 18 + random() * 20, pick(random, [
+      "rgba(25,58,28,0.18)",
+      "rgba(41,78,36,0.16)",
+      "rgba(65,102,48,0.12)"
+    ]), rotation);
+    drawEllipse(bumpContext, x, y, 50 + random() * 36, 14 + random() * 16, "rgba(208,208,208,0.08)", rotation);
+    drawEllipse(roughnessContext, x, y, 46 + random() * 30, 14 + random() * 14, "rgba(186,186,186,0.06)", rotation);
+  }
+
+  for (let index = 0; index < 40; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const scale = 32 + random() * 28;
@@ -278,37 +296,37 @@ function paintLumberTerrain(
     ]);
   }
 
-  for (let index = 0; index < 18; index += 1) {
+  for (let index = 0; index < 42; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const rotation = random() * Math.PI;
-    drawEllipse(colorContext, x, y, 32 + random() * 32, 9 + random() * 12, "rgba(147,187,96,0.08)", rotation);
-    drawEllipse(overlayContext, x, y, 24 + random() * 24, 7 + random() * 9, "rgba(255,255,255,0.08)", rotation);
+    drawEllipse(colorContext, x, y, 24 + random() * 28, 8 + random() * 12, "rgba(128,170,86,0.08)", rotation);
+    drawEllipse(overlayContext, x, y, 18 + random() * 18, 6 + random() * 8, "rgba(255,255,255,0.06)", rotation);
   }
 
-  for (let index = 0; index < 56; index += 1) {
+  for (let index = 0; index < 44; index += 1) {
     const startX = random() * TERRAIN_TEXTURE_SIZE;
     const startY = random() * TERRAIN_TEXTURE_SIZE;
-    const endX = startX + (random() - 0.5) * 92;
-    const endY = startY + (random() - 0.5) * 52;
-    colorContext.strokeStyle = "rgba(96,74,42,0.08)";
-    colorContext.lineWidth = 2 + random() * 2.4;
+    const endX = startX + (random() - 0.5) * 132;
+    const endY = startY + (random() - 0.5) * 76;
+    colorContext.strokeStyle = pick(random, ["rgba(80,58,34,0.1)", "rgba(102,77,44,0.08)"]);
+    colorContext.lineWidth = 1.8 + random() * 2.2;
     colorContext.lineCap = "round";
     colorContext.beginPath();
     colorContext.moveTo(startX, startY);
-    colorContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 22, endX, endY);
+    colorContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 30, endX, endY);
     colorContext.stroke();
 
-    bumpContext.strokeStyle = "rgba(222,222,222,0.08)";
-    bumpContext.lineWidth = 1.2 + random() * 1.4;
+    bumpContext.strokeStyle = "rgba(222,222,222,0.07)";
+    bumpContext.lineWidth = 1 + random() * 1.2;
     bumpContext.beginPath();
     bumpContext.moveTo(startX, startY);
-    bumpContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 18, endX, endY);
+    bumpContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 24, endX, endY);
     bumpContext.stroke();
   }
 
-  drawSpeckles(colorContext, random, 1200, "rgba(18,42,20,0.04)", 0.6, 1.8);
-  drawSpeckles(colorContext, random, 420, "rgba(220,240,179,0.04)", 0.5, 1.2);
+  drawSpeckles(colorContext, random, 860, "rgba(18,42,20,0.04)", 0.6, 1.8);
+  drawSpeckles(colorContext, random, 300, "rgba(220,240,179,0.04)", 0.5, 1.1);
 }
 
 function paintOreTerrain(
@@ -318,7 +336,20 @@ function paintOreTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 22; index += 1) {
+  for (let index = 0; index < 18; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 46 + random() * 36, 12 + random() * 20, pick(random, [
+      "rgba(72,79,90,0.16)",
+      "rgba(92,100,113,0.14)",
+      "rgba(116,126,140,0.12)"
+    ]), rotation);
+    drawEllipse(bumpContext, x, y, 38 + random() * 30, 9 + random() * 14, "rgba(210,210,210,0.1)", rotation);
+    drawEllipse(roughnessContext, x, y, 34 + random() * 26, 8 + random() * 12, "rgba(176,176,176,0.07)", rotation);
+  }
+
+  for (let index = 0; index < 28; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const scale = 26 + random() * 24;
@@ -348,13 +379,13 @@ function paintOreTerrain(
   colorContext.lineCap = "round";
   bumpContext.lineCap = "round";
   overlayContext.lineCap = "round";
-  for (let index = 0; index < 26; index += 1) {
+  for (let index = 0; index < 32; index += 1) {
     const startX = random() * TERRAIN_TEXTURE_SIZE;
     const startY = random() * TERRAIN_TEXTURE_SIZE;
-    const endX = startX + (random() - 0.5) * 116;
-    const endY = startY + (random() - 0.5) * 68;
-    const midX = (startX + endX) / 2 + (random() - 0.5) * 18;
-    const midY = (startY + endY) / 2 + (random() - 0.5) * 18;
+    const endX = startX + (random() - 0.5) * 148;
+    const endY = startY + (random() - 0.5) * 86;
+    const midX = (startX + endX) / 2 + (random() - 0.5) * 24;
+    const midY = (startY + endY) / 2 + (random() - 0.5) * 24;
     const veinWidth = 1.8 + random() * 2.2;
 
     colorContext.strokeStyle = index % 3 === 0 ? "rgba(194,223,255,0.22)" : "rgba(210,216,224,0.22)";
@@ -379,15 +410,15 @@ function paintOreTerrain(
     bumpContext.stroke();
   }
 
-  for (let index = 0; index < 18; index += 1) {
+  for (let index = 0; index < 26; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
     const rotation = random() * Math.PI;
-    drawEllipse(colorContext, x, y, 32 + random() * 28, 7 + random() * 10, "rgba(60,68,78,0.1)", rotation);
+    drawEllipse(colorContext, x, y, 28 + random() * 34, 8 + random() * 12, "rgba(60,68,78,0.11)", rotation);
     drawEllipse(overlayContext, x, y, 24 + random() * 16, 4 + random() * 6, "rgba(255,255,255,0.06)", rotation);
   }
 
-  drawSpeckles(colorContext, random, 900, "rgba(54,60,68,0.05)", 0.7, 1.9);
+  drawSpeckles(colorContext, random, 720, "rgba(54,60,68,0.06)", 0.8, 2.2);
 }
 
 function paintGrainTerrain(
@@ -397,16 +428,25 @@ function paintGrainTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  const lineCount = 120;
+  for (let band = 0; band < 16; band += 1) {
+    const x = band * 34 + random() * 14;
+    const width = 18 + random() * 20;
+    colorContext.fillStyle = pick(random, ["rgba(151,109,44,0.18)", "rgba(130,92,36,0.16)", "rgba(184,141,58,0.1)"]);
+    colorContext.fillRect(x, -10, width, TERRAIN_TEXTURE_SIZE + 20);
+    bumpContext.fillStyle = "rgba(186,186,186,0.08)";
+    bumpContext.fillRect(x + 2, -10, Math.max(width - 4, 4), TERRAIN_TEXTURE_SIZE + 20);
+  }
+
+  const lineCount = 104;
   for (let line = 0; line < lineCount; line += 1) {
     const xOffset = (line / lineCount) * TERRAIN_TEXTURE_SIZE;
-    const width = 4 + random() * 5;
-    const light = 0.18 + random() * 0.18;
+    const width = 5 + random() * 6;
+    const light = 0.16 + random() * 0.16;
     colorContext.strokeStyle = `rgba(244,219,123,${light})`;
     colorContext.lineWidth = width;
     colorContext.beginPath();
-    for (let y = -24; y <= TERRAIN_TEXTURE_SIZE + 24; y += 18) {
-      const x = xOffset + Math.sin((y + line * 6) * 0.03) * (10 + random() * 12);
+    for (let y = -24; y <= TERRAIN_TEXTURE_SIZE + 24; y += 16) {
+      const x = xOffset + Math.sin((y + line * 6) * 0.03) * (8 + random() * 8);
       if (y === -24) {
         colorContext.moveTo(x, y);
       } else {
@@ -418,8 +458,8 @@ function paintGrainTerrain(
     bumpContext.strokeStyle = "rgba(210,210,210,0.16)";
     bumpContext.lineWidth = Math.max(2, width * 0.5);
     bumpContext.beginPath();
-    for (let y = -24; y <= TERRAIN_TEXTURE_SIZE + 24; y += 18) {
-      const x = xOffset + Math.sin((y + line * 6) * 0.03) * 8;
+    for (let y = -24; y <= TERRAIN_TEXTURE_SIZE + 24; y += 16) {
+      const x = xOffset + Math.sin((y + line * 6) * 0.03) * 6;
       if (y === -24) {
         bumpContext.moveTo(x, y);
       } else {
@@ -429,18 +469,19 @@ function paintGrainTerrain(
     bumpContext.stroke();
   }
 
-  for (let index = 0; index < 72; index += 1) {
+  for (let index = 0; index < 54; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    drawSoftBlob(overlayContext, x, y, 26 + random() * 34, "rgba(255,255,255,0.12)");
+    drawSoftBlob(overlayContext, x, y, 22 + random() * 28, "rgba(255,245,201,0.1)");
     drawSoftBlob(roughnessContext, x, y, 18 + random() * 20, "rgba(220,220,220,0.06)");
   }
 
-  for (let track = 0; track < 22; track += 1) {
+  for (let track = 0; track < 18; track += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    drawEllipse(colorContext, x, y, 24 + random() * 28, 4 + random() * 6, "rgba(129,93,36,0.1)", random() * Math.PI);
-    drawEllipse(bumpContext, x, y, 18 + random() * 18, 2 + random() * 3, "rgba(188,188,188,0.08)", random() * Math.PI);
+    const rotation = Math.PI / 2 + (random() - 0.5) * 0.4;
+    drawEllipse(colorContext, x, y, 18 + random() * 24, 4 + random() * 6, "rgba(129,93,36,0.12)", rotation);
+    drawEllipse(bumpContext, x, y, 14 + random() * 16, 2 + random() * 3, "rgba(188,188,188,0.08)", rotation);
   }
 }
 
@@ -451,19 +492,32 @@ function paintBrickTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let layer = 0; layer < 18; layer += 1) {
-    const y = layer * 28 + random() * 14;
-    const bandHeight = 18 + random() * 14;
-    colorContext.fillStyle = pick(random, ["rgba(158,88,61,0.32)", "rgba(194,121,85,0.28)", "rgba(120,63,47,0.24)"]);
+  for (let basin = 0; basin < 18; basin += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 32 + random() * 42, 10 + random() * 18, pick(random, [
+      "rgba(122,62,46,0.2)",
+      "rgba(150,79,57,0.18)",
+      "rgba(179,104,74,0.14)"
+    ]), rotation);
+    drawEllipse(bumpContext, x, y, 28 + random() * 32, 8 + random() * 12, "rgba(198,198,198,0.08)", rotation);
+    drawEllipse(roughnessContext, x, y, 26 + random() * 26, 7 + random() * 10, "rgba(92,92,92,0.08)", rotation);
+  }
+
+  for (let layer = 0; layer < 16; layer += 1) {
+    const y = layer * 30 + random() * 12;
+    const bandHeight = 16 + random() * 12;
+    colorContext.fillStyle = pick(random, ["rgba(158,88,61,0.3)", "rgba(194,121,85,0.26)", "rgba(120,63,47,0.2)"]);
     colorContext.fillRect(-10, y, TERRAIN_TEXTURE_SIZE + 20, bandHeight);
-    bumpContext.fillStyle = "rgba(175,175,175,0.08)";
-    bumpContext.fillRect(-10, y, TERRAIN_TEXTURE_SIZE + 20, bandHeight * 0.72);
+    bumpContext.fillStyle = "rgba(175,175,175,0.07)";
+    bumpContext.fillRect(-10, y, TERRAIN_TEXTURE_SIZE + 20, bandHeight * 0.7);
   }
 
   colorContext.strokeStyle = "rgba(83,44,29,0.34)";
   bumpContext.strokeStyle = "rgba(255,255,255,0.22)";
   roughnessContext.strokeStyle = "rgba(60,60,60,0.12)";
-  for (let crack = 0; crack < 140; crack += 1) {
+  for (let crack = 0; crack < 120; crack += 1) {
     const startX = random() * TERRAIN_TEXTURE_SIZE;
     const startY = random() * TERRAIN_TEXTURE_SIZE;
     colorContext.lineWidth = 1 + random() * 1.8;
@@ -489,8 +543,21 @@ function paintBrickTerrain(
     roughnessContext.stroke();
   }
 
-  for (let index = 0; index < 36; index += 1) {
-    drawSoftBlob(overlayContext, random() * TERRAIN_TEXTURE_SIZE, random() * TERRAIN_TEXTURE_SIZE, 20 + random() * 28, "rgba(255,246,232,0.08)");
+  for (let rut = 0; rut < 26; rut += 1) {
+    const startX = random() * TERRAIN_TEXTURE_SIZE;
+    const startY = random() * TERRAIN_TEXTURE_SIZE;
+    const endX = startX + (random() - 0.5) * 120;
+    const endY = startY + (random() - 0.5) * 54;
+    bumpContext.strokeStyle = "rgba(228,228,228,0.08)";
+    bumpContext.lineWidth = 1.4 + random() * 1.2;
+    bumpContext.beginPath();
+    bumpContext.moveTo(startX, startY);
+    bumpContext.quadraticCurveTo((startX + endX) / 2, startY + (random() - 0.5) * 18, endX, endY);
+    bumpContext.stroke();
+  }
+
+  for (let index = 0; index < 40; index += 1) {
+    drawSoftBlob(overlayContext, random() * TERRAIN_TEXTURE_SIZE, random() * TERRAIN_TEXTURE_SIZE, 18 + random() * 24, "rgba(255,246,232,0.08)");
   }
 }
 
@@ -501,51 +568,77 @@ function paintWoolTerrain(
   overlayContext: CanvasRenderingContext2D,
   random: () => number
 ): void {
-  for (let index = 0; index < 140; index += 1) {
+  for (let index = 0; index < 34; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    drawSoftBlob(colorContext, x, y, 12 + random() * 18, pick(random, ["rgba(88,132,66,0.08)", "rgba(112,154,82,0.07)", "rgba(156,188,112,0.05)"]));
+    const rotation = random() * Math.PI;
+    drawEllipse(colorContext, x, y, 56 + random() * 44, 18 + random() * 24, pick(random, [
+      "rgba(77,122,55,0.18)",
+      "rgba(96,146,67,0.15)",
+      "rgba(142,185,96,0.12)"
+    ]), rotation);
+    drawEllipse(bumpContext, x, y, 44 + random() * 30, 14 + random() * 16, "rgba(214,214,214,0.1)", rotation);
+    drawEllipse(overlayContext, x, y, 40 + random() * 28, 12 + random() * 14, "rgba(246,255,232,0.08)", rotation);
   }
 
-  for (let index = 0; index < 240; index += 1) {
+  for (let index = 0; index < 160; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    const scale = 0.8 + random() * 1.5;
+    drawSoftBlob(colorContext, x, y, 14 + random() * 22, pick(random, [
+      "rgba(71,112,50,0.11)",
+      "rgba(101,147,70,0.1)",
+      "rgba(156,192,110,0.08)"
+    ]));
+  }
+
+  for (let index = 0; index < 34; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const rotation = Math.PI / 2 + (random() - 0.5) * 0.64;
+    drawEllipse(colorContext, x, y, 62 + random() * 72, 2.8 + random() * 4.2, "rgba(184,214,131,0.12)", rotation);
+    drawEllipse(bumpContext, x, y, 52 + random() * 60, 1.8 + random() * 2.8, "rgba(226,226,226,0.08)", rotation);
+    drawEllipse(overlayContext, x, y, 56 + random() * 58, 2.1 + random() * 3.2, "rgba(250,255,242,0.08)", rotation);
+  }
+
+  for (let index = 0; index < 420; index += 1) {
+    const x = random() * TERRAIN_TEXTURE_SIZE;
+    const y = random() * TERRAIN_TEXTURE_SIZE;
+    const scale = 0.9 + random() * 1.7;
     const rotation = (random() - 0.5) * 1.1;
     drawGrassTuft(colorContext, x, y, scale, rotation, random, [
-      "rgba(77,124,57,0.3)",
-      "rgba(106,154,76,0.26)",
-      "rgba(146,184,106,0.22)"
+      "rgba(58,104,41,0.36)",
+      "rgba(92,144,64,0.32)",
+      "rgba(144,188,100,0.26)"
     ]);
     drawGrassTuft(bumpContext, x, y, scale * 0.92, rotation, random, [
-      "rgba(210,210,210,0.14)",
-      "rgba(176,176,176,0.12)",
-      "rgba(236,236,236,0.1)"
+      "rgba(220,220,220,0.2)",
+      "rgba(188,188,188,0.16)",
+      "rgba(240,240,240,0.13)"
     ]);
     if (index % 2 === 0) {
       drawGrassTuft(overlayContext, x, y, scale * 1.08, rotation, random, [
-        "rgba(249,255,244,0.1)",
-        "rgba(230,244,211,0.08)"
+        "rgba(250,255,242,0.14)",
+        "rgba(232,246,210,0.11)"
       ]);
     }
     if (index % 3 === 0) {
       drawGrassTuft(roughnessContext, x, y, scale, rotation, random, [
-        "rgba(228,228,228,0.06)",
-        "rgba(196,196,196,0.05)"
+        "rgba(228,228,228,0.08)",
+        "rgba(196,196,196,0.06)"
       ]);
     }
   }
 
-  for (let index = 0; index < 180; index += 1) {
+  for (let index = 0; index < 320; index += 1) {
     const x = random() * TERRAIN_TEXTURE_SIZE;
     const y = random() * TERRAIN_TEXTURE_SIZE;
-    const rotation = random() * Math.PI;
-    drawEllipse(colorContext, x, y, 4 + random() * 8, 0.8 + random() * 1.2, "rgba(175,205,126,0.08)", rotation);
-    drawEllipse(bumpContext, x, y, 3.2 + random() * 5.2, 0.5 + random() * 0.8, "rgba(220,220,220,0.08)", rotation);
+    const rotation = Math.PI / 2 + (random() - 0.5) * 0.6;
+    drawEllipse(colorContext, x, y, 5 + random() * 12, 0.9 + random() * 1.5, "rgba(186,214,132,0.13)", rotation);
+    drawEllipse(bumpContext, x, y, 3.6 + random() * 5.8, 0.6 + random() * 0.9, "rgba(224,224,224,0.11)", rotation);
   }
 
-  drawSpeckles(colorContext, random, 2400, "rgba(28,58,18,0.04)", 0.7, 1.5);
-  drawSpeckles(colorContext, random, 700, "rgba(210,226,180,0.05)", 0.5, 1.1);
+  drawSpeckles(colorContext, random, 2200, "rgba(25,54,16,0.05)", 0.7, 1.6);
+  drawSpeckles(colorContext, random, 900, "rgba(220,235,186,0.08)", 0.5, 1.2);
 }
 
 function paintDesertTerrain(
@@ -602,13 +695,15 @@ function drawBaseGradients(
   const base =
     resource === "lumber"
       ? tint(TILE_COLORS[resource], 0.03)
+      : resource === "wool"
+        ? tint(TILE_COLORS[resource], -0.08)
       : resource === "desert"
         ? tint(TILE_COLORS[resource], 0.08)
         : TILE_COLORS[resource];
   const colorGradient = colorContext.createLinearGradient(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
-  colorGradient.addColorStop(0, tint(base, resource === "desert" ? 0.1 : 0.08));
+  colorGradient.addColorStop(0, tint(base, resource === "desert" ? 0.1 : resource === "wool" ? 0.16 : 0.08));
   colorGradient.addColorStop(0.52, base);
-  colorGradient.addColorStop(1, tint(base, resource === "desert" ? -0.03 : -0.06));
+  colorGradient.addColorStop(1, tint(base, resource === "desert" ? -0.03 : resource === "wool" ? -0.12 : -0.06));
   colorContext.fillStyle = colorGradient;
   colorContext.fillRect(0, 0, TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
 
