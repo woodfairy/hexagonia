@@ -301,11 +301,14 @@ function createRoadNotification(
     : freeBuild
       ? "Die Straße stammt aus Straßenbau."
       : "Die neue Verbindung ist auf dem Brett markiert.";
+  const detailText = followUp?.detail ?? detail;
 
   return createBaseNotification(match, event, {
     label: initial ? "Startaufbau" : "Bau",
     title,
-    detail,
+    detail: detailText,
+    badges: followUp?.badges,
+    ...(followUp?.accentPlayerId ? { accentPlayerId: followUp.accentPlayerId } : {}),
     cue: {
       key: `event-${event.id}-${edgeId}`,
       mode: "event",
@@ -318,6 +321,86 @@ function createRoadNotification(
     },
     autoFocus: true
   });
+}
+
+function describeInitialSettlementFollowUp(
+  match: MatchSnapshot,
+  viewerId: string
+): { detail: string; badges: BoardFocusBadge[]; accentPlayerId?: string } | null {
+  const nextPlayerId = match.allowedMoves.initialRoadEdgeIds.length > 0 ? match.currentPlayerId : null;
+  if (!nextPlayerId) {
+    return null;
+  }
+
+  const nextPlayerName = getDisplayPlayerName(match, viewerId, nextPlayerId);
+  return {
+    detail:
+      nextPlayerId === viewerId
+        ? "Die Start-Siedlung steht. Du setzt jetzt deine angrenzende Start-Straße."
+        : `Die Start-Siedlung steht. ${nextPlayerName} setzt jetzt die angrenzende Start-Straße.`,
+    badges: [
+      { label: nextPlayerName, playerId: nextPlayerId, tone: "player" },
+      { label: "Start-Straße" }
+    ],
+    accentPlayerId: nextPlayerId
+  };
+}
+
+function describeInitialRoadFollowUp(
+  match: MatchSnapshot,
+  previousMatch: MatchSnapshot | null,
+  viewerId: string,
+  actingPlayerId?: string
+): { detail: string; badges: BoardFocusBadge[]; accentPlayerId?: string } | null {
+  const nextPlayerId = match.currentPlayerId;
+  const nextPlayerName = getDisplayPlayerName(match, viewerId, nextPlayerId);
+
+  if (match.phase === "turn_roll" || match.allowedMoves.canRoll) {
+    return {
+      detail:
+        nextPlayerId === viewerId
+          ? "Der Startaufbau ist abgeschlossen. Du eröffnest jetzt die Partie mit dem Würfelwurf."
+          : `Der Startaufbau ist abgeschlossen. ${nextPlayerName} eröffnet jetzt die Partie mit dem Würfelwurf.`,
+      badges: [
+        { label: nextPlayerName, playerId: nextPlayerId, tone: "player" },
+        { label: "Würfeln" }
+      ],
+      accentPlayerId: nextPlayerId
+    };
+  }
+
+  if (match.allowedMoves.initialSettlementVertexIds.length === 0) {
+    return null;
+  }
+
+  const reverseStarted = previousMatch?.phase === "setup_forward" && match.phase === "setup_reverse";
+  const samePlayerContinues = !!actingPlayerId && actingPlayerId === nextPlayerId;
+  let detail: string;
+
+  if (samePlayerContinues) {
+    detail =
+      nextPlayerId === viewerId
+        ? reverseStarted
+          ? "Die Hinrunde ist abgeschlossen. Du setzt jetzt direkt deine zweite Start-Siedlung."
+          : "Deine Start-Straße steht. Du setzt jetzt direkt deine nächste Start-Siedlung."
+        : reverseStarted
+          ? `Die Hinrunde ist abgeschlossen. ${nextPlayerName} setzt jetzt direkt die zweite Start-Siedlung.`
+          : `${nextPlayerName} setzt jetzt direkt die nächste Start-Siedlung.`;
+  } else {
+    detail =
+      nextPlayerId === viewerId
+        ? "Die Start-Straße steht. Du bist jetzt mit deiner Start-Siedlung dran."
+        : `Die Start-Straße steht. ${nextPlayerName} ist jetzt mit der nächsten Start-Siedlung dran.`;
+  }
+
+  return {
+    detail,
+    badges: [
+      { label: nextPlayerName, playerId: nextPlayerId, tone: "player" },
+      { label: reverseStarted ? "Rückrunde" : "Start-Siedlung" }
+    ],
+    accentPlayerId: nextPlayerId
+  };
 }
 
 function createCityNotification(match: MatchSnapshot, event: MatchEvent): MatchNotification | null {
