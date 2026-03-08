@@ -1118,15 +1118,17 @@ function startPairedPlayerAction(state: GameState): void {
   }
 
   state.turnContext.primaryPlayerIndex = state.currentPlayerIndex;
+  const primaryPlayerId = state.players[state.turnContext.primaryPlayerIndex]!.id;
+  const secondaryPlayerId = state.players[secondaryPlayerIndex]!.id;
   state.currentPlayerIndex = secondaryPlayerIndex;
   state.phase = "paired_player_action";
   state.previousPhase = "turn_action";
   appendEvent(state, {
     type: "paired_player_started",
-    byPlayerId: state.players[secondaryPlayerIndex]?.id,
+    byPlayerId: secondaryPlayerId,
     payload: {
-      primaryPlayerId: state.players[state.turnContext.primaryPlayerIndex]?.id ?? "",
-      secondaryPlayerId: state.players[secondaryPlayerIndex]?.id ?? ""
+      primaryPlayerId,
+      secondaryPlayerId
     }
   });
 }
@@ -1139,17 +1141,19 @@ function startSpecialBuildPhase(state: GameState): void {
     .map((_, offset) => getNextPlayerIndex(state, primaryPlayerIndex, offset + 1));
 
   resetTurnFlags(state);
+  const primaryPlayerId = state.players[primaryPlayerIndex]!.id;
   state.turnContext.primaryPlayerIndex = primaryPlayerIndex;
   state.turnContext.specialBuildQueue = queue.slice(1);
   state.currentPlayerIndex = queue[0] ?? getNextPlayerIndex(state, primaryPlayerIndex);
+  const builderPlayerId = state.players[state.currentPlayerIndex]!.id;
   state.phase = "special_build";
   state.previousPhase = "turn_action";
   appendEvent(state, {
     type: "special_build_started",
-    byPlayerId: state.players[state.currentPlayerIndex]?.id,
+    byPlayerId: builderPlayerId,
     payload: {
-      primaryPlayerId: state.players[primaryPlayerIndex]?.id ?? "",
-      builderPlayerId: state.players[state.currentPlayerIndex]?.id ?? ""
+      primaryPlayerId,
+      builderPlayerId
     }
   });
 }
@@ -1157,14 +1161,16 @@ function startSpecialBuildPhase(state: GameState): void {
 function continueOrFinishSpecialBuildPhase(state: GameState, playerId: string): void {
   const nextBuilderIndex = state.turnContext.specialBuildQueue.shift();
   if (nextBuilderIndex !== undefined) {
+    const primaryPlayerId = state.players[state.turnContext.primaryPlayerIndex]!.id;
+    const builderPlayerId = state.players[nextBuilderIndex]!.id;
     state.currentPlayerIndex = nextBuilderIndex;
     state.previousPhase = "special_build";
     appendEvent(state, {
       type: "special_build_started",
-      byPlayerId: state.players[nextBuilderIndex]?.id,
+      byPlayerId: builderPlayerId,
       payload: {
-        primaryPlayerId: state.players[state.turnContext.primaryPlayerIndex]?.id ?? "",
-        builderPlayerId: state.players[nextBuilderIndex]?.id ?? ""
+        primaryPlayerId,
+        builderPlayerId
       }
     });
     return;
