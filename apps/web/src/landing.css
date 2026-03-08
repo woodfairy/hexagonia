@@ -1230,6 +1230,13 @@ body.guest-landing-mode .toast-stack {
 
   .landing-free-promise-actions {
     justify-content: flex-start;
+    inline-size: 100%;
+  }
+
+  .landing-free-promise-actions .landing-button {
+    inline-size: 100%;
+    justify-content: center;
+    white-space: normal;
   }
 
   .landing-scene-shell {
