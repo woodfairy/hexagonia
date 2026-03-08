@@ -52,18 +52,7 @@ jobs:
                 (response) => response.data.map((file) => file.filename)
               );
             } else if (context.eventName === "push") {
-              const base = context.payload.before;
-              if (!base || /^0+$/.test(base)) {
-                files = ["__full__"];
-              } else {
-                const comparison = await github.rest.repos.compareCommits({
-                  owner,
-                  repo,
-                  base,
-                  head: context.sha
-                });
-                files = (comparison.data.files ?? []).map((file) => file.filename);
-              }
+              files = ["__full__"];
             } else {
               files = ["__full__"];
             }
