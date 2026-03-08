@@ -19,7 +19,7 @@ const FLOW_STEPS = [
   },
   {
     title: "Partie konfigurieren",
-    body: "Beginner-Aufbau oder dynamisch generiertes Brett, manueller Startspieler oder Auswürfeln: die Partie startet mit klaren Regeln.",
+    body: "Beginner-Aufbau oder dynamisch generiertes Brett, manueller Startspieler oder Auswürfeln: ihr legt fest, wie die Partie startet.",
     meta: "Beginner oder dynamisch"
   },
   {
