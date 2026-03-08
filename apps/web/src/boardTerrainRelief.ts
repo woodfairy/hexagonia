@@ -585,7 +585,19 @@ function transformCoverGeometry(
 }
 
 function mergeCoverGeometryParts(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
-  const merged = mergeGeometries(parts, false);
+  const normalizedParts = parts.map((part) => {
+    const normalized = part.index ? part.toNonIndexed() : part.clone();
+    normalized.deleteAttribute("uv");
+    if (!normalized.getAttribute("normal")) {
+      normalized.computeVertexNormals();
+    }
+    return normalized;
+  });
+
+  const merged = mergeGeometries(normalizedParts, false);
+  for (const normalizedPart of normalizedParts) {
+    normalizedPart.dispose();
+  }
   for (const part of parts) {
     part.dispose();
   }

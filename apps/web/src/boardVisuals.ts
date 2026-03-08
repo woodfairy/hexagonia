@@ -5,6 +5,7 @@ export type BoardPieceStyle = "minimal" | "stylized";
 export interface BoardVisualSettings {
   textures: boolean;
   props: boolean;
+  objects: boolean;
   terrainRelief: boolean;
   resourceIcons: boolean;
   pieceStyle: BoardPieceStyle;
@@ -15,6 +16,7 @@ const LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
 export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
   textures: true,
   props: true,
+  objects: false,
   terrainRelief: false,
   resourceIcons: false,
   pieceStyle: "minimal"
@@ -42,6 +44,7 @@ function resolveLegacyBoardVisualSettings(storedProfile: string | null): BoardVi
       return createBoardVisualSettings({
         textures: true,
         props: true,
+        objects: true,
         terrainRelief: true
       });
     case "fancy":
@@ -71,9 +74,15 @@ function normalizeBoardVisualSettings(value: unknown): BoardVisualSettings {
   }
 
   const candidate = value as Partial<Record<keyof BoardVisualSettings, unknown>>;
+  const hasObjectsSetting = Object.prototype.hasOwnProperty.call(candidate, "objects");
   return createBoardVisualSettings({
     ...(typeof candidate.textures === "boolean" ? { textures: candidate.textures } : {}),
     ...(typeof candidate.props === "boolean" ? { props: candidate.props } : {}),
+    ...(typeof candidate.objects === "boolean"
+      ? { objects: candidate.objects }
+      : !hasObjectsSetting && typeof candidate.terrainRelief === "boolean"
+        ? { objects: candidate.terrainRelief }
+        : {}),
     ...(typeof candidate.terrainRelief === "boolean" ? { terrainRelief: candidate.terrainRelief } : {}),
     ...(typeof candidate.resourceIcons === "boolean" ? { resourceIcons: candidate.resourceIcons } : {}),
     ...(candidate.pieceStyle === "minimal" || candidate.pieceStyle === "stylized"

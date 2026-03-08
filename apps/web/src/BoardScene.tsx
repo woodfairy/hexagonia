@@ -12,6 +12,7 @@ import {
   createRoadGuideModel,
   createRoadPieceModel
 } from "./boardPieceModels";
+import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
@@ -213,6 +214,7 @@ interface ReliefAnchorOptions {
 
 interface TileDecorationOptions {
   includeProps: boolean;
+  includeObjects: boolean;
   includeTerrainRelief: boolean;
 }
 
@@ -277,6 +279,7 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
     structureKey,
     visualSettings.textures,
     visualSettings.props,
+    visualSettings.objects,
     visualSettings.terrainRelief,
     visualSettings.resourceIcons,
     visualSettings.pieceStyle
@@ -462,6 +465,7 @@ export function BoardScene(props: BoardSceneProps) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
+    renderer.localClippingEnabled = true;
     mountRef.current.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -1026,6 +1030,7 @@ export function BoardScene(props: BoardSceneProps) {
     const terrainSurfaceByTile = new Map<string, TileTerrainSurfaceBundle>();
     const useTexturedTiles = props.visualSettings.textures;
     const includeProps = props.visualSettings.props;
+    const includeObjects = props.visualSettings.objects;
     const includeTerrainRelief = props.visualSettings.terrainRelief;
 
     configureKeyLightShadow(keyLightRef.current, props.snapshot.board);
@@ -1055,10 +1060,12 @@ export function BoardScene(props: BoardSceneProps) {
         useTexturedTiles
           ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, terrainSurface, {
               includeProps,
+              includeObjects,
               includeTerrainRelief
             })
           : createModernTileMesh(tile, verticesById, false, terrainSurface, {
               includeProps,
+              includeObjects,
               includeTerrainRelief
             });
       base.position.set(tile.x, 0, tile.y);
@@ -1848,6 +1855,7 @@ function createModernTileMesh(
   terrainSurface: TileTerrainSurfaceBundle | null,
   options: TileDecorationOptions = {
     includeProps: false,
+    includeObjects: false,
     includeTerrainRelief: false
   }
 ): THREE.Group {
@@ -1935,16 +1943,86 @@ function appendTileDecorations(
     tileGroup.add(terrainSurface.object);
   }
 
-  if (!options.includeProps) {
-    return;
+  if (options.includeProps) {
+    const propGroup = createLandingFancyTileProps(tile.resource);
+    propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
+    propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.86);
+    applyTileObjectClipPlanes(propGroup, tile, verticesById);
+    propGroup.traverse((entry) => {
+      entry.userData.castTileShadow = true;
+    });
+    tileGroup.add(propGroup);
   }
 
-  const propGroup = createUltraTerrainRelief(tile, verticesById, active, "props");
-  propGroup.position.y = (terrainSurface?.maxHeight ?? TILE_HEIGHT) + 0.024;
-  propGroup.traverse((entry) => {
-    entry.userData.castTileShadow = true;
+  if (options.includeObjects) {
+    const objectGroup = createUltraTerrainRelief(tile, verticesById, active, "terrain");
+    objectGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.018;
+    applyTileObjectClipPlanes(objectGroup, tile, verticesById);
+    objectGroup.traverse((entry) => {
+      entry.userData.castTileShadow = true;
+    });
+    tileGroup.add(objectGroup);
+  }
+}
+
+function applyTileObjectClipPlanes(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {
+  const clipPlanes = createTileClipPlanes(tile, verticesById);
+  const clippedMaterialCache = new Map<THREE.Material, THREE.Material>();
+
+  const getClippedMaterial = (material: THREE.Material): THREE.Material => {
+    const existing = clippedMaterialCache.get(material);
+    if (existing) {
+      return existing;
+    }
+
+    const clippedMaterial = material.clone();
+    clippedMaterial.clippingPlanes = clipPlanes;
+    clippedMaterial.clipShadows = true;
+    clippedMaterial.needsUpdate = true;
+    clippedMaterialCache.set(material, clippedMaterial);
+    return clippedMaterial;
+  };
+
+  root.traverse((entry) => {
+    if (!(entry instanceof THREE.Mesh || entry instanceof THREE.InstancedMesh)) {
+      return;
+    }
+
+    entry.material = Array.isArray(entry.material)
+      ? entry.material.map((material) => getClippedMaterial(material))
+      : getClippedMaterial(entry.material);
   });
-  tileGroup.add(propGroup);
+}
+
+function createTileClipPlanes(tile: BoardTile, verticesById: BoardVerticesById): THREE.Plane[] {
+  const scale = TILE_OUTER_RENDER_SCALE * 0.985;
+  const points = tile.vertexIds.map((vertexId) => {
+    const vertex = verticesById.get(vertexId)!;
+    return new THREE.Vector2(
+      tile.x + (vertex.x - tile.x) * scale,
+      tile.y + (vertex.y - tile.y) * scale
+    );
+  });
+  const orientation = Math.sign(getTilePolygonSignedArea(points)) || 1;
+
+  return points.map((current, index) => {
+    const next = points[(index + 1) % points.length]!;
+    const edgeX = next.x - current.x;
+    const edgeZ = next.y - current.y;
+    const inwardNormal = orientation >= 0 ? new THREE.Vector3(-edgeZ, 0, edgeX) : new THREE.Vector3(edgeZ, 0, -edgeX);
+    inwardNormal.normalize();
+    return new THREE.Plane().setFromNormalAndCoplanarPoint(inwardNormal, new THREE.Vector3(current.x, 0, current.y));
+  });
+}
+
+function getTilePolygonSignedArea(points: readonly THREE.Vector2[]): number {
+  let area = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    area += current.x * next.y - next.x * current.y;
+  }
+  return area * 0.5;
 }
 
 function createUltraTerrainRelief(
