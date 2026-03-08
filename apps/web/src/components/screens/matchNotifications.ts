@@ -264,7 +264,8 @@ function createSettlementNotification(match: MatchSnapshot, event: MatchEvent, i
       edgeIds: [],
       tileIds: [],
       scale: "tight"
-    }
+    },
+    autoFocus: true
   });
 }
 
@@ -299,7 +300,8 @@ function createRoadNotification(match: MatchSnapshot, event: MatchEvent, initial
       edgeIds: [edgeId],
       tileIds: [],
       scale: "medium"
-    }
+    },
+    autoFocus: true
   });
 }
 
@@ -322,7 +324,8 @@ function createCityNotification(match: MatchSnapshot, event: MatchEvent): MatchN
       edgeIds: [],
       tileIds: [],
       scale: "tight"
-    }
+    },
+    autoFocus: true
   });
 }
 
