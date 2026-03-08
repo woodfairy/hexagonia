@@ -25,7 +25,7 @@ export interface BoardFocusCue {
   edgeIds: string[];
   tileIds: string[];
   scale: "tight" | "medium" | "wide";
-  zoomPreset?: "distribution";
+  zoomPreset?: "distribution" | "roll";
 }
 
 interface BoardSceneProps {
@@ -192,6 +192,15 @@ const DISTRIBUTION_FOCUS_DISTANCE_PROFILE = {
   mediumMultiplier: 1.68,
   wideMultiplier: 1.58,
   padding: 12
+} as const;
+const ROLL_FOCUS_DISTANCE_PROFILE = {
+  tightBase: 22,
+  mediumBase: 27,
+  wideBase: 35,
+  tightMultiplier: 1.62,
+  mediumMultiplier: 1.54,
+  wideMultiplier: 1.46,
+  padding: 9
 } as const;
 
 function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: BoardVisualSettings): string {
@@ -4949,7 +4958,12 @@ function selectActionFocusElements(
 }
 
 function resolveFocusCueDistance(cue: BoardFocusCue, span: number): number {
-  const profile = cue.zoomPreset === "distribution" ? DISTRIBUTION_FOCUS_DISTANCE_PROFILE : DEFAULT_FOCUS_DISTANCE_PROFILE;
+  const profile =
+    cue.zoomPreset === "distribution"
+      ? DISTRIBUTION_FOCUS_DISTANCE_PROFILE
+      : cue.zoomPreset === "roll"
+        ? ROLL_FOCUS_DISTANCE_PROFILE
+        : DEFAULT_FOCUS_DISTANCE_PROFILE;
   const baseDistance =
     cue.scale === "tight" ? profile.tightBase : cue.scale === "medium" ? profile.mediumBase : profile.wideBase;
   if (span <= 0.01) {

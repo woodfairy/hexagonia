@@ -520,7 +520,7 @@ function createDistributionNotification(match: MatchSnapshot, event: MatchEvent)
       edgeIds: [],
       tileIds,
       scale: tileIds.length <= 1 ? "tight" : tileIds.length > 2 ? "wide" : "medium",
-      zoomPreset: "distribution"
+      zoomPreset: "roll"
     },
     autoFocus: true
   });
@@ -757,6 +757,17 @@ function createTurnEndedNotification(match: MatchSnapshot, event: MatchEvent, vi
       ...(nextPlayerId ? [{ label: getDisplayPlayerName(match, viewerId, nextPlayerId), playerId: nextPlayerId, tone: "player" as const }] : [])
     ],
     ...(nextPlayerId ? { accentPlayerId: nextPlayerId } : {}),
+    cue: {
+      key: `event-${event.id}-turn-overview`,
+      mode: "event",
+      title: "Neuer Zug",
+      detail: "Die Kamera zeigt wieder das gesamte Spielfeld.",
+      vertexIds: [],
+      edgeIds: [],
+      tileIds: match.board.tiles.map((tile) => tile.id),
+      scale: "wide",
+      zoomPreset: "distribution"
+    },
     autoFocus: true,
     emphasis: "success"
   });

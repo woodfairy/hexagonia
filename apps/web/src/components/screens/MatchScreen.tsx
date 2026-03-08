@@ -297,6 +297,7 @@ export function MatchScreen(props: {
     !!visibleNotificationCue &&
     boardFocusNotification.autoFocus &&
     (boardFocusNotification.eventType === "dice_rolled" ||
+      boardFocusNotification.eventType === "turn_ended" ||
       boardFocusNotification.eventType === "resources_distributed" ||
       boardFocusNotification.playerId !== props.match.you);
   const cameraCue =
