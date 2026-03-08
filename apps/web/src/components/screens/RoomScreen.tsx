@@ -31,8 +31,11 @@ export function RoomScreen(props: {
   const joinUnavailableLabel = props.room.status !== "open" ? "Partie läuft bereits" : hasFreeSeat ? "Nicht verfügbar" : "Raum ist voll";
   const canStart = isOwner && seatedPlayers.length >= 3 && seatedPlayers.length <= 4 && readyPlayers === seatedPlayers.length;
   const canEditSettings = isOwner && props.room.status === "open";
-  const startingSeat = props.room.seats.find((seat) => seat.index === props.room.startingSeatIndex && seat.userId) ?? null;
-  const usesRolledStart = props.room.startingPlayerMode === "rolled";
+  const startingSeat =
+    props.room.seats.find(
+      (seat) => seat.index === props.room.gameConfig.startingPlayer.seatIndex && seat.userId
+    ) ?? null;
+  const usesRolledStart = props.room.gameConfig.startingPlayer.mode === "rolled";
 
   return (
     <section className="screen-shell room-shell">
@@ -77,7 +80,10 @@ export function RoomScreen(props: {
               const occupied = !!seat.userId;
               const mine = seat.userId === props.session.id;
               const canKick = isOwner && props.room.status === "open" && occupied && !mine && !!seat.userId;
-              const isStartingSeat = !usesRolledStart && props.room.startingSeatIndex === seat.index && occupied;
+              const isStartingSeat =
+                !usesRolledStart &&
+                props.room.gameConfig.startingPlayer.seatIndex === seat.index &&
+                occupied;
               const stateLabel = seat.ready ? "Bereit" : occupied ? "Wartet" : "Verfügbar";
               const detailLabel = occupied
                 ? isStartingSeat
@@ -154,7 +160,7 @@ export function RoomScreen(props: {
             <div className="mini-segmented room-setup-mode">
               <button
                 type="button"
-                className={props.room.setupMode === "official_variable" ? "is-active" : ""}
+                className={props.room.gameConfig.setupMode === "official_variable" ? "is-active" : ""}
                 disabled={!canEditSettings}
                 onClick={() => props.onSetupModeChange("official_variable")}
               >
@@ -162,7 +168,7 @@ export function RoomScreen(props: {
               </button>
               <button
                 type="button"
-                className={props.room.setupMode === "beginner" ? "is-active" : ""}
+                className={props.room.gameConfig.setupMode === "beginner" ? "is-active" : ""}
                 disabled={!canEditSettings}
                 onClick={() => props.onSetupModeChange("beginner")}
               >
@@ -170,7 +176,7 @@ export function RoomScreen(props: {
               </button>
             </div>
 
-            {props.room.setupMode === "beginner" && seatedPlayers.length === 3 ? (
+            {props.room.gameConfig.setupMode === "beginner" && seatedPlayers.length === 3 ? (
               <p className="muted-copy room-action-hint">
                 Im Anfängeraufbau mit 3 Spielern werden die Match-Farben auf die offiziellen Einsteigerfarben umgelegt.
               </p>
@@ -179,7 +185,12 @@ export function RoomScreen(props: {
             <div className="room-settings-block">
               <div className="room-setting-head">
                 <span className="eyebrow">Startspieler</span>
-                <strong>{usesRolledStart ? "Wird ausgewürfelt" : startingSeat?.username ?? `Platz ${props.room.startingSeatIndex + 1}`}</strong>
+                <strong>
+                  {usesRolledStart
+                    ? "Wird ausgewürfelt"
+                    : startingSeat?.username ??
+                      `Platz ${props.room.gameConfig.startingPlayer.seatIndex + 1}`}
+                </strong>
               </div>
               <div className="mini-segmented room-starting-mode">
                 <button
@@ -210,7 +221,11 @@ export function RoomScreen(props: {
                     <button
                       key={seat.index}
                       type="button"
-                      className={props.room.startingSeatIndex === seat.index ? "is-active" : ""}
+                      className={
+                        props.room.gameConfig.startingPlayer.seatIndex === seat.index
+                          ? "is-active"
+                          : ""
+                      }
                       disabled={!canEditSettings}
                       onClick={() => props.onStartingSeatChange(seat.index)}
                     >

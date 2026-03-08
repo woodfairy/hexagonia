@@ -1,4 +1,11 @@
-import type { AdminMatchSummary, AdminUserRecord, AuthUser, RoomDetails, SetupMode, StartingPlayerMode, UserRole } from "@hexagonia/shared";
+import type {
+  AdminMatchSummary,
+  AdminUserRecord,
+  AuthUser,
+  GameConfigPatch,
+  RoomDetails,
+  UserRole
+} from "@hexagonia/shared";
 import { getRuntimeApiBaseUrl, getRuntimeWebSocketUrl } from "./runtimeConfig";
 
 function getDefaultApiBaseUrl(): string {
@@ -206,11 +213,7 @@ export async function setReady(roomId: string, ready: boolean): Promise<RoomDeta
 
 export async function updateRoomSettings(
   roomId: string,
-  payload: {
-    setupMode?: SetupMode;
-    startingPlayerMode?: StartingPlayerMode;
-    startingSeatIndex?: number;
-  }
+  payload: GameConfigPatch
 ): Promise<RoomDetails> {
   const response = await request<{ room: RoomDetails }>(`/api/rooms/${roomId}/settings`, {
     method: "PATCH",

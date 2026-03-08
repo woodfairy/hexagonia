@@ -592,29 +592,19 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const nextGameConfig = mergeGameConfig(room.gameConfig, body);
     if (body.startingPlayer?.seatIndex !== undefined) {
       if (nextGameConfig.startingPlayer.mode !== "manual") {
-        return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewÃ¤hlt werden." });
+        return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
       }
       const seat = room.seats.find((entry) => entry.index === body.startingPlayer?.seatIndex);
       if (!seat?.userId) {
-        return reply.code(409).send({ error: "Der gewÃ¤hlte Startspieler sitzt nicht im Raum." });
+        return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
       }
     } else if (
       nextGameConfig.startingPlayer.mode === "manual" &&
       !room.seats.some((entry) => entry.index === nextGameConfig.startingPlayer.seatIndex && !!entry.userId)
     ) {
-      return reply.code(409).send({ error: "Der gewÃ¤hlte Startspieler sitzt nicht im Raum." });
+      return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
     }
     room.gameConfig = nextGameConfig;
-    if (body.startingSeatIndex !== undefined) {
-      if ((body.startingPlayerMode ?? room.startingPlayerMode) !== "manual") {
-        return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
-      }
-      const seat = room.seats.find((entry) => entry.index === body.startingSeatIndex);
-      if (!seat?.userId) {
-        return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
-      }
-      room.startingSeatIndex = body.startingSeatIndex;
-    }
     const saved = await db.saveRoom(room);
     await hub.broadcastRoom(saved);
     return { room: saved };
@@ -645,8 +635,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply.code(409).send({ error: "Alle sitzenden Spieler müssen bereit sein." });
     }
 
-    if (room.startingPlayerMode === "manual") {
-      const configuredStartSeat = room.seats.find((seat) => seat.index === room.startingSeatIndex);
+    if (room.gameConfig.startingPlayer.mode === "manual") {
+      const configuredStartSeat = room.seats.find(
+        (seat) => seat.index === room.gameConfig.startingPlayer.seatIndex
+      );
       if (!configuredStartSeat?.userId) {
         return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
       }
@@ -654,24 +646,30 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     const matchSeed = randomBytes(32).toString("hex");
     const matchPlayers = roomToPlayers(room);
-    const rolledStart = room.startingPlayerMode === "rolled" ? rollStartingPlayer(matchPlayers, matchSeed) : null;
+    const rolledStart =
+      room.gameConfig.startingPlayer.mode === "rolled"
+        ? rollStartingPlayer(matchPlayers, matchSeed)
+        : null;
     const startingSeatIndex =
-      room.startingPlayerMode === "manual"
+      room.gameConfig.startingPlayer.mode === "manual"
         ? resolveManualStartingSeatIndex(room)
-        : rolledStart?.winnerSeatIndex ?? room.startingSeatIndex;
+        : rolledStart?.winnerSeatIndex ?? room.gameConfig.startingPlayer.seatIndex;
+    const matchGameConfig = mergeGameConfig(room.gameConfig, {
+      startingPlayer: {
+        seatIndex: startingSeatIndex
+      }
+    });
 
     const state = createMatchState({
       matchId: randomUUID(),
       roomId: room.id,
       seed: matchSeed,
-      setupMode: room.setupMode,
-      startingPlayerMode: room.startingPlayerMode,
-      startingSeatIndex,
+      gameConfig: matchGameConfig,
       ...(rolledStart ? { startingPlayerRoll: rolledStart } : {}),
       players: matchPlayers
     });
 
-    room.startingSeatIndex = startingSeatIndex;
+    room.gameConfig = matchGameConfig;
     room.status = "in_match";
     room.matchId = state.matchId;
 
@@ -916,7 +914,11 @@ async function ensureBootstrapAdmin(db: Database, config: AppConfig): Promise<vo
   });
 }
 
-async function resetLegacyMatches(db: Database, hub: RealtimeHub, app: FastifyInstance): Promise<void> {
+async function resetLegacyMatches(
+  db: Database,
+  lifecycle: RoomLifecycleService,
+  app: FastifyInstance
+): Promise<void> {
   const rooms = await db.listRooms();
   const activeRooms = rooms.filter((room) => !!room.matchId);
   if (!activeRooms.length) {
@@ -930,13 +932,11 @@ async function resetLegacyMatches(db: Database, hub: RealtimeHub, app: FastifyIn
     }
 
     const state = await db.loadMatchState(room.matchId);
-    if (state?.schemaVersion && state.schemaVersion >= 3) {
+    if (isMatchStateSchemaCompatible(state)) {
       continue;
     }
 
-    await resetMatchToRoom(
-      db,
-      hub,
+    await lifecycle.resetMatchToRoom(
       room.matchId,
       "Partie wurde nach dem Regel-Update beendet. Bitte startet eine neue Runde."
     );
@@ -948,41 +948,6 @@ async function resetLegacyMatches(db: Database, hub: RealtimeHub, app: FastifyIn
   }
 }
 
-async function resetMatchToRoom(
-  db: Database,
-  hub: RealtimeHub,
-  matchId: string,
-  reason: string
-): Promise<RoomDetails | null> {
-  hub.terminateMatch(matchId, reason);
-  const deleted = await db.deleteMatch(matchId);
-  if (!deleted) {
-    return null;
-  }
-
-  const room = await db.getRoom(deleted.roomId);
-  if (!room) {
-    return null;
-  }
-
-  room.matchId = null;
-  room.status = room.seats.some((seat) => seat.userId) ? "open" : "closed";
-  room.seats = room.seats.map((seat) => ({
-    ...seat,
-    ready: false
-  }));
-
-  if (!hasOccupiedSeats(room)) {
-    await hub.broadcastRoom(room);
-    await db.deleteRoom(room.id);
-    return room;
-  }
-
-  const saved = await db.saveRoom(room);
-  await hub.broadcastRoom(saved);
-  return saved;
-}
-
 function isUniqueViolation(error: unknown): boolean {
   return !!error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505";
 }
@@ -991,12 +956,10 @@ function generateRoomCode(): string {
   return randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
 }
 
-function hasOccupiedSeats(room: RoomDetails): boolean {
-  return room.seats.some((seat) => !!seat.userId);
-}
-
 function resolveManualStartingSeatIndex(room: RoomDetails): number {
-  const seat = room.seats.find((entry) => entry.index === room.startingSeatIndex);
+  const seat = room.seats.find(
+    (entry) => entry.index === room.gameConfig.startingPlayer.seatIndex
+  );
   if (!seat?.userId) {
     throw new Error("Der gewählte Startspieler sitzt nicht im Raum.");
   }
@@ -1004,38 +967,6 @@ function resolveManualStartingSeatIndex(room: RoomDetails): number {
   return seat.index;
 }
 
-async function removeUserFromOpenRoom(
-  db: Database,
-  hub: RealtimeHub,
-  room: RoomDetails,
-  userId: string
-): Promise<RoomDetails> {
-  const seat = room.seats.find((entry) => entry.userId === userId);
-  if (!seat) {
-    return room;
-  }
-
-  seat.userId = null;
-  seat.username = null;
-  seat.ready = false;
-
-  const occupiedSeats = room.seats.filter((entry) => entry.userId);
-  if (!occupiedSeats.length) {
-    room.status = "closed";
-    room.matchId = null;
-    await hub.broadcastRoom(room);
-    await db.deleteRoom(room.id);
-    return room;
-  }
-
-  if (room.ownerUserId === userId) {
-    room.ownerUserId = occupiedSeats[0]!.userId!;
-  }
-
-  const saved = await db.saveRoom(room);
-  await hub.broadcastRoom(saved);
-  return saved;
-}
 
 function formatZodError(error: z.ZodError): string {
   const firstIssue = error.issues[0];

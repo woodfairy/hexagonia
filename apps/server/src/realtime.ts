@@ -9,6 +9,7 @@ import {
 } from "@hexagonia/rules";
 import type { ActionIntent, AuthUser, RoomDetails, ServerMessage } from "@hexagonia/shared";
 import { Database } from "./db.js";
+import type { RoomLifecycleService } from "./roomLifecycleService.js";
 
 interface SocketContext {
   socket: WebSocket;
@@ -27,11 +28,16 @@ export class RealtimeHub {
   private readonly pendingMatchDisconnects = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingRoomEvictions = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingMatchEvictions = new Map<string, ReturnType<typeof setTimeout>>();
+  private roomLifecycle: RoomLifecycleService | null = null;
 
   constructor(
     private readonly db: Database,
     private readonly logger: FastifyBaseLogger
   ) {}
+
+  setRoomLifecycleService(roomLifecycle: RoomLifecycleService): void {
+    this.roomLifecycle = roomLifecycle;
+  }
 
   registerConnection(socket: WebSocket, user: AuthUser): SocketContext {
     const context: SocketContext = {
@@ -474,33 +480,11 @@ export class RealtimeHub {
       return;
     }
 
-    const room = await this.db.getRoom(roomId);
-    if (!room || room.status !== "open") {
+    if (!this.roomLifecycle) {
       return;
     }
 
-    const seat = room.seats.find((entry) => entry.userId === userId);
-    if (!seat) {
-      return;
-    }
-
-    seat.userId = null;
-    seat.username = null;
-    seat.ready = false;
-
-    const occupiedSeats = room.seats.filter((entry) => entry.userId);
-    if (!occupiedSeats.length) {
-      room.status = "closed";
-      room.matchId = null;
-      await this.broadcastRoom(room);
-      await this.db.deleteRoom(room.id);
-      return;
-    } else if (room.ownerUserId === userId) {
-      room.ownerUserId = occupiedSeats[0]!.userId!;
-    }
-
-    const savedRoom = await this.db.saveRoom(room);
-    await this.broadcastRoom(savedRoom);
+    await this.roomLifecycle.evictRoomUser(roomId, userId);
   }
 
   private async finalizeMatchEviction(matchId: string, userId: string): Promise<void> {
@@ -522,42 +506,11 @@ export class RealtimeHub {
       return;
     }
 
-    const evictedPlayer = state.players.find((player) => player.id === userId);
-    const room = await this.db.getRoom(state.roomId);
-    if (!room || room.matchId !== matchId || room.status !== "in_match") {
+    if (!this.roomLifecycle) {
       return;
     }
 
-    const reason = `${evictedPlayer?.username ?? "Ein Spieler"} war über 5 Minuten getrennt und wurde aus dem Raum entfernt. Die Partie kehrt in die Lobby zurück.`;
-    this.terminateMatch(matchId, reason);
-    await this.db.deleteMatch(matchId);
-
-    room.matchId = null;
-    room.status = "open";
-    room.seats = room.seats.map((seat) => ({
-      ...seat,
-      ready: false
-    }));
-
-    const seat = room.seats.find((entry) => entry.userId === userId);
-    if (seat) {
-      seat.userId = null;
-      seat.username = null;
-      seat.ready = false;
-    }
-
-    const occupiedSeats = room.seats.filter((entry) => entry.userId);
-    if (!occupiedSeats.length) {
-      room.status = "closed";
-      await this.broadcastRoom(room);
-      await this.db.deleteRoom(room.id);
-      return;
-    } else if (room.ownerUserId === userId) {
-      room.ownerUserId = occupiedSeats[0]!.userId!;
-    }
-
-    const savedRoom = await this.db.saveRoom(room);
-    await this.broadcastRoom(savedRoom);
+    await this.roomLifecycle.evictMatchPlayer(matchId, state, userId);
   }
 
   private getMatchDisconnectKey(matchId: string, userId: string): string {

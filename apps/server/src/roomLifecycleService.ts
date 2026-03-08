@@ -68,7 +68,7 @@ export class RoomLifecycleService {
       return;
     }
 
-    const reason = `${evictedPlayer?.username ?? "Ein Spieler"} war Ã¼ber 5 Minuten getrennt und wurde aus dem Raum entfernt. Die Partie kehrt in die Lobby zurÃ¼ck.`;
+    const reason = `${evictedPlayer?.username ?? "Ein Spieler"} war über 5 Minuten getrennt und wurde aus dem Raum entfernt. Die Partie kehrt in die Lobby zurück.`;
     this.realtime.terminateMatch(matchId, reason);
     await this.db.deleteMatch(matchId);
 
