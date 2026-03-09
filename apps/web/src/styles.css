@@ -136,6 +136,12 @@ button {
 input,
 select {
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+select::-ms-expand {
+  display: none;
 }
 
 .app-shell {
@@ -457,6 +463,10 @@ select {
   gap: var(--gap-copy-tight);
 }
 
+.profile-music-select-shell {
+  position: relative;
+}
+
 .profile-music-copy strong {
   font-size: 0.92rem;
 }
@@ -465,6 +475,26 @@ select {
 .profile-music-select-shell > span {
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.profile-music-select-shell::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 1rem;
+  inset-block-end: 1rem;
+  inline-size: 0.56rem;
+  block-size: 0.56rem;
+  border-inline-end: 2px solid var(--muted);
+  border-block-end: 2px solid var(--muted);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.profile-music-select-shell > select {
+  min-inline-size: 0;
+  padding-inline-end: 2.5rem;
+  line-height: 1.2;
+  background-image: none;
 }
 
 .profile-music-toggle {

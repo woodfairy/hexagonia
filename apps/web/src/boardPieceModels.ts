@@ -150,17 +150,17 @@ function createDetailedRoadPiece(roadLength: number, color: string, selected: bo
   const group = new THREE.Group();
 
   const base = new THREE.Mesh(
-    getRoadBodyGeometry(`road-detailed-base:${roadLength.toFixed(4)}`, roadLength, 0.54, 0.46, 0.12, 0.36),
+    getRoadBodyGeometry(`road-detailed-base:${roadLength.toFixed(4)}`, roadLength, 0.62, 0.52, 0.14, 0.42),
     getSharedMaterial(`road-detailed-base:${color}`, {
-      color: shadeColor(color, -0.18),
-      roughness: 0.9,
+      color: shadeColor(color, -0.2),
+      roughness: 0.92,
       metalness: 0.01
     })
   );
-  base.position.y = 0.026;
+  base.position.y = 0.028;
 
   const cap = new THREE.Mesh(
-    getRoadBodyGeometry(`road-detailed-cap:${roadLength.toFixed(4)}`, roadLength * 0.94, 0.42, 0.38, 0.06, 0.28),
+    getRoadBodyGeometry(`road-detailed-cap:${roadLength.toFixed(4)}`, roadLength * 0.94, 0.48, 0.42, 0.08, 0.3),
     getSharedMaterial(`road-detailed-cap:${color}:${selected ? 1 : 0}`, {
       color,
       roughness: 0.82,
@@ -169,24 +169,42 @@ function createDetailedRoadPiece(roadLength: number, color: string, selected: bo
       emissiveIntensity: selected ? 0.24 : 0.03
     })
   );
-  cap.position.y = 0.088;
+  cap.position.y = 0.094;
 
   const topMaterial = getSharedMaterial(`road-detailed-top:${color}:${selected ? 1 : 0}`, {
-    color: shadeColor(color, 0.08),
-    roughness: 0.78,
+    color: shadeColor(color, 0.06),
+    roughness: 0.8,
     metalness: 0.02,
     emissive: new THREE.Color(selected ? "#ffd991" : "#000000"),
     emissiveIntensity: selected ? 0.12 : 0
   });
   const reliefMaterial = getSharedMaterial(`road-detailed-relief:${color}:${selected ? 1 : 0}`, {
-    color: shadeColor(color, 0.18),
-    roughness: 0.72,
+    color: shadeColor(color, 0.2),
+    roughness: 0.74,
     metalness: 0.02,
     emissive: new THREE.Color(selected ? "#ffe6b8" : "#000000"),
     emissiveIntensity: selected ? 0.08 : 0
   });
 
-  group.add(base, cap, ...createDetailedRoadReliefMeshes(roadLength, "road-detailed", topMaterial, reliefMaterial));
+  const leftSkirt = new THREE.Mesh(
+    getBoxGeometry(`road-detailed-skirt:${roadLength.toFixed(4)}`, roadLength * 0.88, 0.032, 0.072),
+    topMaterial
+  );
+  leftSkirt.position.set(0, 0.128, -0.178);
+
+  const rightSkirt = new THREE.Mesh(
+    getBoxGeometry(`road-detailed-skirt:${roadLength.toFixed(4)}`, roadLength * 0.88, 0.032, 0.072),
+    topMaterial
+  );
+  rightSkirt.position.set(0, 0.128, 0.178);
+
+  group.add(
+    base,
+    cap,
+    leftSkirt,
+    rightSkirt,
+    ...createDetailedRoadReliefMeshes(roadLength, "road-detailed", topMaterial, reliefMaterial)
+  );
   return group;
 }
 
@@ -215,7 +233,7 @@ function createDetailedRoadGuide(guideLength: number, selected: boolean): THREE.
   const group = new THREE.Group();
 
   const base = new THREE.Mesh(
-    getRoadBodyGeometry(`guide-detailed-base:${guideLength.toFixed(4)}`, guideLength, 0.52, 0.44, 0.1, 0.32),
+    getRoadBodyGeometry(`guide-detailed-base:${guideLength.toFixed(4)}`, guideLength, 0.6, 0.5, 0.1, 0.38),
     getSharedMaterial(`guide-detailed-base:${selected ? 1 : 0}`, {
       color: selected ? "#ffd68a" : "#f5d06f",
       roughness: 0.62,
@@ -243,7 +261,24 @@ function createDetailedRoadGuide(guideLength: number, selected: boolean): THREE.
     opacity: selected ? 0.84 : 0.58
   });
 
-  group.add(base, ...createDetailedRoadReliefMeshes(guideLength, "guide-detailed", topMaterial, reliefMaterial, 0.102, 0.114));
+  const leftSkirt = new THREE.Mesh(
+    getBoxGeometry(`guide-detailed-skirt:${guideLength.toFixed(4)}`, guideLength * 0.86, 0.028, 0.064),
+    topMaterial
+  );
+  leftSkirt.position.set(0, 0.094, -0.164);
+
+  const rightSkirt = new THREE.Mesh(
+    getBoxGeometry(`guide-detailed-skirt:${guideLength.toFixed(4)}`, guideLength * 0.86, 0.028, 0.064),
+    topMaterial
+  );
+  rightSkirt.position.set(0, 0.094, 0.164);
+
+  group.add(
+    base,
+    leftSkirt,
+    rightSkirt,
+    ...createDetailedRoadReliefMeshes(guideLength, "guide-detailed", topMaterial, reliefMaterial, 0.102, 0.118)
+  );
   return group;
 }
 
@@ -508,33 +543,35 @@ function createDetailedRoadReliefMeshes(
   plateHeight = 0.132,
   reliefHeight = 0.146
 ): THREE.Mesh[] {
-  const cap = new THREE.Mesh(
+  const plate = new THREE.Mesh(
     getBoxGeometry(`${keyPrefix}-relief-cap:${roadLength.toFixed(4)}`, roadLength * 0.78, 0.016, 0.22),
     topMaterial
   );
-  cap.position.set(0, plateHeight, 0);
+  plate.position.set(0, plateHeight, 0);
 
-  const segmentLength = Math.max(Math.min(roadLength * 0.19, 0.26), 0.14);
-  const offset = roadLength * 0.28;
-  const center = new THREE.Mesh(
-    getBoxGeometry(`${keyPrefix}-relief-segment:${segmentLength.toFixed(4)}`, segmentLength, 0.026, 0.12),
+  const ridge = new THREE.Mesh(
+    getBoxGeometry(`${keyPrefix}-relief-ridge:${roadLength.toFixed(4)}`, roadLength * 0.54, 0.018, 0.1),
     reliefMaterial
   );
-  center.position.set(0, reliefHeight, 0);
+  ridge.position.set(0, reliefHeight, 0);
 
-  const left = new THREE.Mesh(
-    getBoxGeometry(`${keyPrefix}-relief-segment:${segmentLength.toFixed(4)}`, segmentLength, 0.026, 0.12),
-    reliefMaterial
-  );
-  left.position.set(-offset, reliefHeight, 0);
+  const segmentCount = roadLength >= 1.52 ? 4 : 3;
+  const segmentLength = Math.max(Math.min(roadLength * 0.16, 0.22), 0.14);
+  const travel = Math.min(roadLength * 0.54, 0.84);
+  const start = segmentCount === 1 ? 0 : -travel / 2;
+  const step = segmentCount === 1 ? 0 : travel / (segmentCount - 1);
 
-  const right = new THREE.Mesh(
-    getBoxGeometry(`${keyPrefix}-relief-segment:${segmentLength.toFixed(4)}`, segmentLength, 0.026, 0.12),
-    reliefMaterial
-  );
-  right.position.set(offset, reliefHeight, 0);
+  const meshes: THREE.Mesh[] = [plate, ridge];
+  for (let index = 0; index < segmentCount; index += 1) {
+    const segment = new THREE.Mesh(
+      getGableRoofGeometry(`${keyPrefix}-relief-gable:${segmentLength.toFixed(4)}`, segmentLength, 0.052, 0.14),
+      reliefMaterial
+    );
+    segment.position.set(start + step * index, reliefHeight + 0.012, 0);
+    meshes.push(segment);
+  }
 
-  return [cap, left, center, right];
+  return meshes;
 }
 
 function createDetailedFacadeSection(

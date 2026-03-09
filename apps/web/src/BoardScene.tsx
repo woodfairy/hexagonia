@@ -1307,7 +1307,7 @@ export function BoardScene(props: BoardSceneProps) {
 
     interactiveRef.current = [...staticInteractiveRef.current, ...dynamicInteractiveRef.current];
     markShadowDirtyRef.current();
-  }, [dynamicBoardKey]);
+  }, [dynamicBoardKey, staticBoardKey]);
 
   useEffect(() => {
     const camera = cameraRef.current;
