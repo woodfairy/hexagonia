@@ -271,6 +271,7 @@ export function MatchScreen(props: {
   const diceAnimationCompleteRef = useRef<number | null>(null);
   const previousMatchRef = useRef<MatchSnapshot | null>(null);
   const notificationCacheRef = useRef(createEmptyMatchNotificationPrivateCache());
+  const previousMatch = previousMatchRef.current;
 
   const activePlayer = props.match.players.find((player) => player.id === props.match.currentPlayerId) ?? null;
   const isCurrentPlayer = props.match.currentPlayerId === props.match.you;
@@ -1025,10 +1026,10 @@ export function MatchScreen(props: {
     const actualDice = latestDiceEvent.payload.dice ?? props.match.dice;
     const total = latestDiceEvent.payload.total ?? (actualDice ? actualDice[0] + actualDice[1] : null);
     const actorName = getPlayerName(props.match, latestDiceEvent.byPlayerId);
-    const previousLatestDiceEvent = previousMatchRef.current ? getLatestDiceRollEvent(previousMatchRef.current) : null;
+    const previousLatestDiceEvent = previousMatch ? getLatestDiceRollEvent(previousMatch) : null;
 
     if (seenDiceEventIdRef.current === null) {
-      if (!previousMatchRef.current || previousLatestDiceEvent?.id === latestDiceEvent.id) {
+      if (!previousMatch || previousLatestDiceEvent?.id === latestDiceEvent.id) {
         seenDiceEventIdRef.current = latestDiceEvent.id;
         setDiceDisplay({
           left: actualDice?.[0] ?? null,
@@ -1112,7 +1113,7 @@ export function MatchScreen(props: {
         }, DICE_SETTLE_MS);
       }, DICE_ROLL_MS);
     }, DICE_EXPAND_MS);
-  }, [latestDiceEvent, props.match]);
+  }, [latestDiceEvent, previousMatch, props.match]);
 
   useEffect(() => {
     const normalizedGive = createEmptyResourceMap();
