@@ -1769,11 +1769,11 @@ function trimMaterialFromHex(color: string): THREE.MeshStandardMaterial {
 }
 
 function createRoadPiece(length: number, color: string): THREE.Group {
-  return createRoadPieceModel(length, color, false, "stylized");
+  return createRoadPieceModel(length, color, false, "detailed");
 }
 
 function createBuildingMesh(type: "settlement" | "city", color: string): THREE.Object3D {
-  return createBuildingPieceModel(type, color, "stylized");
+  return createBuildingPieceModel(type, color, "detailed");
 }
 
 function createStarField(): THREE.Points {

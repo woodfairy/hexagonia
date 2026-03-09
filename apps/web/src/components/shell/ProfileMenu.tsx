@@ -203,8 +203,8 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               value={props.boardVisualSettings.pieceStyle}
               onChange={(event) => setBoardPieceStyle(event.target.value as BoardVisualSettings["pieceStyle"])}
             >
-              <option value="minimal">Minimalistisch wie Brettspiel</option>
-              <option value="stylized">Detailliert stilisiert</option>
+              <option value="modern">Modern</option>
+              <option value="detailed">Detailliert</option>
             </select>
           </label>
           <div className="profile-board-toggle-grid" role="group" aria-label="Feldstil">

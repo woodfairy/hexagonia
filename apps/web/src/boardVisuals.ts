@@ -1,6 +1,6 @@
 import type { Resource } from "@hexagonia/shared";
 
-export type BoardPieceStyle = "minimal" | "stylized";
+export type BoardPieceStyle = "modern" | "detailed";
 
 export interface BoardVisualSettings {
   textures: boolean;
@@ -19,7 +19,7 @@ export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
   objects: false,
   terrainRelief: false,
   resourceIcons: false,
-  pieceStyle: "minimal"
+  pieceStyle: "modern"
 };
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
@@ -75,6 +75,7 @@ function normalizeBoardVisualSettings(value: unknown): BoardVisualSettings {
 
   const candidate = value as Partial<Record<keyof BoardVisualSettings, unknown>>;
   const hasObjectsSetting = Object.prototype.hasOwnProperty.call(candidate, "objects");
+  const pieceStyle = resolveBoardPieceStyle(candidate.pieceStyle);
   return createBoardVisualSettings({
     ...(typeof candidate.textures === "boolean" ? { textures: candidate.textures } : {}),
     ...(typeof candidate.props === "boolean" ? { props: candidate.props } : {}),
@@ -85,10 +86,22 @@ function normalizeBoardVisualSettings(value: unknown): BoardVisualSettings {
         : {}),
     ...(typeof candidate.terrainRelief === "boolean" ? { terrainRelief: candidate.terrainRelief } : {}),
     ...(typeof candidate.resourceIcons === "boolean" ? { resourceIcons: candidate.resourceIcons } : {}),
-    ...(candidate.pieceStyle === "minimal" || candidate.pieceStyle === "stylized"
-      ? { pieceStyle: candidate.pieceStyle }
-      : {})
+    ...(pieceStyle ? { pieceStyle } : {})
   });
+}
+
+function resolveBoardPieceStyle(value: unknown): BoardPieceStyle | null {
+  switch (value) {
+    case "modern":
+    case "detailed":
+      return value;
+    case "minimal":
+      return "modern";
+    case "stylized":
+      return "detailed";
+    default:
+      return null;
+  }
 }
 
 export function deserializeBoardVisualSettings(serializedSettings: string | null): BoardVisualSettings {
