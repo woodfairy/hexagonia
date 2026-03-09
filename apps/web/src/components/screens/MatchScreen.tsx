@@ -1813,22 +1813,29 @@ export function MatchScreen(props: {
       )
     }));
   };
+  const handleSelectMaritimeGive = (resource: Resource) => {
+    props.setMaritimeForm((current) => ({
+      ...current,
+      give: resource,
+      receive: current.receive === resource ? "" : current.receive
+    }));
+  };
+  const handleClearMaritimeGive = () => {
+    props.setMaritimeForm((current) => ({
+      ...current,
+      give: "",
+      receive: ""
+    }));
+  };
   const handleSelectMaritimeReceive = (resource: Resource) => {
     props.setMaritimeForm((current) => ({
       ...current,
-      give:
-        current.give &&
-        affordableMaritimeGiveResources.includes(current.give) &&
-        current.give !== resource
-          ? current.give
-          : affordableMaritimeGiveResources.find((entry) => entry !== resource) ?? "",
       receive: resource
     }));
   };
   const handleClearMaritimeReceive = () => {
     props.setMaritimeForm((current) => ({
       ...current,
-      give: "",
       receive: ""
     }));
   };
@@ -2000,10 +2007,8 @@ export function MatchScreen(props: {
     ? "Nur im eigenen Aktionszug möglich."
     : affordableMaritimeGiveResources.length === 0
       ? "Nicht genug Rohstoffe für einen Hafentausch."
-      : !selectedMaritimeGiveResource && !props.maritimeForm.receive
-        ? ""
-        : !selectedMaritimeGiveResource
-          ? "Einsatz wählen."
+      : !selectedMaritimeGiveResource
+        ? "Einsatz wählen."
         : !props.maritimeForm.receive
           ? "Ziel wählen."
         : props.maritimeForm.give === props.maritimeForm.receive
@@ -2159,7 +2164,9 @@ export function MatchScreen(props: {
                 const canUseAsReceive =
                   tradeMode !== "player" &&
                   props.match.allowedMoves.canMaritimeTrade &&
-                  affordableMaritimeGiveResources.some((entry) => entry !== resource);
+                  !!selectedMaritimeGiveResource &&
+                  affordableMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
+                  resource !== selectedMaritimeGiveResource;
 
                 return (
                   <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
@@ -2176,13 +2183,15 @@ export function MatchScreen(props: {
                     >
                       {giveVisible ? `${ratio}:1` : "—"}
                     </span>
-                    <span
-                      className={`trade-matrix-cell-display is-give ${giveSelected ? "is-active" : ""} ${
-                        !canUseAsGive ? "is-disabled" : ""
-                      }`.trim()}
-                    >
-                      {giveSelected ? 1 : 0}
-                    </span>
+                    <TradeMatrixDraftControl
+                      value={giveSelected ? ratio : 0}
+                      tone="give"
+                      incrementDisabled={!canUseAsGive}
+                      incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
+                      decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
+                      onIncrement={() => handleSelectMaritimeGive(resource)}
+                      onDecrement={handleClearMaritimeGive}
+                    />
                     <TradeMatrixDraftControl
                       value={receiveSelected ? 1 : 0}
                       tone="receive"
