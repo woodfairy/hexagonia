@@ -196,6 +196,13 @@ const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
   { type: "grain", note: "2 Getreide gegen 1 Wahlkarte" },
   { type: "wool", note: "2 Wolle gegen 1 Wahlkarte" }
 ];
+const COMPACT_RESOURCE_LABELS: Record<Resource, string> = {
+  brick: "Lehm",
+  lumber: "Holz",
+  wool: "Wolle",
+  grain: "Getr.",
+  ore: "Erz"
+};
 
 function isDenseLegendViewport(width: number, height: number): boolean {
   return width < 1320 || height < 840;
@@ -382,18 +389,13 @@ function TradePaletteButton(props: {
       disabled={props.disabled}
       aria-pressed={props.selected}
       onClick={props.onClick}
+      title={`${renderResourceLabel(props.resource)} · ${props.meta} · ${props.hint}`}
     >
-      <div className="trade-draft-tile-head">
-        <span className="trade-draft-tile-icon" aria-hidden="true">
-          <ResourceIcon resource={props.resource} shell size={16} />
-        </span>
-        <strong>{renderResourceLabel(props.resource)}</strong>
-      </div>
-      <div className="trade-draft-tile-value-row">
-        <span className="trade-draft-tile-count">{props.count}</span>
-        <span className="trade-draft-tile-meta">{props.meta}</span>
-      </div>
-      <span className="trade-palette-button-hint">{props.hint}</span>
+      <span className="trade-palette-button-count">{props.count}</span>
+      <span className="trade-draft-tile-icon trade-palette-button-icon" aria-hidden="true">
+        <ResourceIcon resource={props.resource} shell size={16} />
+      </span>
+      <strong className="trade-palette-button-label">{COMPACT_RESOURCE_LABELS[props.resource]}</strong>
     </button>
   );
 }
@@ -747,8 +749,6 @@ export function MatchScreen(props: {
   const maritimeRatio = maritimeRatesByResource[props.maritimeForm.give] ?? 4;
   const tradeGiveTotal = totalResources(props.tradeForm.give);
   const tradeWantTotal = totalResources(props.tradeForm.want);
-  const tradeGiveSummary = tradeGiveTotal > 0 ? `${tradeGiveTotal} Karte${tradeGiveTotal === 1 ? "" : "n"} im Angebot` : "Abgabe wählen";
-  const tradeWantSummary = tradeWantTotal > 0 ? `${tradeWantTotal} Karte${tradeWantTotal === 1 ? "" : "n"} angefragt` : "Gegenwert wählen";
   const selectedTradeTargetPlayer =
     props.tradeForm.targetPlayerId && isCurrentPlayer
       ? tradeTargetPlayers.find((player) => player.id === props.tradeForm.targetPlayerId) ?? null
@@ -1888,28 +1888,29 @@ export function MatchScreen(props: {
   const renderTradeLane = (
     tone: "give" | "receive",
     title: string,
-    summary: string,
     total: number,
+    selection: ReactNode,
     content: ReactNode,
-    onClear?: () => void
+    options?: {
+      note?: string;
+      onClear?: () => void;
+    }
   ) => (
     <article className={`trade-lane trade-lane-${tone}`.trim()}>
       <div className="trade-lane-head">
-        <div>
+        <div className="trade-lane-head-main">
           <span className="eyebrow">{title}</span>
-          <strong>{summary}</strong>
+          <span className={`status-pill ${total === 0 ? "muted" : ""}`}>{total === 0 ? "Leer" : `${total} Karte${total === 1 ? "" : "n"}`}</span>
         </div>
-        <span className={`status-pill ${total === 0 ? "muted" : ""}`}>{total} Karten</span>
-      </div>
-      {content}
-      <div className="trade-lane-foot">
-        <span>{total === 0 ? "Noch leer" : `${total} Karte${total === 1 ? "" : "n"} im Entwurf`}</span>
-        {onClear ? (
-          <button type="button" className="ghost-button" disabled={total === 0} onClick={onClear}>
+        {options?.note ? <span className="trade-lane-note">{options.note}</span> : null}
+        {options?.onClear ? (
+          <button type="button" className="ghost-button trade-lane-clear" disabled={total === 0} onClick={options.onClear}>
             Leeren
           </button>
         ) : null}
       </div>
+      <div className="trade-lane-selection">{selection}</div>
+      {content}
     </article>
   );
 
@@ -1980,35 +1981,43 @@ export function MatchScreen(props: {
     </div>
   );
   const playerTradeSubmitHint = hasOwnTradeOffer
-    ? "Ziehe zuerst dein offenes Angebot zurück oder bearbeite es."
+    ? "Offenes Angebot zuerst ändern oder zurückziehen."
     : !props.match.allowedMoves.canCreateTradeOffer
-      ? "Spielerhandel ist im aktuellen Zustand gesperrt."
+      ? "Spielerhandel ist gerade gesperrt."
       : tradeGiveTotal === 0 || tradeWantTotal === 0
-        ? "Lege fest, was du gibst und was du erhalten möchtest."
-        : "Direkter Versand ohne zusätzliche Bestätigung.";
+        ? "Geben und Erhalten festlegen."
+        : "Direkt ohne Bestätigung.";
   const maritimeTradeSubmitHint =
     tradeMode === "harbor" && harborTradeResources.length === 0
-      ? "Du hast aktuell keinen aktiven Hafenhandel."
+      ? "Kein passender Hafen verfügbar."
       : !props.match.allowedMoves.canMaritimeTrade
-        ? "Bank- und Hafenhandel sind nur im eigenen Aktionszug möglich."
+        ? "Nur im eigenen Aktionszug möglich."
         : props.maritimeForm.give === props.maritimeForm.receive
-          ? "Wähle unterschiedliche Rohstoffe."
-          : "Direkttausch ohne zusätzliche Bestätigung.";
-  const maritimeGiveSummary =
-    visibleMaritimeGiveResources.length > 0
-      ? `${maritimeRatio}:1 Einsatz`
-      : tradeMode === "bank"
-        ? "Keine 4:1-Option"
-        : "Kein Hafen aktiv";
+          ? "Unterschiedliche Rohstoffe wählen."
+          : "Direkt ohne Bestätigung.";
   const maritimeActionLabel =
     visibleMaritimeGiveResources.length > 0 ? `${maritimeRatio}:1 tauschen` : tradeMode === "bank" ? "Banktausch nicht möglich" : "Hafentausch nicht möglich";
   const tradeModeLabel = tradeMode === "player" ? "Spielerhandel" : tradeMode === "bank" ? "Bankhandel" : "Hafenhandel";
-  const tradeModeDescription =
+  const tradeToolbarStatus =
     tradeMode === "player"
-      ? "Laufende Verhandlung mit offenen oder zielgerichteten Angeboten."
+      ? tradeComposerContext.kind === "counter"
+        ? "Gegenangebot"
+        : hasOwnTradeOffer
+          ? `${ownTradeOffers.length} offen`
+          : incomingTradeOffers.length
+            ? `${incomingTradeOffers.length} sichtbar`
+            : "Bereit"
       : tradeMode === "bank"
-        ? "4:1-Tausch mit der Bank."
-        : "2:1 oder 3:1 mit deinem besten verfügbaren Hafen.";
+        ? "4:1"
+        : harborTradeResources.length > 0
+          ? "Beste Rate"
+          : "Kein Hafen";
+  const maritimeGiveSelection = createEmptyResourceMap();
+  if (visibleMaritimeGiveResources.includes(props.maritimeForm.give)) {
+    maritimeGiveSelection[props.maritimeForm.give] = maritimeRatio;
+  }
+  const maritimeReceiveSelection = createEmptyResourceMap();
+  maritimeReceiveSelection[props.maritimeForm.receive] = 1;
   const tradeModeControls = (
     <div className="mini-segmented trade-mode-segmented" role="tablist" aria-label="Handelsmodus">
       <button type="button" className={tradeMode === "player" ? "is-active" : ""} onClick={() => setTradeMode("player")}>
@@ -2044,7 +2053,7 @@ export function MatchScreen(props: {
     </div>
   ) : (
     <div className={`trade-target-static ${selectedTradeTargetAccentClass}`.trim()}>
-      <span className="eyebrow">{tradeComposerContext.kind === "counter" ? "Gegenangebot an" : "Angebot an"}</span>
+      <span className="eyebrow">{tradeComposerContext.kind === "counter" ? "Gegenangebot an" : "Ziel"}</span>
       {effectiveTradeTargetPlayer ? (
         <PlayerIdentity
           username={effectiveTradeTargetPlayer.username}
@@ -2055,30 +2064,28 @@ export function MatchScreen(props: {
       ) : (
         <strong>Offen für alle</strong>
       )}
-      <span>
-        {tradeComposerContext.kind === "counter"
-          ? "Direktantwort auf das markierte Angebot."
-          : isCurrentPlayer
-            ? "Jeder Mitspieler kann dieses Angebot annehmen."
-            : "Gegenangebote gehen immer direkt an den aktiven Spieler."}
-      </span>
     </div>
   );
   const playerTradeComposer = (
-    <section className="trade-composer-card">
-      <div className="trade-section-headline">
-        <div>
+    <section className="trade-composer-card trade-composer-card-player">
+      <div className="trade-composer-headbar">
+        <div className="trade-composer-title">
           <span className="eyebrow">{tradeModeLabel}</span>
-          <strong>{tradeModeDescription}</strong>
+          <strong>{tradeComposerContext.kind === "counter" ? "Gegenangebot" : "Neues Angebot"}</strong>
         </div>
-        {tradeComposerContext.kind === "counter" ? <span className="status-pill is-warning">Gegenangebot aktiv</span> : null}
+        {tradeComposerContext.kind === "counter" ? <span className="status-pill is-warning">Aktiv</span> : null}
       </div>
-      <div className="trade-composer-grid">
+      <div className="trade-composer-grid is-stacked">
         {renderTradeLane(
           "give",
           "Du gibst",
-          tradeGiveSummary,
           tradeGiveTotal,
+          <TradeDraftPillRow
+            resources={props.tradeForm.give}
+            emptyLabel="Noch nichts gewählt"
+            tone="give"
+            onReduce={(resource) => updateTradeDraft("give", resource, (props.tradeForm.give[resource] ?? 0) - 1)}
+          />,
           <div className="trade-picker-stack">
             <div className="trade-draft-tile-grid">
               {RESOURCES.map((resource) => {
@@ -2099,24 +2106,21 @@ export function MatchScreen(props: {
                 );
               })}
             </div>
-            <div className="trade-selection-shell">
-              <span className="eyebrow">Im Entwurf</span>
-              <TradeDraftPillRow
-                resources={props.tradeForm.give}
-                emptyLabel="Noch nichts gewählt"
-                tone="give"
-                onReduce={(resource) => updateTradeDraft("give", resource, (props.tradeForm.give[resource] ?? 0) - 1)}
-              />
-            </div>
           </div>,
-          () => clearTradeDraftLane("give")
+          {
+            onClear: () => clearTradeDraftLane("give")
+          }
         )}
-        <div className="trade-direction-chip">gegen</div>
         {renderTradeLane(
           "receive",
           "Du erhältst",
-          tradeWantSummary,
           tradeWantTotal,
+          <TradeDraftPillRow
+            resources={props.tradeForm.want}
+            emptyLabel="Noch nichts angefragt"
+            tone="receive"
+            onReduce={(resource) => updateTradeDraft("want", resource, (props.tradeForm.want[resource] ?? 0) - 1)}
+          />,
           <div className="trade-picker-stack">
             <div className="trade-draft-tile-grid">
               {RESOURCES.map((resource) => {
@@ -2135,63 +2139,61 @@ export function MatchScreen(props: {
                 );
               })}
             </div>
-            <div className="trade-selection-shell">
-              <span className="eyebrow">Im Entwurf</span>
-              <TradeDraftPillRow
-                resources={props.tradeForm.want}
-                emptyLabel="Noch nichts angefragt"
-                tone="receive"
-                onReduce={(resource) => updateTradeDraft("want", resource, (props.tradeForm.want[resource] ?? 0) - 1)}
-              />
-            </div>
           </div>,
-          () => clearTradeDraftLane("want")
+          {
+            onClear: () => clearTradeDraftLane("want")
+          }
         )}
       </div>
-      <article className="trade-target-shell">
-        <div className="trade-target-shell-head">
-          <span className="eyebrow">Ziel</span>
-          <strong>
-            {effectiveTradeTargetPlayer
-              ? renderMatchPlayerText(props.match, effectiveTradeTargetPlayer.id === props.match.you ? "Du" : effectiveTradeTargetPlayer.username)
-              : "Offen für alle"}
-          </strong>
-        </div>
-        {playerTradeTargetButtons}
-      </article>
-      <div className="trade-composer-actions">
-        <div className="trade-composer-copy">
-          <strong>{tradeComposerContext.kind === "counter" ? "Gegenangebot senden" : "Schnell handeln"}</strong>
-          <span>{playerTradeSubmitHint}</span>
-        </div>
-        <div className="trade-composer-button-row">
-          {tradeComposerContext.kind === "counter" ? (
-            <button type="button" className="ghost-button" onClick={resetPlayerTradeComposer}>
-              Neu starten
+      <div className="trade-composer-footer">
+        <article className="trade-target-shell">
+          <div className="trade-target-shell-head">
+            <span className="eyebrow">Ziel</span>
+            <strong>
+              {effectiveTradeTargetPlayer
+                ? renderMatchPlayerText(props.match, effectiveTradeTargetPlayer.id === props.match.you ? "Du" : effectiveTradeTargetPlayer.username)
+                : "Offen für alle"}
+            </strong>
+          </div>
+          {playerTradeTargetButtons}
+        </article>
+        <div className="trade-composer-actions">
+          <div className="trade-composer-copy">
+            <span>{playerTradeSubmitHint}</span>
+          </div>
+          <div className="trade-composer-button-row">
+            {tradeComposerContext.kind === "counter" ? (
+              <button type="button" className="ghost-button" onClick={resetPlayerTradeComposer}>
+                Neu
+              </button>
+            ) : null}
+            <button type="button" className="primary-button trade-submit-button" disabled={!canSubmitTradeOffer} onClick={handleSendTradeOffer}>
+              {tradeComposerContext.kind === "counter" ? "Senden" : "Angebot senden"}
             </button>
-          ) : null}
-          <button type="button" className="primary-button trade-submit-button" disabled={!canSubmitTradeOffer} onClick={handleSendTradeOffer}>
-            {tradeComposerContext.kind === "counter" ? "Gegenangebot senden" : "Angebot senden"}
-          </button>
+          </div>
         </div>
       </div>
     </section>
   );
   const maritimeTradeComposer = (
     <section className="trade-composer-card">
-      <div className="trade-section-headline">
-        <div>
+      <div className="trade-composer-headbar">
+        <div className="trade-composer-title">
           <span className="eyebrow">{tradeModeLabel}</span>
-          <strong>{tradeModeDescription}</strong>
+          <strong>{tradeMode === "bank" ? "Soforttausch" : "Beste Hafenrate"}</strong>
         </div>
         <span className="status-pill">{tradeMode === "bank" ? "4:1" : "Beste Rate"}</span>
       </div>
-      <div className="trade-composer-grid">
+      <div className="trade-composer-grid is-stacked">
         {renderTradeLane(
           "give",
           "Du gibst",
-          maritimeGiveSummary,
           visibleMaritimeGiveResources.length > 0 ? maritimeRatio : 0,
+          <TradeResourcePillRow
+            resources={maritimeGiveSelection}
+            emptyLabel={tradeMode === "bank" ? "Keine 4:1-Option" : "Kein Hafen aktiv"}
+            tone="give"
+          />,
           visibleMaritimeGiveResources.length ? (
             <div className="trade-draft-tile-grid">
               {visibleMaritimeGiveResources.map((resource) => {
@@ -2213,16 +2215,17 @@ export function MatchScreen(props: {
               })}
             </div>
           ) : (
-            <div className="empty-state">Für diesen Modus ist aktuell kein passender Rohstoff verfügbar.</div>
+            <div className="trade-inline-empty">Für diesen Modus ist aktuell kein passender Rohstoff verfügbar.</div>
           ),
-          undefined
+          {
+            note: visibleMaritimeGiveResources.length > 0 ? `${maritimeRatio}:1` : undefined
+          }
         )}
-        <div className="trade-direction-chip">{visibleMaritimeGiveResources.length > 0 ? `${maritimeRatio}:1` : "-"}</div>
         {renderTradeLane(
           "receive",
           "Du erhältst",
-          `1x ${renderResourceLabel(props.maritimeForm.receive)}`,
           1,
+          <TradeResourcePillRow resources={maritimeReceiveSelection} emptyLabel="Kein Ziel" tone="receive" />,
           <div className="trade-draft-tile-grid">
             {RESOURCES.map((resource) => {
               const selected = props.maritimeForm.receive === resource;
@@ -2238,26 +2241,25 @@ export function MatchScreen(props: {
                 />
               );
             })}
-          </div>,
-          undefined
+          </div>
         )}
       </div>
-      <article className="trade-target-shell is-static">
-        <div className="trade-target-static">
-          <span className="eyebrow">Angebot an</span>
-          <strong>{tradeMode === "bank" ? "Bank" : "Hafen"}</strong>
-          <span>Direkttausch mit derselben Bedienlogik wie beim Spielerhandel.</span>
-        </div>
-      </article>
-      <div className="trade-composer-actions">
-        <div className="trade-composer-copy">
-          <strong>{tradeMode === "bank" ? "Banktausch" : "Hafentausch"}</strong>
-          <span>{maritimeTradeSubmitHint}</span>
-        </div>
-        <div className="trade-composer-button-row">
-          <button type="button" className="secondary-button trade-submit-button" disabled={!canSubmitMaritimeTrade} onClick={handleExecuteMaritimeTrade}>
-            {maritimeActionLabel}
-          </button>
+      <div className="trade-composer-footer">
+        <article className="trade-target-shell is-static">
+          <div className="trade-target-static">
+            <span className="eyebrow">Ziel</span>
+            <strong>{tradeMode === "bank" ? "Bank" : "Hafen"}</strong>
+          </div>
+        </article>
+        <div className="trade-composer-actions">
+          <div className="trade-composer-copy">
+            <span>{maritimeTradeSubmitHint}</span>
+          </div>
+          <div className="trade-composer-button-row">
+            <button type="button" className="secondary-button trade-submit-button" disabled={!canSubmitMaritimeTrade} onClick={handleExecuteMaritimeTrade}>
+              {maritimeActionLabel}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -2265,7 +2267,7 @@ export function MatchScreen(props: {
   const tradeOwnOffersSection = ownTradeOffers.length ? (
     <section className="dock-section trade-zone">
       <div className="dock-section-head">
-        <h3>{ownTradeOffers.length > 1 ? "Deine offenen Angebote" : "Dein offenes Angebot"}</h3>
+        <h3>{ownTradeOffers.length > 1 ? "Eigene Angebote" : "Dein Angebot"}</h3>
         <span>{`${ownTradeOffers.length} aktiv`}</span>
       </div>
       <div className="trade-offer-stack">
@@ -2287,7 +2289,7 @@ export function MatchScreen(props: {
   const tradeIncomingOffersSection = (
     <section className="dock-section dock-section-fill trade-zone trade-zone-scroll">
       <div className="dock-section-head">
-        <h3>Eingehende Angebote</h3>
+        <h3>Eingehend</h3>
         <span>{incomingTradeOffers.length ? `${incomingTradeOffers.length} sichtbar` : "Keine Angebote"}</span>
       </div>
       {incomingTradeOffers.length ? (
@@ -2319,7 +2321,7 @@ export function MatchScreen(props: {
       <section className="trade-toolbar">
         <div className="trade-toolbar-copy">
           <h3>Handel</h3>
-          <span>{tradeModeDescription}</span>
+          <span>{tradeToolbarStatus}</span>
         </div>
         {tradeModeControls}
       </section>
