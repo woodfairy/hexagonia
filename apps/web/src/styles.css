@@ -174,6 +174,7 @@ select::-ms-expand {
 
 .app-shell.is-match-screen {
   position: relative;
+  gap: 0.68rem;
 }
 
 .screen-shell {
@@ -246,6 +247,11 @@ select::-ms-expand {
   overflow: visible;
 }
 
+.app-header.is-compact {
+  gap: 0.68rem;
+  padding: 0.58rem 0.78rem;
+}
+
 .brand-cluster,
 .header-utilities,
 .brand-title-row {
@@ -256,6 +262,11 @@ select::-ms-expand {
 
 .brand-cluster {
   min-inline-size: 0;
+}
+
+.app-header.is-compact .brand-cluster,
+.app-header.is-compact .header-utilities {
+  gap: 0.58rem;
 }
 
 .brand-mark {
@@ -270,6 +281,13 @@ select::-ms-expand {
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
     rgba(8, 18, 27, 0.92);
   flex: none;
+}
+
+.app-header.is-compact .brand-mark {
+  inline-size: 2.3rem;
+  block-size: 2.3rem;
+  padding: 0.16rem;
+  border-radius: 0.82rem;
 }
 
 .brand-mark-image {
@@ -317,12 +335,23 @@ select::-ms-expand {
   white-space: nowrap;
 }
 
+.app-header.is-compact .connection-indicator {
+  gap: 0.38rem;
+  padding: 0.34rem 0.74rem;
+  font-size: 0.82rem;
+}
+
 .connection-dot {
   inline-size: 0.58rem;
   block-size: 0.58rem;
   border-radius: 999px;
   background: currentColor;
   box-shadow: 0 0 0 0.22rem rgba(255, 255, 255, 0.05);
+}
+
+.app-header.is-compact .connection-dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
 }
 
 .connection-indicator.is-online {
@@ -352,6 +381,11 @@ select::-ms-expand {
   background: rgba(255, 255, 255, 0.045);
 }
 
+.app-header.is-compact .profile-trigger {
+  gap: 0.5rem;
+  padding: 0.34rem 0.78rem 0.34rem 0.34rem;
+}
+
 .profile-avatar {
   inline-size: 2.15rem;
   block-size: 2.15rem;
@@ -364,6 +398,12 @@ select::-ms-expand {
   font-weight: 800;
   letter-spacing: 0.08em;
   flex: none;
+}
+
+.app-header.is-compact .profile-avatar {
+  inline-size: 1.92rem;
+  block-size: 1.92rem;
+  font-size: 0.74rem;
 }
 
 .profile-avatar.is-large {
@@ -387,6 +427,20 @@ select::-ms-expand {
 .profile-trigger-copy span,
 .profile-dropdown-copy span {
   font-size: 0.79rem;
+}
+
+.app-header.is-compact .profile-trigger-copy {
+  gap: 0;
+  padding-inline-end: 0;
+}
+
+.app-header.is-compact .profile-trigger-copy strong {
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.app-header.is-compact .profile-trigger-copy span {
+  display: none;
 }
 
 .profile-dropdown {
@@ -4302,13 +4356,13 @@ select {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.48rem;
+  gap: 0.42rem;
   min-inline-size: 0;
-  min-block-size: 2.72rem;
-  padding: 0.16rem 0.72rem 0.16rem 0.68rem;
+  min-block-size: 2.08rem;
+  padding: 0.22rem 0.62rem 0.22rem 0.56rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
-  background: rgba(6, 15, 23, 0.74);
+  border-radius: 0.88rem;
+  background: rgba(6, 15, 23, 0.82);
   transition:
     border-color 160ms ease,
     background 160ms ease,
@@ -4331,12 +4385,12 @@ select {
 }
 
 .trade-target-select-dot {
-  inline-size: 0.78rem;
-  block-size: 0.78rem;
+  inline-size: 0.52rem;
+  block-size: 0.52rem;
   border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.8);
+  background: rgba(148, 163, 184, 0.88);
   box-shadow:
-    0 0 0 0.18rem rgba(var(--accent-rgb), 0.14),
+    0 0 0 0.16rem rgba(148, 163, 184, 0.14),
     inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
@@ -4347,16 +4401,33 @@ select {
     inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
+.trade-target-select-copy {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .trade-target-select {
-  min-block-size: 0;
-  padding: 0.12rem 0.1rem 0.12rem 0;
+  position: absolute;
+  inset: 0;
+  min-block-size: 100%;
+  inline-size: 100%;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--text);
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.12;
+  opacity: 0;
+  cursor: pointer;
+  appearance: none;
 }
 
 .trade-target-select:focus {
@@ -4364,12 +4435,12 @@ select {
 }
 
 .trade-target-select-caret {
-  inline-size: 0.6rem;
-  block-size: 0.6rem;
+  inline-size: 0.46rem;
+  block-size: 0.46rem;
   justify-self: end;
   border-inline-end: 2px solid var(--muted);
   border-block-end: 2px solid var(--muted);
-  transform: rotate(45deg) translateY(-0.08rem);
+  transform: rotate(45deg) translateY(-0.04rem);
   pointer-events: none;
 }
 
@@ -4556,10 +4627,6 @@ select {
 .trade-banner-lane strong {
   display: block;
   line-height: 1.14;
-}
-
-.trade-banner-lane span:last-child {
-  line-height: 1.32;
 }
 
 .trade-banner-actions {
@@ -4773,12 +4840,6 @@ select {
   opacity: 0.72;
 }
 
-.trade-inline-clear-button {
-  min-block-size: 1.55rem;
-  padding: 0.08rem 0.44rem;
-  font-size: 0.74rem;
-}
-
 .trade-matrix-shell {
   display: grid;
   gap: 0.2rem;
@@ -4794,6 +4855,11 @@ select {
   grid-template-columns: 1.72rem minmax(2.2rem, auto) minmax(2.9rem, 0.72fr) minmax(2.9rem, 0.72fr);
   gap: 0.28rem;
   align-items: center;
+}
+
+.trade-matrix-shell.is-player-draft .trade-matrix-head,
+.trade-matrix-shell.is-player-draft .trade-matrix-row {
+  grid-template-columns: 1.72rem minmax(2rem, auto) minmax(4.15rem, 1fr) minmax(4.15rem, 1fr);
 }
 
 .trade-matrix-head {
@@ -4894,6 +4960,57 @@ select {
   opacity: 0.36;
 }
 
+.trade-matrix-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.22rem;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.trade-matrix-control.has-decrement {
+  grid-template-columns: minmax(0, 1fr) 1.36rem;
+}
+
+.trade-matrix-control .trade-matrix-cell {
+  inline-size: 100%;
+}
+
+.trade-matrix-decrement {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.36rem;
+  min-block-size: 1.78rem;
+  padding: 0;
+  border: 1px solid rgba(255, 111, 111, 0.26);
+  border-radius: 0.68rem;
+  background: rgba(255, 111, 111, 0.14);
+  color: rgba(255, 212, 212, 0.94);
+  font-size: 0.94rem;
+  font-weight: 900;
+  line-height: 1;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.trade-matrix-decrement:hover {
+  border-color: rgba(255, 131, 131, 0.38);
+  background: rgba(255, 111, 111, 0.2);
+  transform: translateY(-1px);
+}
+
+.trade-matrix-decrement:focus-visible {
+  outline: none;
+  border-color: rgba(255, 131, 131, 0.42);
+  box-shadow: 0 0 0 0.12rem rgba(255, 111, 111, 0.16);
+}
+
 .trade-inline-empty {
   padding: 0.42rem 0.48rem;
   border: 1px dashed rgba(255, 255, 255, 0.1);
@@ -4913,44 +5030,6 @@ select {
 
 .trade-target-shell.is-static {
   border-style: dashed;
-}
-
-.trade-target-chip-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.3rem;
-  min-inline-size: 0;
-  overflow-x: auto;
-  padding-block-end: 0.08rem;
-  scrollbar-width: thin;
-}
-
-.trade-target-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-block-size: 1.62rem;
-  padding: 0.12rem 0.42rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text);
-  font-size: 0.72rem;
-  white-space: nowrap;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-}
-
-.trade-target-chip[class*="player-accent-"] {
-  border-color: var(--player-accent-border, rgba(255, 255, 255, 0.12));
-  background:
-    linear-gradient(180deg, var(--player-accent-soft, rgba(255, 255, 255, 0.05)), rgba(255, 255, 255, 0.025)),
-    rgba(255, 255, 255, 0.03);
-}
-
-.trade-target-chip.is-active {
-  border-color: rgba(var(--accent-rgb), 0.4);
-  background: rgba(var(--accent-rgb), 0.12);
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.08);
 }
 
 .trade-target-static {
@@ -5086,15 +5165,16 @@ select {
 .trade-resource-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.24rem;
   min-block-size: 1.56rem;
-  padding: 0.12rem 0.42rem;
+  padding: 0.12rem 0.34rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.035);
   color: var(--text);
   font-size: 0.72rem;
   line-height: 1.08;
+  font-variant-numeric: tabular-nums;
 }
 
 .trade-resource-pill.is-action {
@@ -5276,6 +5356,11 @@ select {
   .trade-matrix-row {
     grid-template-columns: 1.62rem minmax(1.95rem, auto) minmax(2.7rem, 0.66fr) minmax(2.7rem, 0.66fr);
   }
+
+  .trade-matrix-shell.is-player-draft .trade-matrix-head,
+  .trade-matrix-shell.is-player-draft .trade-matrix-row {
+    grid-template-columns: 1.62rem minmax(1.95rem, auto) minmax(3.7rem, 1fr) minmax(3.7rem, 1fr);
+  }
 }
 
 @container (max-width: 31rem) {
@@ -5292,6 +5377,11 @@ select {
     gap: 0.22rem;
   }
 
+  .trade-matrix-shell.is-player-draft .trade-matrix-head,
+  .trade-matrix-shell.is-player-draft .trade-matrix-row {
+    grid-template-columns: 1.54rem minmax(1.82rem, auto) minmax(3.3rem, 1fr) minmax(3.3rem, 1fr);
+  }
+
   .trade-matrix-head {
     font-size: 0.58rem;
   }
@@ -5299,6 +5389,16 @@ select {
   .trade-matrix-meta,
   .trade-matrix-cell {
     font-size: 0.68rem;
+  }
+
+  .trade-matrix-control.has-decrement {
+    grid-template-columns: minmax(0, 1fr) 1.2rem;
+  }
+
+  .trade-matrix-decrement {
+    min-inline-size: 1.2rem;
+    min-block-size: 1.64rem;
+    font-size: 0.82rem;
   }
 
   .trade-composer-footer,
@@ -6981,6 +7081,11 @@ select {
   .trade-matrix-head,
   .trade-matrix-row {
     grid-template-columns: 1.54rem minmax(1.82rem, auto) minmax(2.4rem, 0.6fr) minmax(2.4rem, 0.6fr);
+  }
+
+  .trade-matrix-shell.is-player-draft .trade-matrix-head,
+  .trade-matrix-shell.is-player-draft .trade-matrix-row {
+    grid-template-columns: 1.54rem minmax(1.82rem, auto) minmax(3.18rem, 1fr) minmax(3.18rem, 1fr);
   }
 
   .trade-target-picker {

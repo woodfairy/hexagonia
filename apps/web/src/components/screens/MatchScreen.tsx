@@ -353,9 +353,13 @@ function TradeResourcePillRow(props: {
     <div className={`trade-resource-pill-row is-${props.tone}`.trim()}>
       {entries.length ? (
         entries.map((resource) => (
-          <span key={resource} className={`trade-resource-pill is-${props.tone}`.trim()}>
+          <span
+            key={resource}
+            className={`trade-resource-pill is-${props.tone}`.trim()}
+            title={`${props.resources[resource]}x ${renderResourceLabel(resource)}`}
+          >
             <ResourceIcon resource={resource} shell size={14} />
-            <span>{`${props.resources[resource]}x ${renderResourceLabel(resource)}`}</span>
+            <span>{`${props.resources[resource]}x`}</span>
           </span>
         ))
       ) : (
@@ -387,32 +391,38 @@ function TradeMatrixCellButton(props: {
   );
 }
 
-function TradeDraftPillRow(props: {
-  resources: ResourceMap;
-  emptyLabel: string;
+function TradeMatrixDraftControl(props: {
+  value: number;
   tone: "give" | "receive";
-  onReduce: (resource: Resource) => void;
+  incrementDisabled?: boolean;
+  incrementTitle: string;
+  decrementTitle: string;
+  onIncrement: () => void;
+  onDecrement: () => void;
 }) {
-  const entries = RESOURCES.filter((resource) => (props.resources[resource] ?? 0) > 0);
+  const showDecrement = props.value > 0;
 
   return (
-    <div className={`trade-resource-pill-row is-${props.tone}`.trim()}>
-      {entries.length ? (
-        entries.map((resource) => (
-          <button
-            key={resource}
-            type="button"
-            className={`trade-resource-pill is-${props.tone} is-action`.trim()}
-            title={`${renderResourceLabel(resource)} entfernen`}
-            onClick={() => props.onReduce(resource)}
-          >
-            <ResourceIcon resource={resource} shell size={14} />
-            <span>{`${props.resources[resource]}x ${renderResourceLabel(resource)}`}</span>
-          </button>
-        ))
-      ) : (
-        <span className="trade-resource-pill is-empty">{props.emptyLabel}</span>
-      )}
+    <div className={`trade-matrix-control ${showDecrement ? "has-decrement" : ""}`.trim()}>
+      <TradeMatrixCellButton
+        value={props.value}
+        tone={props.tone}
+        active={props.value > 0}
+        disabled={props.incrementDisabled}
+        title={props.incrementTitle}
+        onClick={props.onIncrement}
+      />
+      {showDecrement ? (
+        <button
+          type="button"
+          className="trade-matrix-decrement"
+          title={props.decrementTitle}
+          aria-label={props.decrementTitle}
+          onClick={props.onDecrement}
+        >
+          <span aria-hidden="true">−</span>
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -1630,22 +1640,6 @@ export function MatchScreen(props: {
   }, [affordableMaritimeGiveResources, props.maritimeForm.give, props.setMaritimeForm, visibleMaritimeGiveResources]);
 
   useEffect(() => {
-    if (props.maritimeForm.receive !== props.maritimeForm.give) {
-      return;
-    }
-
-    const fallbackReceive = RESOURCES.find((resource) => resource !== props.maritimeForm.give) ?? props.maritimeForm.receive;
-    if (fallbackReceive === props.maritimeForm.receive) {
-      return;
-    }
-
-    props.setMaritimeForm((current) => ({
-      ...current,
-      receive: fallbackReceive
-    }));
-  }, [props.maritimeForm.give, props.maritimeForm.receive, props.setMaritimeForm]);
-
-  useEffect(() => {
     const visibleOfferIds = new Set([...ownTradeOffers, ...incomingTradeOffers].map((offer) => offer.id));
     if (focusedTradeOfferId && visibleOfferIds.has(focusedTradeOfferId)) {
       return;
@@ -1759,10 +1753,16 @@ export function MatchScreen(props: {
       )
     }));
   };
-  const clearTradeDraftLane = (lane: "give" | "want") => {
-    props.setTradeForm((current) => ({
+  const handleSelectMaritimeGive = (resource: Resource) => {
+    props.setMaritimeForm((current) => ({
       ...current,
-      [lane]: createEmptyResourceMap()
+      give: resource
+    }));
+  };
+  const handleSelectMaritimeReceive = (resource: Resource) => {
+    props.setMaritimeForm((current) => ({
+      ...current,
+      receive: resource
     }));
   };
   const resetPlayerTradeComposer = () => {
@@ -1989,26 +1989,34 @@ export function MatchScreen(props: {
       </button>
     </div>
   );
+  const selectedTradeTargetLabel =
+    selectedTradeTargetPlayer == null ? "Alle Spieler" : selectedTradeTargetPlayer.id === props.match.you ? "Du" : selectedTradeTargetPlayer.username;
   const playerTradeTargetButtons = isCurrentPlayer && !tradeComposerContext.lockedTargetPlayerId ? (
-    <div className="trade-target-chip-row">
-      <button
-        type="button"
-        className={`trade-target-chip ${props.tradeForm.targetPlayerId === "" ? "is-active" : ""}`.trim()}
-        onClick={() => props.setTradeForm((current) => ({ ...current, targetPlayerId: "" }))}
+    <label
+      className={`trade-target-select-shell ${selectedTradeTargetAccentClass}`.trim()}
+      title={
+        selectedTradeTargetPlayer
+          ? `${selectedTradeTargetLabel} · ${renderPlayerColorLabel(selectedTradeTargetPlayer.color)}`
+          : "Offenes Angebot an alle Spieler"
+      }
+    >
+      <span className="trade-target-select-dot" aria-hidden="true" />
+      <span className="trade-target-select-copy">{selectedTradeTargetLabel}</span>
+      <span className="trade-target-select-caret" aria-hidden="true" />
+      <select
+        className="trade-target-select"
+        aria-label="Zielspieler wählen"
+        value={props.tradeForm.targetPlayerId}
+        onChange={(event) => props.setTradeForm((current) => ({ ...current, targetPlayerId: event.target.value }))}
       >
-        Alle
-      </button>
-      {tradeTargetPlayers.map((player) => (
-        <button
-          key={player.id}
-          type="button"
-          className={`trade-target-chip ${getPlayerAccentClass(player.color)} ${props.tradeForm.targetPlayerId === player.id ? "is-active" : ""}`.trim()}
-          onClick={() => props.setTradeForm((current) => ({ ...current, targetPlayerId: player.id }))}
-        >
-          <PlayerIdentity username={player.username} color={player.color} compact />
-        </button>
-      ))}
-    </div>
+        <option value="">Alle Spieler</option>
+        {tradeTargetPlayers.map((player) => (
+          <option key={player.id} value={player.id}>
+            {`${player.id === props.match.you ? "Du" : player.username} · ${renderPlayerColorLabel(player.color)}`}
+          </option>
+        ))}
+      </select>
+    </label>
   ) : (
     <div className={`trade-target-static ${selectedTradeTargetAccentClass}`.trim()}>
       <span className="eyebrow">{tradeComposerContext.kind === "counter" ? "Gegenangebot an" : "Ziel"}</span>
@@ -2033,45 +2041,7 @@ export function MatchScreen(props: {
         {tradeComposerContext.kind === "counter" ? <span className="status-pill is-warning">Aktiv</span> : null}
       </div>
       <div className="trade-composer-grid is-stacked">
-        <div className="trade-compact-lane is-give">
-          <div className="trade-compact-lane-head">
-            <div className="trade-compact-lane-title">
-              <span className="eyebrow">Du gibst</span>
-              <span className={`trade-micro-pill ${tradeGiveTotal === 0 ? "is-muted" : ""}`.trim()}>
-                {tradeGiveTotal === 0 ? "Leer" : `${tradeGiveTotal} Karte${tradeGiveTotal === 1 ? "" : "n"}`}
-              </span>
-            </div>
-            <button type="button" className="ghost-button trade-inline-clear-button" disabled={tradeGiveTotal === 0} onClick={() => clearTradeDraftLane("give")}>
-              Leeren
-            </button>
-          </div>
-          <TradeDraftPillRow
-            resources={props.tradeForm.give}
-            emptyLabel="Leer"
-            tone="give"
-            onReduce={(resource) => updateTradeDraft("give", resource, (props.tradeForm.give[resource] ?? 0) - 1)}
-          />
-        </div>
-        <div className="trade-compact-lane is-receive">
-          <div className="trade-compact-lane-head">
-            <div className="trade-compact-lane-title">
-              <span className="eyebrow">Du erhältst</span>
-              <span className={`trade-micro-pill ${tradeWantTotal === 0 ? "is-muted" : ""}`.trim()}>
-                {tradeWantTotal === 0 ? "Leer" : `${tradeWantTotal} Karte${tradeWantTotal === 1 ? "" : "n"}`}
-              </span>
-            </div>
-            <button type="button" className="ghost-button trade-inline-clear-button" disabled={tradeWantTotal === 0} onClick={() => clearTradeDraftLane("want")}>
-              Leeren
-            </button>
-          </div>
-          <TradeDraftPillRow
-            resources={props.tradeForm.want}
-            emptyLabel="Leer"
-            tone="receive"
-            onReduce={(resource) => updateTradeDraft("want", resource, (props.tradeForm.want[resource] ?? 0) - 1)}
-          />
-        </div>
-        <div className="trade-matrix-shell">
+        <div className="trade-matrix-shell is-player-draft">
           <div className="trade-matrix-head">
             <span aria-hidden="true" />
             <span>Hand</span>
@@ -2094,21 +2064,23 @@ export function MatchScreen(props: {
                     </span>
                   </div>
                   <span className="trade-matrix-meta">{available}</span>
-                  <TradeMatrixCellButton
+                  <TradeMatrixDraftControl
                     value={giveDrafted}
                     tone="give"
-                    active={giveDrafted > 0}
-                    disabled={giveDisabled}
-                    title={`${renderResourceLabel(resource)} geben · Hand ${available}`}
-                    onClick={() => updateTradeDraft("give", resource, giveDrafted + 1)}
+                    incrementDisabled={giveDisabled}
+                    incrementTitle={`${renderResourceLabel(resource)} geben · Hand ${available}`}
+                    decrementTitle={`${renderResourceLabel(resource)} aus Abgabe entfernen`}
+                    onIncrement={() => updateTradeDraft("give", resource, giveDrafted + 1)}
+                    onDecrement={() => updateTradeDraft("give", resource, giveDrafted - 1)}
                   />
-                  <TradeMatrixCellButton
+                  <TradeMatrixDraftControl
                     value={wantDrafted}
                     tone="receive"
-                    active={wantDrafted > 0}
-                    disabled={wantDisabled}
-                    title={`${renderResourceLabel(resource)} erhalten`}
-                    onClick={() => updateTradeDraft("want", resource, wantDrafted + 1)}
+                    incrementDisabled={wantDisabled}
+                    incrementTitle={`${renderResourceLabel(resource)} erhalten`}
+                    decrementTitle={`${renderResourceLabel(resource)} aus Wunsch entfernen`}
+                    onIncrement={() => updateTradeDraft("want", resource, wantDrafted + 1)}
+                    onDecrement={() => updateTradeDraft("want", resource, wantDrafted - 1)}
                   />
                 </div>
               );
@@ -2120,11 +2092,13 @@ export function MatchScreen(props: {
         <article className="trade-target-shell">
           <div className="trade-target-shell-head">
             <span className="eyebrow">Ziel</span>
-            <strong>
-              {effectiveTradeTargetPlayer
-                ? renderMatchPlayerText(props.match, effectiveTradeTargetPlayer.id === props.match.you ? "Du" : effectiveTradeTargetPlayer.username)
-                : "Offen für alle"}
-            </strong>
+            {isCurrentPlayer && !tradeComposerContext.lockedTargetPlayerId ? null : (
+              <strong>
+                {effectiveTradeTargetPlayer
+                  ? renderMatchPlayerText(props.match, effectiveTradeTargetPlayer.id === props.match.you ? "Du" : effectiveTradeTargetPlayer.username)
+                  : "Offen für alle"}
+              </strong>
+            )}
           </div>
           {playerTradeTargetButtons}
         </article>
@@ -2152,7 +2126,6 @@ export function MatchScreen(props: {
         <div className="trade-composer-title">
           <strong>{tradeMode === "bank" ? "Soforttausch" : "Beste Hafenrate"}</strong>
         </div>
-        <span className="status-pill">{tradeMode === "bank" ? "4:1" : "Beste Rate"}</span>
       </div>
       <div className="trade-composer-grid is-stacked">
         <div className="trade-compact-lane is-give">
@@ -2209,14 +2182,14 @@ export function MatchScreen(props: {
                       active={giveSelected}
                       disabled={!giveVisible || available < ratio}
                       title={`${renderResourceLabel(resource)} als Einsatz wählen`}
-                      onClick={() => props.setMaritimeForm((current) => ({ ...current, give: resource }))}
+                      onClick={() => handleSelectMaritimeGive(resource)}
                     />
                     <TradeMatrixCellButton
                       value={receiveSelected ? "1" : "○"}
                       tone="receive"
                       active={receiveSelected}
                       title={`${renderResourceLabel(resource)} als Ziel wählen`}
-                      onClick={() => props.setMaritimeForm((current) => ({ ...current, receive: resource }))}
+                      onClick={() => handleSelectMaritimeReceive(resource)}
                     />
                   </div>
                 );

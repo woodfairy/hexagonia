@@ -12,6 +12,7 @@ export function AppHeader(props: {
   session: AuthUser | null | undefined;
   connectionState: ConnectionState;
   connectionStatusText: string;
+  compact?: boolean;
   eyebrow: string;
   title: string;
   meta?: ReactNode;
@@ -44,18 +45,20 @@ export function AppHeader(props: {
     : {};
 
   return (
-    <header className="app-header">
+    <header className={`app-header ${props.compact ? "is-compact" : ""}`.trim()}>
       <div className="brand-cluster">
         <button type="button" className="brand-mark" onClick={props.onNavigateHome} aria-label="Zur Startseite von Hexagonia">
           <img src={hexaLogo} alt="Hexagonia" className="brand-mark-image" />
         </button>
-        <div className="brand-copy">
-          <span className="eyebrow">{props.eyebrow}</span>
-          <div className="brand-title-row">
-            <strong>{props.title}</strong>
-            {props.meta ? <span className="brand-meta">{props.meta}</span> : null}
+        {!props.compact ? (
+          <div className="brand-copy">
+            <span className="eyebrow">{props.eyebrow}</span>
+            <div className="brand-title-row">
+              <strong>{props.title}</strong>
+              {props.meta ? <span className="brand-meta">{props.meta}</span> : null}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="header-utilities">

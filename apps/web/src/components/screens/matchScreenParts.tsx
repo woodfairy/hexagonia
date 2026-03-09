@@ -177,7 +177,6 @@ export function TradeBanner(props: {
             <article key={entry.label} className="trade-banner-lane">
               <span className="eyebrow">{renderMatchPlayerText(props.match, entry.label)}</span>
               <strong>{entry.value}</strong>
-              <span>{renderMatchPlayerText(props.match, entry.helper)}</span>
             </article>
           ))}
         </div>
@@ -362,7 +361,7 @@ function getTradePerspectiveSummary(
   match: MatchSnapshot,
   currentUserId: string,
   trade: MatchSnapshot["tradeOffers"][number]
-): Array<{ label: string; value: string; helper: string }> {
+): Array<{ label: string; value: string }> {
   const giveText = renderResourceMap(trade.give) || "nichts";
   const wantText = renderResourceMap(trade.want) || "nichts";
   const proposerName = getPlayerName(match, trade.fromPlayerId);
@@ -371,14 +370,12 @@ function getTradePerspectiveSummary(
   if (trade.fromPlayerId === currentUserId) {
     return [
       {
-        label: "Du erhältst",
-        value: wantText,
-        helper: `Du gibst dafür ${giveText}.`
+        label: "Du gibst",
+        value: giveText
       },
       {
-        label: `${trade.toPlayerId ? targetName : "Andere Seite"} erhält`,
-        value: giveText,
-        helper: `${trade.toPlayerId ? targetName : "Der annehmende Spieler"} gibt dafür ${wantText}.`
+        label: "Du erhältst",
+        value: wantText
       }
     ];
   }
@@ -386,28 +383,24 @@ function getTradePerspectiveSummary(
   if (!trade.toPlayerId || trade.toPlayerId === currentUserId) {
     return [
       {
-        label: "Du erhältst",
-        value: giveText,
-        helper: `Du gibst dafür ${wantText}.`
+        label: "Du gibst",
+        value: wantText
       },
       {
-        label: `${proposerName} erhält`,
-        value: wantText,
-        helper: `${proposerName} gibt dafür ${giveText}.`
+        label: "Du erhältst",
+        value: giveText
       }
     ];
   }
 
   return [
     {
-      label: `${proposerName} erhält`,
-      value: wantText,
-      helper: `${proposerName} gibt dafür ${giveText}.`
+      label: `${proposerName} gibt`,
+      value: giveText
     },
     {
-      label: `${targetName} erhält`,
-      value: giveText,
-      helper: `${targetName} gibt dafür ${wantText}.`
+      label: `${targetName} gibt`,
+      value: wantText
     }
   ];
 }

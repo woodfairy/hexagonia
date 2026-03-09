@@ -2317,6 +2317,7 @@ export function App() {
     <main className={`app-shell ${activeScreen === "match" ? "is-match-screen" : ""}`.trim()}>
       <AppHeader
         boardVisualSettings={boardVisualSettings}
+        compact={activeScreen === "match"}
         connectionState={connectionState}
         connectionStatusText={status}
         eyebrow={displayEyebrow}
