@@ -666,7 +666,7 @@ export function getTurnStatus(
     }
     if (pending.length > 0) {
       return withPlayer(
-        "Warte auf Abwürfe",
+        "Der Räuber schlägt zu",
         `${summarizeRobberPlayers(
           pending.map((entry) => entry.player.username)
         )} müssen noch Karten abwerfen.`,

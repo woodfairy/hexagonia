@@ -24,17 +24,18 @@ function getRobberDiscardGroups(
 function getRobberWaitDialogCopy(
   currentPlayer: MatchSnapshot["players"][number] | null,
   pendingPlayers: ReturnType<typeof getRobberDiscardGroups>["pending"]
-): { title: string; detail: ReactNode } {
+): { title: string; statusLabel: string; detail: ReactNode } {
   if (pendingPlayers.length > 0) {
     return {
-      title: "Karten werden abgeworfen",
+      title: "Der Räuber schlägt zu",
+      statusLabel: pendingPlayers.length === 1 ? "1 Abwurf offen" : `${pendingPlayers.length} Abwürfe offen`,
       detail: currentPlayer ? (
         <>
-          Betroffene Spieler müssen jetzt Karten abwerfen. Danach setzt{" "}
+          Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen. Danach setzt{" "}
           <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention> den Räuber.
         </>
       ) : (
-        "Betroffene Spieler müssen jetzt Karten abwerfen. Danach wird der Räuber versetzt."
+        "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen."
       )
     };
   }
@@ -42,6 +43,7 @@ function getRobberWaitDialogCopy(
   if (currentPlayer) {
     return {
       title: "Räuber wird versetzt",
+      statusLabel: "Räuberzug aktiv",
       detail: (
         <>
           <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention> versetzt jetzt den Räuber.
@@ -52,6 +54,7 @@ function getRobberWaitDialogCopy(
 
   return {
     title: "Räuber wird versetzt",
+    statusLabel: "Räuberzug aktiv",
     detail: "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt."
   };
 }
@@ -306,87 +309,61 @@ export function RobberWaitDialog(props: {
   currentPlayer: MatchSnapshot["players"][number] | null;
   robberDiscardStatus: MatchSnapshot["robberDiscardStatus"];
 }) {
-  const pendingPlayers = props.robberDiscardStatus.flatMap((entry) => {
-    if (entry.done) {
-      return [];
-    }
-
-    const player = props.players.find((candidate) => candidate.id === entry.playerId);
-    return player ? [{ ...entry, player }] : [];
-  });
-  const completedPlayers = props.robberDiscardStatus.flatMap((entry) => {
-    if (!entry.done) {
-      return [];
-    }
-
-    const player = props.players.find((candidate) => candidate.id === entry.playerId);
-    return player ? [{ ...entry, player }] : [];
-  });
+  const { pending: pendingPlayers, completed: completedPlayers } = getRobberDiscardGroups(
+    props.players,
+    props.robberDiscardStatus
+  );
+  const copy = getRobberWaitDialogCopy(props.currentPlayer, pendingPlayers);
+  const trackedDiscardCount = pendingPlayers.length + completedPlayers.length;
 
   return (
     <div className="confirm-overlay robber-wait-overlay" role="presentation">
       <div className="confirm-dialog robber-wait-dialog surface" role="dialog" aria-modal="true" aria-labelledby="robber-wait-title">
-        <div className="confirm-copy discard-copy">
+        <div className="confirm-copy discard-copy robber-wait-copy">
           <span className="eyebrow">Räuberphase</span>
-          <h2 id="robber-wait-title">Warte auf den Abwurf</h2>
-          <p>
-            {pendingPlayers.length > 0
-              ? "Betroffene Spieler müssen jetzt Karten abwerfen. Danach wird der Räuber versetzt."
-              : props.currentPlayer
-                ? (
-                    <>
-                      <PlayerMention color={props.currentPlayer.color}>{props.currentPlayer.username}</PlayerMention> versetzt jetzt
-                      den Räuber.
-                    </>
-                  )
-                : "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt."}
-          </p>
+          <div className="robber-wait-hero">
+            <span className="robber-wait-signal" aria-hidden="true" />
+            <div className="robber-wait-hero-copy">
+              <h2 id="robber-wait-title">{copy.title}</h2>
+              <span className={`status-pill ${pendingPlayers.length > 0 ? "is-warning" : ""}`}>{copy.statusLabel}</span>
+            </div>
+          </div>
+          <p>{copy.detail}</p>
         </div>
 
-        <div className="discard-status-grid">
-          <section className="discard-status-card">
-            <div className="discard-status-head">
-              <strong>Noch offen</strong>
-              <span>{pendingPlayers.length}</span>
+        <section className="robber-wait-status" aria-label="Abwurfstatus">
+          <div className="robber-wait-status-head">
+            <div>
+              <strong>Abwürfe im Hintergrund</strong>
+              <span>
+                {pendingPlayers.length > 0
+                  ? `${pendingPlayers.length} ${pendingPlayers.length === 1 ? "Spieler wartet noch" : "Spieler warten noch"}`
+                  : "Alle Abwürfe sind erledigt"}
+              </span>
             </div>
-            {pendingPlayers.length ? (
-              <div className="discard-status-list">
-                {pendingPlayers.map(({ player, requiredCount }) => (
-                  <article key={player.id} className="discard-status-player">
-                    <PlayerIdentity username={player.username} color={player.color} compact />
-                    <div className="discard-status-player-meta">
-                      <span className="status-pill is-warning">offen</span>
-                      <span>noch {requiredCount} abwerfen</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="discard-status-empty">Niemand muss mehr Karten abwerfen.</div>
-            )}
-          </section>
+            {trackedDiscardCount > 0 ? <span className="status-pill muted">{completedPlayers.length}/{trackedDiscardCount} fertig</span> : null}
+          </div>
 
-          <section className="discard-status-card">
-            <div className="discard-status-head">
-              <strong>Bereits abgeworfen</strong>
-              <span>{completedPlayers.length}</span>
-            </div>
-            {completedPlayers.length ? (
-              <div className="discard-status-list">
-                {completedPlayers.map(({ player }) => (
-                  <article key={player.id} className="discard-status-player">
-                    <PlayerIdentity username={player.username} color={player.color} compact />
-                    <div className="discard-status-player-meta">
-                      <span className="status-pill">fertig</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="discard-status-empty">Bisher hat noch niemand seinen Abwurf abgeschlossen.</div>
-            )}
-          </section>
-        </div>
+          <div className="robber-wait-rows">
+            {pendingPlayers.map(({ player, requiredCount }) => (
+              <article key={player.id} className={`robber-wait-row is-pending player-accent-${player.color}`}>
+                <PlayerIdentity username={player.username} color={player.color} compact />
+                <div className="robber-wait-row-meta">
+                  <span className="status-pill is-warning">offen</span>
+                  <span>noch {requiredCount} abwerfen</span>
+                </div>
+              </article>
+            ))}
+            {completedPlayers.map(({ player }) => (
+              <article key={player.id} className={`robber-wait-row is-complete player-accent-${player.color}`}>
+                <PlayerIdentity username={player.username} color={player.color} compact />
+                <div className="robber-wait-row-meta">
+                  <span className="status-pill">fertig</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );
