@@ -31,7 +31,7 @@ export interface ProfileMenuProps {
   onLogout: () => void | Promise<void>;
 }
 
-type ToggleableBoardVisualSetting = "props" | "objects" | "textures" | "terrainRelief" | "resourceIcons";
+type ToggleableBoardVisualSetting = "props" | "textures" | "terrainRelief" | "resourceIcons";
 
 export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; onRequestClose?: () => void }) {
   const selectedMusicTrack =
@@ -220,20 +220,6 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               </span>
               <span className={`status-pill ${props.boardVisualSettings.props ? "" : "muted"}`}>
                 {props.boardVisualSettings.props ? "An" : "Aus"}
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`menu-action menu-toggle-action ${props.boardVisualSettings.objects ? "is-active" : "is-muted"}`}
-              aria-pressed={props.boardVisualSettings.objects}
-              onClick={() => toggleBoardVisualSetting("objects")}
-            >
-              <span className="menu-toggle-copy">
-                <strong>Objects</strong>
-                <span>Berge, Baumgruppen, Felsobjekte und andere fruehere 3D-Terrain-Objekte.</span>
-              </span>
-              <span className={`status-pill ${props.boardVisualSettings.objects ? "" : "muted"}`}>
-                {props.boardVisualSettings.objects ? "An" : "Aus"}
               </span>
             </button>
             <button

@@ -334,107 +334,318 @@ function createCoverSpawns(
   for (let attempt = 0; attempt < attempts && spawns.length < biome.recipe.coverCount; attempt += 1) {
     const x = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, random());
     const z = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, random());
-    if (!isPointInsidePolygon(x, z, polygon.points)) {
-      continue;
-    }
-
     const scale = THREE.MathUtils.lerp(biome.recipe.coverMinScale, biome.recipe.coverMaxScale, random());
-    const footprint = biome.recipe.coverFootprint * scale;
-    const edgeClearance = getPolygonEdgeClearance(x, z, polygon.points);
-    if (edgeClearance < footprint + biome.recipe.coverEdgePadding) {
+    const spawn = createCoverSpawn(biome, random, x, z, scale);
+    if (!canPlaceCoverSpawn(spawn, spawns, biome, polygon, structureMask, random)) {
       continue;
     }
 
-    const structureInfluence = sampleStructureInfluence(structureMask, x, z);
-    if (structureInfluence > 0.22 && random() < structureInfluence * 0.9) {
-      continue;
-    }
-
-    const tooCloseToOtherSpawn = spawns.some(
-      (spawn) => Math.hypot(x - spawn.x, z - spawn.z) < (footprint + spawn.footprint) * biome.recipe.coverSpacing
-    );
-    if (tooCloseToOtherSpawn) {
-      continue;
-    }
-
-    const alignedY =
-      biome.recipe.coverKind === "grassPatch" || biome.recipe.coverKind === "wheatPatch" || biome.recipe.coverKind === "dune"
-        ? biome.primaryAngle + (random() - 0.5) * 0.6
-        : biome.recipe.coverKind === "tree"
-          ? biome.secondaryAngle + (random() - 0.5) * 0.4
-          : random() * Math.PI * 2;
-
-    let rotX = 0;
-    let rotZ = 0;
-    let scaleX = scale;
-    let scaleY = scale;
-    let scaleZ = scale;
-    let offsetY = 0.03 * scale;
-
-    switch (biome.recipe.coverKind) {
-      case "grassPatch":
-        rotX = (random() - 0.5) * 0.06;
-        rotZ = (random() - 0.5) * 0.08;
-        scaleX = scale * THREE.MathUtils.lerp(0.86, 1.08, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.72, 0.94, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.86, 1.08, random());
-        offsetY = 0.002 * scale;
-        break;
-      case "wheatPatch":
-        rotX = (random() - 0.5) * 0.04;
-        rotZ = (random() - 0.5) * 0.08;
-        scaleX = scale * THREE.MathUtils.lerp(0.96, 1.2, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.9, 1.06, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.86, 1.04, random());
-        offsetY = 0.004 * scale;
-        break;
-      case "tree":
-        scaleX = scale * 0.9;
-        scaleY = scale * THREE.MathUtils.lerp(1.02, 1.18, random());
-        scaleZ = scale * 0.92;
-        offsetY = 0.14 * scale;
-        break;
-      case "rockCluster":
-        rotX = (random() - 0.5) * 0.3;
-        rotZ = (random() - 0.5) * 0.24;
-        scaleX = scale * THREE.MathUtils.lerp(0.94, 1.22, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.92, 1.3, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.92, 1.2, random());
-        offsetY = 0.014 * scale;
-        break;
-      case "clay":
-        rotX = (random() - 0.5) * 0.24;
-        rotZ = (random() - 0.5) * 0.14;
-        scaleX = scale * THREE.MathUtils.lerp(0.96, 1.24, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.84, 1.06, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.84, 1.14, random());
-        offsetY = 0.012 * scale;
-        break;
-      case "dune":
-        rotX = (random() - 0.5) * 0.04;
-        rotZ = (random() - 0.5) * 0.04;
-        scaleX = scale * THREE.MathUtils.lerp(1.2, 1.54, random());
-        scaleY = scale * THREE.MathUtils.lerp(0.8, 1.06, random());
-        scaleZ = scale * THREE.MathUtils.lerp(0.78, 1.02, random());
-        offsetY = 0.008 * scale;
-        break;
-    }
-
-    spawns.push({
-      x,
-      z,
-      rotX,
-      rotY: alignedY,
-      rotZ,
-      scaleX,
-      scaleY,
-      scaleZ,
-      offsetY,
-      footprint
-    });
+    spawns.push(spawn);
   }
 
+  fillCoverSpawnGaps(spawns, biome, polygon, structureMask, random);
   return spawns;
+}
+
+function createCoverSpawn(
+  biome: TerrainBiomeState,
+  random: () => number,
+  x: number,
+  z: number,
+  scale: number
+): CoverSpawn {
+  const footprint = biome.recipe.coverFootprint * scale;
+  const alignedY =
+    biome.recipe.coverKind === "grassPatch" || biome.recipe.coverKind === "wheatPatch" || biome.recipe.coverKind === "dune"
+      ? biome.primaryAngle + (random() - 0.5) * 0.6
+      : biome.recipe.coverKind === "tree"
+        ? biome.secondaryAngle + (random() - 0.5) * 0.4
+        : random() * Math.PI * 2;
+
+  let rotX = 0;
+  let rotZ = 0;
+  let scaleX = scale;
+  let scaleY = scale;
+  let scaleZ = scale;
+  let offsetY = 0.03 * scale;
+
+  switch (biome.recipe.coverKind) {
+    case "grassPatch":
+      rotX = (random() - 0.5) * 0.06;
+      rotZ = (random() - 0.5) * 0.08;
+      scaleX = scale * THREE.MathUtils.lerp(0.86, 1.08, random());
+      scaleY = scale * THREE.MathUtils.lerp(0.72, 0.94, random());
+      scaleZ = scale * THREE.MathUtils.lerp(0.86, 1.08, random());
+      offsetY = 0.002 * scale;
+      break;
+    case "wheatPatch":
+      rotX = (random() - 0.5) * 0.04;
+      rotZ = (random() - 0.5) * 0.08;
+      scaleX = scale * THREE.MathUtils.lerp(0.96, 1.2, random());
+      scaleY = scale * THREE.MathUtils.lerp(0.9, 1.06, random());
+      scaleZ = scale * THREE.MathUtils.lerp(0.86, 1.04, random());
+      offsetY = 0.004 * scale;
+      break;
+    case "tree":
+      scaleX = scale * 0.9;
+      scaleY = scale * THREE.MathUtils.lerp(1.02, 1.18, random());
+      scaleZ = scale * 0.92;
+      offsetY = 0.14 * scale;
+      break;
+    case "rockCluster":
+      rotX = (random() - 0.5) * 0.3;
+      rotZ = (random() - 0.5) * 0.24;
+      scaleX = scale * THREE.MathUtils.lerp(0.94, 1.22, random());
+      scaleY = scale * THREE.MathUtils.lerp(0.92, 1.3, random());
+      scaleZ = scale * THREE.MathUtils.lerp(0.92, 1.2, random());
+      offsetY = 0.014 * scale;
+      break;
+    case "clay":
+      rotX = (random() - 0.5) * 0.24;
+      rotZ = (random() - 0.5) * 0.14;
+      scaleX = scale * THREE.MathUtils.lerp(0.96, 1.24, random());
+      scaleY = scale * THREE.MathUtils.lerp(0.84, 1.06, random());
+      scaleZ = scale * THREE.MathUtils.lerp(0.84, 1.14, random());
+      offsetY = 0.012 * scale;
+      break;
+    case "dune":
+      rotX = (random() - 0.5) * 0.04;
+      rotZ = (random() - 0.5) * 0.04;
+      scaleX = scale * THREE.MathUtils.lerp(1.2, 1.54, random());
+      scaleY = scale * THREE.MathUtils.lerp(0.8, 1.06, random());
+      scaleZ = scale * THREE.MathUtils.lerp(0.78, 1.02, random());
+      offsetY = 0.008 * scale;
+      break;
+  }
+
+  return {
+    x,
+    z,
+    rotX,
+    rotY: alignedY,
+    rotZ,
+    scaleX,
+    scaleY,
+    scaleZ,
+    offsetY,
+    footprint
+  };
+}
+
+function canPlaceCoverSpawn(
+  spawn: CoverSpawn,
+  existingSpawns: readonly CoverSpawn[],
+  biome: TerrainBiomeState,
+  polygon: TerrainPolygon,
+  structureMask: TerrainStructureMask,
+  random: () => number
+): boolean {
+  if (!isPointInsidePolygon(spawn.x, spawn.z, polygon.points)) {
+    return false;
+  }
+
+  const edgeClearance = getPolygonEdgeClearance(spawn.x, spawn.z, polygon.points);
+  const edgeInset = spawn.footprint * getCoverEdgeInsetFactor(biome.recipe.coverKind);
+  if (edgeClearance < edgeInset + biome.recipe.coverEdgePadding) {
+    return false;
+  }
+
+  const structureInfluence = sampleStructureInfluence(structureMask, spawn.x, spawn.z);
+  if (shouldRejectCoverForStructure(biome.recipe.coverKind, structureInfluence, random)) {
+    return false;
+  }
+
+  return !existingSpawns.some(
+    (existing) =>
+      Math.hypot(spawn.x - existing.x, spawn.z - existing.z) <
+      (spawn.footprint + existing.footprint) * biome.recipe.coverSpacing
+  );
+}
+
+function fillCoverSpawnGaps(
+  spawns: CoverSpawn[],
+  biome: TerrainBiomeState,
+  polygon: TerrainPolygon,
+  structureMask: TerrainStructureMask,
+  random: () => number
+): void {
+  const polygonArea = Math.max(Math.abs(getPolygonSignedArea(polygon.points)), 0.001);
+  const averageScale = (biome.recipe.coverMinScale + biome.recipe.coverMaxScale) * 0.5;
+  const baseSpacing = Math.sqrt(polygonArea / Math.max(biome.recipe.coverCount, 1));
+  const nominalFootprint = biome.recipe.coverFootprint * averageScale;
+  const columnSpacing = Math.max(baseSpacing * 0.88, nominalFootprint * getCoverGapColumnFactor(biome.recipe.coverKind));
+  const rowSpacing = columnSpacing * 0.88;
+  const jitter = columnSpacing * getCoverGapJitterFactor(biome.recipe.coverKind);
+  const maxExtraSpawns = Math.round(biome.recipe.coverCount * getCoverGapFillFactor(biome.recipe.coverKind));
+  const maxSpawnCount = biome.recipe.coverCount + maxExtraSpawns;
+
+  let rowIndex = 0;
+  for (let z = polygon.minZ + rowSpacing * 0.5; z <= polygon.maxZ && spawns.length < maxSpawnCount; z += rowSpacing, rowIndex += 1) {
+    const rowOffset = rowIndex % 2 === 0 ? 0 : columnSpacing * 0.5;
+    for (let x = polygon.minX + columnSpacing * 0.5 + rowOffset; x <= polygon.maxX && spawns.length < maxSpawnCount; x += columnSpacing) {
+      const candidates = [
+        {
+          x: x + (random() - 0.5) * jitter,
+          z: z + (random() - 0.5) * jitter
+        },
+        { x, z }
+      ] as const;
+
+      for (const candidate of candidates) {
+        if (!isPointInsidePolygon(candidate.x, candidate.z, polygon.points)) {
+          continue;
+        }
+
+        const nearestSpawnDistance = getNearestCoverSpawnDistance(spawns, candidate.x, candidate.z);
+        if (nearestSpawnDistance < nominalFootprint * getCoverGapRadiusFactor(biome.recipe.coverKind)) {
+          continue;
+        }
+
+        const fillScale = THREE.MathUtils.lerp(
+          biome.recipe.coverMinScale,
+          biome.recipe.coverMaxScale,
+          0.28 + random() * 0.44
+        );
+        const spawn = createCoverSpawn(biome, random, candidate.x, candidate.z, fillScale);
+        if (!canPlaceCoverSpawn(spawn, spawns, biome, polygon, structureMask, random)) {
+          continue;
+        }
+
+        spawns.push(spawn);
+        break;
+      }
+    }
+  }
+}
+
+function getNearestCoverSpawnDistance(spawns: readonly CoverSpawn[], x: number, z: number): number {
+  let nearest = Number.POSITIVE_INFINITY;
+  for (const spawn of spawns) {
+    nearest = Math.min(nearest, Math.hypot(x - spawn.x, z - spawn.z));
+  }
+  return nearest;
+}
+
+function shouldRejectCoverForStructure(
+  kind: TerrainBiomeRecipe["coverKind"],
+  structureInfluence: number,
+  random: () => number
+): boolean {
+  if (structureInfluence <= 0) {
+    return false;
+  }
+
+  switch (kind) {
+    case "grassPatch":
+    case "wheatPatch":
+      return structureInfluence > 0.82 && random() < structureInfluence * 0.48;
+    case "rockCluster":
+    case "clay":
+    case "dune":
+      return structureInfluence > 0.72 && random() < structureInfluence * 0.62;
+    case "tree":
+      return structureInfluence > 0.42 && random() < structureInfluence * 0.84;
+  }
+
+  const unsupportedKind: never = kind;
+  throw new Error(`Unsupported terrain cover structure mask: ${unsupportedKind}`);
+}
+
+function getCoverGapColumnFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
+  switch (kind) {
+    case "grassPatch":
+      return 2.4;
+    case "wheatPatch":
+      return 2.2;
+    case "rockCluster":
+      return 1.84;
+    case "clay":
+      return 1.76;
+    case "dune":
+      return 1.94;
+    case "tree":
+      return 2.6;
+  }
+
+  const unsupportedKind: never = kind;
+  throw new Error(`Unsupported terrain cover gap column factor: ${unsupportedKind}`);
+}
+
+function getCoverGapJitterFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
+  switch (kind) {
+    case "grassPatch":
+      return 0.38;
+    case "wheatPatch":
+      return 0.28;
+    case "rockCluster":
+      return 0.24;
+    case "clay":
+      return 0.24;
+    case "dune":
+      return 0.18;
+    case "tree":
+      return 0.2;
+  }
+
+  const unsupportedKind: never = kind;
+  throw new Error(`Unsupported terrain cover gap jitter factor: ${unsupportedKind}`);
+}
+
+function getCoverGapRadiusFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
+  switch (kind) {
+    case "grassPatch":
+      return 1.8;
+    case "wheatPatch":
+      return 1.9;
+    case "rockCluster":
+      return 1.54;
+    case "clay":
+      return 1.48;
+    case "dune":
+      return 1.6;
+    case "tree":
+      return 1.72;
+  }
+
+  const unsupportedKind: never = kind;
+  throw new Error(`Unsupported terrain cover gap radius factor: ${unsupportedKind}`);
+}
+
+function getCoverGapFillFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
+  switch (kind) {
+    case "grassPatch":
+      return 0.6;
+    case "wheatPatch":
+      return 0.58;
+    case "rockCluster":
+      return 0.46;
+    case "clay":
+      return 0.44;
+    case "dune":
+      return 0.42;
+    case "tree":
+      return 0.18;
+  }
+
+  const unsupportedKind: never = kind;
+  throw new Error(`Unsupported terrain cover gap fill factor: ${unsupportedKind}`);
+}
+
+function getCoverEdgeInsetFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
+  switch (kind) {
+    case "grassPatch":
+      return 0.12;
+    case "wheatPatch":
+      return 0.16;
+    case "rockCluster":
+      return 0.22;
+    case "clay":
+      return 0.2;
+    case "dune":
+      return 0.24;
+    case "tree":
+      return 0.42;
+  }
 }
 
 function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): THREE.BufferGeometry {

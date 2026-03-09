@@ -216,7 +216,6 @@ interface ReliefAnchorOptions {
 
 interface TileDecorationOptions {
   includeProps: boolean;
-  includeObjects: boolean;
   includeTerrainRelief: boolean;
 }
 
@@ -281,7 +280,6 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
     structureKey,
     visualSettings.textures,
     visualSettings.props,
-    visualSettings.objects,
     visualSettings.terrainRelief,
     visualSettings.resourceIcons,
     visualSettings.pieceStyle
@@ -1032,7 +1030,6 @@ export function BoardScene(props: BoardSceneProps) {
     const terrainSurfaceByTile = new Map<string, TileTerrainSurfaceBundle>();
     const useTexturedTiles = props.visualSettings.textures;
     const includeProps = props.visualSettings.props;
-    const includeObjects = props.visualSettings.objects;
     const includeTerrainRelief = props.visualSettings.terrainRelief;
 
     configureKeyLightShadow(keyLightRef.current, props.snapshot.board);
@@ -1063,12 +1060,10 @@ export function BoardScene(props: BoardSceneProps) {
         useTexturedTiles
           ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, terrainSurface, {
               includeProps,
-              includeObjects,
               includeTerrainRelief
             })
           : createModernTileMesh(tile, verticesById, false, terrainSurface, {
               includeProps,
-              includeObjects,
               includeTerrainRelief
             });
       base.position.set(tile.x, 0, tile.y);
@@ -1858,7 +1853,6 @@ function createModernTileMesh(
   terrainSurface: TileTerrainSurfaceBundle | null,
   options: TileDecorationOptions = {
     includeProps: false,
-    includeObjects: false,
     includeTerrainRelief: false
   }
 ): THREE.Group {
@@ -1958,16 +1952,6 @@ function appendTileDecorations(
     });
     tileGroup.add(propGroup);
   }
-
-  if (options.includeObjects) {
-    const objectGroup = createUltraTerrainRelief(tile, verticesById, active, "terrain");
-    constrainReliefObjectGroupToTile(objectGroup, tile, verticesById);
-    objectGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.018;
-    objectGroup.traverse((entry) => {
-      entry.userData.castTileShadow = true;
-    });
-    tileGroup.add(objectGroup);
-  }
 }
 
 function applyTileObjectClipPlanes(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {
@@ -2024,51 +2008,6 @@ function applyMatchTilePropPlacement(root: THREE.Object3D, tile: BoardTile, vert
   root.position.x = anchor.x + Math.cos(outwardAngle) * outwardShift;
   root.position.z = anchor.z + Math.sin(outwardAngle) * outwardShift;
   root.rotation.y = outwardAngle + Math.PI + (random() - 0.5) * 0.22;
-}
-
-function constrainReliefObjectGroupToTile(root: THREE.Group, tile: BoardTile, verticesById: BoardVerticesById): void {
-  const polygon = getReliefTilePolygon(tile, verticesById);
-  const margin = 0.08;
-  const corners = [
-    new THREE.Vector2(),
-    new THREE.Vector2(),
-    new THREE.Vector2(),
-    new THREE.Vector2()
-  ];
-
-  for (const child of [...root.children]) {
-    child.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(child);
-    if (!Number.isFinite(bounds.min.x) || !Number.isFinite(bounds.max.x) || !Number.isFinite(bounds.min.z) || !Number.isFinite(bounds.max.z)) {
-      continue;
-    }
-
-    corners[0]!.set(bounds.min.x, bounds.min.z);
-    corners[1]!.set(bounds.min.x, bounds.max.z);
-    corners[2]!.set(bounds.max.x, bounds.min.z);
-    corners[3]!.set(bounds.max.x, bounds.max.z);
-
-    const radius = Math.max(...corners.map((corner) => Math.hypot(corner.x - child.position.x, corner.y - child.position.z)));
-    let edgeClearance = getReliefPolygonEdgeClearance(child.position.x, child.position.z, polygon.points);
-    if (edgeClearance >= radius + margin) {
-      continue;
-    }
-
-    const inward = new THREE.Vector2(-child.position.x, -child.position.z);
-    if (inward.lengthSq() < 0.0001) {
-      inward.set(0, -1);
-    }
-    inward.normalize();
-
-    const pushDistance = Math.min(radius + margin - edgeClearance, 0.58);
-    child.position.x += inward.x * pushDistance;
-    child.position.z += inward.y * pushDistance;
-    edgeClearance = getReliefPolygonEdgeClearance(child.position.x, child.position.z, polygon.points);
-
-    if (edgeClearance < radius * 0.82 + margin * 0.5) {
-      root.remove(child);
-    }
-  }
 }
 
 function createTileClipPlanes(tile: BoardTile, verticesById: BoardVerticesById): THREE.Plane[] {

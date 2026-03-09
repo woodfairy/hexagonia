@@ -1250,7 +1250,7 @@ function createShowcaseBarn(): THREE.Group {
   body.position.y = 0.43;
   const roof = new THREE.Mesh(new THREE.ConeGeometry(1.04, 0.82, 4), roofMaterial);
   roof.position.y = 1.22;
-  roof.rotation.y = Math.PI / 4;
+  roof.rotation.y = 0;
   roof.scale.set(1.12, 1, 0.9);
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.48, 0.08), trimMaterial);
   door.position.set(0, 0.28, 0.56);
@@ -1322,7 +1322,7 @@ function createShowcaseSheepfold(): THREE.Group {
   group.add(positionObject(createShowcaseFence(), -0.18, 0, 0.44));
   group.add(positionObject(createShowcaseFence(), -0.72, 0, 0, Math.PI / 2));
   group.add(positionObject(createShowcaseFence(), 0.38, 0, -0.02, Math.PI / 2));
-  group.add(positionObject(createShowcaseSheep(true), -0.12, 0.02, -0.06, 0.32));
+  group.add(positionObject(createShowcaseSheep(true), -0.24, 0.02, -0.2, 0.24));
   group.add(positionObject(createShowcaseSheep(false), 0.38, 0.02, -0.34, -0.28));
   group.add(positionObject(createShowcaseTrough(), 0.06, 0.01, 0.7, 0.08));
   group.position.set(-0.62, 0, -0.08);
