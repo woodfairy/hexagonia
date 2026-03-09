@@ -538,13 +538,13 @@ function shouldRejectCoverForStructure(
   switch (kind) {
     case "grassPatch":
     case "wheatPatch":
-      return structureInfluence > 0.82 && random() < structureInfluence * 0.48;
+      return structureInfluence > 0.94 && random() < structureInfluence * 0.2;
     case "rockCluster":
     case "clay":
     case "dune":
-      return structureInfluence > 0.72 && random() < structureInfluence * 0.62;
+      return structureInfluence > 0.88 && random() < structureInfluence * 0.28;
     case "tree":
-      return structureInfluence > 0.42 && random() < structureInfluence * 0.84;
+      return structureInfluence > 0.64 && random() < structureInfluence * 0.5;
   }
 
   const unsupportedKind: never = kind;
@@ -1030,8 +1030,8 @@ function createStructureMask(
           x: (right.x - tile.x) * scale,
           z: (right.y - tile.y) * scale
         },
-        width: 0.28,
-        falloff: 0.3
+        width: 0.18,
+        falloff: 0.16
       };
     });
   const buildings = tile.vertexIds
@@ -1040,8 +1040,8 @@ function createStructureMask(
     .map((vertex) => ({
       x: (vertex.x - tile.x) * scale,
       z: (vertex.y - tile.y) * scale,
-      radius: 0.42,
-      falloff: 0.36
+      radius: 0.28,
+      falloff: 0.18
     }));
   const ports = boardPorts
     .filter((port) => edgesById.get(port.edgeId)?.tileIds.includes(tile.id))
@@ -1084,16 +1084,16 @@ function createStructureMask(
 
       return [
         {
-          x: edgeCenter.x + outward.x * 0.38,
-          z: edgeCenter.z + outward.z * 0.38,
-          radius: 0.58,
-          falloff: 0.24
+          x: edgeCenter.x + outward.x * 0.54,
+          z: edgeCenter.z + outward.z * 0.54,
+          radius: 0.22,
+          falloff: 0.1
         },
         {
-          x: edgeCenter.x + outward.x * 0.08,
-          z: edgeCenter.z + outward.z * 0.08,
-          radius: 0.24,
-          falloff: 0.12
+          x: edgeCenter.x + outward.x * 0.18,
+          z: edgeCenter.z + outward.z * 0.18,
+          radius: 0.1,
+          falloff: 0.06
         }
       ];
     });

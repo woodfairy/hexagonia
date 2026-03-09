@@ -3932,8 +3932,7 @@ function createFarmsteadFeature(
       new THREE.Mesh(new THREE.CylinderGeometry(0.12 * scale, 0.12 * scale, 0.34 * scale, 3), roofMaterial)
     );
     roof.position.set(0, 0.24 * scale, 0);
-    roof.rotation.z = Math.PI / 2;
-    roof.rotation.y = Math.PI / 2;
+    roof.rotation.set(0, 0, Math.PI / 2 + Math.PI / 6);
     const door = markTileShadow(
       new THREE.Mesh(new THREE.BoxGeometry(0.08 * scale, 0.12 * scale, 0.02 * scale), woodMaterial)
     );
@@ -4346,8 +4345,8 @@ function createSheepfoldFeature(scale: number, active: boolean): THREE.Group {
   fenceRight.rotation.y = Math.PI / 2;
 
   const sheepA = createSheepFigure(scale * 0.84, woolMaterial, faceMaterial, hoofMaterial, active);
-  sheepA.position.set(-0.04 * scale, 0.02 * scale, -0.02 * scale);
-  sheepA.rotation.y = 0.3;
+  sheepA.position.set(-0.09 * scale, 0.02 * scale, -0.05 * scale);
+  sheepA.rotation.y = 0.18;
   const sheepB = createSheepFigure(scale * 0.7, createWoolMaterial(active, false), faceMaterial, hoofMaterial, active);
   sheepB.position.set(0.08 * scale, 0.02 * scale, -0.08 * scale);
   sheepB.rotation.y = -0.34;
