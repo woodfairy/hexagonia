@@ -88,6 +88,26 @@ type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
 type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players" | "profile";
 type SheetState = "peek" | "half" | "full";
 type TradeSection = "player" | "maritime";
+type MatchTabLayoutConfig = {
+  columns: number;
+  gridColumns: number;
+  centerIncompleteRow: boolean;
+  stretchSingleItemRow: boolean;
+};
+type MatchTabLayoutItem = {
+  id: MatchPanelTab;
+  row: number;
+  start: number;
+  span: number;
+};
+type MatchTabLayout = {
+  columns: number;
+  gridColumns: number;
+  rows: number;
+  activeIndex: number;
+  active: MatchTabLayoutItem;
+  items: MatchTabLayoutItem[];
+};
 type InlineConfirmButtonProps = {
   confirmKey: string;
   armedActionKey: string | null;
@@ -124,6 +144,18 @@ const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
   overview: 3,
   players: 4,
   profile: 4
+};
+const DESKTOP_MATCH_TAB_LAYOUT: MatchTabLayoutConfig = {
+  columns: 3,
+  gridColumns: 6,
+  centerIncompleteRow: true,
+  stretchSingleItemRow: false
+};
+const MOBILE_MATCH_TAB_LAYOUT: MatchTabLayoutConfig = {
+  columns: 2,
+  gridColumns: 4,
+  centerIncompleteRow: false,
+  stretchSingleItemRow: true
 };
 
 const AUTO_FOCUS_STORAGE_KEY = "hexagonia:auto-focus";
@@ -165,6 +197,88 @@ const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
 
 function isDenseLegendViewport(width: number, height: number): boolean {
   return width < 1320 || height < 840;
+}
+
+function createMatchTabLayout(
+  tabs: ReadonlyArray<{ id: MatchPanelTab }>,
+  activeTab: MatchPanelTab,
+  config: MatchTabLayoutConfig
+): MatchTabLayout {
+  const columns = Math.max(1, config.columns);
+  const gridColumns = Math.max(columns, config.gridColumns);
+  const baseSpan = Math.max(1, Math.floor(gridColumns / columns));
+  const items: MatchTabLayoutItem[] = [];
+
+  for (let index = 0; index < tabs.length; index += columns) {
+    const rowTabs = tabs.slice(index, index + columns);
+    const row = Math.floor(index / columns);
+    const stretchRow = config.stretchSingleItemRow && rowTabs.length === 1;
+    const span = stretchRow ? gridColumns : baseSpan;
+    const occupiedColumns = rowTabs.length * span;
+    const leadingOffset =
+      config.centerIncompleteRow && rowTabs.length < columns && !stretchRow
+        ? Math.max(0, Math.floor((gridColumns - occupiedColumns) / 2))
+        : 0;
+
+    rowTabs.forEach((tab, rowIndex) => {
+      items.push({
+        id: tab.id,
+        row,
+        start: leadingOffset + 1 + rowIndex * span,
+        span
+      });
+    });
+  }
+
+  const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
+  const resolvedActiveIndex =
+    activeIndex === -1
+      ? Math.max(
+          0,
+          tabs.findIndex((tab) => tab.id === "overview")
+        )
+      : activeIndex;
+  const active =
+    items[Math.min(resolvedActiveIndex, items.length - 1)] ?? {
+      id: tabs[0]?.id ?? "overview",
+      row: 0,
+      start: 1,
+      span: baseSpan
+    };
+
+  return {
+    columns,
+    gridColumns,
+    rows: Math.max(1, Math.ceil(tabs.length / columns)),
+    activeIndex: resolvedActiveIndex,
+    active,
+    items
+  };
+}
+
+function getTabStripStyle(tabLayout: MatchTabLayout): CSSProperties {
+  return {
+    "--tab-count": `${tabLayout.items.length}`,
+    "--tab-columns": `${tabLayout.columns}`,
+    "--tab-grid-columns": `${tabLayout.gridColumns}`,
+    "--tab-rows": `${tabLayout.rows}`,
+    "--tab-active-index": `${tabLayout.activeIndex}`,
+    "--tab-active-row": `${tabLayout.active.row}`,
+    "--tab-active-grid-start": `${tabLayout.active.start}`,
+    "--tab-active-grid-span": `${tabLayout.active.span}`
+  } as CSSProperties;
+}
+
+function getTabButtonStyle(tabLayout: MatchTabLayout, tabId: MatchPanelTab): CSSProperties {
+  const layout = tabLayout.items.find((item) => item.id === tabId);
+  if (!layout) {
+    return {};
+  }
+
+  return {
+    gridColumn: `${layout.start} / span ${layout.span}`,
+    gridRow: `${layout.row + 1}`
+  };
 }
 
 interface DiceDisplayState {
@@ -607,75 +721,19 @@ export function MatchScreen(props: {
   );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
-  const mobileTabColumns = isMobileViewport ? 2 : 3;
   const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
   const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
+  const desktopTabLayout = useMemo(
+    () => createMatchTabLayout(MATCH_TABS, activeTab, DESKTOP_MATCH_TAB_LAYOUT),
+    [activeTab]
+  );
+  const mobileTabLayout = useMemo(
+    () => createMatchTabLayout(MOBILE_MATCH_TABS, activeTab, MOBILE_MATCH_TAB_LAYOUT),
+    [activeTab]
+  );
   const getTabTransitionOrder = (tab: MatchPanelTab) => {
     const visibleIndex = visibleTabs.findIndex((entry) => entry.id === tab);
     return visibleIndex === -1 ? MATCH_TAB_ORDER[tab] : visibleIndex;
-  };
-  const getTabLayout = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number) => {
-    const normalizedColumns = Math.max(1, columns);
-    const gridColumns = normalizedColumns;
-    const rows = Math.max(1, Math.ceil(tabs.length / normalizedColumns));
-    const activeIndex = Math.max(
-      0,
-      tabs.findIndex((tab) => tab.id === activeTab)
-    );
-
-    const layout = tabs.map((tab, index) => {
-      const row = Math.floor(index / normalizedColumns);
-      const column = index % normalizedColumns;
-      return {
-        id: tab.id,
-        row,
-        start: column + 1,
-        span: 1
-      };
-    });
-
-    const activeLayout = layout[Math.min(activeIndex, layout.length - 1)] ?? { row: 0, start: 1, span: 1 };
-
-    return {
-      rows,
-      gridColumns,
-      active: activeLayout,
-      items: layout
-    };
-  };
-  const getTabStripStyle = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number): CSSProperties => {
-    const normalizedColumns = Math.max(1, columns);
-    const tabLayout = getTabLayout(tabs, normalizedColumns);
-
-    return {
-      "--tab-count": `${tabs.length}`,
-      "--tab-columns": `${normalizedColumns}`,
-      "--tab-grid-columns": `${tabLayout.gridColumns}`,
-      "--tab-rows": `${tabLayout.rows}`,
-      "--tab-active-index": `${Math.max(
-        0,
-        tabs.findIndex((tab) => tab.id === activeTab)
-      )}`,
-      "--tab-active-row": `${tabLayout.active.row}`,
-      "--tab-active-grid-start": `${tabLayout.active.start}`,
-      "--tab-active-grid-span": `${tabLayout.active.span}`
-    } as CSSProperties;
-  };
-  const getTabButtonStyle = (
-    tabs: ReadonlyArray<{ id: MatchPanelTab }>,
-    tabId: MatchPanelTab,
-    columns: number
-  ): CSSProperties => {
-    const tabLayout = getTabLayout(tabs, columns);
-    const layout = tabLayout.items.find((item) => item.id === tabId);
-    if (!layout) {
-      return {};
-    }
-
-    return {
-      gridColumn: `${layout.start} / span ${layout.span}`,
-      gridRow: `${layout.row + 1}`
-    };
   };
   const changeActiveTab = (nextTab: MatchPanelTab) => {
     if (nextTab === activeTab) {
@@ -2376,14 +2434,14 @@ export function MatchScreen(props: {
             </div>
           </div>
           {hasQuickActions ? renderQuickActions(false) : null}
-          <div className="tab-strip center-last-item" style={getTabStripStyle(MATCH_TABS, 3)} role="tablist" aria-label="Match Navigation">
+          <div className="tab-strip center-last-item" style={getTabStripStyle(desktopTabLayout)} role="tablist" aria-label="Match Navigation">
             {MATCH_TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab.id}
-                style={getTabButtonStyle(MATCH_TABS, tab.id, 3)}
+                style={getTabButtonStyle(desktopTabLayout, tab.id)}
                 className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                 onClick={() => changeActiveTab(tab.id)}
               >
@@ -2418,7 +2476,7 @@ export function MatchScreen(props: {
           {effectiveSheetState !== "peek" ? (
             <div
               className="tab-strip mobile"
-              style={getTabStripStyle(visibleTabs, mobileTabColumns)}
+              style={getTabStripStyle(mobileTabLayout)}
               role="tablist"
               aria-label="Mobile Match Navigation"
             >
@@ -2428,7 +2486,7 @@ export function MatchScreen(props: {
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab.id}
-                  style={getTabButtonStyle(visibleTabs, tab.id, mobileTabColumns)}
+                  style={getTabButtonStyle(mobileTabLayout, tab.id)}
                   className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                   onClick={() => changeActiveTab(tab.id)}
                 >

@@ -21,7 +21,8 @@ import {
   cloneResourceMap,
   createEmptyResourceMap,
   hasResources,
-  RESOURCES
+  RESOURCES,
+  sanitizeUsernameInput
 } from "@hexagonia/shared";
 import {
   closeAdminRoom,
@@ -1886,7 +1887,7 @@ export function App() {
       if (field === "username") {
         return {
           ...current,
-          username: value
+          username: sanitizeUsernameInput(value)
         };
       }
 
@@ -2214,6 +2215,13 @@ export function App() {
     });
   };
 
+  const handleAuthFieldChange = (field: "username" | "password", value: string) => {
+    setAuthForm((current) => ({
+      ...current,
+      [field]: field === "username" ? sanitizeUsernameInput(value) : value
+    }));
+  };
+
   const guestInviteCode = !session && route.kind === "invite" ? route.code : null;
 
   useEffect(() => {
@@ -2261,7 +2269,7 @@ export function App() {
           musicPlaybackMode={musicPlaybackMode}
           musicTracks={musicTracks}
           selectedMusicTrackId={selectedMusicTrackId}
-          onAuthFieldChange={(field, value) => setAuthForm((current) => ({ ...current, [field]: value }))}
+          onAuthFieldChange={handleAuthFieldChange}
           onAuthModeChange={setAuthMode}
           onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
           onSelectMusicTrack={handleSelectMusicTrack}

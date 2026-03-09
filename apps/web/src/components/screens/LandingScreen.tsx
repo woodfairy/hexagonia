@@ -531,6 +531,8 @@ export function LandingScreen(props: {
                 <input
                   autoComplete="username"
                   type="text"
+                  inputMode="text"
+                  pattern="[A-Za-z0-9]*"
                   value={props.authForm.username}
                   onChange={(event) => props.onAuthFieldChange("username", event.target.value)}
                 />

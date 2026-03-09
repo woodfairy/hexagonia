@@ -1,3 +1,4 @@
+import { RESOURCES, sanitizeUsernameInput } from "@hexagonia/shared";
 import type {
   AdminUserRecord,
   ClientMessage,
@@ -5,7 +6,6 @@ import type {
   Resource,
   UserRole
 } from "@hexagonia/shared";
-import { RESOURCES } from "@hexagonia/shared";
 import type { ToastMessage } from "./components/shell/ToastStack";
 import type {
   AdminUserDraftState
@@ -491,7 +491,7 @@ export function getNextAdminUserDraft(
   if (field === "username") {
     return {
       ...draft,
-      username: value
+      username: sanitizeUsernameInput(value)
     };
   }
 

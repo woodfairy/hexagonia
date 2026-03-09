@@ -17,6 +17,9 @@ import {
   mergeGameConfig,
   mergeRoomGameConfig,
   resolveRoomGameConfig,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  isValidUsername,
   type ActionIntent,
   type AuthUser,
   type ClientMessage,
@@ -34,14 +37,22 @@ import { RoomLifecycleService } from "./roomLifecycleService.js";
 const SESSION_COOKIE_NAME = "hexagonia_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
 
+const usernameSchema = z
+  .string()
+  .min(USERNAME_MIN_LENGTH)
+  .max(USERNAME_MAX_LENGTH)
+  .refine(isValidUsername, {
+    message: "Der Nutzername darf nur Buchstaben und Zahlen enthalten."
+  });
+
 const registerSchema = z.object({
-  username: z.string().min(3).max(24),
+  username: usernameSchema,
   password: z.string().min(8).max(128),
   recaptchaToken: z.string().min(1).max(4096).optional()
 });
 
 const loginSchema = z.object({
-  username: z.string().min(3).max(24),
+  username: usernameSchema,
   password: z.string().min(8).max(128)
 });
 
@@ -96,14 +107,14 @@ const kickRoomSchema = z.object({
 const userRoleSchema = z.enum(["user", "admin"]);
 
 const adminCreateUserSchema = z.object({
-  username: z.string().min(3).max(24),
+  username: usernameSchema,
   password: z.string().min(8).max(128),
   role: userRoleSchema.default("user")
 });
 
 const adminUpdateUserSchema = z
   .object({
-    username: z.string().min(3).max(24).optional(),
+    username: usernameSchema.optional(),
     password: z.string().min(8).max(128).optional(),
     role: userRoleSchema.optional()
   })
@@ -1023,6 +1034,10 @@ function formatZodError(error: z.ZodError): string {
 
   if (field === "username" && firstIssue.code === "too_big" && typeof firstIssue.maximum === "number") {
     return `Der Nutzername darf höchstens ${firstIssue.maximum} Zeichen haben.`;
+  }
+
+  if (field === "username") {
+    return "Der Nutzername darf nur Buchstaben und Zahlen enthalten.";
   }
 
   if (field === "password" && firstIssue.code === "too_small" && typeof firstIssue.minimum === "number") {

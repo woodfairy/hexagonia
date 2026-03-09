@@ -198,7 +198,7 @@ class UiSoundManager {
   }
 
   isMusicPaused(): boolean {
-    return this.isMusicEffectivelyPaused();
+    return this.isMusicEffectivelyPaused() || this.musicResumePending;
   }
 
   getMusicPlaybackMode(): MusicPlaybackMode {
@@ -333,7 +333,7 @@ class UiSoundManager {
   }
 
   async toggleMusicPaused(): Promise<boolean> {
-    return this.setMusicPaused(!this.isMusicEffectivelyPaused());
+    return this.setMusicPaused(!this.isMusicPaused());
   }
 
   async setMusicPlaybackMode(nextMode: MusicPlaybackMode): Promise<void> {
@@ -503,11 +503,16 @@ class UiSoundManager {
       return;
     }
 
+    const wasResumePending = this.musicResumePending;
     try {
       await element.play();
       this.musicResumePending = false;
     } catch {
       this.musicResumePending = true;
+    }
+
+    if (wasResumePending !== this.musicResumePending) {
+      this.notifyMusicStateListeners();
     }
   }
 

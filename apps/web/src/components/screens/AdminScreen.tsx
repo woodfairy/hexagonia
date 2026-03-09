@@ -49,6 +49,8 @@ export function AdminScreen(props: {
             <input
               type="text"
               placeholder="Nutzername"
+              inputMode="text"
+              pattern="[A-Za-z0-9]*"
               value={props.createForm.username}
               onChange={(event) => props.onCreateFormChange("username", event.target.value)}
             />
@@ -92,6 +94,8 @@ export function AdminScreen(props: {
                   <div className="admin-form-grid compact">
                     <input
                       type="text"
+                      inputMode="text"
+                      pattern="[A-Za-z0-9]*"
                       value={draft.username}
                       onChange={(event) => props.onUserDraftChange(user.id, "username", event.target.value)}
                     />
