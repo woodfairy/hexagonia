@@ -507,9 +507,8 @@ export function MatchScreen(props: {
   };
   const getTabLayout = (tabs: ReadonlyArray<{ id: MatchPanelTab }>, columns: number) => {
     const normalizedColumns = Math.max(1, columns);
-    const gridColumns = normalizedColumns * 2;
+    const gridColumns = normalizedColumns;
     const rows = Math.max(1, Math.ceil(tabs.length / normalizedColumns));
-    const remainder = tabs.length % normalizedColumns;
     const activeIndex = Math.max(
       0,
       tabs.findIndex((tab) => tab.id === activeTab)
@@ -518,31 +517,15 @@ export function MatchScreen(props: {
     const layout = tabs.map((tab, index) => {
       const row = Math.floor(index / normalizedColumns);
       const column = index % normalizedColumns;
-      const isLastRow = row === rows - 1;
-      const isTailRow = isLastRow && remainder > 0 && remainder < normalizedColumns;
-      let span = 2;
-      let start = column * 2 + 1;
-
-      if (isTailRow) {
-        const tailIndex = index - row * normalizedColumns;
-        if (remainder === 1) {
-          span = Math.max(2, gridColumns - 2);
-          start = Math.floor((gridColumns - span) / 2) + 1;
-        } else if (remainder === 2) {
-          span = Math.floor(gridColumns / 2);
-          start = tailIndex === 0 ? 1 : gridColumns - span + 1;
-        }
-      }
-
       return {
         id: tab.id,
         row,
-        start,
-        span
+        start: column + 1,
+        span: 1
       };
     });
 
-    const activeLayout = layout[Math.min(activeIndex, layout.length - 1)] ?? { row: 0, start: 1, span: 2 };
+    const activeLayout = layout[Math.min(activeIndex, layout.length - 1)] ?? { row: 0, start: 1, span: 1 };
 
     return {
       rows,
