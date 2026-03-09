@@ -7,11 +7,27 @@ const buildingTemplateCache = new Map<string, THREE.Group>();
 const sharedGeometryCache = new Map<string, THREE.BufferGeometry>();
 const sharedMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
 
+type BuildingPieceType = "settlement" | "city";
+type BuildingScale = readonly [number, number, number];
+
 const BUILT_ROAD_CLEARANCE = 0.24;
 const GUIDE_ROAD_CLEARANCE = 0.14;
 
 export const BUILT_ROAD_ELEVATION = 0.12;
 export const GUIDE_ROAD_ELEVATION = 0.06;
+
+const DEFAULT_BUILDING_SCALE: BuildingScale = [1, 1, 1];
+// Städte bekommen etwas mehr Grundfläche, damit sie in der Draufsicht klarer von Siedlungen zu unterscheiden sind.
+const BUILDING_SCALE_BY_STYLE: Record<BoardPieceStyle, Record<BuildingPieceType, BuildingScale>> = {
+  modern: {
+    settlement: DEFAULT_BUILDING_SCALE,
+    city: [1.1, 1.06, 1.1]
+  },
+  detailed: {
+    settlement: DEFAULT_BUILDING_SCALE,
+    city: [1.12, 1.08, 1.12]
+  }
+};
 
 export function createRoadPieceModel(
   length: number,
@@ -59,7 +75,7 @@ export function createRoadGuideModel(
 }
 
 export function createBuildingPieceModel(
-  type: "settlement" | "city",
+  type: BuildingPieceType,
   color: string,
   style: BoardPieceStyle = "modern"
 ): THREE.Group {
@@ -73,6 +89,8 @@ export function createBuildingPieceModel(
     style === "modern"
       ? createModernBuildingPiece(type, color)
       : createDetailedBuildingPiece(type, color);
+  const [scaleX, scaleY, scaleZ] = BUILDING_SCALE_BY_STYLE[style][type];
+  group.scale.set(scaleX, scaleY, scaleZ);
 
   markObjectResourcesShared(group);
   buildingTemplateCache.set(cacheKey, group);
