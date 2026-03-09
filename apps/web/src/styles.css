@@ -647,7 +647,7 @@ select:focus-visible {
   min-inline-size: 0;
   overflow: hidden;
   border-radius: var(--radius-control);
-  transition: box-shadow 220ms ease;
+  transition: box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .inline-confirm-control > button {
@@ -667,14 +667,14 @@ select:focus-visible {
   min-inline-size: 0;
   transform: translateX(0);
   transition:
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-start-end-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-end-end-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 180ms ease,
-    background 180ms ease,
-    color 180ms ease,
-    box-shadow 220ms ease,
-    filter 180ms ease;
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-start-end-radius 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-end-end-radius 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    background 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 220ms ease,
+    box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 220ms ease;
 }
 
 .inline-confirm-main-content {
@@ -714,13 +714,13 @@ select:focus-visible {
     inset 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition:
-    inline-size 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 180ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 160ms ease,
-    background 160ms ease,
-    color 160ms ease,
-    box-shadow 220ms ease;
+    inline-size 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 220ms ease,
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    background 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 220ms ease,
+    box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .inline-confirm-control.is-armed .inline-confirm-cancel {
@@ -2474,6 +2474,7 @@ select {
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
   opacity: 0.9;
   pointer-events: none;
+  transition: background 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease;
 }
 
 .match-quick-action-button > * {
@@ -2493,7 +2494,7 @@ select {
 
 .match-quick-action-button.is-end-turn {
   color: #f8f4ea;
-  border-color: rgba(243, 207, 131, 0.28);
+  border-color: rgba(var(--accent-rgb), 0.28);
   background:
     linear-gradient(135deg, rgba(18, 31, 46, 0.96), rgba(10, 22, 36, 0.94));
   box-shadow:
@@ -2503,7 +2504,7 @@ select {
 
 .match-quick-action-button.is-end-turn::before {
   background:
-    radial-gradient(circle at 16% 18%, rgba(243, 207, 131, 0.14), transparent 34%),
+    radial-gradient(circle at 16% 18%, rgba(var(--accent-rgb), 0.18), transparent 34%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
 }
 
@@ -2516,12 +2517,35 @@ select {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.24);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition:
+    background 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .match-quick-action-button.is-end-turn .match-quick-action-icon {
-  background: rgba(243, 207, 131, 0.12);
-  border-color: rgba(243, 207, 131, 0.22);
-  color: #f3cf83;
+  background: rgba(var(--accent-rgb), 0.14);
+  border-color: rgba(var(--accent-rgb), 0.24);
+  color: var(--accent-strong);
+}
+
+.inline-confirm-control.is-armed .inline-confirm-main.match-quick-action-button.is-end-turn {
+  border-color: rgba(139, 209, 167, 0.28);
+  background:
+    linear-gradient(135deg, rgba(16, 38, 32, 0.98), rgba(9, 28, 22, 0.95));
+}
+
+.inline-confirm-control.is-armed .inline-confirm-main.match-quick-action-button.is-end-turn::before {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(139, 209, 167, 0.22), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+}
+
+.inline-confirm-control.is-armed .inline-confirm-main.match-quick-action-button.is-end-turn .match-quick-action-icon {
+  background: rgba(139, 209, 167, 0.16);
+  border-color: rgba(139, 209, 167, 0.28);
+  color: #d9ffea;
 }
 
 .match-quick-action-icon svg {
