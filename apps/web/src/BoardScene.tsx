@@ -5422,7 +5422,16 @@ function resolveFocusCuePosition(
 ): FocusGeometry {
   const elements = buildFocusElements(snapshot, cue);
   if (!elements.length) {
-    return createEmptyFocusGeometry();
+    const boardBounds = getBoardBounds(snapshot.board);
+    return {
+      x: boardBounds.centerX,
+      z: boardBounds.centerZ,
+      span: boardBounds.span,
+      minX: boardBounds.minX,
+      maxX: boardBounds.maxX,
+      minZ: boardBounds.minZ,
+      maxZ: boardBounds.maxZ
+    };
   }
 
   const relevantElements = cue.mode === "action" ? selectActionFocusElements(elements, currentTarget) : elements;
