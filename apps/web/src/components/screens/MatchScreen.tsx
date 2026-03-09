@@ -212,11 +212,6 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
         {...props.buttonProps}
       >
         {armed ? props.armedContent ?? props.content : props.content}
-        {armed ? (
-          <span className="inline-confirm-helper" aria-hidden="true">
-            Erneut tippen zum Bestätigen
-          </span>
-        ) : null}
       </button>
       {armed ? (
         <button type="button" className="ghost-button inline-confirm-cancel" onClick={props.onClear} aria-label="Bestätigung abbrechen">

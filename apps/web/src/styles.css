@@ -655,19 +655,7 @@ select:focus-visible {
   box-shadow:
     0 0 0 1px rgba(var(--accent-rgb), 0.08),
     0 0 0 0.18rem rgba(var(--accent-rgb), 0.08);
-}
-
-.inline-confirm-helper {
-  display: block;
-  min-inline-size: 0;
-  grid-column: 1 / -1;
-  margin-block-start: 0.08rem;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: 0.01em;
-  text-wrap: balance;
+  filter: saturate(1.08);
 }
 
 .inline-confirm-cancel {
