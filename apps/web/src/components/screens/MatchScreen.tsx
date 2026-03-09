@@ -233,6 +233,8 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
 export function MatchScreen(props: {
   boardVisualSettings: BoardVisualSettings;
   match: MatchSnapshot;
+  pendingDiceEvent: Extract<MatchSnapshot["eventLog"][number], { type: "dice_rolled" }> | null;
+  diceRevealPending: boolean;
   room: RoomDetails | null;
   selfPlayer: MatchSnapshot["players"][number] | null;
   profileMenuProps: MatchProfileMenuProps;
@@ -331,7 +333,10 @@ export function MatchScreen(props: {
   });
   const [buildActionTooltip, setBuildActionTooltip] = useState<BuildActionTooltipState | null>(null);
   const [armedActionKey, setArmedActionKey] = useState<string | null>(null);
-  const latestDiceEvent = useMemo(() => getLatestDiceRollEvent(props.match), [props.match]);
+  const latestDiceEvent = useMemo(
+    () => props.pendingDiceEvent ?? getLatestDiceRollEvent(props.match),
+    [props.match, props.pendingDiceEvent]
+  );
   const [diceDisplay, setDiceDisplay] = useState<DiceDisplayState>(() => ({
     left: props.match.dice?.[0] ?? null,
     right: props.match.dice?.[1] ?? null,
@@ -372,12 +377,7 @@ export function MatchScreen(props: {
   const boardFocusNotification = notificationState.boardFocusNotification;
   const isDiceAnimationActive =
     (latestDiceEvent?.id ?? null) !== seenDiceEventIdRef.current || diceDisplay.phase !== "idle";
-  const deferDiceNotification =
-    isDiceAnimationActive &&
-    !!heroNotification &&
-    (heroNotification.eventType === "dice_rolled" || heroNotification.eventType === "resources_distributed");
-  const visibleHeroNotification = deferDiceNotification ? null : heroNotification;
-  const liveAnnouncementText = deferDiceNotification ? null : notificationState.announcementText;
+  const liveAnnouncementText = notificationState.announcementText;
   const incomingTradeOffers = useMemo(
     () =>
       props.match.tradeOffers.filter(
@@ -567,37 +567,10 @@ export function MatchScreen(props: {
   const mobileHudSummary = props.selfPlayer
     ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
     : "HUD";
-  const boardDiceLabel = props.match.dice
-    ? `${props.match.dice[0]} + ${props.match.dice[1]}`
-    : latestDiceEvent?.payload.dice
-      ? `${latestDiceEvent.payload.dice[0]} + ${latestDiceEvent.payload.dice[1]}`
-      : "Wurf offen";
-  const deferredDiceHeroNotification = useMemo<MatchScreenNotification | null>(() => {
-    if (!deferDiceNotification || !latestDiceEvent) {
-      return null;
-    }
-
-    const actorId = latestDiceEvent.byPlayerId;
-    const actorLabel = actorId === props.match.you ? "Du" : getPlayerName(props.match, actorId);
-
-    return {
-      key: `dice-pending-${latestDiceEvent.id}`,
-      eventId: latestDiceEvent.id,
-      eventType: "dice_pending",
-      label: "Wurf",
-      title: `${actorLabel} ${actorId === props.match.you ? "würfelst" : "würfelt"}...`,
-      detail: "Das Ergebnis wird nach der Animation eingeblendet.",
-      badges: [{ label: "Würfel rollen" }],
-      ...(actorId ? { playerId: actorId, accentPlayerId: actorId } : {}),
-      atTurn: props.match.turn,
-      cue: null,
-      autoFocus: false,
-      emphasis: "neutral"
-    };
-  }, [deferDiceNotification, latestDiceEvent, props.match, props.match.turn, props.match.you]);
+  const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
   const displayHeroNotification = useMemo<MatchScreenNotification>(
     () =>
-      visibleHeroNotification ?? {
+      heroNotification ?? {
         key: `turn-status-${props.match.version}`,
         eventId: `turn-status-${props.match.version}`,
         eventType: "turn_status",
@@ -632,7 +605,7 @@ export function MatchScreen(props: {
       turnStatus.detail,
       turnStatus.playerId,
       turnStatus.title,
-      visibleHeroNotification
+      heroNotification
     ]
   );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
@@ -998,7 +971,7 @@ export function MatchScreen(props: {
     }
   };
   const primaryActions = [
-    ...(props.match.allowedMoves.canRoll
+    ...(props.match.allowedMoves.canRoll && !props.diceRevealPending
       ? [
             {
               id: "roll",

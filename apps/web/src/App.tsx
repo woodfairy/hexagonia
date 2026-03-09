@@ -105,8 +105,9 @@ const RECONNECT_MAX_MS = 12000;
 const DICE_EXPAND_MS = 0;
 const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
-const ROBBER_UI_DELAY_MS = DICE_EXPAND_MS + DICE_ROLL_MS + DICE_SETTLE_MS;
+const DICE_REVEAL_DELAY_MS = DICE_EXPAND_MS + DICE_ROLL_MS + DICE_SETTLE_MS;
 type MatchEvent = MatchSnapshot["eventLog"][number];
+type DiceRollEvent = Extract<MatchEvent, { type: "dice_rolled" }>;
 
 interface UiFeedbackRequest {
   sound?: Parameters<typeof uiSoundManager.play>;
@@ -167,6 +168,7 @@ export function App() {
   const [session, setSession] = useState<AuthUser | null | undefined>(undefined);
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [match, setMatch] = useState<MatchSnapshot | null>(null);
+  const [serverMatch, setServerMatch] = useState<MatchSnapshot | null>(null);
   const [myRooms, setMyRooms] = useState<RoomDetails[]>([]);
   const [presence, setPresence] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("Verbindung wird aufgebaut.");
@@ -218,9 +220,9 @@ export function App() {
   const [pendingBoardAction, setPendingBoardAction] = useState<PendingBoardActionState | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
   const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
+  const [pendingDiceRevealEvent, setPendingDiceRevealEvent] = useState<DiceRollEvent | null>(null);
   const musicTracks = useMemo(() => uiSoundManager.getMusicTracks(), []);
   const hapticsSupported = uiHapticsManager.isSupported();
-  const [robberUiBlockedByDiceAnimation, setRobberUiBlockedByDiceAnimation] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
@@ -234,12 +236,11 @@ export function App() {
   const lastServerActivityRef = useRef(Date.now());
   const toastCounterRef = useRef(0);
   const hasSeenDialogStateRef = useRef(false);
-  const robberUiMatchIdRef = useRef<string | null>(null);
-  const robberUiDiceEventIdRef = useRef<string | null>(null);
-  const robberUiBlockTimerRef = useRef<number | null>(null);
   const wasRobberUiDeferredRef = useRef(false);
   const lastDiceHapticMatchIdRef = useRef<string | null>(null);
   const lastDiceHapticEventIdRef = useRef<string | null>(null);
+  const diceRevealTimerRef = useRef<number | null>(null);
+  const pendingRevealedMatchRef = useRef<MatchSnapshot | null>(null);
   const matchFeedbackStateRef = useRef<{
     matchId: string | null;
     currentPlayerId: string | null;
@@ -259,6 +260,7 @@ export function App() {
     [match]
   );
   const latestDiceEvent = useMemo(() => (match ? getLatestDiceRollEvent(match) : null), [match]);
+  const visibleDiceEvent = pendingDiceRevealEvent ?? latestDiceEvent;
   const requiredDiscardCount = match?.allowedMoves.pendingDiscardCount ?? 0;
   const selectedDiscardCount = useMemo(
     () => RESOURCES.reduce((sum, resource) => sum + (robberDiscardDraft[resource] ?? 0), 0),
@@ -268,12 +270,7 @@ export function App() {
   const canSubmitRobberDiscard =
     !!match && !!selfPlayer?.resources && requiredDiscardCount > 0 && selectedDiscardCount === requiredDiscardCount;
   const robberDiscardStatus = match?.robberDiscardStatus ?? [];
-  const robberUiDeferredByDiceAnimation =
-    robberUiBlockedByDiceAnimation ||
-    (!!match &&
-      robberUiMatchIdRef.current === match.matchId &&
-      robberUiDiceEventIdRef.current !== null &&
-      (latestDiceEvent?.id ?? null) !== robberUiDiceEventIdRef.current);
+  const robberUiDeferredByDiceAnimation = pendingDiceRevealEvent !== null;
 
   const activeScreen = useMemo(() => {
     if (!session) {
@@ -421,6 +418,74 @@ export function App() {
   }, [match]);
 
   useEffect(() => {
+    return () => {
+      if (diceRevealTimerRef.current !== null) {
+        window.clearTimeout(diceRevealTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!serverMatch) {
+      pendingRevealedMatchRef.current = null;
+      if (diceRevealTimerRef.current !== null) {
+        window.clearTimeout(diceRevealTimerRef.current);
+        diceRevealTimerRef.current = null;
+      }
+      if (pendingDiceRevealEvent !== null) {
+        setPendingDiceRevealEvent(null);
+      }
+      if (match !== null) {
+        setMatch(null);
+      }
+      return;
+    }
+
+    if (!match || match.matchId !== serverMatch.matchId) {
+      pendingRevealedMatchRef.current = null;
+      if (diceRevealTimerRef.current !== null) {
+        window.clearTimeout(diceRevealTimerRef.current);
+        diceRevealTimerRef.current = null;
+      }
+      if (pendingDiceRevealEvent !== null) {
+        setPendingDiceRevealEvent(null);
+      }
+      if (match !== serverMatch) {
+        setMatch(serverMatch);
+      }
+      return;
+    }
+
+    if (pendingDiceRevealEvent) {
+      pendingRevealedMatchRef.current = serverMatch;
+      return;
+    }
+
+    const nextDiceEvent = getLatestDiceRollEvent(serverMatch);
+    if (nextDiceEvent && nextDiceEvent.id !== (latestDiceEvent?.id ?? null)) {
+      pendingRevealedMatchRef.current = serverMatch;
+      setPendingDiceRevealEvent(nextDiceEvent);
+      if (diceRevealTimerRef.current !== null) {
+        window.clearTimeout(diceRevealTimerRef.current);
+      }
+      diceRevealTimerRef.current = window.setTimeout(() => {
+        const nextMatch = pendingRevealedMatchRef.current;
+        pendingRevealedMatchRef.current = null;
+        diceRevealTimerRef.current = null;
+        setPendingDiceRevealEvent(null);
+        if (nextMatch) {
+          setMatch(nextMatch);
+        }
+      }, DICE_REVEAL_DELAY_MS);
+      return;
+    }
+
+    if (match.version !== serverMatch.version) {
+      setMatch(serverMatch);
+    }
+  }, [latestDiceEvent?.id, match, pendingDiceRevealEvent, serverMatch]);
+
+  useEffect(() => {
     routeRef.current = route;
   }, [route]);
 
@@ -475,7 +540,7 @@ export function App() {
   }, [match, playUiFeedback]);
 
   useEffect(() => {
-    const latestDiceEventId = latestDiceEvent?.id ?? null;
+    const latestDiceEventId = visibleDiceEvent?.id ?? null;
 
     if (!match) {
       lastDiceHapticMatchIdRef.current = null;
@@ -494,15 +559,15 @@ export function App() {
       return;
     }
 
-    if (!latestDiceEvent || latestDiceEventId === lastDiceHapticEventIdRef.current) {
+    if (!visibleDiceEvent || latestDiceEventId === lastDiceHapticEventIdRef.current) {
       return;
     }
 
     lastDiceHapticEventIdRef.current = latestDiceEventId;
-    if (latestDiceEvent.byPlayerId !== match.you) {
+    if (visibleDiceEvent.byPlayerId !== match.you) {
       playUiFeedback({ haptic: "dice" });
     }
-  }, [latestDiceEvent, match, playUiFeedback]);
+  }, [match, playUiFeedback, visibleDiceEvent]);
 
   useEffect(() => {
     setPendingBoardAction(null);
@@ -532,53 +597,6 @@ export function App() {
       setRobberDiscardMinimized(false);
     }
   }, [requiredDiscardCount, match?.matchId]);
-
-  useEffect(() => {
-    if (!match) {
-      if (robberUiBlockTimerRef.current !== null) {
-        window.clearTimeout(robberUiBlockTimerRef.current);
-        robberUiBlockTimerRef.current = null;
-      }
-      robberUiMatchIdRef.current = null;
-      robberUiDiceEventIdRef.current = null;
-      setRobberUiBlockedByDiceAnimation(false);
-      return;
-    }
-
-    const latestDiceEventId = latestDiceEvent?.id ?? null;
-    if (robberUiMatchIdRef.current !== match.matchId) {
-      if (robberUiBlockTimerRef.current !== null) {
-        window.clearTimeout(robberUiBlockTimerRef.current);
-        robberUiBlockTimerRef.current = null;
-      }
-      robberUiMatchIdRef.current = match.matchId;
-      robberUiDiceEventIdRef.current = latestDiceEventId;
-      setRobberUiBlockedByDiceAnimation(false);
-      return;
-    }
-
-    if (latestDiceEventId === null || latestDiceEventId === robberUiDiceEventIdRef.current) {
-      return;
-    }
-
-    robberUiDiceEventIdRef.current = latestDiceEventId;
-    if (robberUiBlockTimerRef.current !== null) {
-      window.clearTimeout(robberUiBlockTimerRef.current);
-    }
-    setRobberUiBlockedByDiceAnimation(true);
-    robberUiBlockTimerRef.current = window.setTimeout(() => {
-      setRobberUiBlockedByDiceAnimation(false);
-      robberUiBlockTimerRef.current = null;
-    }, ROBBER_UI_DELAY_MS);
-  }, [latestDiceEvent?.id, match?.matchId]);
-
-  useEffect(() => {
-    return () => {
-      if (robberUiBlockTimerRef.current !== null) {
-        window.clearTimeout(robberUiBlockTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const wasDeferred = wasRobberUiDeferredRef.current;
@@ -895,6 +913,8 @@ export function App() {
       clearReconnectTimer();
       clearHeartbeatTimer();
       reconnectAttemptRef.current = 0;
+      setMatch(null);
+      setServerMatch(null);
       setMyRooms([]);
       setAdminUsers([]);
       setAdminRooms([]);
@@ -1019,6 +1039,7 @@ export function App() {
           (currentMatchRoomId === message.room.id || roomRef.current?.id === message.room.id)
         ) {
           setMatch(null);
+          setServerMatch(null);
           setPendingBoardAction(null);
           setInteractionMode(null);
           setSelectedRoadEdges([]);
@@ -1040,6 +1061,7 @@ export function App() {
         if (currentRoute.kind === "room" && currentRoute.roomId === message.room.id && message.room.status === "closed" && !isSeatedInRoom) {
           setRoom(null);
           setMatch(null);
+          setServerMatch(null);
           setPresence([]);
           navigateTo({ kind: "home" });
           pushToast("info", "Raum geschlossen", "Dieser Raum wurde beendet und aus der Liste entfernt.");
@@ -1051,7 +1073,7 @@ export function App() {
         }
       }
       if (message.type === "match.snapshot") {
-        setMatch(message.snapshot);
+        setServerMatch(message.snapshot);
         if (!roomRef.current || roomRef.current.id !== message.snapshot.roomId) {
           void getRoom(message.snapshot.roomId).then(setRoom).catch(() => undefined);
         }
@@ -1776,6 +1798,7 @@ export function App() {
       await leaveRoom(room.id);
       setRoom(null);
       setMatch(null);
+      setServerMatch(null);
       setPresence([]);
       await loadMyRooms();
       navigateTo({ kind: "home" });
@@ -1832,6 +1855,7 @@ export function App() {
       setSession(null);
       setRoom(null);
       setMatch(null);
+      setServerMatch(null);
       setPresence([]);
       setJoinCode("");
       setMyRooms([]);
@@ -1952,6 +1976,7 @@ export function App() {
       if (room?.id === savedRoom.id) {
         setRoom(null);
         setMatch(null);
+        setServerMatch(null);
         setPresence([]);
         navigateTo({ kind: "home" });
       }
@@ -1968,6 +1993,7 @@ export function App() {
       const savedRoom = await deleteAdminMatch(matchId);
       if (match?.matchId === matchId) {
         setMatch(null);
+        setServerMatch(null);
       }
       if (room?.id === savedRoom.id) {
         setRoom(savedRoom);
@@ -2379,6 +2405,8 @@ export function App() {
               interactionMode={interactionMode}
               maritimeForm={maritimeForm}
               match={match}
+              pendingDiceEvent={pendingDiceRevealEvent}
+              diceRevealPending={robberUiDeferredByDiceAnimation}
               monopolyResource={monopolyResource}
               profileMenuProps={{
                 boardVisualSettings,
