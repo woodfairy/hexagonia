@@ -642,7 +642,8 @@ select:focus-visible {
 .inline-confirm-control {
   --inline-confirm-cancel-size: 2.7rem;
   position: relative;
-  display: block;
+  display: flex;
+  align-items: stretch;
   min-inline-size: 0;
   overflow: hidden;
   border-radius: var(--radius-control);
@@ -661,11 +662,12 @@ select:focus-visible {
 }
 
 .inline-confirm-main {
-  inline-size: 100%;
+  flex: 1 1 auto;
+  inline-size: auto;
+  min-inline-size: 0;
   transform: translateX(0);
   transition:
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding-inline-end 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-start-end-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-end-end-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 180ms ease,
@@ -684,17 +686,13 @@ select:focus-visible {
   box-shadow: none;
   filter: saturate(1.08);
   transform: translateX(0);
-  padding-inline-end: calc(var(--pad-control-inline) + var(--inline-confirm-cancel-size));
 }
 
 .inline-confirm-cancel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-  inline-size: var(--inline-confirm-cancel-size);
-  min-inline-size: var(--inline-confirm-cancel-size);
+  flex: 0 0 auto;
+  inline-size: 0;
+  min-inline-size: 0;
+  block-size: auto;
   overflow: hidden;
   white-space: nowrap;
   opacity: 0;
@@ -716,6 +714,7 @@ select:focus-visible {
     inset 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition:
+    inline-size 220ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 180ms ease,
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 160ms ease,
@@ -725,6 +724,8 @@ select:focus-visible {
 }
 
 .inline-confirm-control.is-armed .inline-confirm-cancel {
+  inline-size: var(--inline-confirm-cancel-size);
+  min-inline-size: var(--inline-confirm-cancel-size);
   opacity: 1;
   transform: translateX(0) scale(1);
   pointer-events: auto;
