@@ -194,16 +194,6 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
     <span className={`inline-confirm-control ${armed ? "is-armed" : ""}`.trim()}>
       <button
         type="button"
-        className="inline-confirm-cancel"
-        disabled={!armed}
-        onClick={props.onClear}
-        aria-label="Bestätigung abbrechen"
-        tabIndex={armed ? 0 : -1}
-      >
-        Abbrechen
-      </button>
-      <button
-        type="button"
         className={`inline-confirm-main ${props.buttonClassName} ${armed ? "is-armed" : ""}`.trim()}
         disabled={props.disabled}
         onClick={() => {
@@ -222,6 +212,16 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
         {...props.buttonProps}
       >
         <span className="inline-confirm-main-content">{armed ? props.armedContent ?? props.content : props.content}</span>
+      </button>
+      <button
+        type="button"
+        className="inline-confirm-cancel"
+        disabled={!armed}
+        onClick={props.onClear}
+        aria-label="Bestätigung abbrechen"
+        tabIndex={armed ? 0 : -1}
+      >
+        <span aria-hidden="true">×</span>
       </button>
     </span>
   );
