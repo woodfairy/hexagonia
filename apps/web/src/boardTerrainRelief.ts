@@ -237,6 +237,11 @@ export function createTileTerrainSurface(params: CreateTileTerrainSurfaceParams)
   const group = new THREE.Group();
   group.add(surfaceMesh);
 
+  const coverLayer = createCoverLayer(biome, polygon, structureMask, sampleHeightLocal, params.baseY, params.active);
+  if (coverLayer) {
+    group.add(coverLayer);
+  }
+
   return {
     object: group,
     sampleHeight,
@@ -1358,18 +1363,17 @@ function isCoverBoundsInsidePolygon(
 }
 
 function isPointInsidePolygon(x: number, z: number, polygon: readonly TerrainPoint[]): boolean {
-  let inside = false;
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+  const orientation = Math.sign(getPolygonSignedArea(polygon)) || 1;
+  const epsilon = 0.00001;
+  for (let index = 0; index < polygon.length; index += 1) {
     const current = polygon[index]!;
-    const prior = polygon[previous]!;
-    const intersects =
-      (current.z > z) !== (prior.z > z) &&
-      x < ((prior.x - current.x) * (z - current.z)) / Math.max(prior.z - current.z, 0.00001) + current.x;
-    if (intersects) {
-      inside = !inside;
+    const next = polygon[(index + 1) % polygon.length]!;
+    const cross = (next.x - current.x) * (z - current.z) - (next.z - current.z) * (x - current.x);
+    if (orientation >= 0 ? cross < -epsilon : cross > epsilon) {
+      return false;
     }
   }
-  return inside;
+  return true;
 }
 
 function getPolygonEdgeClearance(x: number, z: number, polygon: readonly TerrainPoint[]): number {

@@ -13,6 +13,7 @@ import {
   createRoadGuideModel,
   createRoadPieceModel
 } from "./boardPieceModels";
+import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
@@ -1929,6 +1930,45 @@ function appendTileDecorations(
     applyTileObjectClipPlanes(terrainSurface.object, tile, verticesById, TILE_OUTER_RENDER_SCALE);
     tileGroup.add(terrainSurface.object);
   }
+
+  if (options.includeProps) {
+    const propGroup = createLandingFancyTileProps(tile.resource);
+    applyMatchTilePropPlacement(propGroup, tile, verticesById);
+    propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
+    propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.66);
+    applyTileObjectClipPlanes(propGroup, tile, verticesById, TILE_OUTER_RENDER_SCALE);
+    propGroup.traverse((entry) => {
+      entry.userData.castTileShadow = true;
+    });
+    tileGroup.add(propGroup);
+  }
+}
+
+function applyMatchTilePropPlacement(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {
+  const random = createTileRandom(`${tile.id}:${tile.resource}:match-props`);
+  const anchors = createReliefAnchors(tile, verticesById, 1, 2.08, 2.76, 1, 1, "match-props", {
+    occupied: createReliefOccupancy(2.02),
+    minGap: 0.5,
+    footprintScale: 1.46,
+    radialBias: 0.96,
+    stretchZ: 0.96,
+    candidatesPerAnchor: 36,
+    radialWeight: 0.58,
+    clearanceFootprintMultiplier: 1.42,
+    edgePadding: 0.24
+  });
+  const anchor = anchors[0];
+  if (!anchor) {
+    root.position.set(0, root.position.y, -2.08);
+    root.rotation.y = Math.PI;
+    return;
+  }
+
+  const outwardAngle = Math.atan2(anchor.z, anchor.x);
+  const outwardShift = 0.22;
+  root.position.x = anchor.x + Math.cos(outwardAngle) * outwardShift;
+  root.position.z = anchor.z + Math.sin(outwardAngle) * outwardShift;
+  root.rotation.y = outwardAngle + Math.PI + (random() - 0.5) * 0.22;
 }
 
 function createUltraTerrainRelief(
