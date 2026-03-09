@@ -958,6 +958,7 @@ export function MatchScreen(props: {
     selectedMaritimeGiveResource !== props.maritimeForm.receive &&
     visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
     (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
+  const canChooseMaritimeGive = tradeMode !== "player" && props.match.allowedMoves.canMaritimeTrade;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const developmentCards = props.selfPlayer?.developmentCards ?? [];
   const hiddenVictoryPoints = props.selfPlayer?.hiddenVictoryPoints ?? 0;
@@ -2150,8 +2151,8 @@ export function MatchScreen(props: {
               <span aria-hidden="true" />
               <span>Hand</span>
               <span>Rate</span>
-              <span>Einsatz</span>
-              <span>Ziel</span>
+              <span>Geben</span>
+              <span>Erhalten</span>
             </div>
             <div className="trade-matrix-list">
               {RESOURCES.map((resource) => {
@@ -2159,7 +2160,7 @@ export function MatchScreen(props: {
                 const available = props.selfPlayer?.resources?.[resource] ?? 0;
                 const giveVisible = visibleMaritimeGiveResources.includes(resource);
                 const giveSelected = props.maritimeForm.give === resource;
-                const canUseAsGive = giveVisible && available >= ratio;
+                const canUseAsGive = canChooseMaritimeGive && giveVisible && available >= ratio;
                 const receiveSelected = props.maritimeForm.receive === resource;
                 const canUseAsReceive =
                   tradeMode !== "player" &&
@@ -2218,7 +2219,7 @@ export function MatchScreen(props: {
             </div>
           ) : null}
           <div className="trade-composer-button-row">
-            <button type="button" className="secondary-button trade-submit-button" disabled={!canSubmitMaritimeTrade} onClick={handleExecuteMaritimeTrade}>
+            <button type="button" className="primary-button trade-submit-button" disabled={!canSubmitMaritimeTrade} onClick={handleExecuteMaritimeTrade}>
               {maritimeActionLabel}
             </button>
           </div>
