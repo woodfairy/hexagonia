@@ -7,6 +7,10 @@ declare module "web-haptics" {
 
   export type HapticPattern = string | number[] | HapticPatternStep[];
 
+  export interface HapticTriggerOptions {
+    intensity?: number;
+  }
+
   export interface WebHapticsOptions {
     debug?: boolean;
     showSwitch?: boolean;
@@ -14,6 +18,6 @@ declare module "web-haptics" {
 
   export class WebHaptics {
     constructor(options?: WebHapticsOptions);
-    trigger(pattern: HapticPattern): void | Promise<void>;
+    trigger(pattern: HapticPattern, options?: HapticTriggerOptions): void | Promise<void>;
   }
 }

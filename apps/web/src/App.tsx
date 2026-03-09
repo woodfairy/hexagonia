@@ -316,6 +316,10 @@ export function App() {
     [isGuestLanding]
   );
 
+  const handleRollDiceHaptic = useCallback(() => {
+    playUiFeedback({ haptic: "dice" });
+  }, [playUiFeedback]);
+
   const headerContext = useMemo(() => {
     if (!session) {
       return {
@@ -2220,6 +2224,7 @@ export function App() {
               tradeForm={tradeForm}
               yearOfPlenty={yearOfPlenty}
               onAction={handleMatchAction}
+              onRollDice={handleRollDiceHaptic}
               onEdgeSelect={handleEdgeSelect}
               onOfferTrade={sendTradeOffer}
               onTileSelect={handleTileSelect}

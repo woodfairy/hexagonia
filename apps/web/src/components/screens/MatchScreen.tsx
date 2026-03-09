@@ -175,6 +175,7 @@ export function MatchScreen(props: {
   yearOfPlenty: [Resource, Resource];
   monopolyResource: Resource;
   onAction: (message: ClientMessage) => void;
+  onRollDice: () => void;
   onOfferTrade: () => void;
   onVertexSelect: (vertexId: string) => void;
   onEdgeSelect: (edgeId: string) => void;
@@ -819,19 +820,21 @@ export function MatchScreen(props: {
   const primaryActions = [
     ...(props.match.allowedMoves.canRoll
       ? [
-          {
-            id: "roll",
-            label: "Würfeln",
-            className: "primary-button",
-            disabled: !props.match.allowedMoves.canRoll,
-            onClick: () =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "roll_dice" }
-              })
-          }
-        ]
+            {
+              id: "roll",
+              label: "Würfeln",
+              className: "primary-button",
+              disabled: !props.match.allowedMoves.canRoll,
+              onClick: () => {
+                props.onRollDice();
+                props.onAction({
+                  type: "match.action",
+                  matchId: props.match.matchId,
+                  action: { type: "roll_dice" }
+                });
+              }
+            }
+          ]
       : []),
     ...(props.match.allowedMoves.canEndTurn
       ? [

@@ -1,24 +1,31 @@
-import { WebHaptics, type HapticPattern } from "web-haptics";
+import { WebHaptics, type HapticPattern, type HapticTriggerOptions } from "web-haptics";
 
 export type UiHapticId = "dialog" | "nudge" | "success" | "error" | "event" | "dice" | "robber" | "soft";
 
 const UI_HAPTICS_STORAGE_KEY = "hexagonia:ui-haptics-muted";
-const HAPTIC_LIBRARY: Record<UiHapticId, HapticPattern> = {
-  dialog: "nudge",
-  nudge: "nudge",
-  soft: "soft",
-  success: "success",
-  error: "error",
-  event: [
-    { duration: 16, intensity: 0.34 },
-    { delay: 28, duration: 24, intensity: 0.48 }
-  ],
-  dice: "buzz",
-  robber: [
-    { duration: 24, intensity: 0.68 },
-    { delay: 34, duration: 18, intensity: 0.28 },
-    { delay: 24, duration: 56, intensity: 0.92 }
-  ]
+const STRONG_BUZZ_PATTERN: HapticPattern = [{ duration: 1000 }];
+const STRONG_BUZZ_OPTIONS: HapticTriggerOptions = { intensity: 1 };
+const DICE_HAPTIC_DEDUP_MS = 700;
+
+interface UiHapticDefinition {
+  pattern: HapticPattern;
+  options?: HapticTriggerOptions;
+}
+
+const HAPTIC_LIBRARY: Record<UiHapticId, UiHapticDefinition> = {
+  dialog: { pattern: "nudge" },
+  nudge: { pattern: "nudge" },
+  soft: { pattern: "soft" },
+  success: { pattern: "success" },
+  error: { pattern: "error" },
+  event: {
+    pattern: [
+      { duration: 16, intensity: 0.34 },
+      { delay: 28, duration: 24, intensity: 0.48 }
+    ]
+  },
+  dice: { pattern: STRONG_BUZZ_PATTERN, options: STRONG_BUZZ_OPTIONS },
+  robber: { pattern: STRONG_BUZZ_PATTERN, options: STRONG_BUZZ_OPTIONS }
 };
 
 class UiHapticsManager {
@@ -26,6 +33,7 @@ class UiHapticsManager {
   private muted =
     typeof window !== "undefined" && window.localStorage.getItem(UI_HAPTICS_STORAGE_KEY) === "muted";
   private supported: boolean | null = null;
+  private lastPlayedAt: Partial<Record<UiHapticId, number>> = {};
 
   isMuted(): boolean {
     return this.muted;
@@ -53,7 +61,13 @@ class UiHapticsManager {
       return;
     }
 
-    await this.triggerPattern(engine, HAPTIC_LIBRARY[hapticId]);
+    if (this.shouldDeduplicate(hapticId)) {
+      return;
+    }
+
+    const definition = HAPTIC_LIBRARY[hapticId];
+    await this.triggerPattern(engine, definition.pattern, definition.options);
+    this.lastPlayedAt[hapticId] = Date.now();
   }
 
   private ensureEngine(): WebHaptics | null {
@@ -79,9 +93,22 @@ class UiHapticsManager {
     return this.engine;
   }
 
-  private async triggerPattern(engine: WebHaptics, pattern: HapticPattern): Promise<void> {
+  private shouldDeduplicate(hapticId: UiHapticId): boolean {
+    if (hapticId !== "dice") {
+      return false;
+    }
+
+    const lastPlayedAt = this.lastPlayedAt[hapticId];
+    return typeof lastPlayedAt === "number" && Date.now() - lastPlayedAt < DICE_HAPTIC_DEDUP_MS;
+  }
+
+  private async triggerPattern(
+    engine: WebHaptics,
+    pattern: HapticPattern,
+    options?: HapticTriggerOptions
+  ): Promise<void> {
     try {
-      await engine.trigger(pattern);
+      await engine.trigger(pattern, options);
     } catch {
       // Ignore unsupported or blocked haptic attempts.
     }
