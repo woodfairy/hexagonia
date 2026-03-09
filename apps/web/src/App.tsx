@@ -499,7 +499,7 @@ export function App() {
   }, [latestDiceEvent, match, playUiFeedback]);
 
   useEffect(() => {
-    setPendingMatchConfirmation(null);
+    setPendingBoardAction(null);
   }, [match?.matchId, match?.version, route.kind]);
 
   useEffect(() => {
