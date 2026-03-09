@@ -1840,7 +1840,7 @@ export function MatchScreen(props: {
     : !props.match.allowedMoves.canCreateTradeOffer
       ? "Spielerhandel ist gerade gesperrt."
       : tradeGiveTotal === 0 || tradeWantTotal === 0
-        ? "Geben und Erhalten festlegen."
+        ? "Rohstoffe wählen."
         : "Direkt ohne Bestätigung.";
   const maritimeTradeSubmitHint =
     tradeMode === "harbor" && harborTradeResources.length === 0
@@ -1852,20 +1852,6 @@ export function MatchScreen(props: {
           : "Direkt ohne Bestätigung.";
   const maritimeActionLabel =
     visibleMaritimeGiveResources.length > 0 ? `${maritimeRatio}:1 tauschen` : tradeMode === "bank" ? "Banktausch nicht möglich" : "Hafentausch nicht möglich";
-  const tradeToolbarStatus =
-    tradeMode === "player"
-      ? tradeComposerContext.kind === "counter"
-        ? "Gegenangebot"
-        : hasOwnTradeOffer
-          ? `${ownTradeOffers.length} offen`
-          : incomingTradeOffers.length
-            ? `${incomingTradeOffers.length} sichtbar`
-            : "Bereit"
-      : tradeMode === "bank"
-        ? "4:1"
-        : harborTradeResources.length > 0
-          ? "Beste Rate"
-          : "Kein Hafen";
   const maritimeGiveSelection = createEmptyResourceMap();
   if (visibleMaritimeGiveResources.includes(props.maritimeForm.give)) {
     maritimeGiveSelection[props.maritimeForm.give] = maritimeRatio;
@@ -1985,19 +1971,7 @@ export function MatchScreen(props: {
         </div>
       </div>
       <div className="trade-composer-footer">
-        <article className="trade-target-shell">
-          <div className="trade-target-shell-head">
-            <span className="eyebrow">Ziel</span>
-            {isCurrentPlayer && !tradeComposerContext.lockedTargetPlayerId ? null : (
-              <strong>
-                {effectiveTradeTargetPlayer
-                  ? renderMatchPlayerText(props.match, effectiveTradeTargetPlayer.id === props.match.you ? "Du" : effectiveTradeTargetPlayer.username)
-                  : "Offen für alle"}
-              </strong>
-            )}
-          </div>
-          {playerTradeTargetButtons}
-        </article>
+        {playerTradeTargetButtons}
         <div className="trade-composer-actions">
           <div className="trade-composer-copy">
             <span>{playerTradeSubmitHint}</span>
@@ -2170,13 +2144,7 @@ export function MatchScreen(props: {
   );
   const tradeWorkspace = (
     <div className="panel-frame trade-frame trade-workspace">
-      <section className="trade-toolbar">
-        <div className="trade-toolbar-copy">
-          <h3>Handel</h3>
-          <span>{tradeToolbarStatus}</span>
-        </div>
-        {tradeModeControls}
-      </section>
+      {tradeModeControls}
       {tradeMode === "player" ? playerTradeComposer : maritimeTradeComposer}
       {tradeOwnOffersSection}
       {tradeIncomingOffersSection}

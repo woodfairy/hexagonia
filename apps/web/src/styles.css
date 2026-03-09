@@ -252,6 +252,14 @@ select::-ms-expand {
   padding: 0.58rem 0.78rem;
 }
 
+.app-shell.is-match-screen > .app-header.is-compact {
+  margin-block-start: calc(-1 * max(var(--pad-app-edge), env(safe-area-inset-top)));
+  margin-inline-start: calc(-1 * max(var(--pad-app-edge), env(safe-area-inset-left)));
+  margin-inline-end: calc(-1 * max(var(--pad-app-edge), env(safe-area-inset-right)));
+  border-block-start: 0;
+  border-radius: 0;
+}
+
 .brand-cluster,
 .header-utilities,
 .brand-title-row {
@@ -4735,36 +4743,7 @@ select {
   container-type: inline-size;
 }
 
-.trade-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.48rem;
-  align-items: center;
-}
-
-.trade-toolbar-copy {
-  display: flex;
-  align-items: center;
-  gap: 0.48rem;
-  min-inline-size: 0;
-}
-
-.trade-toolbar-copy span {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 1.54rem;
-  padding: 0.12rem 0.48rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.trade-workspace .dock-section-head h3,
-.trade-toolbar-copy h3 {
+.trade-workspace .dock-section-head h3 {
   font-size: 0.94rem;
   line-height: 1.04;
 }
@@ -4835,7 +4814,6 @@ select {
 
 .trade-composer-title,
 .trade-composer-copy,
-.trade-target-shell-head,
 .trade-offer-card-title,
 .trade-offer-lane {
   display: grid;
@@ -4853,11 +4831,6 @@ select {
   min-block-size: 1.56rem;
   padding: 0.1rem 0.46rem;
   font-size: 0.72rem;
-}
-
-.trade-target-shell-head strong {
-  font-size: 0.9rem;
-  line-height: 1.08;
 }
 
 .trade-composer-grid {
@@ -5296,14 +5269,6 @@ select {
 }
 
 @container (max-width: 44rem) {
-  .trade-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .trade-toolbar-copy {
-    flex-wrap: wrap;
-  }
-
   .trade-mode-segmented {
     inline-size: 100%;
     grid-template-columns: repeat(3, minmax(0, 1fr));
