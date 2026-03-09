@@ -958,12 +958,6 @@ export function MatchScreen(props: {
     selectedMaritimeGiveResource !== props.maritimeForm.receive &&
     visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
     (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
-  const canChooseMaritimeReceive =
-    tradeMode !== "player" &&
-    props.match.allowedMoves.canMaritimeTrade &&
-    !!selectedMaritimeGiveResource &&
-    visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
-    (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const developmentCards = props.selfPlayer?.developmentCards ?? [];
   const hiddenVictoryPoints = props.selfPlayer?.hiddenVictoryPoints ?? 0;
@@ -1819,28 +1813,22 @@ export function MatchScreen(props: {
       )
     }));
   };
-  const handleSelectMaritimeGive = (resource: Resource) => {
-    props.setMaritimeForm((current) => ({
-      ...current,
-      give: resource,
-      receive: current.receive === resource ? "" : current.receive
-    }));
-  };
-  const handleClearMaritimeGive = () => {
-    props.setMaritimeForm((current) => ({
-      ...current,
-      give: ""
-    }));
-  };
   const handleSelectMaritimeReceive = (resource: Resource) => {
     props.setMaritimeForm((current) => ({
       ...current,
+      give:
+        current.give &&
+        affordableMaritimeGiveResources.includes(current.give) &&
+        current.give !== resource
+          ? current.give
+          : affordableMaritimeGiveResources.find((entry) => entry !== resource) ?? "",
       receive: resource
     }));
   };
   const handleClearMaritimeReceive = () => {
     props.setMaritimeForm((current) => ({
       ...current,
+      give: "",
       receive: ""
     }));
   };
@@ -2012,8 +2000,10 @@ export function MatchScreen(props: {
     ? "Nur im eigenen Aktionszug möglich."
     : affordableMaritimeGiveResources.length === 0
       ? "Nicht genug Rohstoffe für einen Hafentausch."
-      : !selectedMaritimeGiveResource
-        ? "Einsatz wählen."
+      : !selectedMaritimeGiveResource && !props.maritimeForm.receive
+        ? ""
+        : !selectedMaritimeGiveResource
+          ? "Einsatz wählen."
         : !props.maritimeForm.receive
           ? "Ziel wählen."
         : props.maritimeForm.give === props.maritimeForm.receive
@@ -2166,7 +2156,10 @@ export function MatchScreen(props: {
                 const giveSelected = props.maritimeForm.give === resource;
                 const canUseAsGive = giveVisible && available >= ratio;
                 const receiveSelected = props.maritimeForm.receive === resource;
-                const canUseAsReceive = canChooseMaritimeReceive && resource !== props.maritimeForm.give;
+                const canUseAsReceive =
+                  tradeMode !== "player" &&
+                  props.match.allowedMoves.canMaritimeTrade &&
+                  affordableMaritimeGiveResources.some((entry) => entry !== resource);
 
                 return (
                   <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
@@ -2183,15 +2176,13 @@ export function MatchScreen(props: {
                     >
                       {giveVisible ? `${ratio}:1` : "—"}
                     </span>
-                    <TradeMatrixDraftControl
-                      value={giveSelected ? 1 : 0}
-                      tone="give"
-                      incrementDisabled={!canUseAsGive}
-                      incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
-                      decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
-                      onIncrement={() => handleSelectMaritimeGive(resource)}
-                      onDecrement={handleClearMaritimeGive}
-                    />
+                    <span
+                      className={`trade-matrix-cell-display is-give ${giveSelected ? "is-active" : ""} ${
+                        !canUseAsGive ? "is-disabled" : ""
+                      }`.trim()}
+                    >
+                      {giveSelected ? 1 : 0}
+                    </span>
                     <TradeMatrixDraftControl
                       value={receiveSelected ? 1 : 0}
                       tone="receive"
