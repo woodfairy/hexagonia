@@ -3859,7 +3859,7 @@ function createFarmsteadFeature(
     );
     body.position.set(0, 0.1 * scale, 0);
     const roof = markTileShadow(new THREE.Mesh(getBarnRoofGeometry(scale), roofMaterial));
-    roof.position.set(0, 0.26 * scale, 0);
+    roof.position.set(0, 0.19 * scale, 0);
     const door = markTileShadow(
       new THREE.Mesh(new THREE.BoxGeometry(0.08 * scale, 0.12 * scale, 0.02 * scale), woodMaterial)
     );
@@ -3908,15 +3908,38 @@ function createFarmsteadFeature(
 }
 
 function getBarnRoofGeometry(scale: number): THREE.BufferGeometry {
-  const cacheKey = `barn-roof-pyramid-v2:${scale.toFixed(4)}`;
+  const cacheKey = `barn-roof-pyramid-v3:${scale.toFixed(4)}`;
   const cached = terrainPropGeometryCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const geometry = markSharedResource(new THREE.ConeGeometry(0.23 * scale, 0.14 * scale, 4));
-  geometry.scale(1, 1, 0.72);
-  geometry.rotateY(Math.PI / 4);
+  const halfWidth = 0.2 * scale;
+  const halfDepth = 0.15 * scale;
+  const height = 0.15 * scale;
+  const geometry = markSharedResource(new THREE.BufferGeometry());
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(
+      [
+        -halfWidth, 0, -halfDepth,
+        halfWidth, 0, -halfDepth,
+        0, height, 0,
+        halfWidth, 0, -halfDepth,
+        halfWidth, 0, halfDepth,
+        0, height, 0,
+        halfWidth, 0, halfDepth,
+        -halfWidth, 0, halfDepth,
+        0, height, 0,
+        -halfWidth, 0, halfDepth,
+        -halfWidth, 0, -halfDepth,
+        0, height, 0
+      ],
+      3
+    )
+  );
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
   terrainPropGeometryCache.set(cacheKey, geometry);
   return geometry;
 }
@@ -4277,20 +4300,20 @@ function createSheepfoldFeature(scale: number, active: boolean): THREE.Group {
   const hoofMaterial = createHoofMaterial();
 
   const fenceFront = createFenceSegment(scale * 1.34, active);
-  fenceFront.position.set(0, 0.01 * scale, 0.18 * scale);
+  fenceFront.position.set(0, 0.01 * scale, 0.2 * scale);
   const fenceLeft = createFenceSegment(scale * 1.12, active);
-  fenceLeft.position.set(-0.16 * scale, 0.01 * scale, 0.04 * scale);
+  fenceLeft.position.set(-0.19 * scale, 0.01 * scale, 0.04 * scale);
   fenceLeft.rotation.y = Math.PI / 2;
   const fenceRight = createFenceSegment(scale * 1.12, active);
-  fenceRight.position.set(0.16 * scale, 0.01 * scale, 0.04 * scale);
+  fenceRight.position.set(0.22 * scale, 0.01 * scale, 0.04 * scale);
   fenceRight.rotation.y = Math.PI / 2;
 
   const sheepA = createSheepFigure(scale * 0.84, woolMaterial, faceMaterial, hoofMaterial, active);
   sheepA.position.set(-0.09 * scale, 0.02 * scale, -0.05 * scale);
   sheepA.rotation.y = 0.96;
   const sheepB = createSheepFigure(scale * 0.7, createWoolMaterial(active, false), faceMaterial, hoofMaterial, active);
-  sheepB.position.set(0.04 * scale, 0.02 * scale, -0.24 * scale);
-  sheepB.rotation.y = Math.PI + 0.22;
+  sheepB.position.set(0.07 * scale, 0.02 * scale, -0.16 * scale);
+  sheepB.rotation.y = 2.86;
   const trough = createPastureGroundDetail(scale * 1.02, active, "trough");
   trough.position.set(0, 0.01 * scale, -0.18 * scale);
 
