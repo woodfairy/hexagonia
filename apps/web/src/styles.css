@@ -642,15 +642,11 @@ select:focus-visible {
 .inline-confirm-control {
   --inline-confirm-cancel-size: 2.7rem;
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0);
-  align-items: stretch;
-  gap: 0;
+  display: block;
   min-inline-size: 0;
   overflow: hidden;
-  transition:
-    grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    gap 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: var(--radius-control);
+  transition: box-shadow 220ms ease;
 }
 
 .inline-confirm-control > button {
@@ -660,15 +656,18 @@ select:focus-visible {
 }
 
 .inline-confirm-control.is-armed {
-  grid-template-columns: minmax(0, 1fr) var(--inline-confirm-cancel-size);
-  gap: 0;
+  box-shadow:
+    0 0 0 1px rgba(var(--accent-rgb), 0.08),
+    0 0 0 0.18rem rgba(var(--accent-rgb), 0.08);
 }
 
 .inline-confirm-main {
-  grid-column: 1;
   transform: translateX(0);
   transition:
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding-inline-end 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-start-end-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-end-end-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 180ms ease,
     background 180ms ease,
     color 180ms ease,
@@ -681,19 +680,19 @@ select:focus-visible {
 }
 
 .inline-confirm-main.is-armed:not(:disabled) {
-  border-color: rgba(var(--accent-rgb), 0.52);
-  box-shadow:
-    0 0 0 1px rgba(var(--accent-rgb), 0.08),
-    0 0 0 0.18rem rgba(var(--accent-rgb), 0.08);
+  border-color: transparent;
+  box-shadow: none;
   filter: saturate(1.08);
   transform: translateX(0);
+  padding-inline-end: calc(var(--pad-control-inline) + var(--inline-confirm-cancel-size));
 }
 
 .inline-confirm-cancel {
-  grid-column: 2;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
   inline-size: var(--inline-confirm-cancel-size);
-  min-inline-size: 0;
-  margin-inline-start: -1px;
+  block-size: 100%;
   overflow: hidden;
   white-space: nowrap;
   opacity: 0;
@@ -727,8 +726,9 @@ select:focus-visible {
   opacity: 1;
   transform: translateX(0) scale(1);
   pointer-events: auto;
-  border-start-start-radius: 0.4rem;
-  border-end-start-radius: 0.4rem;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-inline-start-color: rgba(255, 255, 255, 0.08);
 }
 
 .inline-confirm-control:not(.is-armed) .inline-confirm-cancel {
@@ -737,8 +737,8 @@ select:focus-visible {
 }
 
 .inline-confirm-control.is-armed .inline-confirm-main {
-  border-start-end-radius: 0.4rem;
-  border-end-end-radius: 0.4rem;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
 }
 
 .inline-confirm-cancel:hover,
