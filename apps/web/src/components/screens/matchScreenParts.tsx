@@ -26,6 +26,44 @@ export type MatchScreenNotification = Omit<MatchNotification, "eventType"> & {
   eventType: MatchNotification["eventType"] | "dice_pending" | "turn_status";
 };
 
+function MatchNotificationTradeSummary(props: {
+  summary: NonNullable<MatchScreenNotification["tradeSummary"]>;
+}) {
+  return (
+    <div className="match-notification-trade-summary" aria-label="Handelszusammenfassung">
+      <MatchNotificationTradeSide resources={props.summary.give} tone="give" />
+      <span className="match-notification-trade-arrow" aria-hidden="true" />
+      <MatchNotificationTradeSide resources={props.summary.receive} tone="receive" />
+    </div>
+  );
+}
+
+function MatchNotificationTradeSide(props: {
+  resources: ResourceMap;
+  tone: "give" | "receive";
+}) {
+  const entries = RESOURCES.filter((resource) => (props.resources[resource] ?? 0) > 0);
+
+  return (
+    <div className={`match-notification-trade-side is-${props.tone}`.trim()}>
+      {entries.length ? (
+        entries.map((resource) => (
+          <span
+            key={`${props.tone}-${resource}`}
+            className={`match-notification-trade-chip is-${props.tone}`.trim()}
+            title={`${props.resources[resource]}x ${renderResourceLabel(resource)}`}
+          >
+            <ResourceIcon resource={resource} shell size={12} />
+            <span>{`${props.resources[resource]}x`}</span>
+          </span>
+        ))
+      ) : (
+        <span className="match-notification-trade-empty">0</span>
+      )}
+    </div>
+  );
+}
+
 export function TradeResourceCardGrid(props: {
   value: Resource;
   resources: Array<{
@@ -297,6 +335,7 @@ export function MatchNotificationCard(props: {
   const badges = props.badgeLimit ? props.notification.badges.slice(0, props.badgeLimit) : props.notification.badges;
   const showDetail = variant !== "hero-mobile";
   const showBadges = variant !== "hero-mobile";
+  const showTradeSummary = showBadges && !!props.notification.tradeSummary;
 
   return (
     <article
@@ -317,6 +356,7 @@ export function MatchNotificationCard(props: {
       {showDetail ? (
         <span className="match-notification-detail">{renderMatchPlayerText(props.match, props.notification.detail)}</span>
       ) : null}
+      {showTradeSummary ? <MatchNotificationTradeSummary summary={props.notification.tradeSummary!} /> : null}
       {showBadges && badges.length ? (
         <div className="match-notification-badges">
           {badges.map((badge, index) => {

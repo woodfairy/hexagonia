@@ -15,6 +15,10 @@ export interface MatchNotification {
   title: string;
   detail: string;
   badges: BoardFocusBadge[];
+  tradeSummary?: {
+    give: ResourceMap;
+    receive: ResourceMap;
+  };
   playerId?: string;
   accentPlayerId?: string;
   atTurn: number;
@@ -709,7 +713,7 @@ function createTradeOfferedNotification(
     detail: trade
       ? `${getPlayerPredicate(match, viewerId, event.byPlayerId, `gibt ${renderResourceMap(trade.give) || "nichts"} und möchte ${renderResourceMap(trade.want) || "nichts"} von ${targetForExchange}`, `gibst ${renderResourceMap(trade.give) || "nichts"} und möchtest ${renderResourceMap(trade.want) || "nichts"} von ${targetForExchange}`)}.`
       : `Das Angebot richtet sich an ${targetForOffer}.`,
-    badges: trade ? tradeSummaryBadges(match, viewerId, trade) : []
+    ...(trade ? { tradeSummary: buildTradeSummary(viewerId, trade) } : {})
   });
 }
 
@@ -728,7 +732,7 @@ function createTradeCompletedNotification(
     detail: proposerId
       ? `Das Angebot von ${getDisplayPlayerObject(match, viewerId, proposerId, "dative")} wurde abgeschlossen.`
       : "Ein Handelsangebot wurde abgeschlossen.",
-    badges: previousTrade ? tradeSummaryBadges(match, viewerId, previousTrade) : [],
+    ...(previousTrade ? { tradeSummary: buildTradeSummary(viewerId, previousTrade) } : {}),
     emphasis: "success"
   });
 }
@@ -1055,6 +1059,7 @@ function createBaseNotification(
     title: string;
     detail: string;
     badges?: BoardFocusBadge[];
+    tradeSummary?: MatchNotification["tradeSummary"];
     cue?: BoardFocusCue | null;
     playerId?: string;
     accentPlayerId?: string;
@@ -1073,6 +1078,7 @@ function createBaseNotification(
       ...(input.badges ?? []),
       { label: `Zug ${event.atTurn}` }
     ],
+    ...(input.tradeSummary ? { tradeSummary: input.tradeSummary } : {}),
     atTurn: event.atTurn,
     cue: input.cue ?? null,
     autoFocus: input.autoFocus ?? false,
@@ -1234,24 +1240,28 @@ function getSingleResourceShift(
   return totalDelta === expectedDelta ? matchingResource : null;
 }
 
-function tradeSummaryBadges(match: MatchSnapshot, viewerId: string, trade: TradeOfferView): BoardFocusBadge[] {
-  return [
-    {
-      label: getPlayerPredicate(
-        match,
-        viewerId,
-        trade.fromPlayerId,
-        `gibt ${renderResourceMap(trade.give) || "nichts"}`,
-        `gibst ${renderResourceMap(trade.give) || "nichts"}`
-      ),
-      playerId: trade.fromPlayerId,
-      tone: "player"
-    },
-    {
-      label: `für ${renderResourceMap(trade.want) || "nichts"}`,
-      tone: "warning"
-    }
-  ];
+function buildTradeSummary(
+  viewerId: string,
+  trade: TradeOfferView
+): NonNullable<MatchNotification["tradeSummary"]> {
+  if (trade.fromPlayerId === viewerId) {
+    return {
+      give: trade.give,
+      receive: trade.want
+    };
+  }
+
+  if (!trade.toPlayerId || trade.toPlayerId === viewerId) {
+    return {
+      give: trade.want,
+      receive: trade.give
+    };
+  }
+
+  return {
+    give: trade.give,
+    receive: trade.want
+  };
 }
 
 function findTrade(tradeOffers: MatchSnapshot["tradeOffers"], tradeId: string): TradeOfferView | null {

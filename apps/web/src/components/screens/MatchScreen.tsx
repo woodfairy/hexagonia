@@ -134,6 +134,7 @@ const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
 
 const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "actions", label: "Aktionen" },
+  { id: "trade", label: "Handel" },
   { id: "hand", label: "Hand" },
   { id: "overview", label: "Events" },
   { id: "profile", label: "Profil" }
@@ -564,8 +565,6 @@ export function MatchScreen(props: {
     lockedTargetPlayerId: null
   });
   const [focusedTradeOfferId, setFocusedTradeOfferId] = useState<string | null>(null);
-  const [mobileTradeSheetOpen, setMobileTradeSheetOpen] = useState(false);
-  const [mobileTradeSheetDragOffset, setMobileTradeSheetDragOffset] = useState(0);
   const [isCompactViewport, setIsCompactViewport] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -637,9 +636,6 @@ export function MatchScreen(props: {
   const diceAnimationCompleteRef = useRef<number | null>(null);
   const previousMatchRef = useRef<MatchSnapshot | null>(null);
   const notificationCacheRef = useRef(createEmptyMatchNotificationPrivateCache());
-  const tradeSheetHistoryActiveRef = useRef(false);
-  const tradeSheetPointerIdRef = useRef<number | null>(null);
-  const tradeSheetPointerStartYRef = useRef(0);
   const previousMatch = previousMatchRef.current;
   const clearArmedAction = () => setArmedActionKey(null);
   const createMatchActionMessage = (action: Extract<ClientMessage, { type: "match.action" }>["action"]) =>
@@ -927,8 +923,7 @@ export function MatchScreen(props: {
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
   const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
-  const showIncomingTradeAlert =
-    !!incomingTradeOffer && (!isMobileViewport ? activeTab !== "trade" || effectiveSheetState === "peek" : !mobileTradeSheetOpen);
+  const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
   const desktopTabLayout = useMemo(
     () => createMatchTabLayout(MATCH_TABS, activeTab, DESKTOP_MATCH_TAB_LAYOUT),
     [activeTab]
@@ -1335,7 +1330,7 @@ export function MatchScreen(props: {
 
   useEffect(() => {
     setArmedActionKey(null);
-  }, [activeTab, effectiveSheetState, props.match.version, tradeMode, mobileTradeSheetOpen]);
+  }, [activeTab, effectiveSheetState, props.match.version, tradeMode]);
 
   useEffect(() => {
     notificationCacheRef.current = notificationState.privateCache;
@@ -1648,55 +1643,6 @@ export function MatchScreen(props: {
     setFocusedTradeOfferId(incomingTradeOffers[0]?.id ?? ownTradeOffers[0]?.id ?? null);
   }, [focusedTradeOfferId, incomingTradeOffers, ownTradeOffers]);
 
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    if (!isMobileViewport || !mobileTradeSheetOpen) {
-      document.body.style.removeProperty("overflow");
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isMobileViewport, mobileTradeSheetOpen]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isMobileViewport || !mobileTradeSheetOpen) {
-      return;
-    }
-
-    tradeSheetHistoryActiveRef.current = true;
-    window.history.pushState({ hexagoniaTradeSheet: true }, "");
-
-    const handlePopState = () => {
-      tradeSheetHistoryActiveRef.current = false;
-      setMobileTradeSheetOpen(false);
-      setMobileTradeSheetDragOffset(0);
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [isMobileViewport, mobileTradeSheetOpen]);
-
-  useEffect(() => {
-    if (isMobileViewport) {
-      return;
-    }
-
-    if (typeof window !== "undefined" && tradeSheetHistoryActiveRef.current) {
-      tradeSheetHistoryActiveRef.current = false;
-      window.history.back();
-    }
-
-    setMobileTradeSheetOpen(false);
-    setMobileTradeSheetDragOffset(0);
-  }, [isMobileViewport]);
-
   const cloneTradeResourceMap = (source: ResourceMap): ResourceMap => {
     const next = createEmptyResourceMap();
     for (const resource of RESOURCES) {
@@ -1711,19 +1657,6 @@ export function MatchScreen(props: {
       sourceTradeId: null,
       lockedTargetPlayerId: null
     });
-  const closeMobileTradeSheet = () => {
-    tradeSheetPointerIdRef.current = null;
-    tradeSheetPointerStartYRef.current = 0;
-    setMobileTradeSheetDragOffset(0);
-
-    if (typeof window !== "undefined" && tradeSheetHistoryActiveRef.current) {
-      window.history.back();
-      return;
-    }
-
-    tradeSheetHistoryActiveRef.current = false;
-    setMobileTradeSheetOpen(false);
-  };
   const openTradeWorkspace = (options?: { mode?: TradeMode; focusTradeId?: string | null }) => {
     if (options?.mode) {
       setTradeMode(options.mode);
@@ -1732,13 +1665,8 @@ export function MatchScreen(props: {
       setFocusedTradeOfferId(options.focusTradeId);
     }
 
-    if (isMobileViewport) {
-      setMobileTradeSheetOpen(true);
-      return;
-    }
-
     changeActiveTab("trade");
-    if (effectiveSheetState === "peek") {
+    if (!isMobileViewport && effectiveSheetState === "peek") {
       setSheetState("half");
     }
   };
@@ -1841,38 +1769,6 @@ export function MatchScreen(props: {
     setFocusedTradeOfferId(trade.id);
     openTradeWorkspace({ mode: "player", focusTradeId: trade.id });
   };
-  const handleTradeSheetPointerStart = (event: PointerEvent<HTMLDivElement>) => {
-    tradeSheetPointerIdRef.current = event.pointerId;
-    tradeSheetPointerStartYRef.current = event.clientY;
-    setMobileTradeSheetDragOffset(0);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const handleTradeSheetPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (tradeSheetPointerIdRef.current !== event.pointerId) {
-      return;
-    }
-
-    setMobileTradeSheetDragOffset(Math.max(0, event.clientY - tradeSheetPointerStartYRef.current));
-  };
-  const handleTradeSheetPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
-    if (tradeSheetPointerIdRef.current !== event.pointerId) {
-      return;
-    }
-
-    const dragDistance = Math.max(0, event.clientY - tradeSheetPointerStartYRef.current);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    tradeSheetPointerIdRef.current = null;
-    tradeSheetPointerStartYRef.current = 0;
-    if (dragDistance > 84) {
-      closeMobileTradeSheet();
-      return;
-    }
-
-    setMobileTradeSheetDragOffset(0);
-  };
-
   const resourceLegendList = (
     <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : "is-desktop-grid"}`}>
       {COMPACT_RESOURCE_LEGEND.map((entry) => (
@@ -2703,34 +2599,6 @@ export function MatchScreen(props: {
                     <span>{boardDiceLabel}</span>
                   </span>
                 </div>
-                <div className="board-mobile-controls">
-                  <button
-                    type="button"
-                    className={`board-mobile-trade-button ${mobileTradeSheetOpen ? "is-active" : ""} ${incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
-                    onClick={() =>
-                      openTradeWorkspace({
-                        mode: incomingTradeOffer ? "player" : tradeMode,
-                        focusTradeId: incomingTradeOffer?.id ?? focusedTradeOfferId
-                      })
-                    }
-                    aria-expanded={mobileTradeSheetOpen}
-                    aria-controls="mobile-trade-sheet"
-                  >
-                    <span className="board-mobile-trade-copy">
-                      <strong>Handel</strong>
-                      <span>
-                        {incomingTradeCount > 0
-                          ? `${incomingTradeCount} Antwort${incomingTradeCount === 1 ? "" : "en"} offen`
-                          : hasOwnTradeOffer
-                            ? "Eigenes Angebot wartet"
-                            : "Schnell verhandeln"}
-                      </span>
-                    </span>
-                    {incomingTradeCount > 0 ? (
-                      <span className="tab-alert-badge">{incomingTradeCount > 9 ? "9+" : incomingTradeCount}</span>
-                    ) : null}
-                  </button>
-                </div>
               </>
             ) : (
               <>
@@ -3019,44 +2887,6 @@ export function MatchScreen(props: {
           {effectiveSheetState !== "peek" ? renderActiveTabPanel(true) : null}
         </section>
       </div>
-      {isMobileViewport && mobileTradeSheetOpen && typeof document !== "undefined"
-        ? createPortal(
-            <>
-              <button type="button" className="trade-mobile-sheet-backdrop" aria-label="Handel schließen" onClick={closeMobileTradeSheet} />
-              <section className="trade-mobile-sheet-shell" aria-hidden={false}>
-                <div
-                  id="mobile-trade-sheet"
-                  className="surface trade-mobile-sheet"
-                  role="dialog"
-                  aria-modal="false"
-                  aria-labelledby="mobile-trade-sheet-title"
-                  style={mobileTradeSheetDragOffset > 0 ? { transform: `translateY(${mobileTradeSheetDragOffset}px)` } : undefined}
-                >
-                  <div
-                    className="trade-mobile-sheet-handle"
-                    onPointerDown={handleTradeSheetPointerStart}
-                    onPointerMove={handleTradeSheetPointerMove}
-                    onPointerUp={handleTradeSheetPointerEnd}
-                    onPointerCancel={handleTradeSheetPointerEnd}
-                  >
-                    <span className="trade-mobile-sheet-grab" aria-hidden="true" />
-                  </div>
-                  <div className="trade-mobile-sheet-head">
-                    <div>
-                      <span className="eyebrow">Handel</span>
-                      <h2 id="mobile-trade-sheet-title">Verhandlung</h2>
-                    </div>
-                    <button type="button" className="ghost-button" onClick={closeMobileTradeSheet}>
-                      Schließen
-                    </button>
-                  </div>
-                  {tradeWorkspace}
-                </div>
-              </section>
-            </>,
-            document.body
-          )
-        : null}
     </section>
   );
 }
