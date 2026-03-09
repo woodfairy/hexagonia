@@ -4911,11 +4911,13 @@ select {
 }
 
 .trade-mode-segmented {
-  inline-size: fit-content;
+  inline-size: 100%;
   max-inline-size: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .trade-mode-segmented button {
+  inline-size: 100%;
   min-block-size: 1.84rem;
   padding: 0.42rem 0.78rem;
 }
@@ -5359,7 +5361,7 @@ select {
 @container (max-width: 44rem) {
   .trade-mode-segmented {
     inline-size: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .trade-mode-segmented button {
