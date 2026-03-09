@@ -460,7 +460,16 @@ function canPlaceCoverSpawn(
   structureMask: TerrainStructureMask,
   random: () => number
 ): boolean {
-  if (!isCoverBoundsInsidePolygon(spawn.bounds, polygon.points, biome.recipe.coverEdgePadding)) {
+  if (!isPointInsidePolygon(spawn.x, spawn.z, polygon.points)) {
+    return false;
+  }
+
+  const edgeClearance = getPolygonEdgeClearance(spawn.x, spawn.z, polygon.points);
+  if (edgeClearance < spawn.bounds.radius + biome.recipe.coverEdgePadding) {
+    return false;
+  }
+
+  if (!isCoverBoundsInsidePolygon(spawn.bounds, polygon.points, 0)) {
     return false;
   }
 
@@ -672,23 +681,6 @@ function getCoverGapFillFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
 
   const unsupportedKind: never = kind;
   throw new Error(`Unsupported terrain cover gap fill factor: ${unsupportedKind}`);
-}
-
-function getCoverEdgeInsetFactor(kind: TerrainBiomeRecipe["coverKind"]): number {
-  switch (kind) {
-    case "grassPatch":
-      return 0.12;
-    case "wheatPatch":
-      return 0.16;
-    case "rockCluster":
-      return 0.22;
-    case "clay":
-      return 0.2;
-    case "dune":
-      return 0.24;
-    case "tree":
-      return 0.42;
-  }
 }
 
 function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): TerrainCoverGeometryTemplate {
@@ -927,15 +919,9 @@ function createCoverGeometryTemplate(geometry: THREE.BufferGeometry): TerrainCov
   }
 
   normalized.computeBoundingBox();
-  const bounds = normalized.boundingBox;
-  if (!bounds) {
+  if (!normalized.boundingBox) {
     throw new Error("Failed to compute terrain cover geometry bounds.");
   }
-
-  const centerX = (bounds.min.x + bounds.max.x) * 0.5;
-  const centerZ = (bounds.min.z + bounds.max.z) * 0.5;
-  normalized.translate(-centerX, 0, -centerZ);
-  normalized.computeBoundingBox();
   normalized.computeBoundingSphere();
 
   const position = normalized.getAttribute("position");

@@ -5,7 +5,7 @@ import type { MatchSnapshot, PlayerColor, Resource } from "@hexagonia/shared";
 import { BUILT_ROAD_ELEVATION, createBuildingPieceModel, createRoadPieceModel } from "./boardPieceModels";
 import { isFirefoxBrowser } from "./browserPerformance";
 import { createTileTerrainSurface, type TileTerrainSurfaceBundle } from "./boardTerrainRelief";
-import { applyTileObjectClipPlanes, createTileShape, createTileShapeKey } from "./boardTileGeometry";
+import { createTileShape, createTileShapeKey } from "./boardTileGeometry";
 import { TILE_COLORS } from "./boardVisuals";
 
 interface ShowcaseTile {
@@ -211,7 +211,6 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
-    renderer.localClippingEnabled = true;
     renderer.domElement.className = "landing-scene-canvas";
     mount.appendChild(renderer.domElement);
 
@@ -1014,14 +1013,12 @@ function createFancyTileMesh(
 ): THREE.Group {
   const tileGroup = createClassicTileMesh(tile, verticesById);
   if (terrainSurface) {
-    applyTileObjectClipPlanes(terrainSurface.object, tile, verticesById, TILE_OUTER_RENDER_SCALE);
     tileGroup.add(terrainSurface.object);
   }
 
   const propGroup = createFancyTileProps(tile.resource);
   propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
   propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.86);
-  applyTileObjectClipPlanes(propGroup, tile, verticesById, TILE_OUTER_RENDER_SCALE);
   tileGroup.add(propGroup);
   return tileGroup;
 }
