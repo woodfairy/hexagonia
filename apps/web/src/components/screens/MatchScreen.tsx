@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState, type CSSProperties, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
+import type { FocusEvent, MouseEvent, PointerEvent } from "react";
 import type {
   ClientMessage,
   DevelopmentCardView,
@@ -18,7 +19,8 @@ import {
   RESOURCES,
   totalResources
 } from "@hexagonia/shared";
-import { BoardScene, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { BoardScene, type ArmedBoardSelection, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
+import { getMatchActionConfirmation, getMatchActionKey } from "../../appSupport";
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
@@ -71,10 +73,33 @@ export interface MaritimeFormState {
   receive: Resource;
 }
 
+export interface PendingBoardActionState {
+  key: string;
+  title: string;
+  detail: string;
+  confirmLabel: string;
+  message: Extract<ClientMessage, { type: "match.action" }>;
+  selection: ArmedBoardSelection;
+  targetPlayerIds: string[];
+  afterConfirm?: () => void;
+}
+
 type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
 type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players" | "profile";
 type SheetState = "peek" | "half" | "full";
 type TradeSection = "player" | "maritime";
+type InlineConfirmButtonProps = {
+  confirmKey: string;
+  armedActionKey: string | null;
+  onArm: (key: string) => void;
+  onClear: () => void;
+  onConfirm: () => void;
+  buttonClassName: string;
+  disabled?: boolean;
+  content: ReactNode;
+  armedContent?: ReactNode;
+  buttonProps?: Omit<ComponentProps<"button">, "type" | "className" | "onClick" | "disabled">;
+};
 
 const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
   { id: "actions", label: "Aktionen" },
@@ -162,6 +187,46 @@ const DICE_EXPAND_MS = 0;
 const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
 
+function InlineConfirmButton(props: InlineConfirmButtonProps) {
+  const armed = props.armedActionKey === props.confirmKey;
+
+  return (
+    <span className={`inline-confirm-control ${armed ? "is-armed" : ""}`.trim()}>
+      <button
+        type="button"
+        className={`${props.buttonClassName} ${armed ? "is-armed" : ""}`.trim()}
+        disabled={props.disabled}
+        onClick={() => {
+          if (props.disabled) {
+            return;
+          }
+
+          if (armed) {
+            props.onClear();
+            props.onConfirm();
+            return;
+          }
+
+          props.onArm(props.confirmKey);
+        }}
+        {...props.buttonProps}
+      >
+        {armed ? props.armedContent ?? props.content : props.content}
+        {armed ? (
+          <span className="inline-confirm-chip" aria-hidden="true">
+            Bestätigen
+          </span>
+        ) : null}
+      </button>
+      {armed ? (
+        <button type="button" className="ghost-button inline-confirm-cancel" onClick={props.onClear} aria-label="Bestätigung abbrechen">
+          ×
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
 export function MatchScreen(props: {
   boardVisualSettings: BoardVisualSettings;
   match: MatchSnapshot;
@@ -174,7 +239,11 @@ export function MatchScreen(props: {
   maritimeForm: MaritimeFormState;
   yearOfPlenty: [Resource, Resource];
   monopolyResource: Resource;
+  pendingBoardAction: PendingBoardActionState | null;
   onAction: (message: ClientMessage) => void;
+  onConfirmPendingBoardAction: () => void;
+  onCancelPendingBoardAction: () => void;
+  onSelectPendingRobberTarget: (targetPlayerId: string) => void;
   onRollDice: () => void;
   onOfferTrade: () => void;
   onVertexSelect: (vertexId: string) => void;
@@ -258,6 +327,7 @@ export function MatchScreen(props: {
     return window.innerWidth > 1023;
   });
   const [buildActionTooltip, setBuildActionTooltip] = useState<BuildActionTooltipState | null>(null);
+  const [armedActionKey, setArmedActionKey] = useState<string | null>(null);
   const latestDiceEvent = useMemo(() => getLatestDiceRollEvent(props.match), [props.match]);
   const [diceDisplay, setDiceDisplay] = useState<DiceDisplayState>(() => ({
     left: props.match.dice?.[0] ?? null,
@@ -273,6 +343,15 @@ export function MatchScreen(props: {
   const previousMatchRef = useRef<MatchSnapshot | null>(null);
   const notificationCacheRef = useRef(createEmptyMatchNotificationPrivateCache());
   const previousMatch = previousMatchRef.current;
+  const clearArmedAction = () => setArmedActionKey(null);
+  const createMatchActionMessage = (action: Extract<ClientMessage, { type: "match.action" }>["action"]) =>
+    ({
+      type: "match.action",
+      matchId: props.match.matchId,
+      action
+    }) satisfies Extract<ClientMessage, { type: "match.action" }>;
+  const createInlineConfirmKey = (slotId: string, action: Extract<ClientMessage, { type: "match.action" }>["action"]) =>
+    `${slotId}:${getMatchActionKey(action)}`;
 
   const activePlayer = props.match.players.find((player) => player.id === props.match.currentPlayerId) ?? null;
   const isCurrentPlayer = props.match.currentPlayerId === props.match.you;
@@ -357,6 +436,13 @@ export function MatchScreen(props: {
   const canAffordRoad = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.road);
   const canAffordSettlement = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.settlement);
   const canAffordCity = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.city);
+  const buyDevelopmentAction: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "buy_development_card" };
+  const buyDevelopmentMessage = createMatchActionMessage(buyDevelopmentAction);
+  const buyDevelopmentConfirmation = getMatchActionConfirmation(props.match, buyDevelopmentAction);
+  const buyDevelopmentConfirmKey =
+    buyDevelopmentConfirmation && props.match.allowedMoves.canBuyDevelopmentCard
+      ? createInlineConfirmKey("build-development", buyDevelopmentAction)
+      : null;
   const buildActions = [
     createBuildActionState("road", "Straße", {
       cost: BUILD_COSTS.road,
@@ -397,12 +483,7 @@ export function MatchScreen(props: {
       phase: props.match.phase,
       isCurrentPlayer,
       resources: props.selfPlayer?.resources,
-      onClick: () =>
-        props.onAction({
-          type: "match.action",
-          matchId: props.match.matchId,
-          action: { type: "buy_development_card" }
-        })
+      onClick: () => props.onAction(buyDevelopmentMessage)
     })
   ];
   const canSubmitTradeOffer =
@@ -419,6 +500,59 @@ export function MatchScreen(props: {
   const totalVictoryPoints = props.selfPlayer?.totalVictoryPoints ?? props.selfPlayer?.publicVictoryPoints ?? 0;
   const pendingRoadBuilding =
     props.match.pendingDevelopmentEffect?.type === "road_building" ? props.match.pendingDevelopmentEffect : null;
+  const endTurnAction: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "end_turn" };
+  const endTurnMessage = createMatchActionMessage(endTurnAction);
+  const endTurnConfirmation = getMatchActionConfirmation(props.match, endTurnAction);
+  const endTurnConfirmKey =
+    endTurnConfirmation && props.match.allowedMoves.canEndTurn ? createInlineConfirmKey("quick-end-turn", endTurnAction) : null;
+  const finishRoadBuildingAction: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "finish_road_building" };
+  const finishRoadBuildingMessage = createMatchActionMessage(finishRoadBuildingAction);
+  const finishRoadBuildingConfirmation = getMatchActionConfirmation(props.match, finishRoadBuildingAction);
+  const finishRoadBuildingConfirmKey =
+    finishRoadBuildingConfirmation && pendingRoadBuilding?.remainingRoads === 1
+      ? createInlineConfirmKey("road-building-finish", finishRoadBuildingAction)
+      : null;
+  const tradeOfferAction: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+    type: "create_trade_offer",
+    toPlayerId: props.match.currentPlayerId === props.match.you ? props.tradeForm.targetPlayerId || null : props.match.currentPlayerId,
+    give: props.tradeForm.give,
+    want: props.tradeForm.want
+  };
+  const tradeOfferConfirmation = getMatchActionConfirmation(props.match, tradeOfferAction);
+  const tradeOfferConfirmKey =
+    tradeOfferConfirmation && canSubmitTradeOffer ? createInlineConfirmKey("trade-offer", tradeOfferAction) : null;
+  const maritimeTradeAction: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+    type: "maritime_trade",
+    give: props.maritimeForm.give,
+    receive: props.maritimeForm.receive,
+    giveCount: maritimeRatio
+  };
+  const maritimeTradeMessage = createMatchActionMessage(maritimeTradeAction);
+  const maritimeTradeConfirmation = getMatchActionConfirmation(props.match, maritimeTradeAction);
+  const maritimeTradeConfirmKey =
+    maritimeTradeConfirmation && isCurrentPlayer && canSubmitMaritimeTrade
+      ? createInlineConfirmKey("maritime-trade", maritimeTradeAction)
+      : null;
+  const developmentInlineConfirmKeys = developmentCards.flatMap((card) => {
+    if (!card.playable) {
+      return [];
+    }
+
+    switch (card.type) {
+      case "knight":
+        return [createInlineConfirmKey(`development-card-${card.id}`, { type: "play_knight" })];
+      case "road_building":
+        return [createInlineConfirmKey(`development-card-${card.id}`, { type: "play_road_building" })];
+      case "year_of_plenty":
+        return canPlayYearOfPlenty
+          ? [createInlineConfirmKey(`development-card-${card.id}`, { type: "play_year_of_plenty", resources: props.yearOfPlenty })]
+          : [];
+      case "monopoly":
+        return [createInlineConfirmKey(`development-card-${card.id}`, { type: "play_monopoly", resource: props.monopolyResource })];
+      default:
+        return [];
+    }
+  });
   const playableDevelopmentCardCount =
     isCurrentPlayer &&
     !pendingRoadBuilding &&
@@ -622,40 +756,69 @@ export function MatchScreen(props: {
     }
 
     switch (card.type) {
-      case "knight":
-        return card.playable ? (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "play_knight" }
-              })
-            }
-          >
-            Ritter spielen
-          </button>
-        ) : null;
-      case "road_building":
-        return card.playable ? (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "play_road_building" }
-              })
-            }
-          >
-            Straßenbau starten
-          </button>
-        ) : null;
+      case "knight": {
+        if (!card.playable) {
+          return null;
+        }
+
+        const action: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "play_knight" };
+        const confirmation = getMatchActionConfirmation(props.match, action);
+        if (!confirmation) {
+          return null;
+        }
+
+        return (
+          <InlineConfirmButton
+            confirmKey={createInlineConfirmKey(`development-card-${card.id}`, action)}
+            armedActionKey={armedActionKey}
+            onArm={setArmedActionKey}
+            onClear={clearArmedAction}
+            onConfirm={() => props.onAction(createMatchActionMessage(action))}
+            buttonClassName="secondary-button"
+            content="Ritter spielen"
+            armedContent={confirmation.confirmLabel}
+          />
+        );
+      }
+      case "road_building": {
+        if (!card.playable) {
+          return null;
+        }
+
+        const action: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "play_road_building" };
+        const confirmation = getMatchActionConfirmation(props.match, action);
+        if (!confirmation) {
+          return null;
+        }
+
+        return (
+          <InlineConfirmButton
+            confirmKey={createInlineConfirmKey(`development-card-${card.id}`, action)}
+            armedActionKey={armedActionKey}
+            onArm={setArmedActionKey}
+            onClear={clearArmedAction}
+            onConfirm={() => props.onAction(createMatchActionMessage(action))}
+            buttonClassName="secondary-button"
+            content="Straßenbau starten"
+            armedContent={confirmation.confirmLabel}
+          />
+        );
+      }
       case "year_of_plenty":
-        return card.playable ? (
+        if (!card.playable) {
+          return null;
+        }
+
+        const yearOfPlentyAction: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+          type: "play_year_of_plenty",
+          resources: props.yearOfPlenty
+        };
+        const yearOfPlentyConfirmation = getMatchActionConfirmation(props.match, yearOfPlentyAction);
+        if (!yearOfPlentyConfirmation) {
+          return null;
+        }
+
+        return (
           <div className="triple-select development-card-controls">
             <select
               value={props.yearOfPlenty[0]}
@@ -677,27 +840,34 @@ export function MatchScreen(props: {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              className="secondary-button"
+            <InlineConfirmButton
+              confirmKey={createInlineConfirmKey(`development-card-${card.id}`, yearOfPlentyAction)}
+              armedActionKey={armedActionKey}
+              onArm={setArmedActionKey}
+              onClear={clearArmedAction}
+              onConfirm={() => props.onAction(createMatchActionMessage(yearOfPlentyAction))}
+              buttonClassName="secondary-button"
               disabled={!canPlayYearOfPlenty}
-              onClick={() =>
-                props.onAction({
-                  type: "match.action",
-                  matchId: props.match.matchId,
-                  action: {
-                    type: "play_year_of_plenty",
-                    resources: props.yearOfPlenty
-                  }
-                })
-              }
-            >
-              Erfindung spielen
-            </button>
+              content="Erfindung spielen"
+              armedContent={yearOfPlentyConfirmation.confirmLabel}
+            />
           </div>
-        ) : null;
+        );
       case "monopoly":
-        return card.playable ? (
+        if (!card.playable) {
+          return null;
+        }
+
+        const monopolyAction: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+          type: "play_monopoly",
+          resource: props.monopolyResource
+        };
+        const monopolyConfirmation = getMatchActionConfirmation(props.match, monopolyAction);
+        if (!monopolyConfirmation) {
+          return null;
+        }
+
+        return (
           <div className="triple-select development-card-controls">
             <select
               value={props.monopolyResource}
@@ -709,24 +879,18 @@ export function MatchScreen(props: {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() =>
-                props.onAction({
-                  type: "match.action",
-                  matchId: props.match.matchId,
-                  action: {
-                    type: "play_monopoly",
-                    resource: props.monopolyResource
-                  }
-                })
-              }
-            >
-              Monopol spielen
-            </button>
+            <InlineConfirmButton
+              confirmKey={createInlineConfirmKey(`development-card-${card.id}`, monopolyAction)}
+              armedActionKey={armedActionKey}
+              onArm={setArmedActionKey}
+              onClear={clearArmedAction}
+              onConfirm={() => props.onAction(createMatchActionMessage(monopolyAction))}
+              buttonClassName="secondary-button"
+              content="Monopol spielen"
+              armedContent={monopolyConfirmation.confirmLabel}
+            />
           </div>
-        ) : null;
+        );
       case "victory_point":
         return null;
       default:
@@ -759,23 +923,36 @@ export function MatchScreen(props: {
             Straße auf Brett wählen
           </button>
           {pendingRoadBuilding.remainingRoads === 1 ? (
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() =>
-                props.onAction({
-                  type: "match.action",
-                  matchId: props.match.matchId,
-                  action: { type: "finish_road_building" }
-                })
-              }
-            >
-              Mit einer Straße beenden
-            </button>
+            <InlineConfirmButton
+              confirmKey={finishRoadBuildingConfirmKey ?? "road-building-finish:disabled"}
+              armedActionKey={armedActionKey}
+              onArm={setArmedActionKey}
+              onClear={clearArmedAction}
+              onConfirm={() => props.onAction(finishRoadBuildingMessage)}
+              buttonClassName="ghost-button"
+              disabled={!finishRoadBuildingConfirmKey}
+              content="Mit einer Straße beenden"
+              armedContent={finishRoadBuildingConfirmation?.confirmLabel ?? "Mit einer Straße beenden"}
+            />
           ) : null}
         </div>
       </article>
     ) : null;
+  const pendingBoardTargetPlayerId =
+    !!props.pendingBoardAction && props.pendingBoardAction.message.action.type === "move_robber"
+      ? props.pendingBoardAction.message.action.targetPlayerId ?? null
+      : null;
+  const pendingBoardTargetPlayers = props.pendingBoardAction
+    ? props.pendingBoardAction.targetPlayerIds.flatMap((targetPlayerId) => {
+        const player = props.match.players.find((entry) => entry.id === targetPlayerId);
+        return player ? [player] : [];
+      })
+    : [];
+  const pendingBoardActionNeedsTarget =
+    !!props.pendingBoardAction &&
+    props.pendingBoardAction.message.action.type === "move_robber" &&
+    props.pendingBoardAction.targetPlayerIds.length > 1;
+  const canConfirmPendingBoardAction = !!props.pendingBoardAction && (!pendingBoardActionNeedsTarget || !!pendingBoardTargetPlayerId);
   const renderTabLabel = (tab: { id: MatchPanelTab; label: string }) => {
     const alertCount = tab.id === "trade" ? incomingTradeCount : 0;
     return (
@@ -825,13 +1002,11 @@ export function MatchScreen(props: {
               label: "Würfeln",
               className: "primary-button",
               disabled: !props.match.allowedMoves.canRoll,
+              confirmKey: null,
+              confirmLabel: null,
               onClick: () => {
                 props.onRollDice();
-                props.onAction({
-                  type: "match.action",
-                  matchId: props.match.matchId,
-                  action: { type: "roll_dice" }
-                });
+                props.onAction(createMatchActionMessage({ type: "roll_dice" }));
               }
             }
           ]
@@ -839,44 +1014,80 @@ export function MatchScreen(props: {
     ...(props.match.allowedMoves.canEndTurn
       ? [
           {
-            id: "end-turn",
-            label: "Zug beenden",
-            className: "primary-button",
-            disabled: false,
-            onClick: () =>
-              props.onAction({
-                type: "match.action",
-                matchId: props.match.matchId,
-                action: { type: "end_turn" }
-              })
-          }
-        ]
+             id: "end-turn",
+             label: "Zug beenden",
+             className: "primary-button",
+             disabled: false,
+             confirmKey: endTurnConfirmKey,
+             confirmLabel: endTurnConfirmation?.confirmLabel ?? "Zug beenden",
+             onClick: () => props.onAction(endTurnMessage)
+           }
+         ]
       : [])
   ];
   const hasQuickActions = primaryActions.length > 0;
   const hasDisconnectCountdown = props.match.players.some(
     (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
   );
+  const visibleInlineConfirmKeys = new Set([
+    ...(buyDevelopmentConfirmKey ? [buyDevelopmentConfirmKey] : []),
+    ...(finishRoadBuildingConfirmKey ? [finishRoadBuildingConfirmKey] : []),
+    ...(tradeOfferConfirmKey ? [tradeOfferConfirmKey] : []),
+    ...(maritimeTradeConfirmKey ? [maritimeTradeConfirmKey] : []),
+    ...developmentInlineConfirmKeys,
+    ...primaryActions.flatMap((action) => (action.confirmKey ? [action.confirmKey] : []))
+  ]);
 
   const renderQuickActions = (showPlaceholder = true) =>
     hasQuickActions ? (
       <div className={`quick-action-grid ${primaryActions.length === 1 ? "is-single" : ""}`.trim()}>
-        {primaryActions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            className={`${action.className} match-quick-action-button is-${action.id}`.trim()}
-            disabled={action.disabled}
-            onClick={action.onClick}
-          >
-            {renderQuickActionIcon(action.id) ? (
-              <span className="match-quick-action-icon" aria-hidden="true">
-                {renderQuickActionIcon(action.id)}
-              </span>
-            ) : null}
-            <span className="match-quick-action-label">{action.label}</span>
-          </button>
-        ))}
+        {primaryActions.map((action) => {
+          const content = (
+            <>
+              {renderQuickActionIcon(action.id) ? (
+                <span className="match-quick-action-icon" aria-hidden="true">
+                  {renderQuickActionIcon(action.id)}
+                </span>
+              ) : null}
+              <span className="match-quick-action-label">{action.label}</span>
+            </>
+          );
+          const armedContent = (
+            <>
+              {renderQuickActionIcon(action.id) ? (
+                <span className="match-quick-action-icon" aria-hidden="true">
+                  {renderQuickActionIcon(action.id)}
+                </span>
+              ) : null}
+              <span className="match-quick-action-label">{action.confirmLabel ?? action.label}</span>
+            </>
+          );
+
+          return action.confirmKey ? (
+            <InlineConfirmButton
+              key={action.id}
+              confirmKey={action.confirmKey}
+              armedActionKey={armedActionKey}
+              onArm={setArmedActionKey}
+              onClear={clearArmedAction}
+              onConfirm={action.onClick}
+              buttonClassName={`${action.className} match-quick-action-button is-${action.id}`.trim()}
+              disabled={action.disabled}
+              content={content}
+              armedContent={armedContent}
+            />
+          ) : (
+            <button
+              key={action.id}
+              type="button"
+              className={`${action.className} match-quick-action-button is-${action.id}`.trim()}
+              disabled={action.disabled}
+              onClick={action.onClick}
+            >
+              {content}
+            </button>
+          );
+        })}
       </div>
     ) : showPlaceholder ? (
       <div className="action-placeholder">
@@ -885,6 +1096,16 @@ export function MatchScreen(props: {
         {turnStatus.callout ? <span className="status-pill is-warning">{turnStatus.callout}</span> : null}
       </div>
     ) : null;
+
+  useEffect(() => {
+    if (armedActionKey && !visibleInlineConfirmKeys.has(armedActionKey)) {
+      setArmedActionKey(null);
+    }
+  }, [armedActionKey, visibleInlineConfirmKeys]);
+
+  useEffect(() => {
+    setArmedActionKey(null);
+  }, [activeTab, effectiveSheetState, props.match.version, tradeSection]);
 
   useEffect(() => {
     notificationCacheRef.current = notificationState.privateCache;
@@ -1375,57 +1596,97 @@ export function MatchScreen(props: {
             <span>Kosten und Voraussetzungen</span>
           </div>
           <div className="build-action-grid">
-            {buildActions.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                className={`build-action-card ${action.active ? "is-active" : action.disabled ? "is-disabled" : "is-ready"}`}
-                aria-disabled={action.disabled}
-                onPointerEnter={(event) => {
-                  if (!action.disabled) {
-                    return;
-                  }
-
-                  openBuildActionTooltip(action.tooltip, event.currentTarget);
-                }}
-                onPointerMove={(event) => {
-                  if (!action.disabled) {
-                    return;
-                  }
-
-                  openBuildActionTooltip(action.tooltip, event.currentTarget);
-                }}
-                onPointerLeave={closeBuildActionTooltip}
-                onMouseEnter={(event) => {
-                  if (!action.disabled) {
-                    return;
-                  }
-
-                  openBuildActionTooltip(action.tooltip, event.currentTarget);
-                }}
-                onMouseLeave={closeBuildActionTooltip}
-                onFocus={(event) => {
-                  if (!action.disabled) {
-                    return;
-                  }
-
-                  openBuildActionTooltip(action.tooltip, event.currentTarget);
-                }}
-                onBlur={closeBuildActionTooltip}
-                onClick={() => {
-                  if (action.disabled) {
-                    return;
-                  }
-
-                  action.onClick();
-                }}
-              >
+            {buildActions.map((action) => {
+              const className = `build-action-card ${action.active ? "is-active" : action.disabled ? "is-disabled" : "is-ready"}`;
+              const content = (
                 <span className="build-action-head">
                   <strong>{action.label}</strong>
                   <span>{action.costLabel}</span>
                 </span>
-              </button>
-            ))}
+              );
+              const buttonProps = {
+                "aria-disabled": action.disabled,
+                onPointerEnter: (event: PointerEvent<HTMLButtonElement>) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                },
+                onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                },
+                onPointerLeave: closeBuildActionTooltip,
+                onMouseEnter: (event: MouseEvent<HTMLButtonElement>) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                },
+                onMouseLeave: closeBuildActionTooltip,
+                onFocus: (event: FocusEvent<HTMLButtonElement>) => {
+                  if (!action.disabled) {
+                    return;
+                  }
+
+                  openBuildActionTooltip(action.tooltip, event.currentTarget);
+                },
+                onBlur: closeBuildActionTooltip
+              } satisfies Omit<ComponentProps<"button">, "type" | "className" | "onClick" | "disabled">;
+
+              if (action.id === "development" && buyDevelopmentConfirmKey && buyDevelopmentConfirmation) {
+                return (
+                  <InlineConfirmButton
+                    key={action.id}
+                    confirmKey={buyDevelopmentConfirmKey}
+                    armedActionKey={armedActionKey}
+                    onArm={setArmedActionKey}
+                    onClear={clearArmedAction}
+                    onConfirm={action.onClick}
+                    buttonClassName={className}
+                    disabled={action.disabled}
+                    content={content}
+                    armedContent={
+                      <span className="build-action-head">
+                        <strong>{buyDevelopmentConfirmation.confirmLabel}</strong>
+                        <span>{action.costLabel}</span>
+                      </span>
+                    }
+                    buttonProps={buttonProps}
+                  />
+                );
+              }
+
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  className={className}
+                  aria-disabled={action.disabled}
+                  onPointerEnter={buttonProps.onPointerEnter}
+                  onPointerMove={buttonProps.onPointerMove}
+                  onPointerLeave={buttonProps.onPointerLeave}
+                  onMouseEnter={buttonProps.onMouseEnter}
+                  onMouseLeave={buttonProps.onMouseLeave}
+                  onFocus={buttonProps.onFocus}
+                  onBlur={buttonProps.onBlur}
+                  onClick={() => {
+                    if (action.disabled) {
+                      return;
+                    }
+
+                    action.onClick();
+                  }}
+                >
+                  {content}
+                </button>
+              );
+            })}
           </div>
           {buildActionTooltip && typeof document !== "undefined"
             ? createPortal(
@@ -1723,14 +1984,17 @@ export function MatchScreen(props: {
                   )}
                 </article>
 
-                <button
-                  type="button"
-                  className="primary-button trade-submit-button"
-                  disabled={!canSubmitTradeOffer}
-                  onClick={props.onOfferTrade}
-                >
-                  Angebot senden
-                </button>
+                <InlineConfirmButton
+                  confirmKey={tradeOfferConfirmKey ?? "trade-offer:disabled"}
+                  armedActionKey={armedActionKey}
+                  onArm={setArmedActionKey}
+                  onClear={clearArmedAction}
+                  onConfirm={props.onOfferTrade}
+                  buttonClassName="primary-button trade-submit-button"
+                  disabled={!tradeOfferConfirmKey}
+                  content="Angebot senden"
+                  armedContent={tradeOfferConfirmation?.confirmLabel ?? "Angebot senden"}
+                />
               </div>
             </>
           ) : (
@@ -1806,25 +2070,17 @@ export function MatchScreen(props: {
                 </div>
               </article>
 
-              <button
-                type="button"
-                className="secondary-button trade-submit-button"
-                disabled={!isCurrentPlayer || !canSubmitMaritimeTrade}
-                onClick={() =>
-                  props.onAction({
-                    type: "match.action",
-                    matchId: props.match.matchId,
-                    action: {
-                      type: "maritime_trade",
-                      give: props.maritimeForm.give,
-                      receive: props.maritimeForm.receive,
-                      giveCount: maritimeRatio
-                    }
-                  })
-                }
-              >
-                {maritimeRatio}:1 tauschen
-              </button>
+              <InlineConfirmButton
+                confirmKey={maritimeTradeConfirmKey ?? "maritime-trade:disabled"}
+                armedActionKey={armedActionKey}
+                onArm={setArmedActionKey}
+                onClear={clearArmedAction}
+                onConfirm={() => props.onAction(maritimeTradeMessage)}
+                buttonClassName="secondary-button trade-submit-button"
+                disabled={!maritimeTradeConfirmKey}
+                content={`${maritimeRatio}:1 tauschen`}
+                armedContent={maritimeTradeConfirmation?.confirmLabel ?? `${maritimeRatio}:1 tauschen`}
+              />
             </div>
           )}
         </section>
@@ -1955,6 +2211,7 @@ export function MatchScreen(props: {
           </div>
           <div className="board-stage-frame">
             <BoardScene
+              armedSelection={props.pendingBoardAction?.selection ?? null}
               cameraCue={cameraCue}
               focusCue={highlightCue}
               interactionMode={props.interactionMode}
@@ -1965,6 +2222,50 @@ export function MatchScreen(props: {
               snapshot={props.match}
               visualSettings={props.boardVisualSettings}
             />
+            {props.pendingBoardAction ? (
+              <aside
+                className={`surface board-inline-confirm ${isMobileViewport ? "is-mobile" : ""}`.trim()}
+                role="dialog"
+                aria-modal="false"
+                aria-labelledby="board-inline-confirm-title"
+              >
+                <div className="board-inline-confirm-copy">
+                  <span className="eyebrow">Bestätigung</span>
+                  <strong id="board-inline-confirm-title">{props.pendingBoardAction.title}</strong>
+                  <span>{renderMatchPlayerText(props.match, props.pendingBoardAction.detail)}</span>
+                </div>
+                {pendingBoardActionNeedsTarget ? (
+                  <div className="board-inline-confirm-targets">
+                    {pendingBoardTargetPlayers.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        className={`board-inline-confirm-target ${getPlayerAccentClass(player.color)} ${
+                          pendingBoardTargetPlayerId === player.id ? "is-active" : ""
+                        }`.trim()}
+                        onClick={() => props.onSelectPendingRobberTarget(player.id)}
+                      >
+                        <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
+                        <span>{pendingBoardTargetPlayerId === player.id ? "Ausgewählt" : "Als Opfer wählen"}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="board-inline-confirm-actions">
+                  <button type="button" className="ghost-button" onClick={props.onCancelPendingBoardAction}>
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={!canConfirmPendingBoardAction}
+                    onClick={props.onConfirmPendingBoardAction}
+                  >
+                    {props.pendingBoardAction.confirmLabel}
+                  </button>
+                </div>
+              </aside>
+            ) : null}
             {showIncomingTradeAlert && incomingTradeOffer ? (
               <TradeBanner
                 className={`is-board-alert ${isMobileViewport ? "is-mobile" : ""}`}

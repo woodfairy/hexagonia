@@ -38,11 +38,17 @@ export interface BoardFocusCue {
   zoomPreset?: "distribution" | "roll";
 }
 
+export interface ArmedBoardSelection {
+  kind: "tile" | "edge" | "vertex";
+  id: string;
+}
+
 interface BoardSceneProps {
   snapshot: MatchSnapshot;
   visualSettings: BoardVisualSettings;
   interactionMode: InteractionMode;
   selectedRoadEdges: string[];
+  armedSelection?: ArmedBoardSelection | null;
   focusCue: BoardFocusCue | null;
   cameraCue: BoardFocusCue | null;
   onVertexSelect: (vertexId: string) => void;
@@ -292,6 +298,7 @@ function createDynamicBoardKey(
   snapshot: MatchSnapshot,
   interactionMode: InteractionMode,
   selectedRoadEdges: string[],
+  armedSelection: ArmedBoardSelection | null | undefined,
   focusCue: BoardFocusCue | null
 ): string {
   const robberKey = snapshot.board.tiles.map((tile) => `${tile.id}:${tile.robber ? 1 : 0}`).join("|");
@@ -317,6 +324,7 @@ function createDynamicBoardKey(
     moveKey,
     interactionMode ?? "none",
     selectedRoadEdges.join(","),
+    armedSelection ? `${armedSelection.kind}:${armedSelection.id}` : "",
     focusCue?.key ?? ""
   ].join("#");
 }
@@ -431,8 +439,8 @@ export function BoardScene(props: BoardSceneProps) {
     [props.snapshot.board, props.visualSettings]
   );
   const dynamicBoardKey = useMemo(
-    () => createDynamicBoardKey(props.snapshot, props.interactionMode, props.selectedRoadEdges, props.focusCue),
-    [props.snapshot, props.interactionMode, props.selectedRoadEdges, props.focusCue]
+    () => createDynamicBoardKey(props.snapshot, props.interactionMode, props.selectedRoadEdges, props.armedSelection, props.focusCue),
+    [props.armedSelection, props.snapshot, props.interactionMode, props.selectedRoadEdges, props.focusCue]
   );
 
   useEffect(() => {
@@ -1178,6 +1186,7 @@ export function BoardScene(props: BoardSceneProps) {
 
     for (const tile of props.snapshot.board.tiles) {
       const tileHeight = sampleTileTerrainHeight(terrainSurfaceByTile, tile, tile.x, tile.y);
+      const armed = props.armedSelection?.kind === "tile" && props.armedSelection.id === tile.id;
       if (tile.robber) {
         const baseTokenSprite = staticTokenSpritesRef.current.get(tile.id);
         if (baseTokenSprite) {
@@ -1189,19 +1198,21 @@ export function BoardScene(props: BoardSceneProps) {
         group.add(robberSprite);
       }
 
-      if (!robberTileIds.has(tile.id)) {
+      if (!robberTileIds.has(tile.id) && !armed) {
         continue;
       }
 
-      const marker = createTileFocusMarker(tile, verticesById, false);
+      const marker = createTileFocusMarker(tile, verticesById, armed);
       marker.position.set(tile.x, tileHeight + 0.52, tile.y);
-      registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.08);
+      registerPulseVisual(marker, pulseObjectsRef.current, armed ? "strong" : "soft", armed ? 1.14 : 1.08);
       group.add(marker);
-      const proxy = createTileInteractiveProxy(tile, verticesById);
-      proxy.position.set(tile.x, tileHeight + 0.56, tile.y);
-      attachInteractiveMeta(proxy, "tile", tile.id, 1.06, marker, marker);
-      dynamicInteractiveRef.current.push(proxy);
-      group.add(proxy);
+      if (robberTileIds.has(tile.id)) {
+        const proxy = createTileInteractiveProxy(tile, verticesById);
+        proxy.position.set(tile.x, tileHeight + 0.56, tile.y);
+        attachInteractiveMeta(proxy, "tile", tile.id, armed ? 1.12 : 1.06, marker, marker);
+        dynamicInteractiveRef.current.push(proxy);
+        group.add(proxy);
+      }
     }
 
     for (const edge of props.snapshot.board.edges) {
@@ -1215,14 +1226,16 @@ export function BoardScene(props: BoardSceneProps) {
       const centerZ = (left.y + right.y) / 2;
 
       const active = legalEdges.has(edge.id);
+      const armed = props.armedSelection?.kind === "edge" && props.armedSelection.id === edge.id;
       const selected = selectedRoadEdges.has(edge.id);
-      if (!edge.ownerId && !active && !selected) {
+      if (!edge.ownerId && !active && !selected && !armed) {
         continue;
       }
 
+      const emphasized = selected || armed;
       const road = edge.ownerId
-        ? createRoadPiece(length, colorToHex(edge.color ?? "red"), selected, props.visualSettings.pieceStyle)
-        : createRoadGuide(length, selected, props.visualSettings.pieceStyle);
+        ? createRoadPiece(length, colorToHex(edge.color ?? "red"), emphasized, props.visualSettings.pieceStyle)
+        : createRoadGuide(length, emphasized, props.visualSettings.pieceStyle);
       const edgeHeight = sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById);
       const roadHeight = edge.ownerId ? edgeHeight + BUILT_ROAD_ELEVATION : edgeHeight + GUIDE_ROAD_ELEVATION;
       const roadObject = new THREE.Group();
@@ -1238,11 +1251,17 @@ export function BoardScene(props: BoardSceneProps) {
       roadObject.add(road);
 
       if (active) {
-        registerPulseVisual(roadObject, pulseObjectsRef.current, selected ? "strong" : "soft", selected ? 1.24 : 1.18, false);
+        registerPulseVisual(
+          roadObject,
+          pulseObjectsRef.current,
+          emphasized ? "strong" : "soft",
+          emphasized ? 1.24 : 1.18,
+          false
+        );
         const proxy = createRoadHitArea(length);
         proxy.position.copy(roadObject.position);
         proxy.quaternion.copy(roadObject.quaternion);
-        attachInteractiveMeta(proxy, "edge", edge.id, selected ? 1.18 : 1.14, roadObject);
+        attachInteractiveMeta(proxy, "edge", edge.id, emphasized ? 1.18 : 1.14, roadObject);
         dynamicInteractiveRef.current.push(proxy);
         group.add(proxy);
       }
@@ -1252,8 +1271,9 @@ export function BoardScene(props: BoardSceneProps) {
 
     for (const vertex of props.snapshot.board.vertices) {
       const active = legalVertices.has(vertex.id);
+      const armed = props.armedSelection?.kind === "vertex" && props.armedSelection.id === vertex.id;
       const building = vertex.building;
-      if (!building && !active) {
+      if (!building && !active && !armed) {
         continue;
       }
 
@@ -1277,20 +1297,25 @@ export function BoardScene(props: BoardSceneProps) {
       group.add(mesh);
 
       if (active) {
-        const marker = building ? createVertexFocusMarker(false) : null;
+        const marker = building || armed ? createVertexFocusMarker(armed) : null;
         if (marker) {
           marker.position.set(vertex.x, vertexHeight + 0.42, vertex.y);
-          registerPulseVisual(marker, pulseObjectsRef.current, "soft", 1.1);
+          registerPulseVisual(marker, pulseObjectsRef.current, armed ? "strong" : "soft", armed ? 1.16 : 1.1);
           group.add(marker);
         } else {
-          registerPulseVisual(mesh, pulseObjectsRef.current, "soft", 1.1);
+          registerPulseVisual(mesh, pulseObjectsRef.current, armed ? "strong" : "soft", armed ? 1.16 : 1.1);
         }
 
         const proxy = createVertexInteractiveProxy();
         proxy.position.set(vertex.x, vertexHeight + 0.42, vertex.y);
-        attachInteractiveMeta(proxy, "vertex", vertex.id, building ? 1.1 : 1.18, marker ?? mesh, marker);
+        attachInteractiveMeta(proxy, "vertex", vertex.id, armed ? 1.2 : building ? 1.1 : 1.18, marker ?? mesh, marker);
         dynamicInteractiveRef.current.push(proxy);
         group.add(proxy);
+      } else if (armed) {
+        const marker = createVertexFocusMarker(true);
+        marker.position.set(vertex.x, vertexHeight + 0.42, vertex.y);
+        registerPulseVisual(marker, pulseObjectsRef.current, "strong", 1.16);
+        group.add(marker);
       }
     }
 

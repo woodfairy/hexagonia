@@ -55,6 +55,7 @@ import {
   DeepLinkBootSkeleton,
   getActionableTradeCount,
   getMatchActionConfirmation,
+  getMatchActionKey,
   getNextAdminUserDraft,
   getReconnectJitter,
   getToastHapticId,
@@ -72,15 +73,18 @@ import { AdminScreen, type AdminCreateFormState, type AdminUserDraftState } from
 import { LandingScreen } from "./components/screens/LandingScreen";
 import { LobbyScreen } from "./components/screens/LobbyScreen";
 import {
-  ConfirmActionDialog,
   RobberDiscardDialog,
-  RobberTargetDialog,
   RobberWaitDialog
 } from "./components/screens/MatchDialogs";
-import { MatchScreen, type MaritimeFormState, type TradeFormState } from "./components/screens/MatchScreen";
+import {
+  MatchScreen,
+  type MaritimeFormState,
+  type PendingBoardActionState,
+  type TradeFormState
+} from "./components/screens/MatchScreen";
 import { getLatestDiceRollEvent } from "./components/screens/matchScreenViewModel";
 import { RoomScreen } from "./components/screens/RoomScreen";
-import { PlayerMention, renderMatchPlayerText } from "./components/shared/PlayerText";
+import { PlayerMention } from "./components/shared/PlayerText";
 import { getRecaptchaRegisterToken } from "./recaptcha";
 import {
   type AuthMode,
@@ -103,19 +107,6 @@ const DICE_ROLL_MS = 560;
 const DICE_SETTLE_MS = 260;
 const ROBBER_UI_DELAY_MS = DICE_EXPAND_MS + DICE_ROLL_MS + DICE_SETTLE_MS;
 type MatchEvent = MatchSnapshot["eventLog"][number];
-
-interface PendingMatchConfirmation {
-  title: string;
-  detail: string;
-  confirmLabel: string;
-  message: Extract<ClientMessage, { type: "match.action" }>;
-  afterConfirm?: () => void;
-}
-
-interface PendingRobberTargetSelection {
-  tileId: string;
-  targetPlayerIds: string[];
-}
 
 interface UiFeedbackRequest {
   sound?: Parameters<typeof uiSoundManager.play>;
@@ -226,8 +217,7 @@ export function App() {
   const [yearOfPlenty, setYearOfPlenty] = useState<[Resource, Resource]>(["brick", "grain"]);
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
   const [route, setRoute] = useState<RouteState>(readRoute());
-  const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<PendingMatchConfirmation | null>(null);
-  const [pendingRobberTargetSelection, setPendingRobberTargetSelection] = useState<PendingRobberTargetSelection | null>(null);
+  const [pendingBoardAction, setPendingBoardAction] = useState<PendingBoardActionState | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
   const [robberDiscardMinimized, setRobberDiscardMinimized] = useState(false);
   const musicTracks = useMemo(() => uiSoundManager.getMusicTracks(), []);
@@ -597,7 +587,7 @@ export function App() {
       (requiredDiscardCount > 0 ||
         match.allowedMoves.robberMoveOptions.length > 0 ||
         match.robberDiscardStatus.length > 0 ||
-        pendingRobberTargetSelection !== null);
+        pendingBoardAction !== null);
 
     if (!robberUiActive) {
       return;
@@ -606,44 +596,139 @@ export function App() {
     playUiFeedback({ haptic: "dice" });
   }, [
     match,
-    pendingRobberTargetSelection,
+    pendingBoardAction,
     playUiFeedback,
     requiredDiscardCount,
     robberUiDeferredByDiceAnimation
   ]);
 
   useEffect(() => {
-    if (!match || interactionMode !== "robber") {
-      setPendingRobberTargetSelection(null);
+    if (!match) {
+      setPendingBoardAction(null);
       return;
     }
 
-    setPendingRobberTargetSelection((current) => {
+    setPendingBoardAction((current) => {
       if (!current) {
         return null;
       }
 
-      const option = match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === current.tileId);
-      if (!option || option.targetPlayerIds.length <= 1) {
-        return null;
-      }
+      switch (current.message.action.type) {
+        case "place_initial_settlement":
+          return match.allowedMoves.initialSettlementVertexIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "place_initial_road":
+          return match.allowedMoves.initialRoadEdgeIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "build_road":
+          return interactionMode === "road" && match.allowedMoves.roadEdgeIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "build_settlement":
+          return interactionMode === "settlement" && match.allowedMoves.settlementVertexIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "build_city":
+          return interactionMode === "city" && match.allowedMoves.cityVertexIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "place_free_road":
+          return interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "move_robber": {
+          if (interactionMode !== "robber") {
+            return null;
+          }
 
-      return {
-        tileId: current.tileId,
-        targetPlayerIds: option.targetPlayerIds
-      };
+          const option = match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === current.selection.id);
+          if (!option) {
+            return null;
+          }
+
+          const targetPlayerId =
+            current.message.action.targetPlayerId && option.targetPlayerIds.includes(current.message.action.targetPlayerId)
+              ? current.message.action.targetPlayerId
+              : undefined;
+          const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+            type: "move_robber",
+            tileId: current.selection.id,
+            ...(targetPlayerId ? { targetPlayerId } : {})
+          };
+          const confirmation = getMatchActionConfirmation(match, action);
+          if (!confirmation) {
+            return null;
+          }
+
+          return {
+            ...current,
+            ...confirmation,
+            key: getMatchActionKey(action),
+            message: {
+              ...current.message,
+              matchId: match.matchId,
+              action
+            },
+            targetPlayerIds: option.targetPlayerIds
+          };
+        }
+        default:
+          return null;
+      }
     });
   }, [interactionMode, match]);
 
   useEffect(() => {
-    const dialogOpen = !!pendingMatchConfirmation || !!pendingRobberTargetSelection;
+    const dialogOpen = !!pendingBoardAction;
     if (!hasSeenDialogStateRef.current) {
       hasSeenDialogStateRef.current = true;
       return;
     }
 
+    if (!dialogOpen) {
+      return;
+    }
+
     playUiFeedback({ haptic: "dialog" });
-  }, [pendingMatchConfirmation, pendingRobberTargetSelection, playUiFeedback]);
+  }, [pendingBoardAction, playUiFeedback]);
 
   useEffect(() => {
     setAdminUserDrafts((current) =>
@@ -928,6 +1013,7 @@ export function App() {
           (currentMatchRoomId === message.room.id || roomRef.current?.id === message.room.id)
         ) {
           setMatch(null);
+          setPendingBoardAction(null);
           setInteractionMode(null);
           setSelectedRoadEdges([]);
           navigateTo(
@@ -1078,6 +1164,7 @@ export function App() {
 
   useEffect(() => {
     if (!match) {
+      setPendingBoardAction(null);
       setInteractionMode(null);
       setSelectedRoadEdges([]);
       return;
@@ -1172,37 +1259,11 @@ export function App() {
     [pushToast, triggerReconnect]
   );
 
-  const queueMatchConfirmation = useCallback(
+  const dispatchMatchAction = useCallback(
     (message: Extract<ClientMessage, { type: "match.action" }>, afterConfirm?: () => void) => {
-      const currentMatch = matchRef.current;
-      if (!currentMatch) {
-        return;
-      }
+      sendCurrent(message);
 
-      const confirmation = getMatchActionConfirmation(currentMatch, message.action);
-      if (!confirmation) {
-        sendCurrent(message);
-        afterConfirm?.();
-        return;
-      }
-
-      setPendingMatchConfirmation({
-        ...confirmation,
-        message,
-        ...(afterConfirm ? { afterConfirm } : {})
-      });
-    },
-    [sendCurrent]
-  );
-
-  const handleMatchAction = useCallback(
-    (message: ClientMessage) => {
-      if (message.type !== "match.action") {
-        sendCurrent(message);
-        return;
-      }
-
-      const afterConfirm =
+      const builtInAfterConfirm =
         message.action.type === "play_road_building"
           ? () => setSelectedRoadEdges([])
           : message.action.type === "finish_road_building"
@@ -1214,51 +1275,128 @@ export function App() {
               ? () => setSelectedRoadEdges([])
               : undefined;
 
-      queueMatchConfirmation(message, afterConfirm);
+      builtInAfterConfirm?.();
+      afterConfirm?.();
     },
-    [queueMatchConfirmation, sendCurrent]
+    [sendCurrent]
   );
 
-  const handleConfirmPendingAction = useCallback(() => {
-    if (!pendingMatchConfirmation) {
+  const handleMatchAction = useCallback(
+    (message: ClientMessage) => {
+      if (message.type !== "match.action") {
+        sendCurrent(message);
+        return;
+      }
+
+      dispatchMatchAction(message);
+    },
+    [dispatchMatchAction, sendCurrent]
+  );
+
+  const handleConfirmPendingBoardAction = useCallback(() => {
+    if (!pendingBoardAction) {
       return;
     }
 
-    sendCurrent(pendingMatchConfirmation.message);
-    pendingMatchConfirmation.afterConfirm?.();
-    setPendingMatchConfirmation(null);
-  }, [pendingMatchConfirmation, sendCurrent]);
+    if (
+      pendingBoardAction.message.action.type === "move_robber" &&
+      pendingBoardAction.targetPlayerIds.length > 1 &&
+      !pendingBoardAction.message.action.targetPlayerId
+    ) {
+      return;
+    }
 
-  const handleCancelPendingAction = useCallback(() => {
-    setPendingMatchConfirmation(null);
+    setPendingBoardAction(null);
+    dispatchMatchAction(pendingBoardAction.message, pendingBoardAction.afterConfirm);
+  }, [dispatchMatchAction, pendingBoardAction]);
+
+  const handleCancelPendingBoardAction = useCallback(() => {
+    setPendingBoardAction(null);
   }, []);
 
-  const queueRobberMoveConfirmation = useCallback(
-    (tileId: string, targetPlayerId?: string) => {
-      if (!matchRef.current) {
+  const armBoardAction = useCallback(
+    (
+      message: Extract<ClientMessage, { type: "match.action" }>,
+      selection: PendingBoardActionState["selection"],
+      options?: {
+        afterConfirm?: () => void;
+        targetPlayerIds?: string[];
+      }
+    ) => {
+      const currentMatch = matchRef.current;
+      if (!currentMatch) {
         return;
+      }
+
+      const confirmation = getMatchActionConfirmation(currentMatch, message.action);
+      if (!confirmation) {
+        dispatchMatchAction(message, options?.afterConfirm);
+        return;
+      }
+
+      const nextKey = getMatchActionKey(message.action);
+      const currentPendingBoardAction = pendingBoardAction;
+      const sameSelection =
+        !!currentPendingBoardAction &&
+        currentPendingBoardAction.selection.kind === selection.kind &&
+        currentPendingBoardAction.selection.id === selection.id &&
+        currentPendingBoardAction.key === nextKey;
+      const requiresTargetSelection =
+        message.action.type === "move_robber" &&
+        (options?.targetPlayerIds?.length ?? 0) > 1 &&
+        !message.action.targetPlayerId;
+
+      if (sameSelection && !requiresTargetSelection) {
+        setPendingBoardAction(null);
+        dispatchMatchAction(message, options?.afterConfirm);
+        return;
+      }
+
+      setPendingBoardAction({
+        ...confirmation,
+        key: nextKey,
+        message,
+        selection,
+        targetPlayerIds: options?.targetPlayerIds ?? [],
+        ...(options?.afterConfirm ? { afterConfirm: options.afterConfirm } : {})
+      });
+    },
+    [dispatchMatchAction, pendingBoardAction]
+  );
+
+  const handleSelectPendingRobberTarget = useCallback((targetPlayerId: string) => {
+    const currentMatch = matchRef.current;
+    if (!currentMatch) {
+      return;
+    }
+
+    setPendingBoardAction((current) => {
+      if (!current || current.message.action.type !== "move_robber") {
+        return current;
       }
 
       const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
         type: "move_robber",
-        tileId,
-        ...(targetPlayerId ? { targetPlayerId } : {})
+        tileId: current.selection.id,
+        targetPlayerId
       };
+      const confirmation = getMatchActionConfirmation(currentMatch, action);
+      if (!confirmation) {
+        return null;
+      }
 
-      queueMatchConfirmation(
-        {
-          type: "match.action",
-          matchId: matchRef.current.matchId,
+      return {
+        ...current,
+        ...confirmation,
+        key: getMatchActionKey(action),
+        message: {
+          ...current.message,
+          matchId: currentMatch.matchId,
           action
-        },
-        () => {
-          setPendingRobberTargetSelection(null);
-          setInteractionMode(null);
         }
-      );
-    },
-    [queueMatchConfirmation]
-  );
+      };
+    });
+  }, []);
 
   const handleAdjustRobberDiscard = useCallback(
     (resource: Resource, delta: -1 | 1) => {
@@ -1874,14 +2012,17 @@ export function App() {
 
     if (match.allowedMoves.initialSettlementVertexIds.includes(vertexId)) {
       playUiFeedback({ haptic: "nudge" });
-      queueMatchConfirmation({
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "place_initial_settlement",
-          vertexId
-        }
-      });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "place_initial_settlement",
+            vertexId
+          }
+        },
+        { kind: "vertex", id: vertexId }
+      );
       return;
     }
 
@@ -1892,7 +2033,7 @@ export function App() {
       match.allowedMoves.settlementVertexIds.includes(vertexId)
     ) {
       playUiFeedback({ haptic: "nudge" });
-      queueMatchConfirmation(
+      armBoardAction(
         {
           type: "match.action",
           matchId: match.matchId,
@@ -1901,7 +2042,8 @@ export function App() {
             vertexId
           }
         },
-        () => setInteractionMode(null)
+        { kind: "vertex", id: vertexId },
+        { afterConfirm: () => setInteractionMode(null) }
       );
     }
 
@@ -1912,7 +2054,7 @@ export function App() {
       match.allowedMoves.cityVertexIds.includes(vertexId)
     ) {
       playUiFeedback({ haptic: "nudge" });
-      queueMatchConfirmation(
+      armBoardAction(
         {
           type: "match.action",
           matchId: match.matchId,
@@ -1921,7 +2063,8 @@ export function App() {
             vertexId
           }
         },
-        () => setInteractionMode(null)
+        { kind: "vertex", id: vertexId },
+        { afterConfirm: () => setInteractionMode(null) }
       );
     }
   };
@@ -1936,14 +2079,17 @@ export function App() {
 
     if (match.allowedMoves.initialRoadEdgeIds.includes(edgeId)) {
       playUiFeedback({ haptic: "nudge" });
-      queueMatchConfirmation({
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "place_initial_road",
-          edgeId
-        }
-      });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "place_initial_road",
+            edgeId
+          }
+        },
+        { kind: "edge", id: edgeId }
+      );
       return;
     }
 
@@ -1954,7 +2100,7 @@ export function App() {
       match.allowedMoves.roadEdgeIds.includes(edgeId)
     ) {
       playUiFeedback({ haptic: "nudge" });
-      queueMatchConfirmation(
+      armBoardAction(
         {
           type: "match.action",
           matchId: match.matchId,
@@ -1963,20 +2109,24 @@ export function App() {
             edgeId
           }
         },
-        () => setInteractionMode(null)
+        { kind: "edge", id: edgeId },
+        { afterConfirm: () => setInteractionMode(null) }
       );
     }
 
     if (interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(edgeId)) {
       playUiFeedback({ haptic: "nudge" });
-      queueMatchConfirmation({
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "place_free_road",
-          edgeId
-        }
-      });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "place_free_road",
+            edgeId
+          }
+        },
+        { kind: "edge", id: edgeId }
+      );
     }
   };
 
@@ -1990,15 +2140,22 @@ export function App() {
       return;
     }
 
-    if (option.targetPlayerIds.length > 1) {
-      setPendingRobberTargetSelection({
-        tileId,
+    armBoardAction(
+      {
+        type: "match.action",
+        matchId: match.matchId,
+        action: {
+          type: "move_robber",
+          tileId,
+          ...(option.targetPlayerIds.length === 1 ? { targetPlayerId: option.targetPlayerIds[0] } : {})
+        }
+      },
+      { kind: "tile", id: tileId },
+      {
+        afterConfirm: () => setInteractionMode(null),
         targetPlayerIds: option.targetPlayerIds
-      });
-      return;
-    }
-
-    queueRobberMoveConfirmation(tileId, option.targetPlayerIds[0]);
+      }
+    );
   };
 
   const sendTradeOffer = () => {
@@ -2008,24 +2165,21 @@ export function App() {
 
     const toPlayerId = match.currentPlayerId === match.you ? tradeForm.targetPlayerId || null : match.currentPlayerId;
 
-    queueMatchConfirmation(
-      {
-        type: "match.action",
-        matchId: match.matchId,
-        action: {
-          type: "create_trade_offer",
-          toPlayerId,
-          give: cloneResourceMap(tradeForm.give),
-          want: cloneResourceMap(tradeForm.want)
-        }
-      },
-      () =>
-        setTradeForm({
-          give: createEmptyResourceMap(),
-          want: createEmptyResourceMap(),
-          targetPlayerId: ""
-        })
-      );
+    handleMatchAction({
+      type: "match.action",
+      matchId: match.matchId,
+      action: {
+        type: "create_trade_offer",
+        toPlayerId,
+        give: cloneResourceMap(tradeForm.give),
+        want: cloneResourceMap(tradeForm.want)
+      }
+    });
+    setTradeForm({
+      give: createEmptyResourceMap(),
+      want: createEmptyResourceMap(),
+      targetPlayerId: ""
+    });
   };
 
   const guestInviteCode = !session && route.kind === "invite" ? route.code : null;
@@ -2254,43 +2408,21 @@ export function App() {
               tradeForm={tradeForm}
               yearOfPlenty={yearOfPlenty}
               onAction={handleMatchAction}
+              onCancelPendingBoardAction={handleCancelPendingBoardAction}
+              onConfirmPendingBoardAction={handleConfirmPendingBoardAction}
               onRollDice={handleRollDiceHaptic}
               onEdgeSelect={handleEdgeSelect}
               onOfferTrade={sendTradeOffer}
+              onSelectPendingRobberTarget={handleSelectPendingRobberTarget}
               onTileSelect={handleTileSelect}
               onVertexSelect={handleVertexSelect}
+              pendingBoardAction={robberUiDeferredByDiceAnimation ? null : pendingBoardAction}
             />
           ) : (
             <DeepLinkBootSkeleton kind="match" />
           )
         ) : null}
       </div>
-
-      {pendingMatchConfirmation ? (
-        <ConfirmActionDialog
-          confirmLabel={pendingMatchConfirmation.confirmLabel}
-          detail={match ? renderMatchPlayerText(match, pendingMatchConfirmation.detail) : pendingMatchConfirmation.detail}
-          title={pendingMatchConfirmation.title}
-          onCancel={handleCancelPendingAction}
-          onConfirm={handleConfirmPendingAction}
-        />
-      ) : null}
-
-      {!robberUiDeferredByDiceAnimation && pendingRobberTargetSelection && match ? (
-        <RobberTargetDialog
-          players={match.players}
-          targetPlayerIds={pendingRobberTargetSelection.targetPlayerIds}
-          onCancel={() => setPendingRobberTargetSelection(null)}
-          onSelect={(targetPlayerId) => {
-            if (!pendingRobberTargetSelection) {
-              return;
-            }
-            const { tileId } = pendingRobberTargetSelection;
-            setPendingRobberTargetSelection(null);
-            queueRobberMoveConfirmation(tileId, targetPlayerId);
-          }}
-        />
-      ) : null}
 
       {!robberUiDeferredByDiceAnimation && requiredDiscardCount > 0 ? (
         <RobberDiscardDialog
@@ -2316,7 +2448,7 @@ export function App() {
       requiredDiscardCount === 0 &&
       robberDiscardStatus.length > 0 &&
       match.allowedMoves.robberMoveOptions.length === 0 &&
-      !pendingRobberTargetSelection ? (
+      !pendingBoardAction ? (
         <RobberWaitDialog
           currentPlayer={match.players.find((player) => player.id === match.currentPlayerId) ?? null}
           players={match.players}

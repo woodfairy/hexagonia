@@ -2,8 +2,10 @@ import type {
   AdminUserRecord,
   ClientMessage,
   MatchSnapshot,
+  Resource,
   UserRole
 } from "@hexagonia/shared";
+import { RESOURCES } from "@hexagonia/shared";
 import type { ToastMessage } from "./components/shell/ToastStack";
 import type {
   AdminUserDraftState
@@ -11,6 +13,61 @@ import type {
 import { renderResourceLabel, renderResourceMap } from "./ui";
 
 type MatchAction = Extract<ClientMessage, { type: "match.action" }>["action"];
+
+function serializeResourceMap(resources: Partial<Record<Resource, number>>): string {
+  return RESOURCES.map((resource) => `${resource}:${resources[resource] ?? 0}`).join(",");
+}
+
+export function getMatchActionKey(action: MatchAction): string {
+  switch (action.type) {
+    case "place_initial_settlement":
+      return `place_initial_settlement:${action.vertexId}`;
+    case "place_initial_road":
+      return `place_initial_road:${action.edgeId}`;
+    case "discard_resources":
+      return `discard_resources:${serializeResourceMap(action.resources)}`;
+    case "roll_dice":
+      return "roll_dice";
+    case "build_road":
+      return `build_road:${action.edgeId}`;
+    case "build_settlement":
+      return `build_settlement:${action.vertexId}`;
+    case "build_city":
+      return `build_city:${action.vertexId}`;
+    case "buy_development_card":
+      return "buy_development_card";
+    case "play_knight":
+      return "play_knight";
+    case "play_road_building":
+      return "play_road_building";
+    case "place_free_road":
+      return `place_free_road:${action.edgeId}`;
+    case "finish_road_building":
+      return "finish_road_building";
+    case "play_year_of_plenty":
+      return `play_year_of_plenty:${action.resources[0]}:${action.resources[1]}`;
+    case "play_monopoly":
+      return `play_monopoly:${action.resource}`;
+    case "move_robber":
+      return `move_robber:${action.tileId}:${action.targetPlayerId ?? ""}`;
+    case "create_trade_offer":
+      return `create_trade_offer:${action.toPlayerId ?? ""}:${serializeResourceMap(action.give)}:${serializeResourceMap(action.want)}`;
+    case "accept_trade_offer":
+      return `accept_trade_offer:${action.tradeId}`;
+    case "decline_trade_offer":
+      return `decline_trade_offer:${action.tradeId}`;
+    case "withdraw_trade_offer":
+      return `withdraw_trade_offer:${action.tradeId}`;
+    case "maritime_trade":
+      return `maritime_trade:${action.give}:${action.receive}:${action.giveCount}`;
+    case "end_turn":
+      return "end_turn";
+    default: {
+      const exhaustiveCheck: never = action;
+      return exhaustiveCheck;
+    }
+  }
+}
 
 export function getReconnectJitter(attempt: number): number {
   return (attempt * 173) % 351;
