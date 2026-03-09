@@ -923,11 +923,8 @@ function handleCreateTradeOffer(
   want: ResourceMap
 ): void {
   ensurePhase(state.phase === "turn_action");
-  if (isEmptyResourceMap(give)) {
-    throw new GameRuleError("Ein Handel muss mindestens eine angebotene Ressource enthalten.");
-  }
-  if (isEmptyResourceMap(want)) {
-    throw new GameRuleError("Ein Handel muss mindestens eine gewünschte Ressource enthalten.");
+  if (isEmptyResourceMap(give) && isEmptyResourceMap(want)) {
+    throw new GameRuleError("Ein Handel darf nicht komplett leer sein.");
   }
 
   const player = getPlayer(state, playerId);

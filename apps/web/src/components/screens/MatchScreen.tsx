@@ -15,7 +15,6 @@ import {
   createEmptyResourceMap,
   equalResourceMaps,
   hasResources,
-  isEmptyResourceMap,
   RESOURCES,
   totalResources
 } from "@hexagonia/shared";
@@ -86,7 +85,7 @@ export interface PendingBoardActionState {
 type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
 type MatchPanelTab = "overview" | "actions" | "hand" | "trade" | "players" | "profile";
 type SheetState = "peek" | "half" | "full";
-type TradeMode = "player" | "bank" | "harbor";
+type TradeMode = "player" | "maritime";
 type MatchTabLayoutConfig = {
   columns: number;
   gridColumns: number;
@@ -871,10 +870,7 @@ export function MatchScreen(props: {
       }, {} as Record<Resource, number>),
     [props.match.allowedMoves.maritimeRates]
   );
-  const bankTradeResources = RESOURCES.filter((resource) => maritimeRatesByResource[resource] === 4);
-  const harborTradeResources = RESOURCES.filter((resource) => maritimeRatesByResource[resource] < 4);
-  const visibleMaritimeGiveResources =
-    tradeMode === "bank" ? bankTradeResources : tradeMode === "harbor" ? harborTradeResources : RESOURCES;
+  const visibleMaritimeGiveResources = RESOURCES;
   const selectedMaritimeGiveResource = props.maritimeForm.give || null;
   const maritimeRatio = selectedMaritimeGiveResource ? (maritimeRatesByResource[selectedMaritimeGiveResource] ?? 4) : 0;
   const tradeGiveTotal = totalResources(props.tradeForm.give);
@@ -948,11 +944,11 @@ export function MatchScreen(props: {
     })
   ];
   const hasOwnTradeOffer = ownTradeOffers.length > 0;
+  const isPlayerTradeCompletelyEmpty = tradeGiveTotal === 0 && tradeWantTotal === 0;
   const canSubmitTradeOffer =
     props.match.allowedMoves.canCreateTradeOffer &&
     !hasOwnTradeOffer &&
-    !isEmptyResourceMap(props.tradeForm.give) &&
-    !isEmptyResourceMap(props.tradeForm.want) &&
+    !isPlayerTradeCompletelyEmpty &&
     hasResources(props.selfPlayer?.resources ?? createEmptyResourceMap(), props.tradeForm.give);
   const canSubmitMaritimeTrade =
     tradeMode !== "player" &&
@@ -1819,7 +1815,8 @@ export function MatchScreen(props: {
   const handleSelectMaritimeGive = (resource: Resource) => {
     props.setMaritimeForm((current) => ({
       ...current,
-      give: resource
+      give: resource,
+      receive: current.receive === resource ? RESOURCES.find((entry) => entry !== resource) ?? current.receive : current.receive
     }));
   };
   const handleClearMaritimeGive = () => {
@@ -1991,24 +1988,21 @@ export function MatchScreen(props: {
     ? "Offenes Angebot zuerst ändern oder zurückziehen."
     : !props.match.allowedMoves.canCreateTradeOffer
       ? "Spielerhandel ist gerade gesperrt."
-      : tradeGiveTotal === 0 || tradeWantTotal === 0
-        ? ""
+      : isPlayerTradeCompletelyEmpty
+        ? "Mindestens eine Seite muss Rohstoffe enthalten."
         : "";
-  const maritimeTradeSubmitHint =
-    tradeMode === "harbor" && harborTradeResources.length === 0
-      ? "Kein passender Hafen verfügbar."
-      : !props.match.allowedMoves.canMaritimeTrade
-        ? "Nur im eigenen Aktionszug möglich."
+  const maritimeTradeSubmitHint = !props.match.allowedMoves.canMaritimeTrade
+    ? "Nur im eigenen Aktionszug möglich."
+    : affordableMaritimeGiveResources.length === 0
+      ? "Nicht genug Rohstoffe für einen Hafentausch."
       : !selectedMaritimeGiveResource
         ? "Einsatz wählen."
         : props.maritimeForm.give === props.maritimeForm.receive
-          ? "Ziel wählen."
+          ? "Anderen Rohstoff wählen."
           : "";
   const maritimeActionLabel =
-    visibleMaritimeGiveResources.length === 0
-      ? tradeMode === "bank"
-        ? "Banktausch nicht möglich"
-        : "Hafentausch nicht möglich"
+    affordableMaritimeGiveResources.length === 0
+      ? "Hafentausch nicht möglich"
       : selectedMaritimeGiveResource
         ? `${maritimeRatio}:1 tauschen`
         : "Tauschen";
@@ -2017,10 +2011,7 @@ export function MatchScreen(props: {
       <button type="button" className={tradeMode === "player" ? "is-active" : ""} onClick={() => setTradeMode("player")}>
         Spieler
       </button>
-      <button type="button" className={tradeMode === "bank" ? "is-active" : ""} onClick={() => setTradeMode("bank")}>
-        Bank
-      </button>
-      <button type="button" className={tradeMode === "harbor" ? "is-active" : ""} onClick={() => setTradeMode("harbor")}>
+      <button type="button" className={tradeMode === "maritime" ? "is-active" : ""} onClick={() => setTradeMode("maritime")}>
         Hafen
       </button>
     </div>
@@ -2140,73 +2131,61 @@ export function MatchScreen(props: {
     <section className="trade-composer-card">
       <div className="trade-composer-grid is-stacked">
         {visibleMaritimeGiveResources.length ? (
-          <>
-            <div className="trade-matrix-shell is-maritime-draft">
-              <div className="trade-matrix-head is-maritime">
-                <span aria-hidden="true" />
-                <span>Hand</span>
-                <span>Rate</span>
-                <span>Einsatz</span>
-              </div>
-              <div className="trade-matrix-list">
-                {RESOURCES.map((resource) => {
-                  const ratio = maritimeRatesByResource[resource];
-                  const available = props.selfPlayer?.resources?.[resource] ?? 0;
-                  const giveVisible = visibleMaritimeGiveResources.includes(resource);
-                  const giveSelected = props.maritimeForm.give === resource;
-                  const canUseAsGive = giveVisible && available >= ratio;
-
-                  return (
-                    <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
-                      <div className="trade-matrix-resource" title={renderResourceLabel(resource)}>
-                        <span className="trade-matrix-resource-icon" aria-hidden="true">
-                          <ResourceIcon resource={resource} shell size={14} />
-                        </span>
-                      </div>
-                      <span className="trade-matrix-meta">{available}</span>
-                      <span
-                        className={`trade-matrix-cell-display is-give ${giveSelected ? "is-active" : ""} ${
-                          !canUseAsGive ? "is-disabled" : ""
-                        }`.trim()}
-                      >
-                        {giveVisible ? `${ratio}:1` : "—"}
-                      </span>
-                      <TradeMatrixDraftControl
-                        value={giveSelected ? 1 : 0}
-                        tone="give"
-                        incrementDisabled={!canUseAsGive}
-                        incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
-                        decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
-                        onIncrement={() => handleSelectMaritimeGive(resource)}
-                        onDecrement={handleClearMaritimeGive}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+          <div className="trade-matrix-shell is-maritime-draft">
+            <div className="trade-matrix-head is-maritime">
+              <span aria-hidden="true" />
+              <span>Hand</span>
+              <span>Rate</span>
+              <span>Einsatz</span>
+              <span>Ziel</span>
             </div>
-            <div className="trade-maritime-receive-picker" role="group" aria-label="Zielrohstoff wählen">
+            <div className="trade-matrix-list">
               {RESOURCES.map((resource) => {
-                const active = props.maritimeForm.receive === resource;
-                const disabled = resource === props.maritimeForm.give;
+                const ratio = maritimeRatesByResource[resource];
+                const available = props.selfPlayer?.resources?.[resource] ?? 0;
+                const giveVisible = visibleMaritimeGiveResources.includes(resource);
+                const giveSelected = props.maritimeForm.give === resource;
+                const canUseAsGive = giveVisible && available >= ratio;
+                const receiveSelected = props.maritimeForm.receive === resource;
+                const canUseAsReceive = resource !== props.maritimeForm.give;
 
                 return (
-                  <button
-                    key={`maritime-receive-${resource}`}
-                    type="button"
-                    className={`trade-maritime-receive-option ${active ? "is-active" : ""}`.trim()}
-                    disabled={disabled}
-                    title={renderResourceLabel(resource)}
-                    aria-label={renderResourceLabel(resource)}
-                    aria-pressed={active}
-                    onClick={() => handleSelectMaritimeReceive(resource)}
-                  >
-                    <ResourceIcon resource={resource} shell size={14} />
-                  </button>
+                  <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
+                    <div className="trade-matrix-resource" title={renderResourceLabel(resource)}>
+                      <span className="trade-matrix-resource-icon" aria-hidden="true">
+                        <ResourceIcon resource={resource} shell size={14} />
+                      </span>
+                    </div>
+                    <span className="trade-matrix-meta">{available}</span>
+                    <span
+                      className={`trade-matrix-cell-display is-give ${giveSelected ? "is-active" : ""} ${
+                        !canUseAsGive ? "is-disabled" : ""
+                      }`.trim()}
+                    >
+                      {giveVisible ? `${ratio}:1` : "—"}
+                    </span>
+                    <TradeMatrixDraftControl
+                      value={giveSelected ? 1 : 0}
+                      tone="give"
+                      incrementDisabled={!canUseAsGive}
+                      incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
+                      decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
+                      onIncrement={() => handleSelectMaritimeGive(resource)}
+                      onDecrement={handleClearMaritimeGive}
+                    />
+                    <TradeMatrixCellButton
+                      value={receiveSelected ? 1 : 0}
+                      tone="receive"
+                      active={receiveSelected}
+                      disabled={!canUseAsReceive}
+                      title={`${renderResourceLabel(resource)} als Ziel wählen`}
+                      onClick={() => handleSelectMaritimeReceive(resource)}
+                    />
+                  </div>
                 );
               })}
             </div>
-          </>
+          </div>
         ) : (
           <div className="trade-inline-empty">Für diesen Modus ist aktuell kein passender Rohstoff verfügbar.</div>
         )}
