@@ -14,10 +14,15 @@ const HAPTIC_LIBRARY: Record<UiHapticId, HapticPattern> = {
     { delay: 28, duration: 24, intensity: 0.48 }
   ],
   dice: [
-    { duration: 14, intensity: 0.22 },
-    { delay: 18, duration: 18, intensity: 0.34 },
-    { delay: 22, duration: 28, intensity: 0.54 },
-    { delay: 24, duration: 46, intensity: 0.78 }
+    { duration: 36, intensity: 0.3 },
+    { delay: 18, duration: 42, intensity: 0.42 },
+    { delay: 14, duration: 52, intensity: 0.58 },
+    { delay: 16, duration: 64, intensity: 0.7 },
+    { delay: 16, duration: 58, intensity: 0.62 },
+    { delay: 14, duration: 52, intensity: 0.76 },
+    { delay: 16, duration: 46, intensity: 0.6 },
+    { delay: 12, duration: 40, intensity: 0.48 },
+    { delay: 10, duration: 34, intensity: 0.36 }
   ],
   robber: [
     { duration: 24, intensity: 0.68 },
