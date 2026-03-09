@@ -48,7 +48,7 @@ import {
   updateAdminUser,
   updateRoomSettings
 } from "./api";
-import { uiHapticsManager } from "./audio/uiHapticsManager";
+import { bindGlobalHapticsUnlock, uiHapticsManager } from "./audio/uiHapticsManager";
 import { bindGlobalMusicUnlock, bindGlobalUiSounds, uiSoundManager } from "./audio/uiSoundManager";
 import {
   AppHeaderSkeleton,
@@ -125,7 +125,7 @@ interface UiFeedbackRequest {
 function getMatchEventHapticId(event: MatchEvent): Parameters<typeof uiHapticsManager.play>[0] | null {
   switch (event.type) {
     case "dice_rolled":
-      return "dice";
+      return event.payload.total === 7 ? "robber" : "dice";
     case "resources_discarded":
     case "robber_moved":
       return "robber";
@@ -381,9 +381,14 @@ export function App() {
   );
 
   useEffect(() => {
+    uiHapticsManager.prime();
     uiSoundManager.prime();
+    const hapticsCleanup = bindGlobalHapticsUnlock();
     const cleanup = bindGlobalMusicUnlock();
-    return cleanup;
+    return () => {
+      hapticsCleanup();
+      cleanup();
+    };
   }, []);
 
   useEffect(() => {

@@ -43,6 +43,10 @@ class UiHapticsManager {
     return this.ensureEngine() !== null;
   }
 
+  prime(): void {
+    void this.ensureEngine();
+  }
+
   setMuted(nextMuted: boolean): void {
     this.muted = nextMuted;
 
@@ -116,3 +120,27 @@ class UiHapticsManager {
 }
 
 export const uiHapticsManager = new UiHapticsManager();
+
+export function bindGlobalHapticsUnlock(): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const unlockHaptics = () => {
+    uiHapticsManager.prime();
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Tab" || event.key === "Enter" || event.key === " ") {
+      unlockHaptics();
+    }
+  };
+
+  window.addEventListener("pointerdown", unlockHaptics, true);
+  window.addEventListener("keydown", onKeyDown, true);
+
+  return () => {
+    window.removeEventListener("pointerdown", unlockHaptics, true);
+    window.removeEventListener("keydown", onKeyDown, true);
+  };
+}
