@@ -65,6 +65,7 @@ const TILE_HEIGHT = 0.82;
 const PORT_MARKER_DISTANCE = 2.25;
 const BOARD_CAMERA_PORT_PADDING = 1.6;
 const BOARD_FIT_SAFETY_MARGIN = 1.06;
+const ROLL_FIT_SAFETY_MARGIN = 1.04;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
 const TILE_OUTER_BEVEL_THICKNESS = 0.09;
 const TILE_INSET_DEPTH = 0.18;
@@ -1378,9 +1379,12 @@ export function BoardScene(props: BoardSceneProps) {
     const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue, controls.target);
     const direction = resolveCameraDirection(camera.position, controls.target);
     const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);
+    const cameraFit = resolveFocusCueCameraFit(props.cameraCue);
     const distance =
-      resolveFocusCueCameraFit(props.cameraCue) === "board"
+      cameraFit === "board"
         ? syncBoardFitMaxDistance(props.snapshot.board, camera, controls, target, direction)
+        : props.cameraCue.zoomPreset === "roll"
+          ? resolveFrustumFitDistance(camera, target, nextFocus, direction, controls.minDistance, ROLL_FIT_SAFETY_MARGIN)
         : resolveFocusCueDistance(props.cameraCue, nextFocus.span);
     const nextCameraPosition = target.clone().add(direction.multiplyScalar(distance));
 
@@ -1596,12 +1600,13 @@ function resolveCameraDirection(cameraPosition: THREE.Vector3, target: THREE.Vec
   return currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
 }
 
-function resolveBoardFitDistance(
+function resolveFrustumFitDistance(
   camera: THREE.PerspectiveCamera,
   target: THREE.Vector3,
   geometry: FocusGeometry,
   direction: THREE.Vector3,
-  minDistance: number
+  minDistance: number,
+  safetyMargin: number
 ): number {
   // Solve the required dolly distance against the current frustum so the full board stays visible on any viewport.
   const normalizedDirection = direction.lengthSq() > 0.01 ? direction.clone().normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
@@ -1638,7 +1643,17 @@ function resolveBoardFitDistance(
     }
   }
 
-  return Math.max(minDistance, requiredDistance * BOARD_FIT_SAFETY_MARGIN);
+  return Math.max(minDistance, requiredDistance * safetyMargin);
+}
+
+function resolveBoardFitDistance(
+  camera: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+  geometry: FocusGeometry,
+  direction: THREE.Vector3,
+  minDistance: number
+): number {
+  return resolveFrustumFitDistance(camera, target, geometry, direction, minDistance, BOARD_FIT_SAFETY_MARGIN);
 }
 
 function syncBoardFitMaxDistance(
