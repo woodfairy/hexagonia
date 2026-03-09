@@ -641,19 +641,32 @@ select:focus-visible {
 
 .inline-confirm-control {
   position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: 0fr minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
   min-inline-size: 0;
-  overflow: visible;
+  overflow: hidden;
+  transition: grid-template-columns 180ms ease, gap 180ms ease;
 }
 
 .inline-confirm-control > button {
   position: relative;
   inline-size: 100%;
+  min-inline-size: 0;
 }
 
-.inline-confirm-control > button.is-armed:not(:disabled) {
+.inline-confirm-control.is-armed {
+  grid-template-columns: minmax(0, 0.34fr) minmax(0, 0.66fr);
+  gap: 0.5rem;
+}
+
+.inline-confirm-main {
+  grid-column: 2;
+}
+
+.inline-confirm-main.is-armed:not(:disabled) {
   border-color: rgba(var(--accent-rgb), 0.52);
-  padding-inline-end: calc(var(--pad-control-inline) + 2.5rem);
   box-shadow:
     0 0 0 1px rgba(var(--accent-rgb), 0.08),
     0 0 0 0.18rem rgba(var(--accent-rgb), 0.08);
@@ -661,33 +674,43 @@ select:focus-visible {
 }
 
 .inline-confirm-cancel {
-  position: absolute;
-  inset-block-start: 0.48rem;
-  inset-inline-end: 0.48rem;
-  z-index: 3;
-  inline-size: 1.9rem;
-  min-inline-size: 1.9rem;
-  block-size: 1.9rem;
-  min-block-size: 1.9rem;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
+  grid-column: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(0.45rem) scale(0.98);
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-control);
   display: grid;
   place-items: center;
-  background: rgba(5, 12, 20, 0.66);
-  color: rgba(255, 255, 255, 0.86);
-  line-height: 1;
-  font-size: 1.02rem;
+  padding: 0.72rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
+  line-height: 1.1;
   box-shadow:
-    0 0.45rem 1rem rgba(3, 8, 13, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0.55rem 1.1rem rgba(3, 8, 13, 0.16);
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.inline-confirm-control.is-armed .inline-confirm-cancel {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
 }
 
 .inline-confirm-cancel:hover,
 .inline-confirm-cancel:focus-visible {
   border-color: rgba(255, 255, 255, 0.22);
-  background: rgba(7, 16, 26, 0.86);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .match-quick-action-button.is-armed::after,

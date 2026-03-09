@@ -194,7 +194,17 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
     <span className={`inline-confirm-control ${armed ? "is-armed" : ""}`.trim()}>
       <button
         type="button"
-        className={`${props.buttonClassName} ${armed ? "is-armed" : ""}`.trim()}
+        className="inline-confirm-cancel"
+        disabled={!armed}
+        onClick={props.onClear}
+        aria-label="Bestätigung abbrechen"
+        tabIndex={armed ? 0 : -1}
+      >
+        Abbrechen
+      </button>
+      <button
+        type="button"
+        className={`inline-confirm-main ${props.buttonClassName} ${armed ? "is-armed" : ""}`.trim()}
         disabled={props.disabled}
         onClick={() => {
           if (props.disabled) {
@@ -213,19 +223,6 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
       >
         {armed ? props.armedContent ?? props.content : props.content}
       </button>
-      {armed ? (
-        <button
-          type="button"
-          className="inline-confirm-cancel"
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onClear();
-          }}
-          aria-label="Bestätigung abbrechen"
-        >
-          ×
-        </button>
-      ) : null}
     </span>
   );
 }
