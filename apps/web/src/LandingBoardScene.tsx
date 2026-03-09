@@ -5,6 +5,7 @@ import type { MatchSnapshot, PlayerColor, Resource } from "@hexagonia/shared";
 import { BUILT_ROAD_ELEVATION, createBuildingPieceModel, createRoadPieceModel } from "./boardPieceModels";
 import { isFirefoxBrowser } from "./browserPerformance";
 import { createTileTerrainSurface, type TileTerrainSurfaceBundle } from "./boardTerrainRelief";
+import { applyTileObjectClipPlanes, createTileShape, createTileShapeKey } from "./boardTileGeometry";
 import { TILE_COLORS } from "./boardVisuals";
 
 interface ShowcaseTile {
@@ -210,6 +211,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
+    renderer.localClippingEnabled = true;
     renderer.domElement.className = "landing-scene-canvas";
     mount.appendChild(renderer.domElement);
 
@@ -1012,12 +1014,14 @@ function createFancyTileMesh(
 ): THREE.Group {
   const tileGroup = createClassicTileMesh(tile, verticesById);
   if (terrainSurface) {
+    applyTileObjectClipPlanes(terrainSurface.object, tile, verticesById, TILE_OUTER_RENDER_SCALE);
     tileGroup.add(terrainSurface.object);
   }
 
   const propGroup = createFancyTileProps(tile.resource);
   propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
   propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.86);
+  applyTileObjectClipPlanes(propGroup, tile, verticesById, TILE_OUTER_RENDER_SCALE);
   tileGroup.add(propGroup);
   return tileGroup;
 }
@@ -1035,7 +1039,7 @@ function getTileSandGeometry(
   tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "vertexIds">,
   verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>
 ): THREE.ShapeGeometry {
-  const cacheKey = createTileShapeKey(tile);
+  const cacheKey = createTileShapeKey(tile, verticesById);
   let geometry = tileSandGeometryCache.get(cacheKey);
   if (!geometry) {
     geometry = markSharedResource(new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_SAND_UNDERLAY_SCALE)));
@@ -1043,10 +1047,6 @@ function getTileSandGeometry(
     tileSandGeometryCache.set(cacheKey, geometry);
   }
   return geometry;
-}
-
-function createTileShapeKey(tile: Pick<MatchSnapshot["board"]["tiles"][number], "vertexIds">): string {
-  return tile.vertexIds.join(",");
 }
 
 function createTileOutline(
@@ -1066,26 +1066,6 @@ function createTileOutline(
       opacity: 0.14
     })
   );
-}
-
-function createTileShape(
-  tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "vertexIds">,
-  verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>,
-  scale = 1
-): THREE.Shape {
-  const shape = new THREE.Shape();
-  tile.vertexIds.forEach((vertexId, index) => {
-    const vertex = verticesById.get(vertexId)!;
-    const x = (vertex.x - tile.x) * scale;
-    const y = (vertex.y - tile.y) * scale;
-    if (index === 0) {
-      shape.moveTo(x, y);
-      return;
-    }
-    shape.lineTo(x, y);
-  });
-  shape.closePath();
-  return shape;
 }
 
 function createShowcaseTerrainContext(showcaseBoard: ShowcaseBoard): ShowcaseTerrainContext {

@@ -5,6 +5,7 @@ import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
 import { createTileTerrainSurface, type TileTerrainSurfaceBundle } from "./boardTerrainRelief";
 import { isFirefoxBrowser } from "./browserPerformance";
+import { applyTileObjectClipPlanes, createTileShape, createTileShapeKey } from "./boardTileGeometry";
 import {
   BUILT_ROAD_ELEVATION,
   GUIDE_ROAD_ELEVATION,
@@ -1649,18 +1650,6 @@ function getTileAverageRadius(
   }, 0) / Math.max(tile.vertexIds.length, 1);
 }
 
-function createTileShapeKey(
-  tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
-): string {
-  return tile.vertexIds
-    .map((vertexId) => {
-      const vertex = verticesById.get(vertexId)!;
-      return `${(vertex.x - tile.x).toFixed(3)}:${(vertex.y - tile.y).toFixed(3)}`;
-    })
-    .join("|");
-}
-
 function getTileSandGeometry(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
@@ -1938,7 +1927,7 @@ function appendTileDecorations(
   terrainSurface: TileTerrainSurfaceBundle | null
 ): void {
   if (options.includeTerrainRelief && terrainSurface) {
-    applyTileObjectClipPlanes(terrainSurface.object, tile, verticesById);
+    applyTileObjectClipPlanes(terrainSurface.object, tile, verticesById, TILE_OUTER_RENDER_SCALE);
     tileGroup.add(terrainSurface.object);
   }
 
@@ -1947,41 +1936,12 @@ function appendTileDecorations(
     applyMatchTilePropPlacement(propGroup, tile, verticesById);
     propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
     propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.66);
-    applyTileObjectClipPlanes(propGroup, tile, verticesById);
+    applyTileObjectClipPlanes(propGroup, tile, verticesById, TILE_OUTER_RENDER_SCALE);
     propGroup.traverse((entry) => {
       entry.userData.castTileShadow = true;
     });
     tileGroup.add(propGroup);
   }
-}
-
-function applyTileObjectClipPlanes(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {
-  const clipPlanes = createTileClipPlanes(tile, verticesById);
-  const clippedMaterialCache = new Map<THREE.Material, THREE.Material>();
-
-  const getClippedMaterial = (material: THREE.Material): THREE.Material => {
-    const existing = clippedMaterialCache.get(material);
-    if (existing) {
-      return existing;
-    }
-
-    const clippedMaterial = material.clone();
-    clippedMaterial.clippingPlanes = clipPlanes;
-    clippedMaterial.clipShadows = true;
-    clippedMaterial.needsUpdate = true;
-    clippedMaterialCache.set(material, clippedMaterial);
-    return clippedMaterial;
-  };
-
-  root.traverse((entry) => {
-    if (!(entry instanceof THREE.Mesh || entry instanceof THREE.InstancedMesh)) {
-      return;
-    }
-
-    entry.material = Array.isArray(entry.material)
-      ? entry.material.map((material) => getClippedMaterial(material))
-      : getClippedMaterial(entry.material);
-  });
 }
 
 function applyMatchTilePropPlacement(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {
@@ -2009,37 +1969,6 @@ function applyMatchTilePropPlacement(root: THREE.Object3D, tile: BoardTile, vert
   root.position.x = anchor.x + Math.cos(outwardAngle) * outwardShift;
   root.position.z = anchor.z + Math.sin(outwardAngle) * outwardShift;
   root.rotation.y = outwardAngle + Math.PI + (random() - 0.5) * 0.22;
-}
-
-function createTileClipPlanes(tile: BoardTile, verticesById: BoardVerticesById): THREE.Plane[] {
-  const scale = TILE_OUTER_RENDER_SCALE * 0.985;
-  const points = tile.vertexIds.map((vertexId) => {
-    const vertex = verticesById.get(vertexId)!;
-    return new THREE.Vector2(
-      tile.x + (vertex.x - tile.x) * scale,
-      tile.y + (vertex.y - tile.y) * scale
-    );
-  });
-  const orientation = Math.sign(getTilePolygonSignedArea(points)) || 1;
-
-  return points.map((current, index) => {
-    const next = points[(index + 1) % points.length]!;
-    const edgeX = next.x - current.x;
-    const edgeZ = next.y - current.y;
-    const inwardNormal = orientation >= 0 ? new THREE.Vector3(-edgeZ, 0, edgeX) : new THREE.Vector3(edgeZ, 0, -edgeX);
-    inwardNormal.normalize();
-    return new THREE.Plane().setFromNormalAndCoplanarPoint(inwardNormal, new THREE.Vector3(current.x, 0, current.y));
-  });
-}
-
-function getTilePolygonSignedArea(points: readonly THREE.Vector2[]): number {
-  let area = 0;
-  for (let index = 0; index < points.length; index += 1) {
-    const current = points[index]!;
-    const next = points[(index + 1) % points.length]!;
-    area += current.x * next.y - next.x * current.y;
-  }
-  return area * 0.5;
 }
 
 function createUltraTerrainRelief(
@@ -5251,26 +5180,6 @@ function createTileOutline(
   }
 
   return new THREE.LineLoop(outline.geometry, outline.material);
-}
-
-function createTileShape(
-  tile: MatchSnapshot["board"]["tiles"][number],
-  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
-  scale = 1
-): THREE.Shape {
-  const shape = new THREE.Shape();
-  tile.vertexIds.forEach((vertexId, index) => {
-    const vertex = verticesById.get(vertexId)!;
-    const x = (vertex.x - tile.x) * scale;
-    const y = (vertex.y - tile.y) * scale;
-    if (index === 0) {
-      shape.moveTo(x, y);
-      return;
-    }
-    shape.lineTo(x, y);
-  });
-  shape.closePath();
-  return shape;
 }
 
 function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {

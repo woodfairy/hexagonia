@@ -2,6 +2,7 @@ import type { MatchSnapshot, Resource } from "@hexagonia/shared";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { UltraTerrainTextureBundle } from "./boardUltraTerrain";
+import { getTileBoundaryPoints, TILE_RELIEF_BOUNDARY_INSET } from "./boardTileGeometry";
 import { TILE_COLORS } from "./boardVisuals";
 
 type TerrainTile = MatchSnapshot["board"]["tiles"][number];
@@ -97,6 +98,17 @@ interface TerrainPolygon {
   minZ: number;
   maxZ: number;
   scale: number;
+}
+
+interface TerrainCoverGeometryTemplate {
+  geometry: THREE.BufferGeometry;
+  localVertices: THREE.Vector3[];
+  baseRadius: number;
+}
+
+interface CoverSpawnBounds {
+  points: TerrainPoint[];
+  radius: number;
 }
 
 const SHARED_RESOURCE_FLAG = "__sharedResource";
@@ -281,16 +293,16 @@ function createCoverLayer(
   baseY: number,
   active: boolean
 ): THREE.Object3D | null {
-  const geometry = createCoverGeometry(biome.recipe.coverKind);
+  const coverTemplate = createCoverGeometry(biome.recipe.coverKind);
   const material = createCoverMaterial(biome.recipe, active);
-  const spawns = createCoverSpawns(biome, polygon, structureMask);
+  const spawns = createCoverSpawns(biome, polygon, structureMask, coverTemplate);
   if (spawns.length === 0) {
-    geometry.dispose();
+    coverTemplate.geometry.dispose();
     material.dispose();
     return null;
   }
 
-  const cover = new THREE.InstancedMesh(geometry, material, spawns.length);
+  const cover = new THREE.InstancedMesh(coverTemplate.geometry, material, spawns.length);
   const dummy = new THREE.Object3D();
   cover.castShadow = true;
   cover.receiveShadow = true;
@@ -319,7 +331,7 @@ interface CoverSpawn {
   scaleY: number;
   scaleZ: number;
   offsetY: number;
-  footprint: number;
+  bounds: CoverSpawnBounds;
 }
 
 interface CoverGapCandidate {
@@ -332,7 +344,8 @@ interface CoverGapCandidate {
 function createCoverSpawns(
   biome: TerrainBiomeState,
   polygon: TerrainPolygon,
-  structureMask: TerrainStructureMask
+  structureMask: TerrainStructureMask,
+  coverTemplate: TerrainCoverGeometryTemplate
 ): CoverSpawn[] {
   const random = createSeededRandom(`${biome.seed}:${biome.recipe.coverKind}:cover`);
   const spawns: CoverSpawn[] = [];
@@ -342,7 +355,7 @@ function createCoverSpawns(
     const x = THREE.MathUtils.lerp(polygon.minX, polygon.maxX, random());
     const z = THREE.MathUtils.lerp(polygon.minZ, polygon.maxZ, random());
     const scale = THREE.MathUtils.lerp(biome.recipe.coverMinScale, biome.recipe.coverMaxScale, random());
-    const spawn = createCoverSpawn(biome, random, x, z, scale);
+    const spawn = createCoverSpawn(biome, random, x, z, scale, coverTemplate);
     if (!canPlaceCoverSpawn(spawn, spawns, biome, polygon, structureMask, random)) {
       continue;
     }
@@ -350,7 +363,7 @@ function createCoverSpawns(
     spawns.push(spawn);
   }
 
-  fillCoverSpawnGaps(spawns, biome, polygon, structureMask, random);
+  fillCoverSpawnGaps(spawns, biome, polygon, structureMask, coverTemplate, random);
   return spawns;
 }
 
@@ -359,9 +372,9 @@ function createCoverSpawn(
   random: () => number,
   x: number,
   z: number,
-  scale: number
+  scale: number,
+  coverTemplate: TerrainCoverGeometryTemplate
 ): CoverSpawn {
-  const footprint = biome.recipe.coverFootprint * scale;
   const alignedY =
     biome.recipe.coverKind === "grassPatch" || biome.recipe.coverKind === "wheatPatch" || biome.recipe.coverKind === "dune"
       ? biome.primaryAngle + (random() - 0.5) * 0.6
@@ -435,7 +448,7 @@ function createCoverSpawn(
     scaleY,
     scaleZ,
     offsetY,
-    footprint
+    bounds: createCoverSpawnBounds(coverTemplate, x, z, rotX, alignedY, rotZ, scaleX, scaleY, scaleZ)
   };
 }
 
@@ -447,13 +460,7 @@ function canPlaceCoverSpawn(
   structureMask: TerrainStructureMask,
   random: () => number
 ): boolean {
-  if (!isPointInsidePolygon(spawn.x, spawn.z, polygon.points)) {
-    return false;
-  }
-
-  const edgeClearance = getPolygonEdgeClearance(spawn.x, spawn.z, polygon.points);
-  const edgeInset = spawn.footprint * getCoverEdgeInsetFactor(biome.recipe.coverKind);
-  if (edgeClearance < edgeInset + biome.recipe.coverEdgePadding) {
+  if (!isCoverBoundsInsidePolygon(spawn.bounds, polygon.points, biome.recipe.coverEdgePadding)) {
     return false;
   }
 
@@ -465,7 +472,7 @@ function canPlaceCoverSpawn(
   return !existingSpawns.some(
     (existing) =>
       Math.hypot(spawn.x - existing.x, spawn.z - existing.z) <
-      (spawn.footprint + existing.footprint) * biome.recipe.coverSpacing
+      (spawn.bounds.radius + existing.bounds.radius) * biome.recipe.coverSpacing
   );
 }
 
@@ -474,20 +481,21 @@ function fillCoverSpawnGaps(
   biome: TerrainBiomeState,
   polygon: TerrainPolygon,
   structureMask: TerrainStructureMask,
+  coverTemplate: TerrainCoverGeometryTemplate,
   random: () => number
 ): void {
   const polygonArea = Math.max(Math.abs(getPolygonSignedArea(polygon.points)), 0.001);
   const averageScale = (biome.recipe.coverMinScale + biome.recipe.coverMaxScale) * 0.5;
   const baseSpacing = Math.sqrt(polygonArea / Math.max(biome.recipe.coverCount, 1));
-  const nominalFootprint = biome.recipe.coverFootprint * averageScale;
-  const columnSpacing = Math.max(baseSpacing * 0.88, nominalFootprint * getCoverGapColumnFactor(biome.recipe.coverKind));
+  const nominalRadius = createCoverSpawn(biome, () => 0.5, 0, 0, averageScale, coverTemplate).bounds.radius;
+  const columnSpacing = Math.max(baseSpacing * 0.88, nominalRadius * getCoverGapColumnFactor(biome.recipe.coverKind));
   const rowSpacing = columnSpacing * 0.88;
   const jitter = columnSpacing * getCoverGapJitterFactor(biome.recipe.coverKind);
   const maxExtraSpawns = Math.round(biome.recipe.coverCount * getCoverGapFillFactor(biome.recipe.coverKind));
   const maxSpawnCount = biome.recipe.coverCount + maxExtraSpawns;
   // Evaluate the whole fill grid first so the capped spawn count does not starve the same edge every time.
   const gapCandidates: CoverGapCandidate[] = [];
-  const gapRadius = nominalFootprint * getCoverGapRadiusFactor(biome.recipe.coverKind);
+  const gapRadius = nominalRadius * getCoverGapRadiusFactor(biome.recipe.coverKind);
 
   let rowIndex = 0;
   for (let z = polygon.minZ + rowSpacing * 0.5; z <= polygon.maxZ; z += rowSpacing, rowIndex += 1) {
@@ -507,7 +515,7 @@ function fillCoverSpawnGaps(
           continue;
         }
 
-        const nearestSpawnDistance = getNearestCoverSpawnDistance(spawns, candidate.x, candidate.z);
+        const nearestSpawnDistance = getNearestCoverSpawnDistance(spawns, candidate.x, candidate.z, nominalRadius);
         if (nearestSpawnDistance < gapRadius) {
           continue;
         }
@@ -544,7 +552,7 @@ function fillCoverSpawnGaps(
     const candidateRandom = createSeededRandom(
       `${biome.seed}:${biome.recipe.coverKind}:gap:${candidate.x.toFixed(4)}:${candidate.z.toFixed(4)}`
     );
-    const spawn = createCoverSpawn(biome, candidateRandom, candidate.x, candidate.z, candidate.scale);
+    const spawn = createCoverSpawn(biome, candidateRandom, candidate.x, candidate.z, candidate.scale, coverTemplate);
     if (!canPlaceCoverSpawn(spawn, spawns, biome, polygon, structureMask, candidateRandom)) {
       continue;
     }
@@ -553,10 +561,10 @@ function fillCoverSpawnGaps(
   }
 }
 
-function getNearestCoverSpawnDistance(spawns: readonly CoverSpawn[], x: number, z: number): number {
+function getNearestCoverSpawnDistance(spawns: readonly CoverSpawn[], x: number, z: number, candidateRadius: number): number {
   let nearest = Number.POSITIVE_INFINITY;
   for (const spawn of spawns) {
-    nearest = Math.min(nearest, Math.hypot(x - spawn.x, z - spawn.z));
+    nearest = Math.min(nearest, Math.hypot(x - spawn.x, z - spawn.z) - spawn.bounds.radius - candidateRadius);
   }
   return nearest;
 }
@@ -683,24 +691,38 @@ function getCoverEdgeInsetFactor(kind: TerrainBiomeRecipe["coverKind"]): number 
   }
 }
 
-function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): THREE.BufferGeometry {
+function createCoverGeometry(kind: TerrainBiomeRecipe["coverKind"]): TerrainCoverGeometryTemplate {
+  let geometry: THREE.BufferGeometry | null = null;
   switch (kind) {
     case "grassPatch":
-      return createGrassPatchGeometry();
+      geometry = createGrassPatchGeometry();
+      break;
     case "wheatPatch":
-      return createWheatPatchGeometry();
+      geometry = createWheatPatchGeometry();
+      break;
     case "tree":
-      return transformCoverGeometry(new THREE.ConeGeometry(0.18, 0.48, 5), 0, 0.24, 0);
+      geometry = transformCoverGeometry(new THREE.ConeGeometry(0.18, 0.48, 5), 0, 0.24, 0);
+      break;
     case "rockCluster":
-      return createRockClusterGeometry();
+      geometry = createRockClusterGeometry();
+      break;
     case "clay":
-      return createClayPatchGeometry();
+      geometry = createClayPatchGeometry();
+      break;
     case "dune":
-      return createDuneGeometry();
+      geometry = createDuneGeometry();
+      break;
+    default: {
+      const unsupportedKind: never = kind;
+      throw new Error(`Unsupported terrain cover geometry: ${unsupportedKind}`);
+    }
   }
 
-  const unsupportedKind: never = kind;
-  throw new Error(`Unsupported terrain cover geometry: ${unsupportedKind}`);
+  if (!geometry) {
+    throw new Error("Failed to create terrain cover geometry.");
+  }
+
+  return createCoverGeometryTemplate(geometry);
 }
 
 function createCoverMaterial(recipe: TerrainBiomeRecipe, active: boolean): THREE.MeshStandardMaterial {
@@ -898,6 +920,80 @@ function mergeCoverGeometryParts(parts: THREE.BufferGeometry[]): THREE.BufferGeo
   return merged;
 }
 
+function createCoverGeometryTemplate(geometry: THREE.BufferGeometry): TerrainCoverGeometryTemplate {
+  const normalized = geometry.index ? geometry.toNonIndexed() : geometry;
+  if (normalized !== geometry) {
+    geometry.dispose();
+  }
+
+  normalized.computeBoundingBox();
+  const bounds = normalized.boundingBox;
+  if (!bounds) {
+    throw new Error("Failed to compute terrain cover geometry bounds.");
+  }
+
+  const centerX = (bounds.min.x + bounds.max.x) * 0.5;
+  const centerZ = (bounds.min.z + bounds.max.z) * 0.5;
+  normalized.translate(-centerX, 0, -centerZ);
+  normalized.computeBoundingBox();
+  normalized.computeBoundingSphere();
+
+  const position = normalized.getAttribute("position");
+  if (!(position instanceof THREE.BufferAttribute) || position.itemSize < 3) {
+    throw new Error("Terrain cover geometry is missing positions.");
+  }
+
+  const localVertices: THREE.Vector3[] = [];
+  const seen = new Set<string>();
+  let baseRadius = 0;
+
+  for (let index = 0; index < position.count; index += 1) {
+    const vertex = new THREE.Vector3(position.getX(index), position.getY(index), position.getZ(index));
+    const key = `${vertex.x.toFixed(4)}:${vertex.y.toFixed(4)}:${vertex.z.toFixed(4)}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    localVertices.push(vertex);
+    baseRadius = Math.max(baseRadius, Math.hypot(vertex.x, vertex.z));
+  }
+
+  return {
+    geometry: normalized,
+    localVertices,
+    baseRadius
+  };
+}
+
+function createCoverSpawnBounds(
+  coverTemplate: TerrainCoverGeometryTemplate,
+  x: number,
+  z: number,
+  rotX: number,
+  rotY: number,
+  rotZ: number,
+  scaleX: number,
+  scaleY: number,
+  scaleZ: number
+): CoverSpawnBounds {
+  const transform = new THREE.Matrix4().compose(
+    new THREE.Vector3(x, 0, z),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(rotX, rotY, rotZ)),
+    new THREE.Vector3(scaleX, scaleY, scaleZ)
+  );
+  const temp = new THREE.Vector3();
+  const points: TerrainPoint[] = [];
+  let radius = 0;
+
+  for (const localVertex of coverTemplate.localVertices) {
+    temp.copy(localVertex).applyMatrix4(transform);
+    points.push({ x: temp.x, z: temp.z });
+    radius = Math.max(radius, Math.hypot(temp.x - x, temp.z - z));
+  }
+
+  return { points, radius: Math.max(radius, coverTemplate.baseRadius * Math.max(scaleX, scaleZ)) };
+}
+
 function createSurfaceGeometry(
   polygon: TerrainPolygon,
   sampleHeightLocal: (localX: number, localZ: number) => number
@@ -1009,14 +1105,14 @@ function createBiomeState(tile: TerrainTile): TerrainBiomeState {
 }
 
 function createTerrainPolygon(tile: TerrainTile, verticesById: Map<string, TerrainVertex>, tileScale: number): TerrainPolygon {
-  const scale = tileScale * 0.985;
-  const points = tile.vertexIds.map((vertexId) => {
-    const vertex = verticesById.get(vertexId)!;
-    return {
-      x: (vertex.x - tile.x) * scale,
-      z: (vertex.y - tile.y) * scale
-    };
-  });
+  const scale = tileScale * TILE_RELIEF_BOUNDARY_INSET;
+  const points = getTileBoundaryPoints(tile, verticesById, {
+    tileScale,
+    insetScale: TILE_RELIEF_BOUNDARY_INSET
+  }).map((point) => ({
+    x: point.x,
+    z: point.y
+  }));
 
   const bounds = points.reduce(
     (current, point) => ({
@@ -1269,8 +1365,15 @@ function rotatePoint(x: number, z: number, rotation: number): TerrainPoint {
 }
 
 function isTerrainPointInside(x: number, z: number, polygon: readonly TerrainPoint[], edgePadding: number): boolean {
-  void edgePadding;
-  return isPointInsidePolygon(x, z, polygon);
+  return isPointInsidePolygon(x, z, polygon) && getPolygonEdgeClearance(x, z, polygon) >= edgePadding - 0.00001;
+}
+
+function isCoverBoundsInsidePolygon(
+  bounds: CoverSpawnBounds,
+  polygon: readonly TerrainPoint[],
+  edgePadding: number
+): boolean {
+  return bounds.points.every((point) => isTerrainPointInside(point.x, point.z, polygon, edgePadding));
 }
 
 function isPointInsidePolygon(x: number, z: number, polygon: readonly TerrainPoint[]): boolean {
