@@ -213,8 +213,8 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
       >
         {armed ? props.armedContent ?? props.content : props.content}
         {armed ? (
-          <span className="inline-confirm-chip" aria-hidden="true">
-            Bestätigen
+          <span className="inline-confirm-helper" aria-hidden="true">
+            Erneut tippen zum Bestätigen
           </span>
         ) : null}
       </button>
