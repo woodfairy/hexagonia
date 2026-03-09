@@ -68,7 +68,7 @@ export interface TradeFormState {
 
 export interface MaritimeFormState {
   give: Resource | "";
-  receive: Resource;
+  receive: Resource | "";
 }
 
 export interface PendingBoardActionState {
@@ -954,6 +954,7 @@ export function MatchScreen(props: {
     tradeMode !== "player" &&
     props.match.allowedMoves.canMaritimeTrade &&
     !!selectedMaritimeGiveResource &&
+    !!props.maritimeForm.receive &&
     selectedMaritimeGiveResource !== props.maritimeForm.receive &&
     visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
     (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
@@ -1822,7 +1823,7 @@ export function MatchScreen(props: {
     props.setMaritimeForm((current) => ({
       ...current,
       give: resource,
-      receive: current.receive === resource ? RESOURCES.find((entry) => entry !== resource) ?? current.receive : current.receive
+      receive: current.receive === resource ? "" : current.receive
     }));
   };
   const handleClearMaritimeGive = () => {
@@ -1835,6 +1836,12 @@ export function MatchScreen(props: {
     props.setMaritimeForm((current) => ({
       ...current,
       receive: resource
+    }));
+  };
+  const handleClearMaritimeReceive = () => {
+    props.setMaritimeForm((current) => ({
+      ...current,
+      receive: ""
     }));
   };
   const resetPlayerTradeComposer = () => {
@@ -1860,6 +1867,10 @@ export function MatchScreen(props: {
     }
 
     if (!selectedMaritimeGiveResource) {
+      return;
+    }
+
+    if (!props.maritimeForm.receive) {
       return;
     }
 
@@ -2003,6 +2014,8 @@ export function MatchScreen(props: {
       ? "Nicht genug Rohstoffe für einen Hafentausch."
       : !selectedMaritimeGiveResource
         ? "Einsatz wählen."
+        : !props.maritimeForm.receive
+          ? "Ziel wählen."
         : props.maritimeForm.give === props.maritimeForm.receive
           ? "Anderen Rohstoff wählen."
           : "";
@@ -2179,13 +2192,14 @@ export function MatchScreen(props: {
                       onIncrement={() => handleSelectMaritimeGive(resource)}
                       onDecrement={handleClearMaritimeGive}
                     />
-                    <TradeMatrixCellButton
+                    <TradeMatrixDraftControl
                       value={receiveSelected ? 1 : 0}
                       tone="receive"
-                      active={receiveSelected}
-                      disabled={!canUseAsReceive}
-                      title={`${renderResourceLabel(resource)} als Ziel wählen`}
-                      onClick={() => handleSelectMaritimeReceive(resource)}
+                      incrementDisabled={!canUseAsReceive}
+                      incrementTitle={`${renderResourceLabel(resource)} als Ziel wählen`}
+                      decrementTitle={`${renderResourceLabel(resource)} aus Ziel entfernen`}
+                      onIncrement={() => handleSelectMaritimeReceive(resource)}
+                      onDecrement={handleClearMaritimeReceive}
                     />
                   </div>
                 );

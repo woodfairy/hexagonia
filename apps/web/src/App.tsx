@@ -213,7 +213,7 @@ export function App() {
   });
   const [maritimeForm, setMaritimeForm] = useState<MaritimeFormState>({
     give: "",
-    receive: "grain"
+    receive: ""
   });
   const [yearOfPlenty, setYearOfPlenty] = useState<[Resource, Resource]>(["brick", "grain"]);
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
