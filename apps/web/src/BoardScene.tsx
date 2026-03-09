@@ -3923,17 +3923,17 @@ function getBarnRoofGeometry(scale: number): THREE.BufferGeometry {
     new THREE.Float32BufferAttribute(
       [
         -halfWidth, 0, -halfDepth,
-        halfWidth, 0, -halfDepth,
         0, height, 0,
         halfWidth, 0, -halfDepth,
-        halfWidth, 0, halfDepth,
+        halfWidth, 0, -halfDepth,
         0, height, 0,
         halfWidth, 0, halfDepth,
-        -halfWidth, 0, halfDepth,
+        halfWidth, 0, halfDepth,
         0, height, 0,
         -halfWidth, 0, halfDepth,
-        -halfWidth, 0, -halfDepth,
-        0, height, 0
+        -halfWidth, 0, halfDepth,
+        0, height, 0,
+        -halfWidth, 0, -halfDepth
       ],
       3
     )

@@ -1329,22 +1329,23 @@ function createShowcaseBarn(): THREE.Group {
     new THREE.Float32BufferAttribute(
       [
         -0.88, 0, -0.64,
-        0.88, 0, -0.64,
         0, 0.78, 0,
         0.88, 0, -0.64,
-        0.88, 0, 0.64,
+        0.88, 0, -0.64,
         0, 0.78, 0,
         0.88, 0, 0.64,
-        -0.88, 0, 0.64,
+        0.88, 0, 0.64,
         0, 0.78, 0,
         -0.88, 0, 0.64,
-        -0.88, 0, -0.64,
-        0, 0.78, 0
+        -0.88, 0, 0.64,
+        0, 0.78, 0,
+        -0.88, 0, -0.64
       ],
       3
     )
   );
   roofGeometry.computeVertexNormals();
+  roofGeometry.computeBoundingSphere();
   const roof = new THREE.Mesh(roofGeometry, roofMaterial);
   roof.position.y = 0.86;
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.48, 0.08), trimMaterial);

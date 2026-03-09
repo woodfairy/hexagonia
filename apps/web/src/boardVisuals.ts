@@ -17,7 +17,7 @@ export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
   props: true,
   terrainRelief: true,
   resourceIcons: false,
-  pieceStyle: "modern"
+  pieceStyle: "detailed"
 };
 
 export const TILE_COLORS: Record<Resource | "desert", string> = {
