@@ -2812,16 +2812,6 @@ export function MatchScreen(props: {
         </div>
 
         <aside className="surface match-dock">
-          <div className="match-dock-head">
-            <div className="match-dock-head-copy">
-              <div className="eyebrow">Partie</div>
-              <h2>Kontrollzentrum</h2>
-            </div>
-            <div className="match-dock-context">
-              <span className="status-pill muted">Raumcode {props.room?.code ?? "Unbekannt"}</span>
-              <span className="status-pill muted">Zug {props.match.turn}</span>
-            </div>
-          </div>
           {hasQuickActions ? renderQuickActions(false) : null}
           <div className="tab-strip center-last-item" style={getTabStripStyle(desktopTabLayout)} role="tablist" aria-label="Match Navigation">
             {MATCH_TABS.map((tab) => (
