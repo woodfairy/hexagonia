@@ -3765,11 +3765,17 @@ select {
   font-size: 0.94rem;
 }
 
-.actions-frame,
-.trade-frame {
+.actions-frame {
   align-content: start;
   block-size: max-content;
   min-block-size: 100%;
+}
+
+.trade-frame {
+  align-content: start;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
 }
 
 .hand-frame {
@@ -4562,10 +4568,30 @@ select {
 
 .trade-workspace {
   grid-template-rows: auto auto auto minmax(0, 1fr);
-  gap: var(--gap-stack);
-  min-block-size: 100%;
+  gap: 0.72rem;
+  min-block-size: 0;
   block-size: 100%;
   overflow: hidden;
+  container-type: inline-size;
+}
+
+.trade-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.56rem;
+  align-items: center;
+  align-content: start;
+}
+
+.trade-toolbar-copy {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.trade-toolbar-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.24;
 }
 
 .trade-zone {
@@ -4590,6 +4616,7 @@ select {
 
 .trade-mode-segmented {
   inline-size: fit-content;
+  max-inline-size: 100%;
 }
 
 .trade-composer-card,
@@ -4607,8 +4634,8 @@ select {
 
 .trade-composer-card {
   display: grid;
-  gap: var(--gap-stack);
-  padding: var(--pad-card-block) var(--pad-card-inline);
+  gap: 0.82rem;
+  padding: 0.86rem 0.92rem;
 }
 
 .trade-section-headline,
@@ -4620,6 +4647,7 @@ select {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.7rem;
+  flex-wrap: wrap;
 }
 
 .trade-section-headline > div,
@@ -4641,15 +4669,15 @@ select {
 .trade-composer-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 4.8rem minmax(0, 1fr);
-  gap: var(--gap-stack);
+  gap: 0.82rem;
   align-items: start;
 }
 
 .trade-lane {
   display: grid;
-  gap: var(--gap-stack-tight);
+  gap: 0.66rem;
   min-inline-size: 0;
-  padding: 0.88rem 0.92rem;
+  padding: 0.74rem 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: calc(var(--radius-card) - 0.18rem);
   background: rgba(6, 15, 23, 0.62);
@@ -4689,14 +4717,14 @@ select {
 }
 
 .trade-draft-tile-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
 }
 
 .trade-draft-tile {
   display: grid;
-  gap: 0.58rem;
+  gap: 0.48rem;
   min-inline-size: 0;
-  padding: 0.72rem 0.76rem;
+  padding: 0.66rem 0.72rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1rem;
   background: rgba(6, 15, 23, 0.82);
@@ -4720,6 +4748,29 @@ select {
 
 .trade-draft-tile.is-disabled {
   opacity: 0.52;
+}
+
+.trade-picker-stack {
+  display: grid;
+  gap: 0.56rem;
+}
+
+.trade-palette-button {
+  appearance: none;
+  -webkit-appearance: none;
+  inline-size: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.trade-palette-button:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.26);
+  transform: translateY(-1px);
+}
+
+.trade-palette-button:disabled {
+  cursor: not-allowed;
 }
 
 .trade-draft-tile-head {
@@ -4759,39 +4810,23 @@ select {
   line-height: 1.26;
 }
 
-.trade-draft-tile-actions {
+.trade-palette-button-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.24;
+}
+
+.trade-selection-shell {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.44rem;
-}
-
-.trade-draft-tile-button {
-  min-block-size: 2.35rem;
-  padding: 0.36rem 0.4rem;
-  border-radius: 0.92rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 800;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease, opacity 160ms ease;
-}
-
-.trade-draft-tile-button.is-primary {
-  border-color: rgba(var(--accent-rgb), 0.24);
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-strong);
-}
-
-.trade-draft-tile-button:disabled {
-  opacity: 0.42;
-  cursor: not-allowed;
+  gap: 0.34rem;
+  padding-block-start: 0.08rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .trade-target-shell {
   display: grid;
   gap: 0.7rem;
-  padding: 0.82rem 0.9rem;
+  padding: 0.74rem 0.8rem;
 }
 
 .trade-target-shell.is-static {
@@ -4864,8 +4899,8 @@ select {
 }
 
 .trade-composer-button-row,
-.trade-offer-card-badges,
-.trade-offer-card-actions,
+.trade-offer-row-meta,
+.trade-offer-row-actions,
 .trade-resource-pill-row {
   display: flex;
   align-items: center;
@@ -4879,8 +4914,8 @@ select {
 
 .trade-offer-card {
   display: grid;
-  gap: 0.72rem;
-  padding: 0.82rem 0.88rem;
+  gap: 0.56rem;
+  padding: 0.62rem 0.7rem;
 }
 
 .trade-offer-card.is-focused {
@@ -4890,23 +4925,52 @@ select {
     0 16px 30px rgba(0, 0, 0, 0.18);
 }
 
-.trade-offer-card-title > span {
+.trade-offer-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.56rem;
+  flex-wrap: wrap;
+}
+
+.trade-offer-row-party {
+  display: grid;
+  gap: 0.12rem;
+  min-inline-size: 0;
+}
+
+.trade-offer-row-party > span {
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.25;
 }
 
-.trade-offer-card-grid {
+.trade-offer-row-trade {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 0.56rem;
+  align-items: center;
+}
+
+.trade-offer-row-arrow {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.trade-offer-row-actions {
+  justify-content: flex-end;
 }
 
 .trade-offer-lane {
-  padding: 0.68rem 0.72rem;
+  padding: 0.5rem 0.58rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0.98rem;
   background: rgba(6, 15, 23, 0.6);
+}
+
+.trade-offer-lane.compact {
+  gap: 0.28rem;
 }
 
 .trade-offer-lane.is-give {
@@ -4935,6 +4999,16 @@ select {
   line-height: 1.16;
 }
 
+.trade-resource-pill.is-action {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.trade-resource-pill.is-action:hover {
+  border-color: rgba(var(--accent-rgb), 0.26);
+}
+
 .trade-resource-pill.is-give {
   border-color: rgba(240, 142, 133, 0.2);
   background: rgba(240, 142, 133, 0.12);
@@ -4948,6 +5022,13 @@ select {
 .trade-resource-pill.is-empty {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.trade-resource-pill-action-mark {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--accent-strong);
 }
 
 .board-mobile-controls {
@@ -5079,6 +5160,83 @@ select {
 
 .trade-mobile-sheet .trade-zone-scroll > .scroll-list {
   padding-block-end: 0.35rem;
+}
+
+@container (max-width: 44rem) {
+  .trade-workspace .dock-section-head,
+  .trade-section-headline,
+  .trade-composer-actions,
+  .trade-lane-head,
+  .trade-target-shell-head,
+  .trade-offer-row-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .trade-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-mode-segmented {
+    inline-size: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .trade-mode-segmented button {
+    min-inline-size: 0;
+    justify-content: center;
+  }
+
+  .trade-composer-grid,
+  .trade-composer-actions,
+  .trade-composer-button-row,
+  .trade-target-chip-row {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-composer-actions,
+  .trade-composer-button-row,
+  .trade-target-chip-row {
+    display: grid;
+  }
+
+  .trade-direction-chip {
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 2.45rem;
+  }
+
+  .trade-composer-button-row > * {
+    inline-size: 100%;
+  }
+
+  .trade-offer-row-trade {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-offer-row-arrow {
+    display: none;
+  }
+
+  .trade-offer-row-actions {
+    justify-content: stretch;
+  }
+
+  .trade-offer-row-actions > * {
+    inline-size: 100%;
+  }
+}
+
+@container (max-width: 31rem) {
+  .trade-target-chip-row,
+  .trade-offer-row-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .trade-offer-row-actions > * {
+    inline-size: 100%;
+  }
 }
 
 .player-card-list,
@@ -6708,7 +6866,7 @@ select {
   }
 
   .trade-composer-grid,
-  .trade-offer-card-grid,
+  .trade-offer-row-trade,
   .trade-composer-actions,
   .trade-composer-button-row {
     grid-template-columns: 1fr;
