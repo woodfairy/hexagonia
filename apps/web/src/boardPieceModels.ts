@@ -186,25 +186,7 @@ function createDetailedRoadPiece(roadLength: number, color: string, selected: bo
     emissiveIntensity: selected ? 0.08 : 0
   });
 
-  const leftSkirt = new THREE.Mesh(
-    getBoxGeometry(`road-detailed-skirt:${roadLength.toFixed(4)}`, roadLength * 0.88, 0.032, 0.072),
-    topMaterial
-  );
-  leftSkirt.position.set(0, 0.128, -0.178);
-
-  const rightSkirt = new THREE.Mesh(
-    getBoxGeometry(`road-detailed-skirt:${roadLength.toFixed(4)}`, roadLength * 0.88, 0.032, 0.072),
-    topMaterial
-  );
-  rightSkirt.position.set(0, 0.128, 0.178);
-
-  group.add(
-    base,
-    cap,
-    leftSkirt,
-    rightSkirt,
-    ...createDetailedRoadReliefMeshes(roadLength, "road-detailed", topMaterial, reliefMaterial)
-  );
+  group.add(base, cap, ...createDetailedRoadReliefMeshes(roadLength, "road-detailed", topMaterial, reliefMaterial));
   return group;
 }
 
@@ -261,24 +243,7 @@ function createDetailedRoadGuide(guideLength: number, selected: boolean): THREE.
     opacity: selected ? 0.84 : 0.58
   });
 
-  const leftSkirt = new THREE.Mesh(
-    getBoxGeometry(`guide-detailed-skirt:${guideLength.toFixed(4)}`, guideLength * 0.86, 0.028, 0.064),
-    topMaterial
-  );
-  leftSkirt.position.set(0, 0.094, -0.164);
-
-  const rightSkirt = new THREE.Mesh(
-    getBoxGeometry(`guide-detailed-skirt:${guideLength.toFixed(4)}`, guideLength * 0.86, 0.028, 0.064),
-    topMaterial
-  );
-  rightSkirt.position.set(0, 0.094, 0.164);
-
-  group.add(
-    base,
-    leftSkirt,
-    rightSkirt,
-    ...createDetailedRoadReliefMeshes(guideLength, "guide-detailed", topMaterial, reliefMaterial, 0.102, 0.118)
-  );
+  group.add(base, ...createDetailedRoadReliefMeshes(guideLength, "guide-detailed", topMaterial, reliefMaterial, 0.102, 0.116));
   return group;
 }
 
@@ -544,34 +509,25 @@ function createDetailedRoadReliefMeshes(
   reliefHeight = 0.146
 ): THREE.Mesh[] {
   const plate = new THREE.Mesh(
-    getBoxGeometry(`${keyPrefix}-relief-cap:${roadLength.toFixed(4)}`, roadLength * 0.78, 0.016, 0.22),
+    getBoxGeometry(`${keyPrefix}-relief-cap:${roadLength.toFixed(4)}`, roadLength * 0.8, 0.016, 0.24),
     topMaterial
   );
   plate.position.set(0, plateHeight, 0);
 
-  const ridge = new THREE.Mesh(
-    getBoxGeometry(`${keyPrefix}-relief-ridge:${roadLength.toFixed(4)}`, roadLength * 0.54, 0.018, 0.1),
+  const peakCount = Math.max(Math.min(Math.round(roadLength / 0.22), 6), 4);
+  const crest = new THREE.Mesh(
+    getRoadCrestGeometry(
+      `${keyPrefix}-relief-crest:${roadLength.toFixed(4)}:${peakCount}`,
+      roadLength * 0.72,
+      0.034,
+      0.16,
+      peakCount
+    ),
     reliefMaterial
   );
-  ridge.position.set(0, reliefHeight, 0);
+  crest.position.set(0, reliefHeight, 0);
 
-  const segmentCount = roadLength >= 1.52 ? 4 : 3;
-  const segmentLength = Math.max(Math.min(roadLength * 0.16, 0.22), 0.14);
-  const travel = Math.min(roadLength * 0.54, 0.84);
-  const start = segmentCount === 1 ? 0 : -travel / 2;
-  const step = segmentCount === 1 ? 0 : travel / (segmentCount - 1);
-
-  const meshes: THREE.Mesh[] = [plate, ridge];
-  for (let index = 0; index < segmentCount; index += 1) {
-    const segment = new THREE.Mesh(
-      getGableRoofGeometry(`${keyPrefix}-relief-gable:${segmentLength.toFixed(4)}`, segmentLength, 0.052, 0.14),
-      reliefMaterial
-    );
-    segment.position.set(start + step * index, reliefHeight + 0.012, 0);
-    meshes.push(segment);
-  }
-
-  return meshes;
+  return [plate, crest];
 }
 
 function createDetailedFacadeSection(
@@ -687,6 +643,53 @@ function getRoadBodyGeometry(
   );
   geometry.rotateY(Math.PI / 2);
   geometry.translate(-length / 2, 0, 0);
+  sharedGeometryCache.set(cacheKey, geometry);
+  return geometry;
+}
+
+function getRoadCrestGeometry(
+  cacheKey: string,
+  length: number,
+  peakHeight: number,
+  depth: number,
+  peakCount: number
+): THREE.ExtrudeGeometry {
+  const cached = sharedGeometryCache.get(cacheKey);
+  if (cached instanceof THREE.ExtrudeGeometry) {
+    return cached;
+  }
+
+  const usableLength = length;
+  const halfLength = usableLength / 2;
+  const step = usableLength / peakCount;
+  const baseThickness = Math.max(peakHeight * 0.4, 0.014);
+  const shape = new THREE.Shape();
+  shape.moveTo(-halfLength, -baseThickness);
+  shape.lineTo(-halfLength, 0);
+
+  for (let index = 0; index < peakCount; index += 1) {
+    const segmentStart = -halfLength + step * index;
+    const peakX = segmentStart + step / 2;
+    const segmentEnd = segmentStart + step;
+    shape.lineTo(peakX, peakHeight);
+    shape.lineTo(segmentEnd, 0);
+  }
+
+  shape.lineTo(halfLength, -baseThickness);
+  shape.closePath();
+
+  const geometry = markSharedResource(
+    new THREE.ExtrudeGeometry(shape, {
+      depth,
+      bevelEnabled: true,
+      bevelSegments: 1,
+      steps: 1,
+      bevelSize: 0.008,
+      bevelThickness: 0.01,
+      curveSegments: 1
+    })
+  );
+  geometry.translate(0, 0, -depth / 2);
   sharedGeometryCache.set(cacheKey, geometry);
   return geometry;
 }

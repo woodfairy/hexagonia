@@ -322,6 +322,13 @@ interface CoverSpawn {
   footprint: number;
 }
 
+interface CoverGapCandidate {
+  x: number;
+  z: number;
+  scale: number;
+  score: number;
+}
+
 function createCoverSpawns(
   biome: TerrainBiomeState,
   polygon: TerrainPolygon,
@@ -478,11 +485,14 @@ function fillCoverSpawnGaps(
   const jitter = columnSpacing * getCoverGapJitterFactor(biome.recipe.coverKind);
   const maxExtraSpawns = Math.round(biome.recipe.coverCount * getCoverGapFillFactor(biome.recipe.coverKind));
   const maxSpawnCount = biome.recipe.coverCount + maxExtraSpawns;
+  // Evaluate the whole fill grid first so the capped spawn count does not starve the same edge every time.
+  const gapCandidates: CoverGapCandidate[] = [];
+  const gapRadius = nominalFootprint * getCoverGapRadiusFactor(biome.recipe.coverKind);
 
   let rowIndex = 0;
-  for (let z = polygon.minZ + rowSpacing * 0.5; z <= polygon.maxZ && spawns.length < maxSpawnCount; z += rowSpacing, rowIndex += 1) {
+  for (let z = polygon.minZ + rowSpacing * 0.5; z <= polygon.maxZ; z += rowSpacing, rowIndex += 1) {
     const rowOffset = rowIndex % 2 === 0 ? 0 : columnSpacing * 0.5;
-    for (let x = polygon.minX + columnSpacing * 0.5 + rowOffset; x <= polygon.maxX && spawns.length < maxSpawnCount; x += columnSpacing) {
+    for (let x = polygon.minX + columnSpacing * 0.5 + rowOffset; x <= polygon.maxX; x += columnSpacing) {
       const candidates = [
         {
           x: x + (random() - 0.5) * jitter,
@@ -490,6 +500,7 @@ function fillCoverSpawnGaps(
         },
         { x, z }
       ] as const;
+      let bestCandidate: CoverGapCandidate | null = null;
 
       for (const candidate of candidates) {
         if (!isPointInsidePolygon(candidate.x, candidate.z, polygon.points)) {
@@ -497,7 +508,7 @@ function fillCoverSpawnGaps(
         }
 
         const nearestSpawnDistance = getNearestCoverSpawnDistance(spawns, candidate.x, candidate.z);
-        if (nearestSpawnDistance < nominalFootprint * getCoverGapRadiusFactor(biome.recipe.coverKind)) {
+        if (nearestSpawnDistance < gapRadius) {
           continue;
         }
 
@@ -506,15 +517,39 @@ function fillCoverSpawnGaps(
           biome.recipe.coverMaxScale,
           0.28 + random() * 0.44
         );
-        const spawn = createCoverSpawn(biome, random, candidate.x, candidate.z, fillScale);
-        if (!canPlaceCoverSpawn(spawn, spawns, biome, polygon, structureMask, random)) {
-          continue;
+        const edgeClearance = getPolygonEdgeClearance(candidate.x, candidate.z, polygon.points);
+        const score = nearestSpawnDistance * 0.78 + edgeClearance * 0.18 + random() * 0.04;
+        if (!bestCandidate || score > bestCandidate.score) {
+          bestCandidate = {
+            x: candidate.x,
+            z: candidate.z,
+            scale: fillScale,
+            score
+          };
         }
+      }
 
-        spawns.push(spawn);
-        break;
+      if (bestCandidate) {
+        gapCandidates.push(bestCandidate);
       }
     }
+  }
+
+  gapCandidates.sort((left, right) => right.score - left.score);
+  for (const candidate of gapCandidates) {
+    if (spawns.length >= maxSpawnCount) {
+      break;
+    }
+
+    const candidateRandom = createSeededRandom(
+      `${biome.seed}:${biome.recipe.coverKind}:gap:${candidate.x.toFixed(4)}:${candidate.z.toFixed(4)}`
+    );
+    const spawn = createCoverSpawn(biome, candidateRandom, candidate.x, candidate.z, candidate.scale);
+    if (!canPlaceCoverSpawn(spawn, spawns, biome, polygon, structureMask, candidateRandom)) {
+      continue;
+    }
+
+    spawns.push(spawn);
   }
 }
 
@@ -538,13 +573,13 @@ function shouldRejectCoverForStructure(
   switch (kind) {
     case "grassPatch":
     case "wheatPatch":
-      return structureInfluence > 0.94 && random() < structureInfluence * 0.2;
+      return structureInfluence > 0.82 && random() < structureInfluence * 0.48;
     case "rockCluster":
     case "clay":
     case "dune":
-      return structureInfluence > 0.88 && random() < structureInfluence * 0.28;
+      return structureInfluence > 0.72 && random() < structureInfluence * 0.62;
     case "tree":
-      return structureInfluence > 0.64 && random() < structureInfluence * 0.5;
+      return structureInfluence > 0.42 && random() < structureInfluence * 0.84;
   }
 
   const unsupportedKind: never = kind;
@@ -1030,8 +1065,8 @@ function createStructureMask(
           x: (right.x - tile.x) * scale,
           z: (right.y - tile.y) * scale
         },
-        width: 0.18,
-        falloff: 0.16
+        width: 0.28,
+        falloff: 0.3
       };
     });
   const buildings = tile.vertexIds
@@ -1040,8 +1075,8 @@ function createStructureMask(
     .map((vertex) => ({
       x: (vertex.x - tile.x) * scale,
       z: (vertex.y - tile.y) * scale,
-      radius: 0.28,
-      falloff: 0.18
+      radius: 0.42,
+      falloff: 0.36
     }));
   const ports = boardPorts
     .filter((port) => edgesById.get(port.edgeId)?.tileIds.includes(tile.id))
@@ -1084,16 +1119,16 @@ function createStructureMask(
 
       return [
         {
-          x: edgeCenter.x + outward.x * 0.54,
-          z: edgeCenter.z + outward.z * 0.54,
-          radius: 0.22,
-          falloff: 0.1
+          x: edgeCenter.x + outward.x * 0.38,
+          z: edgeCenter.z + outward.z * 0.38,
+          radius: 0.58,
+          falloff: 0.24
         },
         {
-          x: edgeCenter.x + outward.x * 0.18,
-          z: edgeCenter.z + outward.z * 0.18,
-          radius: 0.1,
-          falloff: 0.06
+          x: edgeCenter.x + outward.x * 0.08,
+          z: edgeCenter.z + outward.z * 0.08,
+          radius: 0.24,
+          falloff: 0.12
         }
       ];
     });

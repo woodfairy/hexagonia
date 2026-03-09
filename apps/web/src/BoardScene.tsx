@@ -73,6 +73,7 @@ const modernTileShellCache = new Map<string, SharedModernTileShell>();
 const texturedTileShellCache = new Map<string, SharedTexturedTileShell>();
 const tileOutlineCache = new Map<string, SharedTileOutline>();
 const tileSandGeometryCache = new Map<string, THREE.ShapeGeometry>();
+const terrainPropGeometryCache = new Map<string, THREE.BufferGeometry>();
 const tokenSpriteMaterialCache = new Map<string, THREE.SpriteMaterial>();
 const portSpriteMaterialCache = new Map<PortType, THREE.SpriteMaterial>();
 const roadHitProxyGeometryCache = new Map<string, THREE.BoxGeometry>();
@@ -3928,11 +3929,8 @@ function createFarmsteadFeature(
       new THREE.Mesh(new THREE.BoxGeometry(0.32 * scale, 0.18 * scale, 0.22 * scale), barnMaterial)
     );
     body.position.set(0, 0.1 * scale, 0);
-    const roof = markTileShadow(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.12 * scale, 0.12 * scale, 0.34 * scale, 3), roofMaterial)
-    );
-    roof.position.set(0, 0.24 * scale, 0);
-    roof.rotation.set(0, 0, Math.PI / 2 + Math.PI / 6);
+    const roof = markTileShadow(new THREE.Mesh(getBarnRoofGeometry(scale), roofMaterial));
+    roof.position.set(0, 0.26 * scale, 0);
     const door = markTileShadow(
       new THREE.Mesh(new THREE.BoxGeometry(0.08 * scale, 0.12 * scale, 0.02 * scale), woodMaterial)
     );
@@ -3978,6 +3976,20 @@ function createFarmsteadFeature(
   strawB.rotation.z = -0.5;
   group.add(post, beam, cloth, hat, strawA, strawB);
   return group;
+}
+
+function getBarnRoofGeometry(scale: number): THREE.BufferGeometry {
+  const cacheKey = `barn-roof:${scale.toFixed(4)}`;
+  const cached = terrainPropGeometryCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const geometry = markSharedResource(new THREE.ConeGeometry(0.23 * scale, 0.14 * scale, 4));
+  geometry.rotateY(Math.PI / 4);
+  geometry.scale(1, 1, 0.72);
+  terrainPropGeometryCache.set(cacheKey, geometry);
+  return geometry;
 }
 
 function createClayAccent(scale: number, active: boolean, withPit: boolean): THREE.Group {
@@ -4348,8 +4360,8 @@ function createSheepfoldFeature(scale: number, active: boolean): THREE.Group {
   sheepA.position.set(-0.09 * scale, 0.02 * scale, -0.05 * scale);
   sheepA.rotation.y = 0.18;
   const sheepB = createSheepFigure(scale * 0.7, createWoolMaterial(active, false), faceMaterial, hoofMaterial, active);
-  sheepB.position.set(0.08 * scale, 0.02 * scale, -0.08 * scale);
-  sheepB.rotation.y = -0.34;
+  sheepB.position.set(-0.03 * scale, 0.02 * scale, -0.1 * scale);
+  sheepB.rotation.y = Math.PI - 0.28;
   const trough = createPastureGroundDetail(scale * 1.02, active, "trough");
   trough.position.set(0, 0.01 * scale, -0.18 * scale);
 
