@@ -6,6 +6,56 @@ import { getPlayerAccentClass, renderResourceLabel } from "../../ui";
 import { PlayerIdentity } from "../shared/PlayerIdentity";
 import { PlayerMention } from "../shared/PlayerText";
 
+function getRobberDiscardGroups(
+  players: MatchSnapshot["players"],
+  robberDiscardStatus: MatchSnapshot["robberDiscardStatus"]
+) {
+  const entries = robberDiscardStatus.flatMap((entry) => {
+    const player = players.find((candidate) => candidate.id === entry.playerId);
+    return player ? [{ ...entry, player }] : [];
+  });
+
+  return {
+    pending: entries.filter((entry) => !entry.done),
+    completed: entries.filter((entry) => entry.done)
+  };
+}
+
+function getRobberWaitDialogCopy(
+  currentPlayer: MatchSnapshot["players"][number] | null,
+  pendingPlayers: ReturnType<typeof getRobberDiscardGroups>["pending"]
+): { title: string; detail: ReactNode } {
+  if (pendingPlayers.length > 0) {
+    return {
+      title: "Karten werden abgeworfen",
+      detail: currentPlayer ? (
+        <>
+          Betroffene Spieler müssen jetzt Karten abwerfen. Danach setzt{" "}
+          <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention> den Räuber.
+        </>
+      ) : (
+        "Betroffene Spieler müssen jetzt Karten abwerfen. Danach wird der Räuber versetzt."
+      )
+    };
+  }
+
+  if (currentPlayer) {
+    return {
+      title: "Räuber wird versetzt",
+      detail: (
+        <>
+          <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention> versetzt jetzt den Räuber.
+        </>
+      )
+    };
+  }
+
+  return {
+    title: "Räuber wird versetzt",
+    detail: "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt."
+  };
+}
+
 export function ConfirmActionDialog(props: {
   title: string;
   detail: ReactNode;
@@ -104,22 +154,10 @@ export function RobberDiscardDialog(props: {
   onExpand: () => void;
 }) {
   const ownedTotal = RESOURCES.reduce((total, resource) => total + (props.ownedResources?.[resource] ?? 0), 0);
-  const pendingPlayers = props.robberDiscardStatus.flatMap((entry) => {
-    if (entry.done) {
-      return [];
-    }
-
-    const player = props.players.find((candidate) => candidate.id === entry.playerId);
-    return player ? [{ ...entry, player }] : [];
-  });
-  const completedPlayers = props.robberDiscardStatus.flatMap((entry) => {
-    if (!entry.done) {
-      return [];
-    }
-
-    const player = props.players.find((candidate) => candidate.id === entry.playerId);
-    return player ? [{ ...entry, player }] : [];
-  });
+  const { pending: pendingPlayers, completed: completedPlayers } = getRobberDiscardGroups(
+    props.players,
+    props.robberDiscardStatus
+  );
 
   if (props.minimized) {
     return (
