@@ -237,11 +237,6 @@ export function createTileTerrainSurface(params: CreateTileTerrainSurfaceParams)
   const group = new THREE.Group();
   group.add(surfaceMesh);
 
-  const coverLayer = createCoverLayer(biome, polygon, structureMask, sampleHeightLocal, params.baseY, params.active);
-  if (coverLayer) {
-    group.add(coverLayer);
-  }
-
   return {
     object: group,
     sampleHeight,
