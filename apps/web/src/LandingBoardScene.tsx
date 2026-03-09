@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { Resource } from "@hexagonia/shared";
-import { createUltraTerrainTextureBundle } from "./boardUltraTerrain";
+import type { MatchSnapshot, PlayerColor, Resource } from "@hexagonia/shared";
 import { BUILT_ROAD_ELEVATION, createBuildingPieceModel, createRoadPieceModel } from "./boardPieceModels";
 import { isFirefoxBrowser } from "./browserPerformance";
+import { createTileTerrainSurface, type TileTerrainSurfaceBundle } from "./boardTerrainRelief";
 import { TILE_COLORS } from "./boardVisuals";
 
 interface ShowcaseTile {
@@ -51,10 +51,21 @@ interface ShowcaseBoard {
   buildings: ShowcaseBuilding[];
 }
 
+interface ShowcaseTerrainContext {
+  tiles: MatchSnapshot["board"]["tiles"];
+  tilesById: Map<string, MatchSnapshot["board"]["tiles"][number]>;
+  vertices: MatchSnapshot["board"]["vertices"];
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>;
+  edges: MatchSnapshot["board"]["edges"];
+  edgesById: Map<string, MatchSnapshot["board"]["edges"][number]>;
+  tileIdsByVertex: Map<string, string[]>;
+}
+
 type LandingVisualProfile = "classic" | "fancy";
 const SHARED_RESOURCE_FLAG = "__sharedResource";
 const fancyTilePropTemplateCache = new Map<Resource | "desert", THREE.Group>();
 const tileSandGeometryCache = new Map<string, THREE.ShapeGeometry>();
+const EMPTY_SHOWCASE_PORTS: MatchSnapshot["board"]["ports"] = [];
 const tileSandMaterial = markSharedResource(
   new THREE.MeshStandardMaterial({
     color: "#e7cf8d",
@@ -80,7 +91,6 @@ const TILE_INSET_BEVEL_SIZE = 0.09;
 const TILE_INSET_BEVEL_THICKNESS = 0.04;
 const TILE_OUTER_RENDER_SCALE = 0.955;
 const TILE_INSET_RENDER_SCALE = 0.918;
-const TILE_OVERLAY_RENDER_SCALE = 0.895;
 const TILE_SAND_UNDERLAY_SCALE = 1;
 const TILE_SAND_UNDERLAY_Y = 0.026;
 const HEX_RADIUS = 1;
@@ -137,6 +147,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hasFallback, setHasFallback] = useState(false);
   const showcaseBoard = useMemo(() => createShowcaseBoard(), []);
+  const showcaseTerrain = useMemo(() => createShowcaseTerrainContext(showcaseBoard), [showcaseBoard]);
   const visualProfile = props.visualProfile ?? "classic";
 
   useEffect(() => {
@@ -234,22 +245,39 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
     const stars = createStarField();
     scene.add(stars);
 
-    const verticesById = new Map(showcaseBoard.vertices.map((vertex) => [vertex.id, vertex]));
-    const edgesById = new Map(showcaseBoard.edges.map((edge) => [edge.id, edge]));
+    const { tiles, tilesById, verticesById, edgesById, tileIdsByVertex } = showcaseTerrain;
+    const terrainSurfaceByTile = new Map<string, TileTerrainSurfaceBundle>();
 
-    for (const tile of showcaseBoard.tiles) {
-      const tileGroup = createTileMesh(tile, verticesById, visualProfile);
+    for (const tile of tiles) {
+      const terrainSurface =
+        visualProfile === "fancy"
+          ? createTileTerrainSurface({
+              tile,
+              verticesById,
+              boardEdges: showcaseTerrain.edges,
+              boardVertices: showcaseTerrain.vertices,
+              boardPorts: EMPTY_SHOWCASE_PORTS,
+              active: false,
+              textured: false,
+              tileScale: TILE_OUTER_RENDER_SCALE,
+              baseY: TILE_HEIGHT + 0.012
+            })
+          : null;
+      if (terrainSurface) {
+        terrainSurfaceByTile.set(tile.id, terrainSurface);
+      }
+      const tileGroup = createTileMesh(tile, verticesById, visualProfile, terrainSurface);
       tileGroup.position.set(tile.x, 0, tile.y);
       tileGroup.traverse((object) => {
         if (object instanceof THREE.Mesh) {
-          object.castShadow = object.userData.landingProp === true;
+          object.castShadow = object.castShadow || object.userData.landingProp === true;
           object.receiveShadow = true;
         }
       });
       boardGroup.add(tileGroup);
 
       const outline = createTileOutline(tile, verticesById);
-      outline.position.set(tile.x, TILE_HEIGHT + 0.05, tile.y);
+      outline.position.set(tile.x, (terrainSurface?.maxHeight ?? TILE_HEIGHT) + 0.05, tile.y);
       boardGroup.add(outline);
     }
 
@@ -271,7 +299,11 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       const length = Math.sqrt(dx * dx + dz * dz);
       const road = createRoadPiece(length, roadEntry.color);
       const roadObject = new THREE.Group();
-      roadObject.position.set((left.x + right.x) / 2, TILE_HEIGHT + BUILT_ROAD_ELEVATION, (left.y + right.y) / 2);
+      const roadHeight =
+        visualProfile === "fancy"
+          ? sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById)
+          : TILE_HEIGHT;
+      roadObject.position.set((left.x + right.x) / 2, roadHeight + BUILT_ROAD_ELEVATION, (left.y + right.y) / 2);
       roadObject.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx, 0, dz).normalize());
       road.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -289,8 +321,12 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
         continue;
       }
 
+      const buildingHeight =
+        visualProfile === "fancy"
+          ? sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById)
+          : TILE_HEIGHT;
       const building = createBuildingMesh(buildingEntry.type, buildingEntry.color);
-      building.position.set(vertex.x, TILE_HEIGHT + 0.02, vertex.y);
+      building.position.set(vertex.x, buildingHeight + 0.02, vertex.y);
       building.traverse((object) => {
         if (object instanceof THREE.Mesh) {
           object.castShadow = true;
@@ -306,7 +342,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       });
       const marker = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.11, 10, 36), markerMaterial);
       marker.rotation.x = Math.PI / 2;
-      marker.position.set(vertex.x, TILE_HEIGHT + 0.38, vertex.y);
+      marker.position.set(vertex.x, buildingHeight + 0.38, vertex.y);
       boardGroup.add(marker);
       glowMarkers.push({ material: markerMaterial, speed: 1.4, baseOpacity: 0.24 });
     }
@@ -706,7 +742,7 @@ export function LandingBoardScene(props: { reducedMotion: boolean; visualProfile
       renderer.dispose();
       mount.replaceChildren();
     };
-  }, [hasFallback, props.reducedMotion, showcaseBoard, visualProfile]);
+  }, [hasFallback, props.reducedMotion, showcaseTerrain, visualProfile]);
 
   if (hasFallback) {
     return (
@@ -893,17 +929,21 @@ function axialToWorld(q: number, r: number): [number, number] {
 }
 
 function createTileMesh(
-  tile: ShowcaseTile,
-  verticesById: Map<string, ShowcaseVertex>,
-  visualProfile: LandingVisualProfile
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  visualProfile: LandingVisualProfile,
+  terrainSurface: TileTerrainSurfaceBundle | null
 ): THREE.Group {
   if (visualProfile === "fancy") {
-    return createFancyTileMesh(tile, verticesById);
+    return createFancyTileMesh(tile, verticesById, terrainSurface);
   }
   return createClassicTileMesh(tile, verticesById);
 }
 
-function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
+function createClassicTileMesh(
+  tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "resource" | "vertexIds">,
+  verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>
+): THREE.Group {
   const tileTopColor = TILE_COLORS[tile.resource];
   const tileSideColor = getTileOuterSideColor(tile.resource);
   const tileInsetTopColor = shadeColor(TILE_COLORS[tile.resource], 0.04);
@@ -965,104 +1005,36 @@ function createClassicTileMesh(tile: ShowcaseTile, verticesById: Map<string, Sho
   return tileGroup;
 }
 
-function createFancyTileMesh(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Group {
-  const bundle = createUltraTerrainTextureBundle(tile.resource, "landing");
-  const sandUnderlay = createTileSandUnderlay(tile, verticesById);
-  const outerShape = createTileShape(tile, verticesById, TILE_OUTER_RENDER_SCALE);
-  const outerGeometry = new THREE.ExtrudeGeometry(outerShape, {
-    depth: TILE_HEIGHT,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    steps: 1,
-    bevelSize: TILE_OUTER_BEVEL_SIZE,
-    bevelThickness: TILE_OUTER_BEVEL_THICKNESS,
-    curveSegments: 6
-  });
-  outerGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(outerGeometry);
+function createFancyTileMesh(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  terrainSurface: TileTerrainSurfaceBundle | null
+): THREE.Group {
+  const tileGroup = createClassicTileMesh(tile, verticesById);
+  if (terrainSurface) {
+    tileGroup.add(terrainSurface.object);
+  }
 
-  const insetShape = createTileShape(tile, verticesById, TILE_INSET_RENDER_SCALE);
-  const insetGeometry = new THREE.ExtrudeGeometry(insetShape, {
-    depth: TILE_INSET_DEPTH,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    steps: 1,
-    bevelSize: TILE_INSET_BEVEL_SIZE,
-    bevelThickness: TILE_INSET_BEVEL_THICKNESS,
-    curveSegments: 6
-  });
-  insetGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(insetGeometry);
-
-  const outerMesh = new THREE.Mesh(outerGeometry, [
-    new THREE.MeshStandardMaterial({
-      color: bundle.appearance.topTint,
-      map: bundle.colorMap,
-      ...(bundle.roughnessMap ? { roughnessMap: bundle.roughnessMap } : {}),
-      ...(bundle.bumpMap ? { bumpMap: bundle.bumpMap } : {}),
-      roughness: bundle.appearance.roughness,
-      metalness: bundle.appearance.metalness,
-      bumpScale: bundle.appearance.bumpScale * 0.82,
-      emissive: new THREE.Color(bundle.appearance.emissive),
-      emissiveIntensity: 0.02
-    }),
-    new THREE.MeshStandardMaterial({
-      color: bundle.appearance.sideTint,
-      roughness: 0.96,
-      metalness: 0.02
-    })
-  ]);
-
-  const insetMesh = new THREE.Mesh(insetGeometry, [
-    new THREE.MeshStandardMaterial({
-      color: bundle.appearance.insetTint,
-      map: bundle.colorMap,
-      ...(bundle.roughnessMap ? { roughnessMap: bundle.roughnessMap } : {}),
-      ...(bundle.bumpMap ? { bumpMap: bundle.bumpMap } : {}),
-      roughness: Math.max(bundle.appearance.roughness - 0.05, 0.36),
-      metalness: bundle.appearance.metalness,
-      bumpScale: bundle.appearance.bumpScale,
-      emissive: new THREE.Color(bundle.appearance.emissive),
-      emissiveIntensity: 0.028
-    }),
-    new THREE.MeshStandardMaterial({
-      color: bundle.appearance.insetSideTint,
-      roughness: 0.94,
-      metalness: 0.01
-    })
-  ]);
-  insetMesh.position.y = TILE_HEIGHT - TILE_INSET_DEPTH + 0.015;
-
-  const overlayGeometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_OVERLAY_RENDER_SCALE));
-  overlayGeometry.rotateX(-Math.PI / 2);
-  remapPlanarTileUvs(overlayGeometry);
-  const overlay = new THREE.Mesh(
-    overlayGeometry,
-    new THREE.MeshBasicMaterial({
-      color: bundle.appearance.overlayBase,
-      alphaMap: bundle.overlayMask,
-      transparent: true,
-      opacity: bundle.appearance.overlayOpacity,
-      depthWrite: false
-    })
-  );
-  overlay.position.y = TILE_HEIGHT + 0.03;
-
-  const tileGroup = new THREE.Group();
   const propGroup = createFancyTileProps(tile.resource);
-  propGroup.position.y = TILE_HEIGHT + 0.02;
+  propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
   propGroup.scale.setScalar(TILE_OUTER_RENDER_SCALE * 0.86);
-  tileGroup.add(sandUnderlay, outerMesh, insetMesh, overlay, propGroup);
+  tileGroup.add(propGroup);
   return tileGroup;
 }
 
-function createTileSandUnderlay(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.Mesh {
+function createTileSandUnderlay(
+  tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "vertexIds">,
+  verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>
+): THREE.Mesh {
   const sand = new THREE.Mesh(getTileSandGeometry(tile, verticesById), tileSandMaterial);
   sand.position.y = TILE_SAND_UNDERLAY_Y;
   return sand;
 }
 
-function getTileSandGeometry(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.ShapeGeometry {
+function getTileSandGeometry(
+  tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "vertexIds">,
+  verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>
+): THREE.ShapeGeometry {
   const cacheKey = createTileShapeKey(tile);
   let geometry = tileSandGeometryCache.get(cacheKey);
   if (!geometry) {
@@ -1073,11 +1045,14 @@ function getTileSandGeometry(tile: ShowcaseTile, verticesById: Map<string, Showc
   return geometry;
 }
 
-function createTileShapeKey(tile: ShowcaseTile): string {
+function createTileShapeKey(tile: Pick<MatchSnapshot["board"]["tiles"][number], "vertexIds">): string {
   return tile.vertexIds.join(",");
 }
 
-function createTileOutline(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>): THREE.LineLoop {
+function createTileOutline(
+  tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "vertexIds">,
+  verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>
+): THREE.LineLoop {
   const points = tile.vertexIds.map((vertexId) => {
     const vertex = verticesById.get(vertexId)!;
     return new THREE.Vector3(vertex.x - tile.x, 0, vertex.y - tile.y);
@@ -1093,7 +1068,11 @@ function createTileOutline(tile: ShowcaseTile, verticesById: Map<string, Showcas
   );
 }
 
-function createTileShape(tile: ShowcaseTile, verticesById: Map<string, ShowcaseVertex>, scale = 1): THREE.Shape {
+function createTileShape(
+  tile: Pick<MatchSnapshot["board"]["tiles"][number], "x" | "y" | "vertexIds">,
+  verticesById: Map<string, Pick<MatchSnapshot["board"]["vertices"][number], "id" | "x" | "y">>,
+  scale = 1
+): THREE.Shape {
   const shape = new THREE.Shape();
   tile.vertexIds.forEach((vertexId, index) => {
     const vertex = verticesById.get(vertexId)!;
@@ -1109,28 +1088,148 @@ function createTileShape(tile: ShowcaseTile, verticesById: Map<string, ShowcaseV
   return shape;
 }
 
-function remapPlanarTileUvs(geometry: THREE.BufferGeometry): void {
-  const position = geometry.getAttribute("position");
-  if (!(position instanceof THREE.BufferAttribute) || position.itemSize < 3) {
-    return;
+function createShowcaseTerrainContext(showcaseBoard: ShowcaseBoard): ShowcaseTerrainContext {
+  const roadColorByEdgeId = new Map(
+    showcaseBoard.roads.map((road) => [road.edgeId, resolveShowcasePlayerColor(road.color)] as const)
+  );
+  const buildingByVertexId = new Map(
+    showcaseBoard.buildings.map((building) => {
+      const color = resolveShowcasePlayerColor(building.color);
+      return [
+        building.vertexId,
+        {
+          ownerId: `showcase:${color}`,
+          color,
+          type: building.type
+        }
+      ] as const;
+    })
+  );
+  const tiles: MatchSnapshot["board"]["tiles"] = showcaseBoard.tiles.map((tile) => ({
+    ...tile,
+    token: null,
+    robber: false
+  }));
+  const edges: MatchSnapshot["board"]["edges"] = showcaseBoard.edges.map((edge) => {
+    const color = roadColorByEdgeId.get(edge.id) ?? null;
+    return {
+      ...edge,
+      ownerId: color ? `showcase:${color}` : null,
+      color
+    };
+  });
+  const edgesById = new Map(edges.map((edge) => [edge.id, edge]));
+  const vertices: MatchSnapshot["board"]["vertices"] = showcaseBoard.vertices.map((vertex) => ({
+    ...vertex,
+    adjacentVertexIds: [...new Set(vertex.edgeIds.map((edgeId) => getAdjacentVertexId(vertex.id, edgesById.get(edgeId)!)))],
+    building: buildingByVertexId.get(vertex.id) ?? null,
+    portType: null
+  }));
+
+  return {
+    tiles,
+    tilesById: new Map(tiles.map((tile) => [tile.id, tile])),
+    vertices,
+    verticesById: new Map(vertices.map((vertex) => [vertex.id, vertex])),
+    edges,
+    edgesById,
+    tileIdsByVertex: new Map(vertices.map((vertex) => [vertex.id, [...vertex.tileIds]]))
+  };
+}
+
+function getAdjacentVertexId(
+  vertexId: string,
+  edge: MatchSnapshot["board"]["edges"][number]
+): string {
+  return edge.vertexIds[0] === vertexId ? edge.vertexIds[1] : edge.vertexIds[0];
+}
+
+function resolveShowcasePlayerColor(color: string): PlayerColor {
+  switch (color) {
+    case SHOWCASE_PLAYER_COLORS.red:
+      return "red";
+    case SHOWCASE_PLAYER_COLORS.blue:
+      return "blue";
+    case SHOWCASE_PLAYER_COLORS.orange:
+      return "orange";
+    case SHOWCASE_PLAYER_COLORS.green:
+      return "green";
+    default:
+      throw new Error(`Unsupported showcase player color: ${color}`);
+  }
+}
+
+function sampleTileTerrainHeight(
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tile: MatchSnapshot["board"]["tiles"][number] | undefined,
+  worldX: number,
+  worldZ: number
+): number {
+  if (!tile) {
+    return TILE_HEIGHT;
   }
 
-  geometry.computeBoundingBox();
-  const bounds = geometry.boundingBox;
-  if (!bounds) {
-    return;
+  const terrainSurface = terrainSurfaceByTile.get(tile.id);
+  if (!terrainSurface) {
+    return TILE_HEIGHT;
   }
 
-  const width = Math.max(bounds.max.x - bounds.min.x, 0.001);
-  const depth = Math.max(bounds.max.z - bounds.min.z, 0.001);
-  const uvValues = new Float32Array(position.count * 2);
+  return terrainSurface.sampleHeight(worldX - tile.x, worldZ - tile.y);
+}
 
-  for (let index = 0; index < position.count; index += 1) {
-    uvValues[index * 2] = (position.getX(index) - bounds.min.x) / width;
-    uvValues[index * 2 + 1] = (position.getZ(index) - bounds.min.z) / depth;
+function sampleAverageTerrainHeight(
+  tileIds: readonly string[],
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, MatchSnapshot["board"]["tiles"][number]>,
+  worldX: number,
+  worldZ: number
+): number {
+  const heights: number[] = [];
+
+  for (const tileId of tileIds) {
+    const tile = tilesById.get(tileId);
+    if (!tile) {
+      continue;
+    }
+
+    const terrainSurface = terrainSurfaceByTile.get(tile.id);
+    if (!terrainSurface) {
+      continue;
+    }
+
+    heights.push(terrainSurface.sampleHeight(worldX - tile.x, worldZ - tile.y));
   }
 
-  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvValues, 2));
+  if (!heights.length) {
+    return TILE_HEIGHT;
+  }
+
+  return heights.reduce((sum, height) => sum + height, 0) / heights.length;
+}
+
+function sampleVertexTerrainHeight(
+  vertex: MatchSnapshot["board"]["vertices"][number],
+  tileIdsByVertex: Map<string, string[]>,
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, MatchSnapshot["board"]["tiles"][number]>
+): number {
+  return sampleAverageTerrainHeight(tileIdsByVertex.get(vertex.id) ?? [], terrainSurfaceByTile, tilesById, vertex.x, vertex.y);
+}
+
+function sampleEdgeTerrainHeight(
+  edge: MatchSnapshot["board"]["edges"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  terrainSurfaceByTile: Map<string, TileTerrainSurfaceBundle>,
+  tilesById: Map<string, MatchSnapshot["board"]["tiles"][number]>
+): number {
+  const [leftId, rightId] = edge.vertexIds;
+  const left = verticesById.get(leftId);
+  const right = verticesById.get(rightId);
+  if (!left || !right) {
+    return TILE_HEIGHT;
+  }
+
+  return sampleAverageTerrainHeight(edge.tileIds, terrainSurfaceByTile, tilesById, (left.x + right.x) / 2, (left.y + right.y) / 2);
 }
 
 export function createFancyTileProps(resource: Resource | "desert"): THREE.Group {

@@ -13,9 +13,9 @@ export interface BoardVisualSettings {
 export const BOARD_VISUAL_SETTINGS_STORAGE_KEY = "hexagonia:board-visual-profile";
 const LEGACY_CLASSIC_BOARD_VISUAL_PROFILE_STORAGE_VALUE = "modern-textured";
 export const DEFAULT_BOARD_VISUAL_SETTINGS: BoardVisualSettings = {
-  textures: true,
+  textures: false,
   props: true,
-  terrainRelief: false,
+  terrainRelief: true,
   resourceIcons: false,
   pieceStyle: "modern"
 };
