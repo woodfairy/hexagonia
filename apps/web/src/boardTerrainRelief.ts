@@ -875,14 +875,14 @@ function createStructureMask(
         {
           x: edgeCenter.x + outward.x * 0.38,
           z: edgeCenter.z + outward.z * 0.38,
-          radius: 0.96,
-          falloff: 0.5
+          radius: 0.58,
+          falloff: 0.24
         },
         {
           x: edgeCenter.x + outward.x * 0.08,
           z: edgeCenter.z + outward.z * 0.08,
-          radius: 0.44,
-          falloff: 0.22
+          radius: 0.24,
+          falloff: 0.12
         }
       ];
     });
