@@ -4742,10 +4742,6 @@ select {
   font-size: 0.68rem;
 }
 
-.trade-compact-lane .trade-resource-pill-action-mark {
-  font-size: 0.58rem;
-}
-
 .trade-compact-lane-head,
 .trade-compact-lane-title {
   display: flex;
@@ -4795,8 +4791,8 @@ select {
 .trade-matrix-head,
 .trade-matrix-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(2.3rem, auto) minmax(3.1rem, 0.72fr) minmax(3.1rem, 0.72fr);
-  gap: 0.34rem;
+  grid-template-columns: 1.72rem minmax(2.2rem, auto) minmax(2.9rem, 0.72fr) minmax(2.9rem, 0.72fr);
+  gap: 0.28rem;
   align-items: center;
 }
 
@@ -4828,16 +4824,9 @@ select {
 }
 
 .trade-matrix-resource {
-  display: flex;
-  align-items: center;
-  gap: 0.38rem;
+  display: grid;
+  place-items: center;
   min-inline-size: 0;
-}
-
-.trade-matrix-resource strong {
-  min-inline-size: 0;
-  font-size: 0.8rem;
-  line-height: 1.08;
 }
 
 .trade-matrix-resource-icon {
@@ -5133,13 +5122,6 @@ select {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.trade-resource-pill-action-mark {
-  font-size: 0.62rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  color: var(--accent-strong);
-}
-
 .board-mobile-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -5292,7 +5274,7 @@ select {
 
   .trade-matrix-head,
   .trade-matrix-row {
-    grid-template-columns: minmax(0, 1fr) minmax(2rem, auto) minmax(2.8rem, 0.66fr) minmax(2.8rem, 0.66fr);
+    grid-template-columns: 1.62rem minmax(1.95rem, auto) minmax(2.7rem, 0.66fr) minmax(2.7rem, 0.66fr);
   }
 }
 
@@ -5306,16 +5288,12 @@ select {
 
   .trade-matrix-head,
   .trade-matrix-row {
-    grid-template-columns: minmax(0, 1fr) minmax(1.9rem, auto) minmax(2.55rem, 0.62fr) minmax(2.55rem, 0.62fr);
-    gap: 0.26rem;
+    grid-template-columns: 1.54rem minmax(1.82rem, auto) minmax(2.45rem, 0.62fr) minmax(2.45rem, 0.62fr);
+    gap: 0.22rem;
   }
 
   .trade-matrix-head {
     font-size: 0.58rem;
-  }
-
-  .trade-matrix-resource strong {
-    font-size: 0.74rem;
   }
 
   .trade-matrix-meta,
@@ -7002,7 +6980,7 @@ select {
 
   .trade-matrix-head,
   .trade-matrix-row {
-    grid-template-columns: minmax(0, 1fr) minmax(1.9rem, auto) minmax(2.5rem, 0.6fr) minmax(2.5rem, 0.6fr);
+    grid-template-columns: 1.54rem minmax(1.82rem, auto) minmax(2.4rem, 0.6fr) minmax(2.4rem, 0.6fr);
   }
 
   .trade-target-picker {

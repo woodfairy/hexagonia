@@ -196,14 +196,6 @@ const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
   { type: "grain", note: "2 Getreide gegen 1 Wahlkarte" },
   { type: "wool", note: "2 Wolle gegen 1 Wahlkarte" }
 ];
-const COMPACT_RESOURCE_LABELS: Record<Resource, string> = {
-  brick: "Lehm",
-  lumber: "Holz",
-  wool: "Wolle",
-  grain: "Getr.",
-  ore: "Erz"
-};
-
 function isDenseLegendViewport(width: number, height: number): boolean {
   return width < 1320 || height < 840;
 }
@@ -411,11 +403,11 @@ function TradeDraftPillRow(props: {
             key={resource}
             type="button"
             className={`trade-resource-pill is-${props.tone} is-action`.trim()}
+            title={`${renderResourceLabel(resource)} entfernen`}
             onClick={() => props.onReduce(resource)}
           >
             <ResourceIcon resource={resource} shell size={14} />
             <span>{`${props.resources[resource]}x ${renderResourceLabel(resource)}`}</span>
-            <span className="trade-resource-pill-action-mark">−1</span>
           </button>
         ))
       ) : (
@@ -2081,7 +2073,7 @@ export function MatchScreen(props: {
         </div>
         <div className="trade-matrix-shell">
           <div className="trade-matrix-head">
-            <span>Rohstoff</span>
+            <span aria-hidden="true" />
             <span>Hand</span>
             <span>Gibst</span>
             <span>Willst</span>
@@ -2096,11 +2088,10 @@ export function MatchScreen(props: {
 
               return (
                 <div key={`trade-matrix-${resource}`} className="trade-matrix-row">
-                  <div className="trade-matrix-resource">
+                  <div className="trade-matrix-resource" title={renderResourceLabel(resource)}>
                     <span className="trade-matrix-resource-icon" aria-hidden="true">
-                      <ResourceIcon resource={resource} shell size={15} />
+                      <ResourceIcon resource={resource} shell size={14} />
                     </span>
-                    <strong>{COMPACT_RESOURCE_LABELS[resource]}</strong>
                   </div>
                   <span className="trade-matrix-meta">{available}</span>
                   <TradeMatrixCellButton
@@ -2191,7 +2182,7 @@ export function MatchScreen(props: {
         {visibleMaritimeGiveResources.length ? (
           <div className="trade-matrix-shell">
             <div className="trade-matrix-head is-maritime">
-              <span>Rohstoff</span>
+              <span aria-hidden="true" />
               <span>Info</span>
               <span>Einsatz</span>
               <span>Ziel</span>
@@ -2206,11 +2197,10 @@ export function MatchScreen(props: {
 
                 return (
                   <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
-                    <div className="trade-matrix-resource">
+                    <div className="trade-matrix-resource" title={renderResourceLabel(resource)}>
                       <span className="trade-matrix-resource-icon" aria-hidden="true">
-                        <ResourceIcon resource={resource} shell size={15} />
+                        <ResourceIcon resource={resource} shell size={14} />
                       </span>
-                      <strong>{COMPACT_RESOURCE_LABELS[resource]}</strong>
                     </div>
                     <span className="trade-matrix-meta">{`${available} · ${ratio}:1`}</span>
                     <TradeMatrixCellButton
