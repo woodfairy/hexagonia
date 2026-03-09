@@ -95,16 +95,6 @@ interface DetailedBuildingMaterials {
   accentMaterial: THREE.MeshStandardMaterial;
 }
 
-interface ReliefSectionOptions {
-  cacheKey: string;
-  width: number;
-  bodyHeight: number;
-  roofHeight: number;
-  depth: number;
-  panelCount: number;
-  doorway?: boolean;
-}
-
 function createModernRoadPiece(roadLength: number, color: string, selected: boolean): THREE.Group {
   const group = new THREE.Group();
 
@@ -150,43 +140,43 @@ function createDetailedRoadPiece(roadLength: number, color: string, selected: bo
   const group = new THREE.Group();
 
   const base = new THREE.Mesh(
-    getRoadBodyGeometry(`road-detailed-base:${roadLength.toFixed(4)}`, roadLength, 0.62, 0.52, 0.14, 0.42),
+    getRoadBodyGeometry(`road-detailed-base:${roadLength.toFixed(4)}`, roadLength, 0.58, 0.5, 0.14, 0.4),
     getSharedMaterial(`road-detailed-base:${color}`, {
-      color: shadeColor(color, -0.2),
+      color: shadeColor(color, -0.18),
       roughness: 0.92,
       metalness: 0.01
     })
   );
-  base.position.y = 0.028;
+  base.position.y = 0.03;
 
   const cap = new THREE.Mesh(
-    getRoadBodyGeometry(`road-detailed-cap:${roadLength.toFixed(4)}`, roadLength * 0.94, 0.48, 0.42, 0.08, 0.3),
+    getRoadBodyGeometry(`road-detailed-cap:${roadLength.toFixed(4)}`, roadLength * 0.94, 0.46, 0.4, 0.06, 0.26),
     getSharedMaterial(`road-detailed-cap:${color}:${selected ? 1 : 0}`, {
       color,
-      roughness: 0.82,
+      roughness: 0.84,
       metalness: 0.02,
       emissive: new THREE.Color(selected ? "#ffcb74" : shadeColor(color, -0.2)),
       emissiveIntensity: selected ? 0.24 : 0.03
     })
   );
-  cap.position.y = 0.094;
+  cap.position.y = 0.09;
 
   const topMaterial = getSharedMaterial(`road-detailed-top:${color}:${selected ? 1 : 0}`, {
-    color: shadeColor(color, 0.06),
-    roughness: 0.8,
+    color: shadeColor(color, 0.08),
+    roughness: 0.78,
     metalness: 0.02,
     emissive: new THREE.Color(selected ? "#ffd991" : "#000000"),
     emissiveIntensity: selected ? 0.12 : 0
   });
   const reliefMaterial = getSharedMaterial(`road-detailed-relief:${color}:${selected ? 1 : 0}`, {
-    color: shadeColor(color, 0.2),
-    roughness: 0.74,
+    color: shadeColor(color, 0.18),
+    roughness: 0.76,
     metalness: 0.02,
     emissive: new THREE.Color(selected ? "#ffe6b8" : "#000000"),
     emissiveIntensity: selected ? 0.08 : 0
   });
 
-  group.add(base, cap, ...createDetailedRoadReliefMeshes(roadLength, "road-detailed", topMaterial, reliefMaterial));
+  group.add(base, cap, ...createDetailedRoadMiniatureMeshes(roadLength, "road-detailed", topMaterial, reliefMaterial));
   return group;
 }
 
@@ -215,7 +205,7 @@ function createDetailedRoadGuide(guideLength: number, selected: boolean): THREE.
   const group = new THREE.Group();
 
   const base = new THREE.Mesh(
-    getRoadBodyGeometry(`guide-detailed-base:${guideLength.toFixed(4)}`, guideLength, 0.6, 0.5, 0.1, 0.38),
+    getRoadBodyGeometry(`guide-detailed-base:${guideLength.toFixed(4)}`, guideLength, 0.56, 0.48, 0.1, 0.34),
     getSharedMaterial(`guide-detailed-base:${selected ? 1 : 0}`, {
       color: selected ? "#ffd68a" : "#f5d06f",
       roughness: 0.62,
@@ -230,20 +220,20 @@ function createDetailedRoadGuide(guideLength: number, selected: boolean): THREE.
 
   const topMaterial = getSharedMaterial(`guide-detailed-top:${selected ? 1 : 0}`, {
     color: selected ? "#fff2bf" : "#ffe39c",
-    roughness: 0.46,
+    roughness: 0.48,
     metalness: 0.02,
     transparent: true,
     opacity: selected ? 0.88 : 0.64
   });
   const reliefMaterial = getSharedMaterial(`guide-detailed-relief:${selected ? 1 : 0}`, {
     color: selected ? "#fff7d2" : "#fff0bd",
-    roughness: 0.42,
+    roughness: 0.46,
     metalness: 0.02,
     transparent: true,
     opacity: selected ? 0.84 : 0.58
   });
 
-  group.add(base, ...createDetailedRoadReliefMeshes(guideLength, "guide-detailed", topMaterial, reliefMaterial, 0.102, 0.116));
+  group.add(base, ...createDetailedRoadMiniatureMeshes(guideLength, "guide-detailed", topMaterial, reliefMaterial, 0.104));
   return group;
 }
 
@@ -348,56 +338,46 @@ function createModernSettlementPiece({
 function createDetailedSettlementPiece(materials: DetailedBuildingMaterials): THREE.Group {
   const group = new THREE.Group();
 
-  const plinth = new THREE.Mesh(getBoxGeometry("detailed-settlement-plinth", 1.14, 0.12, 0.84), materials.baseMaterial);
-  plinth.position.y = 0.06;
+  const base = new THREE.Mesh(getCylinderGeometry("detailed-settlement-base", 0.58, 0.62, 0.12, 28), materials.baseMaterial);
+  base.position.y = 0.06;
 
-  const apron = new THREE.Mesh(getBoxGeometry("detailed-settlement-apron", 0.92, 0.04, 0.66), materials.trimMaterial);
-  apron.position.set(0, 0.14, 0.02);
-
-  const mainSection = createDetailedFacadeSection(
-    {
-      cacheKey: "detailed-settlement-main",
-      width: 0.58,
-      bodyHeight: 0.28,
-      roofHeight: 0.16,
-      depth: 0.52,
-      panelCount: 2,
-      doorway: true
-    },
-    materials
+  const terrace = new THREE.Mesh(
+    getCylinderGeometry("detailed-settlement-terrace", 0.46, 0.5, 0.05, 28),
+    materials.trimMaterial
   );
-  mainSection.position.y = 0.12;
+  terrace.position.y = 0.145;
 
-  const leftSection = createDetailedFacadeSection(
-    {
-      cacheKey: "detailed-settlement-left",
-      width: 0.22,
-      bodyHeight: 0.16,
-      roofHeight: 0.08,
-      depth: 0.4,
-      panelCount: 1
-    },
-    materials
+  const cornice = new THREE.Mesh(
+    getCylinderGeometry("detailed-settlement-cornice", 0.32, 0.34, 0.04, 24),
+    materials.trimMaterial
   );
-  leftSection.position.set(-0.3, 0.12, 0.02);
+  cornice.position.y = 0.285;
 
-  const rightSection = createDetailedFacadeSection(
-    {
-      cacheKey: "detailed-settlement-right",
-      width: 0.22,
-      bodyHeight: 0.16,
-      roofHeight: 0.08,
-      depth: 0.4,
-      panelCount: 1
-    },
-    materials
+  const drum = new THREE.Mesh(getCylinderGeometry("detailed-settlement-drum", 0.25, 0.27, 0.2, 24), materials.wallMaterial);
+  drum.position.y = 0.36;
+
+  const dome = new THREE.Mesh(getDomeGeometry("detailed-settlement-dome", 0.26, 20), materials.roofMaterial);
+  dome.position.y = 0.46;
+
+  const lantern = new THREE.Mesh(
+    getCylinderGeometry("detailed-settlement-lantern", 0.05, 0.06, 0.08, 18),
+    materials.accentMaterial
   );
-  rightSection.position.set(0.3, 0.12, 0.02);
+  lantern.position.y = 0.65;
 
-  const sill = new THREE.Mesh(getBoxGeometry("detailed-settlement-sill", 0.74, 0.04, 0.07), materials.baseMaterial);
-  sill.position.set(0, 0.19, 0.34);
+  const door = new THREE.Mesh(getBoxGeometry("detailed-settlement-door", 0.12, 0.15, 0.05), materials.baseMaterial);
+  door.position.set(0, 0.28, 0.245);
 
-  group.add(plinth, apron, mainSection, leftSection, rightSection, sill);
+  group.add(
+    base,
+    terrace,
+    ...createColumnRing("detailed-settlement-colonnade", 8, 0.34, 0.235, 0.048, 0.16, materials.accentMaterial),
+    cornice,
+    drum,
+    dome,
+    lantern,
+    door
+  );
   return group;
 }
 
@@ -447,161 +427,152 @@ function createModernCityPiece({
 function createDetailedCityPiece(materials: DetailedBuildingMaterials): THREE.Group {
   const group = new THREE.Group();
 
-  const plinth = new THREE.Mesh(getBoxGeometry("detailed-city-plinth", 1.52, 0.12, 0.92), materials.baseMaterial);
-  plinth.position.y = 0.06;
+  const base = new THREE.Mesh(getCylinderGeometry("detailed-city-base", 0.72, 0.76, 0.14, 32), materials.baseMaterial);
+  base.position.y = 0.07;
 
-  const apron = new THREE.Mesh(getBoxGeometry("detailed-city-apron", 1.26, 0.05, 0.74), materials.trimMaterial);
-  apron.position.set(0, 0.145, 0.02);
+  const terrace = new THREE.Mesh(getCylinderGeometry("detailed-city-terrace", 0.62, 0.66, 0.05, 32), materials.trimMaterial);
+  terrace.position.y = 0.165;
 
-  const leftSection = createDetailedFacadeSection(
-    {
-      cacheKey: "detailed-city-left",
-      width: 0.42,
-      bodyHeight: 0.28,
-      roofHeight: 0.15,
-      depth: 0.5,
-      panelCount: 2
-    },
-    materials
+  const wallDeck = new THREE.Mesh(getCylinderGeometry("detailed-city-wall-deck", 0.56, 0.58, 0.08, 28), materials.baseMaterial);
+  wallDeck.position.y = 0.215;
+
+  const hall = new THREE.Mesh(getBoxGeometry("detailed-city-hall", 0.54, 0.22, 0.42), materials.wallMaterial);
+  hall.position.set(0, 0.33, 0.02);
+
+  const hallRoof = new THREE.Mesh(getGableRoofGeometry("detailed-city-hall-roof", 0.66, 0.18, 0.5), materials.roofMaterial);
+  hallRoof.position.set(0, 0.44, 0.02);
+
+  const leftTower = new THREE.Mesh(getCylinderGeometry("detailed-city-left-tower", 0.14, 0.16, 0.24, 22), materials.wallMaterial);
+  leftTower.position.set(-0.25, 0.33, 0.04);
+
+  const rightTower = new THREE.Mesh(
+    getCylinderGeometry("detailed-city-right-tower", 0.14, 0.16, 0.24, 22),
+    materials.wallMaterial
   );
-  leftSection.position.set(-0.34, 0.12, 0.02);
+  rightTower.position.set(0.25, 0.33, 0.04);
 
-  const centerSection = createDetailedFacadeSection(
-    {
-      cacheKey: "detailed-city-center",
-      width: 0.5,
-      bodyHeight: 0.34,
-      roofHeight: 0.18,
-      depth: 0.58,
-      panelCount: 2,
-      doorway: true
-    },
-    materials
+  const leftDome = new THREE.Mesh(getDomeGeometry("detailed-city-left-dome", 0.16, 18), materials.roofMaterial);
+  leftDome.position.set(-0.25, 0.45, 0.04);
+
+  const rightDome = new THREE.Mesh(getDomeGeometry("detailed-city-right-dome", 0.16, 18), materials.roofMaterial);
+  rightDome.position.set(0.25, 0.45, 0.04);
+
+  const gate = new THREE.Mesh(getBoxGeometry("detailed-city-gate", 0.18, 0.16, 0.055), materials.accentMaterial);
+  gate.position.set(0, 0.26, 0.245);
+
+  const stairs = new THREE.Mesh(getBoxGeometry("detailed-city-stairs", 0.28, 0.04, 0.11), materials.trimMaterial);
+  stairs.position.set(0, 0.16, 0.315);
+
+  group.add(
+    base,
+    terrace,
+    wallDeck,
+    ...createBattlementRing("detailed-city-battlements", 16, 0.62, 0.255, materials.trimMaterial),
+    hall,
+    hallRoof,
+    leftTower,
+    rightTower,
+    leftDome,
+    rightDome,
+    gate,
+    stairs
   );
-  centerSection.position.set(0, 0.12, 0.03);
-
-  const rightSection = createDetailedFacadeSection(
-    {
-      cacheKey: "detailed-city-right",
-      width: 0.42,
-      bodyHeight: 0.3,
-      roofHeight: 0.15,
-      depth: 0.5,
-      panelCount: 2
-    },
-    materials
-  );
-  rightSection.position.set(0.34, 0.12, 0.02);
-
-  const frontBand = new THREE.Mesh(getBoxGeometry("detailed-city-front-band", 1.12, 0.045, 0.07), materials.baseMaterial);
-  frontBand.position.set(0, 0.23, 0.35);
-
-  group.add(plinth, apron, leftSection, centerSection, rightSection, frontBand);
   return group;
 }
 
-function createDetailedRoadReliefMeshes(
+function createDetailedRoadMiniatureMeshes(
   roadLength: number,
   keyPrefix: string,
   topMaterial: THREE.MeshStandardMaterial,
   reliefMaterial: THREE.MeshStandardMaterial,
-  plateHeight = 0.132,
-  reliefHeight = 0.146
+  baseHeight = 0.132
 ): THREE.Mesh[] {
-  const plate = new THREE.Mesh(
-    getBoxGeometry(`${keyPrefix}-relief-cap:${roadLength.toFixed(4)}`, roadLength * 0.8, 0.016, 0.24),
+  const deck = new THREE.Mesh(
+    getBoxGeometry(`${keyPrefix}-deck:${roadLength.toFixed(4)}`, roadLength * 0.82, 0.016, 0.18),
     topMaterial
   );
-  plate.position.set(0, plateHeight, 0);
+  deck.position.set(0, baseHeight, 0);
 
-  const peakCount = Math.max(Math.min(Math.round(roadLength / 0.22), 6), 4);
-  const crest = new THREE.Mesh(
-    getRoadCrestGeometry(
-      `${keyPrefix}-relief-crest:${roadLength.toFixed(4)}:${peakCount}`,
-      roadLength * 0.72,
-      0.034,
-      0.16,
-      peakCount
-    ),
+  const leftRail = new THREE.Mesh(
+    getBoxGeometry(`${keyPrefix}-rail:${roadLength.toFixed(4)}`, roadLength * 0.88, 0.042, 0.028),
     reliefMaterial
   );
-  crest.position.set(0, reliefHeight, 0);
+  leftRail.position.set(0, baseHeight + 0.028, -0.102);
 
-  return [plate, crest];
-}
-
-function createDetailedFacadeSection(
-  options: ReliefSectionOptions,
-  materials: DetailedBuildingMaterials
-): THREE.Group {
-  const group = new THREE.Group();
-
-  const body = new THREE.Mesh(
-    getBoxGeometry(`${options.cacheKey}-body`, options.width, options.bodyHeight, options.depth),
-    materials.wallMaterial
+  const rightRail = new THREE.Mesh(
+    getBoxGeometry(`${keyPrefix}-rail:${roadLength.toFixed(4)}`, roadLength * 0.88, 0.042, 0.028),
+    reliefMaterial
   );
-  body.position.y = options.bodyHeight / 2;
+  rightRail.position.set(0, baseHeight + 0.028, 0.102);
 
-  const roof = new THREE.Mesh(
-    getGableRoofGeometry(`${options.cacheKey}-roof`, options.width * 1.06, options.roofHeight, options.depth * 1.04),
-    materials.roofMaterial
-  );
-  roof.position.y = options.bodyHeight;
+  const supportCount = Math.max(Math.min(Math.round(roadLength / 0.24), 6), 4);
+  const start = -(roadLength * 0.58) / 2;
+  const step = supportCount > 1 ? (roadLength * 0.58) / (supportCount - 1) : 0;
+  const meshes: THREE.Mesh[] = [deck, leftRail, rightRail];
 
-  const band = new THREE.Mesh(
-    getBoxGeometry(`${options.cacheKey}-band`, options.width * 0.84, 0.04, 0.05),
-    materials.trimMaterial
-  );
-  band.position.set(0, options.bodyHeight * 0.72, options.depth / 2 + 0.01);
-
-  const sill = new THREE.Mesh(
-    getBoxGeometry(`${options.cacheKey}-sill`, options.width * 0.72, 0.035, 0.045),
-    materials.baseMaterial
-  );
-  sill.position.set(0, options.bodyHeight * 0.22, options.depth / 2 + 0.01);
-
-  const ridge = new THREE.Mesh(
-    getBoxGeometry(`${options.cacheKey}-ridge`, Math.max(options.width * 0.34, 0.1), 0.035, 0.05),
-    materials.trimMaterial
-  );
-  ridge.position.set(0, options.bodyHeight + options.roofHeight * 0.88, 0);
-
-  const panels = createFacadePanels(options, materials.accentMaterial);
-  group.add(body, roof, band, sill, ridge, ...panels);
-
-  if (options.doorway) {
-    const door = new THREE.Mesh(
-      getBoxGeometry(`${options.cacheKey}-door`, Math.max(options.width * 0.18, 0.1), options.bodyHeight * 0.42, 0.055),
-      materials.baseMaterial
+  for (let index = 0; index < supportCount; index += 1) {
+    const x = start + step * index;
+    const leftSupport = new THREE.Mesh(
+      getBoxGeometry(`${keyPrefix}-support`, 0.045, 0.078, 0.024),
+      reliefMaterial
     );
-    door.position.set(0, options.bodyHeight * 0.21, options.depth / 2 + 0.02);
-    group.add(door);
+    leftSupport.position.set(x, baseHeight - 0.014, -0.102);
+
+    const rightSupport = new THREE.Mesh(
+      getBoxGeometry(`${keyPrefix}-support`, 0.045, 0.078, 0.024),
+      reliefMaterial
+    );
+    rightSupport.position.set(x, baseHeight - 0.014, 0.102);
+
+    const crest = new THREE.Mesh(
+      getBoxGeometry(`${keyPrefix}-crest`, 0.04, 0.022, 0.11),
+      topMaterial
+    );
+    crest.position.set(x, baseHeight + 0.056, 0);
+
+    meshes.push(leftSupport, rightSupport, crest);
   }
 
-  return group;
+  return meshes;
 }
 
-function createFacadePanels(options: ReliefSectionOptions, material: THREE.MeshStandardMaterial): THREE.Mesh[] {
-  const panelCount = Math.max(options.panelCount, 1);
-  const gap = Math.min(0.05, options.width * 0.08);
-  const availableWidth = options.width * 0.72 - gap * (panelCount - 1);
-  const panelWidth = Math.max(availableWidth / panelCount, 0.08);
-  const startX = -(panelWidth * (panelCount - 1) + gap * (panelCount - 1)) / 2;
-  const frontZ = options.depth / 2 + 0.015;
-  const panelHeight = Math.max(options.bodyHeight * 0.24, 0.08);
-  const panelY = options.bodyHeight * 0.44;
-
-  const panels: THREE.Mesh[] = [];
-  for (let index = 0; index < panelCount; index += 1) {
-    const panel = new THREE.Mesh(
-      getBoxGeometry(`${options.cacheKey}-panel:${index}:${panelWidth.toFixed(3)}`, panelWidth, panelHeight, 0.04),
-      material
-    );
-    panel.position.set(startX + index * (panelWidth + gap), panelY, frontZ);
-    panels.push(panel);
+function createColumnRing(
+  keyPrefix: string,
+  count: number,
+  radius: number,
+  centerY: number,
+  columnRadius: number,
+  columnHeight: number,
+  material: THREE.MeshStandardMaterial
+): THREE.Mesh[] {
+  const geometry = getCylinderGeometry(`${keyPrefix}-column`, columnRadius, columnRadius, columnHeight, 14);
+  const meshes: THREE.Mesh[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const angle = (index / count) * Math.PI * 2;
+    const column = new THREE.Mesh(geometry, material);
+    column.position.set(Math.sin(angle) * radius, centerY, Math.cos(angle) * radius);
+    meshes.push(column);
   }
+  return meshes;
+}
 
-  return panels;
+function createBattlementRing(
+  keyPrefix: string,
+  count: number,
+  radius: number,
+  centerY: number,
+  material: THREE.MeshStandardMaterial
+): THREE.Mesh[] {
+  const geometry = getBoxGeometry(`${keyPrefix}-block`, 0.085, 0.06, 0.05);
+  const meshes: THREE.Mesh[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const angle = (index / count) * Math.PI * 2;
+    const block = new THREE.Mesh(geometry, material);
+    block.position.set(Math.sin(angle) * radius, centerY, Math.cos(angle) * radius);
+    block.rotation.y = -angle;
+    meshes.push(block);
+  }
+  return meshes;
 }
 
 function getRoadBodyGeometry(
@@ -647,49 +618,32 @@ function getRoadBodyGeometry(
   return geometry;
 }
 
-function getRoadCrestGeometry(
+function getCylinderGeometry(
   cacheKey: string,
-  length: number,
-  peakHeight: number,
-  depth: number,
-  peakCount: number
-): THREE.ExtrudeGeometry {
+  radiusTop: number,
+  radiusBottom: number,
+  height: number,
+  radialSegments: number
+): THREE.CylinderGeometry {
   const cached = sharedGeometryCache.get(cacheKey);
-  if (cached instanceof THREE.ExtrudeGeometry) {
+  if (cached instanceof THREE.CylinderGeometry) {
     return cached;
   }
 
-  const usableLength = length;
-  const halfLength = usableLength / 2;
-  const step = usableLength / peakCount;
-  const baseThickness = Math.max(peakHeight * 0.4, 0.014);
-  const shape = new THREE.Shape();
-  shape.moveTo(-halfLength, -baseThickness);
-  shape.lineTo(-halfLength, 0);
+  const geometry = markSharedResource(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, radialSegments));
+  sharedGeometryCache.set(cacheKey, geometry);
+  return geometry;
+}
 
-  for (let index = 0; index < peakCount; index += 1) {
-    const segmentStart = -halfLength + step * index;
-    const peakX = segmentStart + step / 2;
-    const segmentEnd = segmentStart + step;
-    shape.lineTo(peakX, peakHeight);
-    shape.lineTo(segmentEnd, 0);
+function getDomeGeometry(cacheKey: string, radius: number, widthSegments: number): THREE.SphereGeometry {
+  const cached = sharedGeometryCache.get(cacheKey);
+  if (cached instanceof THREE.SphereGeometry) {
+    return cached;
   }
 
-  shape.lineTo(halfLength, -baseThickness);
-  shape.closePath();
-
   const geometry = markSharedResource(
-    new THREE.ExtrudeGeometry(shape, {
-      depth,
-      bevelEnabled: true,
-      bevelSegments: 1,
-      steps: 1,
-      bevelSize: 0.008,
-      bevelThickness: 0.01,
-      curveSegments: 1
-    })
+    new THREE.SphereGeometry(radius, widthSegments, Math.max(Math.floor(widthSegments / 2), 10), 0, Math.PI * 2, 0, Math.PI / 2)
   );
-  geometry.translate(0, 0, -depth / 2);
   sharedGeometryCache.set(cacheKey, geometry);
   return geometry;
 }
