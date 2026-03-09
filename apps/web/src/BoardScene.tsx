@@ -35,6 +35,7 @@ export interface BoardFocusCue {
   edgeIds: string[];
   tileIds: string[];
   scale: "tight" | "medium" | "wide";
+  cameraFit?: "selection" | "board";
   zoomPreset?: "distribution" | "roll";
 }
 
@@ -62,6 +63,8 @@ type BoardVerticesById = Map<string, BoardVertex>;
 
 const TILE_HEIGHT = 0.82;
 const PORT_MARKER_DISTANCE = 2.25;
+const BOARD_CAMERA_PORT_PADDING = 1.6;
+const BOARD_FIT_SAFETY_MARGIN = 1.06;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
 const TILE_OUTER_BEVEL_THICKNESS = 0.09;
 const TILE_INSET_DEPTH = 0.18;
@@ -74,6 +77,7 @@ const TILE_SAND_UNDERLAY_SCALE = 1;
 const TILE_SAND_UNDERLAY_Y = 0.026;
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 52, 46);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
+const DEFAULT_MAX_CAMERA_DISTANCE = 112;
 const INTERACTIVE_LAYER = 1;
 const SHARED_RESOURCE_FLAG = "__sharedResource";
 const modernTileShellCache = new Map<string, SharedModernTileShell>();
@@ -180,6 +184,8 @@ interface FocusElement {
   vertexIds: string[];
   adjacentVertexIds: string[];
 }
+
+type CameraFitMode = "selection" | "board";
 
 interface BoardTooltipState {
   title: string;
@@ -489,7 +495,7 @@ export function BoardScene(props: BoardSceneProps) {
     controls.screenSpacePanning = true;
     controls.target.copy(DEFAULT_CAMERA_TARGET);
     controls.minDistance = 26;
-    controls.maxDistance = 112;
+    controls.maxDistance = DEFAULT_MAX_CAMERA_DISTANCE;
     controls.maxPolarAngle = Math.PI / 2.12;
     const applyControlScheme = (tiltMode: boolean) => {
       controls.mouseButtons.LEFT = tiltMode ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
@@ -535,6 +541,7 @@ export function BoardScene(props: BoardSceneProps) {
       }
 
       userInteractingRef.current = false;
+      syncBoardFitMaxDistance(props.snapshot.board, cameraRef.current, controlsRef.current);
       focusTargetRef.current.copy(controlsRef.current.target);
       focusCameraPositionRef.current.copy(cameraRef.current.position);
       renderer.domElement.style.cursor = hoveredInteractiveRef.current ? "pointer" : "";
@@ -623,6 +630,7 @@ export function BoardScene(props: BoardSceneProps) {
       rendererRef.current.setSize(width, height, false);
       cameraRef.current.aspect = width / Math.max(height, 1);
       cameraRef.current.updateProjectionMatrix();
+      syncBoardFitMaxDistance(props.snapshot.board, cameraRef.current, controlsRef.current ?? controls);
       updateCanvasRect();
       requestRender();
     };
@@ -1343,9 +1351,20 @@ export function BoardScene(props: BoardSceneProps) {
       return;
     }
 
+    syncBoardFitMaxDistance(props.snapshot.board, camera, controls);
+  }, [props.snapshot]);
+
+  useEffect(() => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) {
+      return;
+    }
+
     if (!props.cameraCue) {
       lastFocusKeyRef.current = null;
       autoFlightRef.current = false;
+      syncBoardFitMaxDistance(props.snapshot.board, camera, controls);
       requestRenderRef.current(false);
       return;
     }
@@ -1357,10 +1376,12 @@ export function BoardScene(props: BoardSceneProps) {
     lastFocusKeyRef.current = props.cameraCue.key;
 
     const nextFocus = resolveFocusCuePosition(props.snapshot, props.cameraCue, controls.target);
-    const currentDirection = camera.position.clone().sub(controls.target);
-    const direction = currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
-    const distance = resolveFocusCueDistance(props.cameraCue, nextFocus.span);
+    const direction = resolveCameraDirection(camera.position, controls.target);
     const target = new THREE.Vector3(nextFocus.x, TILE_HEIGHT * 0.45, nextFocus.z);
+    const distance =
+      resolveFocusCueCameraFit(props.cameraCue) === "board"
+        ? syncBoardFitMaxDistance(props.snapshot.board, camera, controls, target, direction)
+        : resolveFocusCueDistance(props.cameraCue, nextFocus.span);
     const nextCameraPosition = target.clone().add(direction.multiplyScalar(distance));
 
     focusTargetRef.current.copy(target);
@@ -1422,13 +1443,36 @@ function freezeStaticTransforms(root: THREE.Object3D): void {
   });
 }
 
-function getBoardBounds(board: MatchSnapshot["board"]) {
-  const bounds = board.vertices.reduce(
-    (current, vertex) => ({
-      minX: Math.min(current.minX, vertex.x),
-      maxX: Math.max(current.maxX, vertex.x),
-      minZ: Math.min(current.minZ, vertex.y),
-      maxZ: Math.max(current.maxZ, vertex.y)
+function createFocusGeometryFromBounds(minX: number, maxX: number, minZ: number, maxZ: number): FocusGeometry {
+  return {
+    x: (minX + maxX) / 2,
+    z: (minZ + maxZ) / 2,
+    span: Math.max(maxX - minX, maxZ - minZ),
+    minX,
+    maxX,
+    minZ,
+    maxZ
+  };
+}
+
+function summarizeFocusPositions(positions: Array<{ x: number; z: number }>): FocusGeometry {
+  if (!positions.length) {
+    return createEmptyFocusGeometry();
+  }
+
+  const aggregate = positions.reduce(
+    (current, position) => ({
+      x: current.x + position.x,
+      z: current.z + position.z
+    }),
+    { x: 0, z: 0 }
+  );
+  const bounds = positions.reduce(
+    (current, position) => ({
+      minX: Math.min(current.minX, position.x),
+      maxX: Math.max(current.maxX, position.x),
+      minZ: Math.min(current.minZ, position.z),
+      maxZ: Math.max(current.maxZ, position.z)
     }),
     {
       minX: Number.POSITIVE_INFINITY,
@@ -1437,15 +1481,177 @@ function getBoardBounds(board: MatchSnapshot["board"]) {
       maxZ: Number.NEGATIVE_INFINITY
     }
   );
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-  const span = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ);
+
   return {
-    ...bounds,
-    centerX,
-    centerZ,
-    span
+    ...createFocusGeometryFromBounds(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ),
+    x: aggregate.x / positions.length,
+    z: aggregate.z / positions.length
   };
+}
+
+function getBoardBounds(board: MatchSnapshot["board"]) {
+  const geometry = summarizeFocusPositions(board.vertices.map((vertex) => ({ x: vertex.x, z: vertex.y })));
+  return {
+    minX: geometry.minX,
+    maxX: geometry.maxX,
+    minZ: geometry.minZ,
+    maxZ: geometry.maxZ,
+    centerX: geometry.x,
+    centerZ: geometry.z,
+    span: geometry.span
+  };
+}
+
+function getPortMarkerPosition(
+  boardCenter: { x: number; z: number },
+  port: MatchSnapshot["board"]["ports"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  edgesById: Map<string, MatchSnapshot["board"]["edges"][number]>,
+  tilesById: Map<string, MatchSnapshot["board"]["tiles"][number]>
+): { x: number; z: number } | null {
+  const [leftId, rightId] = port.vertexIds;
+  const left = verticesById.get(leftId);
+  const right = verticesById.get(rightId);
+  if (!left || !right) {
+    return null;
+  }
+
+  const edgeCenterX = (left.x + right.x) / 2;
+  const edgeCenterZ = (left.y + right.y) / 2;
+  const tile = edgesById
+    .get(port.edgeId)
+    ?.tileIds.map((tileId) => tilesById.get(tileId))
+    .find((entry): entry is MatchSnapshot["board"]["tiles"][number] => !!entry);
+
+  let outwardX = 0;
+  let outwardZ = 0;
+  if (tile) {
+    const directions = [
+      { x: left.x - tile.x, z: left.y - tile.y },
+      { x: right.x - tile.x, z: right.y - tile.y }
+    ];
+    for (const direction of directions) {
+      const length = Math.hypot(direction.x, direction.z);
+      if (length <= 0.0001) {
+        continue;
+      }
+      outwardX += direction.x / length;
+      outwardZ += direction.z / length;
+    }
+    if (Math.hypot(outwardX, outwardZ) <= 0.0001) {
+      outwardX = edgeCenterX - tile.x;
+      outwardZ = edgeCenterZ - tile.y;
+    }
+  } else {
+    outwardX = edgeCenterX - boardCenter.x;
+    outwardZ = edgeCenterZ - boardCenter.z;
+  }
+
+  const outwardLength = Math.hypot(outwardX, outwardZ);
+  if (outwardLength <= 0.0001) {
+    return { x: edgeCenterX, z: edgeCenterZ };
+  }
+
+  return {
+    x: edgeCenterX + (outwardX / outwardLength) * PORT_MARKER_DISTANCE,
+    z: edgeCenterZ + (outwardZ / outwardLength) * PORT_MARKER_DISTANCE
+  };
+}
+
+function getBoardCameraGeometry(board: MatchSnapshot["board"]): FocusGeometry {
+  const bounds = getBoardBounds(board);
+  const verticesById = new Map(board.vertices.map((vertex) => [vertex.id, vertex]));
+  const edgesById = new Map(board.edges.map((edge) => [edge.id, edge]));
+  const tilesById = new Map(board.tiles.map((tile) => [tile.id, tile]));
+  let minX = bounds.minX;
+  let maxX = bounds.maxX;
+  let minZ = bounds.minZ;
+  let maxZ = bounds.maxZ;
+
+  for (const port of board.ports) {
+    const markerPosition = getPortMarkerPosition({ x: bounds.centerX, z: bounds.centerZ }, port, verticesById, edgesById, tilesById);
+    if (!markerPosition) {
+      continue;
+    }
+
+    minX = Math.min(minX, markerPosition.x - BOARD_CAMERA_PORT_PADDING);
+    maxX = Math.max(maxX, markerPosition.x + BOARD_CAMERA_PORT_PADDING);
+    minZ = Math.min(minZ, markerPosition.z - BOARD_CAMERA_PORT_PADDING);
+    maxZ = Math.max(maxZ, markerPosition.z + BOARD_CAMERA_PORT_PADDING);
+  }
+
+  return createFocusGeometryFromBounds(minX, maxX, minZ, maxZ);
+}
+
+function resolveFocusCueCameraFit(cue: BoardFocusCue): CameraFitMode {
+  if (cue.cameraFit) {
+    return cue.cameraFit;
+  }
+
+  return cue.vertexIds.length === 0 && cue.edgeIds.length === 0 && cue.tileIds.length === 0 ? "board" : "selection";
+}
+
+function resolveCameraDirection(cameraPosition: THREE.Vector3, target: THREE.Vector3): THREE.Vector3 {
+  const currentDirection = cameraPosition.clone().sub(target);
+  return currentDirection.lengthSq() > 0.01 ? currentDirection.normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
+}
+
+function resolveBoardFitDistance(
+  camera: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+  geometry: FocusGeometry,
+  direction: THREE.Vector3,
+  minDistance: number
+): number {
+  // Solve the required dolly distance against the current frustum so the full board stays visible on any viewport.
+  const normalizedDirection = direction.lengthSq() > 0.01 ? direction.clone().normalize() : DEFAULT_CAMERA_POSITION.clone().normalize();
+  const forward = normalizedDirection.clone().multiplyScalar(-1);
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  const fallbackUp = new THREE.Vector3(0, 0, 1);
+  let right = new THREE.Vector3().crossVectors(forward, worldUp);
+  if (right.lengthSq() <= 0.0001) {
+    right = new THREE.Vector3().crossVectors(forward, fallbackUp);
+  }
+  if (right.lengthSq() <= 0.0001) {
+    right.set(1, 0, 0);
+  } else {
+    right.normalize();
+  }
+  const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+  const verticalHalfFov = THREE.MathUtils.degToRad(camera.getEffectiveFOV()) / 2;
+  const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * Math.max(camera.aspect, 0.01));
+  const tanVerticalHalfFov = Math.tan(Math.max(verticalHalfFov, 0.001));
+  const tanHorizontalHalfFov = Math.tan(Math.max(horizontalHalfFov, 0.001));
+  let requiredDistance = 0;
+
+  for (const x of [geometry.minX, geometry.maxX]) {
+    for (const z of [geometry.minZ, geometry.maxZ]) {
+      const offset = new THREE.Vector3(x - target.x, 0, z - target.z);
+      const lateral = Math.abs(offset.dot(right));
+      const vertical = Math.abs(offset.dot(up));
+      const depthOffset = offset.dot(forward);
+      const cornerDistance = Math.max(
+        lateral / tanHorizontalHalfFov - depthOffset,
+        vertical / tanVerticalHalfFov - depthOffset
+      );
+      requiredDistance = Math.max(requiredDistance, cornerDistance);
+    }
+  }
+
+  return Math.max(minDistance, requiredDistance * BOARD_FIT_SAFETY_MARGIN);
+}
+
+function syncBoardFitMaxDistance(
+  board: MatchSnapshot["board"],
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+  target: THREE.Vector3 = controls.target,
+  direction: THREE.Vector3 = resolveCameraDirection(camera.position, controls.target)
+): number {
+  const boardGeometry = getBoardCameraGeometry(board);
+  const boardFitDistance = resolveBoardFitDistance(camera, target, boardGeometry, direction, controls.minDistance);
+  controls.maxDistance = Math.max(DEFAULT_MAX_CAMERA_DISTANCE, boardFitDistance * 1.2);
+  return boardFitDistance;
 }
 
 function configureKeyLightShadow(light: THREE.DirectionalLight | null, board: MatchSnapshot["board"]): void {
@@ -5445,18 +5651,13 @@ function resolveFocusCuePosition(
   cue: BoardFocusCue,
   currentTarget: THREE.Vector3 = DEFAULT_CAMERA_TARGET
 ): FocusGeometry {
+  if (resolveFocusCueCameraFit(cue) === "board") {
+    return getBoardCameraGeometry(snapshot.board);
+  }
+
   const elements = buildFocusElements(snapshot, cue);
   if (!elements.length) {
-    const boardBounds = getBoardBounds(snapshot.board);
-    return {
-      x: boardBounds.centerX,
-      z: boardBounds.centerZ,
-      span: boardBounds.span,
-      minX: boardBounds.minX,
-      maxX: boardBounds.maxX,
-      minZ: boardBounds.minZ,
-      maxZ: boardBounds.maxZ
-    };
+    return getBoardCameraGeometry(snapshot.board);
   }
 
   const relevantElements = cue.mode === "action" ? selectActionFocusElements(elements, currentTarget) : elements;
@@ -5636,42 +5837,7 @@ function resolveFocusCueDistance(cue: BoardFocusCue, span: number): number {
 
 function summarizeFocusElements(elements: FocusElement[]): FocusGeometry {
   const positions = elements.flatMap((element) => element.fitPoints);
-  if (!positions.length) {
-    return createEmptyFocusGeometry();
-  }
-
-  const aggregate = positions.reduce(
-    (current, position) => ({
-      x: current.x + position.x,
-      z: current.z + position.z
-    }),
-    { x: 0, z: 0 }
-  );
-
-  const bounds = positions.reduce(
-    (current, position) => ({
-      minX: Math.min(current.minX, position.x),
-      maxX: Math.max(current.maxX, position.x),
-      minZ: Math.min(current.minZ, position.z),
-      maxZ: Math.max(current.maxZ, position.z)
-    }),
-    {
-      minX: Number.POSITIVE_INFINITY,
-      maxX: Number.NEGATIVE_INFINITY,
-      minZ: Number.POSITIVE_INFINITY,
-      maxZ: Number.NEGATIVE_INFINITY
-    }
-  );
-
-  return {
-    x: aggregate.x / positions.length,
-    z: aggregate.z / positions.length,
-    span: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ),
-    minX: bounds.minX,
-    maxX: bounds.maxX,
-    minZ: bounds.minZ,
-    maxZ: bounds.maxZ
-  };
+  return summarizeFocusPositions(positions);
 }
 
 function createEmptyFocusGeometry(): FocusGeometry {

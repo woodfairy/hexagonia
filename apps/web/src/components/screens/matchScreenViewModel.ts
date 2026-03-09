@@ -337,6 +337,7 @@ export function createOwnActionCameraCue(
       edgeIds: [],
       tileIds: [],
       scale: "wide",
+      cameraFit: "board",
       zoomPreset: "distribution"
     };
   }
@@ -455,7 +456,8 @@ export function createOwnActionCameraCue(
       vertexIds: [],
       edgeIds: [],
       tileIds,
-      scale: "wide"
+      scale: "wide",
+      cameraFit: "board"
     };
   }
 
