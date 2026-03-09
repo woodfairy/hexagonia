@@ -57,6 +57,7 @@ import {
   PlayerStatCard,
   rollPreviewValue,
   setTradeDraftCount,
+  TradeCompactSummary,
   TradeBanner
 } from "./matchScreenParts";
 
@@ -67,7 +68,7 @@ export interface TradeFormState {
 }
 
 export interface MaritimeFormState {
-  give: Resource;
+  give: Resource | "";
   receive: Resource;
 }
 
@@ -122,6 +123,15 @@ type TradeComposerContextState = {
   kind: "default" | "counter";
   sourceTradeId: string | null;
   lockedTargetPlayerId: string | null;
+};
+type TradeSelectOption = {
+  value: string;
+  label: string;
+  secondaryLabel?: string;
+  icon?: ReactNode;
+  accentClassName?: string;
+  disabled?: boolean;
+  title?: string;
 };
 
 const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
@@ -343,33 +353,6 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
   );
 }
 
-function TradeResourcePillRow(props: {
-  resources: ResourceMap;
-  emptyLabel: string;
-  tone: "give" | "receive";
-}) {
-  const entries = RESOURCES.filter((resource) => (props.resources[resource] ?? 0) > 0);
-
-  return (
-    <div className={`trade-resource-pill-row is-${props.tone}`.trim()}>
-      {entries.length ? (
-        entries.map((resource) => (
-          <span
-            key={resource}
-            className={`trade-resource-pill is-${props.tone}`.trim()}
-            title={`${props.resources[resource]}x ${renderResourceLabel(resource)}`}
-          >
-            <ResourceIcon resource={resource} shell size={14} />
-            <span>{`${props.resources[resource]}x`}</span>
-          </span>
-        ))
-      ) : (
-        <span className="trade-resource-pill is-empty">{props.emptyLabel}</span>
-      )}
-    </div>
-  );
-}
-
 function TradeMatrixCellButton(props: {
   value: number | string;
   tone: "give" | "receive";
@@ -428,6 +411,169 @@ function TradeMatrixDraftControl(props: {
   );
 }
 
+function TradeSelect(props: {
+  value: string;
+  ariaLabel: string;
+  options: ReadonlyArray<TradeSelectOption>;
+  onChange: (value: string) => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
+  const selectedOption = props.options.find((option) => option.value === props.value) ?? props.options[0] ?? null;
+  const triggerDisabled = props.disabled || props.options.length === 0;
+
+  useEffect(() => {
+    if (!open || triggerDisabled || typeof window === "undefined") {
+      setMenuStyle(null);
+      return;
+    }
+
+    const updateMenuPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) {
+        return;
+      }
+
+      const rect = trigger.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const width = Math.min(Math.max(rect.width, 13.5 * 16), viewportWidth - 16);
+      const estimatedHeight = Math.min(props.options.length, 6) * 46 + 14;
+      const spaceBelow = viewportHeight - rect.bottom - 10;
+      const spaceAbove = rect.top - 10;
+      const openUpward = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(8 * 16, openUpward ? spaceAbove : spaceBelow);
+      const left = Math.min(Math.max(8, rect.left), Math.max(8, viewportWidth - width - 8));
+
+      setMenuStyle({
+        position: "fixed",
+        insetInlineStart: left,
+        insetBlockStart: openUpward ? Math.max(8, rect.top - 6) : Math.min(viewportHeight - 8, rect.bottom + 6),
+        inlineSize: width,
+        maxBlockSize: maxHeight,
+        transform: openUpward ? "translateY(-100%)" : undefined
+      });
+    };
+
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+
+      setOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    updateMenuPosition();
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, props.options.length, triggerDisabled]);
+
+  useEffect(() => {
+    if (triggerDisabled) {
+      setOpen(false);
+    }
+  }, [triggerDisabled]);
+
+  const handleSelect = (option: TradeSelectOption) => {
+    if (option.disabled) {
+      return;
+    }
+
+    props.onChange(option.value);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`trade-target-select-shell ${props.className ?? ""} ${selectedOption?.accentClassName ?? ""} ${
+          open ? "is-open" : ""
+        }`.trim()}
+        aria-label={props.ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={triggerDisabled}
+        title={selectedOption?.title ?? selectedOption?.label}
+        onClick={() => {
+          if (triggerDisabled) {
+            return;
+          }
+
+          setOpen((current) => !current);
+        }}
+      >
+        <span className="trade-target-select-leading" aria-hidden="true">
+          {selectedOption?.icon ?? <span className="trade-target-select-dot" />}
+        </span>
+        <span className="trade-target-select-copy">{selectedOption?.label ?? "Wählen"}</span>
+        <span className="trade-target-select-caret" aria-hidden="true" />
+      </button>
+      {open && menuStyle && typeof document !== "undefined"
+        ? createPortal(
+            <div ref={menuRef} className="trade-select-menu" style={menuStyle} role="listbox" aria-label={props.ariaLabel}>
+              {props.options.map((option) => {
+                const active = option.value === props.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    className={`trade-select-menu-option ${option.accentClassName ?? ""} ${active ? "is-active" : ""}`.trim()}
+                    aria-selected={active}
+                    disabled={option.disabled}
+                    title={option.title ?? option.label}
+                    onClick={() => handleSelect(option)}
+                  >
+                    <span className="trade-select-menu-icon" aria-hidden="true">
+                      {option.icon ?? <span className="trade-target-select-dot" />}
+                    </span>
+                    <span className="trade-select-menu-copy">
+                      <span className="trade-select-menu-label">{option.label}</span>
+                      {option.secondaryLabel ? <span className="trade-select-menu-meta">{option.secondaryLabel}</span> : null}
+                    </span>
+                    <span className={`trade-select-menu-check ${active ? "is-visible" : ""}`.trim()} aria-hidden="true">
+                      ✓
+                    </span>
+                  </button>
+                );
+              })}
+            </div>,
+            document.body
+          )
+        : null}
+    </>
+  );
+}
+
 function TradeOfferCard(props: {
   match: MatchSnapshot;
   trade: MatchSnapshot["tradeOffers"][number];
@@ -472,17 +618,7 @@ function TradeOfferCard(props: {
         </div>
       </div>
       <div className="trade-offer-row-trade">
-        <article className="trade-offer-lane is-give compact">
-          <span className="eyebrow">Du gibst</span>
-          <TradeResourcePillRow resources={giveResources} emptyLabel="Nichts" tone="give" />
-        </article>
-        <span className="trade-offer-row-arrow" aria-hidden="true">
-          →
-        </span>
-        <article className="trade-offer-lane is-receive compact">
-          <span className="eyebrow">Du erhältst</span>
-          <TradeResourcePillRow resources={receiveResources} emptyLabel="Nichts" tone="receive" />
-        </article>
+        <TradeCompactSummary give={giveResources} receive={receiveResources} className="trade-offer-summary" />
       </div>
       <div className="trade-offer-row-actions">
         {props.variant === "own" ? (
@@ -739,7 +875,8 @@ export function MatchScreen(props: {
   const harborTradeResources = RESOURCES.filter((resource) => maritimeRatesByResource[resource] < 4);
   const visibleMaritimeGiveResources =
     tradeMode === "bank" ? bankTradeResources : tradeMode === "harbor" ? harborTradeResources : RESOURCES;
-  const maritimeRatio = maritimeRatesByResource[props.maritimeForm.give] ?? 4;
+  const selectedMaritimeGiveResource = props.maritimeForm.give || null;
+  const maritimeRatio = selectedMaritimeGiveResource ? (maritimeRatesByResource[selectedMaritimeGiveResource] ?? 4) : 0;
   const tradeGiveTotal = totalResources(props.tradeForm.give);
   const tradeWantTotal = totalResources(props.tradeForm.want);
   const selectedTradeTargetPlayer =
@@ -820,9 +957,10 @@ export function MatchScreen(props: {
   const canSubmitMaritimeTrade =
     tradeMode !== "player" &&
     props.match.allowedMoves.canMaritimeTrade &&
-    props.maritimeForm.give !== props.maritimeForm.receive &&
-    visibleMaritimeGiveResources.includes(props.maritimeForm.give) &&
-    (props.selfPlayer?.resources?.[props.maritimeForm.give] ?? 0) >= maritimeRatio;
+    !!selectedMaritimeGiveResource &&
+    selectedMaritimeGiveResource !== props.maritimeForm.receive &&
+    visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
+    (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const developmentCards = props.selfPlayer?.developmentCards ?? [];
   const hiddenVictoryPoints = props.selfPlayer?.hiddenVictoryPoints ?? 0;
@@ -841,13 +979,6 @@ export function MatchScreen(props: {
     finishRoadBuildingConfirmation && pendingRoadBuilding?.remainingRoads === 1
       ? createInlineConfirmKey("road-building-finish", finishRoadBuildingAction)
       : null;
-  const maritimeTradeAction: Extract<ClientMessage, { type: "match.action" }>["action"] = {
-    type: "maritime_trade",
-    give: props.maritimeForm.give,
-    receive: props.maritimeForm.receive,
-    giveCount: maritimeRatio
-  };
-  const maritimeTradeMessage = createMatchActionMessage(maritimeTradeAction);
   const developmentInlineConfirmKeys = developmentCards.flatMap((card) => {
     if (!card.playable) {
       return [];
@@ -1618,12 +1749,16 @@ export function MatchScreen(props: {
   }, [tradeComposerContext.kind, tradeMode]);
 
   useEffect(() => {
+    if (!props.maritimeForm.give) {
+      return;
+    }
+
     const normalizedGive =
       visibleMaritimeGiveResources.length === 0
         ? props.maritimeForm.give
         : visibleMaritimeGiveResources.includes(props.maritimeForm.give)
           ? props.maritimeForm.give
-          : affordableMaritimeGiveResources[0] ?? visibleMaritimeGiveResources[0]!;
+          : affordableMaritimeGiveResources[0] ?? visibleMaritimeGiveResources[0] ?? "";
     if (normalizedGive === props.maritimeForm.give) {
       return;
     }
@@ -1687,6 +1822,12 @@ export function MatchScreen(props: {
       give: resource
     }));
   };
+  const handleClearMaritimeGive = () => {
+    props.setMaritimeForm((current) => ({
+      ...current,
+      give: ""
+    }));
+  };
   const handleSelectMaritimeReceive = (resource: Resource) => {
     props.setMaritimeForm((current) => ({
       ...current,
@@ -1715,7 +1856,18 @@ export function MatchScreen(props: {
       return;
     }
 
-    props.onAction(maritimeTradeMessage);
+    if (!selectedMaritimeGiveResource) {
+      return;
+    }
+
+    props.onAction(
+      createMatchActionMessage({
+        type: "maritime_trade",
+        give: selectedMaritimeGiveResource,
+        receive: props.maritimeForm.receive,
+        giveCount: maritimeRatio
+      })
+    );
   };
   const handleWithdrawTradeOffer = (tradeId: string) => {
     props.onAction(
@@ -1840,24 +1992,26 @@ export function MatchScreen(props: {
     : !props.match.allowedMoves.canCreateTradeOffer
       ? "Spielerhandel ist gerade gesperrt."
       : tradeGiveTotal === 0 || tradeWantTotal === 0
-        ? "Rohstoffe wählen."
-        : "Direkt ohne Bestätigung.";
+        ? ""
+        : "";
   const maritimeTradeSubmitHint =
     tradeMode === "harbor" && harborTradeResources.length === 0
       ? "Kein passender Hafen verfügbar."
       : !props.match.allowedMoves.canMaritimeTrade
         ? "Nur im eigenen Aktionszug möglich."
+      : !selectedMaritimeGiveResource
+        ? "Einsatz wählen."
         : props.maritimeForm.give === props.maritimeForm.receive
-          ? "Unterschiedliche Rohstoffe wählen."
-          : "Direkt ohne Bestätigung.";
+          ? "Ziel wählen."
+          : "";
   const maritimeActionLabel =
-    visibleMaritimeGiveResources.length > 0 ? `${maritimeRatio}:1 tauschen` : tradeMode === "bank" ? "Banktausch nicht möglich" : "Hafentausch nicht möglich";
-  const maritimeGiveSelection = createEmptyResourceMap();
-  if (visibleMaritimeGiveResources.includes(props.maritimeForm.give)) {
-    maritimeGiveSelection[props.maritimeForm.give] = maritimeRatio;
-  }
-  const maritimeReceiveSelection = createEmptyResourceMap();
-  maritimeReceiveSelection[props.maritimeForm.receive] = 1;
+    visibleMaritimeGiveResources.length === 0
+      ? tradeMode === "bank"
+        ? "Banktausch nicht möglich"
+        : "Hafentausch nicht möglich"
+      : selectedMaritimeGiveResource
+        ? `${maritimeRatio}:1 tauschen`
+        : "Tauschen";
   const tradeModeControls = (
     <div className="mini-segmented trade-mode-segmented" role="tablist" aria-label="Handelsmodus">
       <button type="button" className={tradeMode === "player" ? "is-active" : ""} onClick={() => setTradeMode("player")}>
@@ -1871,57 +2025,47 @@ export function MatchScreen(props: {
       </button>
     </div>
   );
-  const selectedTradeTargetLabel =
-    selectedTradeTargetPlayer == null ? "Alle Spieler" : selectedTradeTargetPlayer.id === props.match.you ? "Du" : selectedTradeTargetPlayer.username;
+  const playerTradeTargetOptions: TradeSelectOption[] = [
+    {
+      value: "",
+      label: "Alle Spieler",
+      title: "Offenes Angebot an alle Spieler"
+    },
+    ...tradeTargetPlayers.map((player) => ({
+      value: player.id,
+      label: player.id === props.match.you ? "Du" : player.username,
+      secondaryLabel: renderPlayerColorLabel(player.color),
+      accentClassName: getPlayerAccentClass(player.color),
+      title: `${player.id === props.match.you ? "Du" : player.username} · ${renderPlayerColorLabel(player.color)}`
+    }))
+  ];
   const playerTradeTargetButtons = isCurrentPlayer && !tradeComposerContext.lockedTargetPlayerId ? (
-    <label
-      className={`trade-target-select-shell ${selectedTradeTargetAccentClass}`.trim()}
-      title={
-        selectedTradeTargetPlayer
-          ? `${selectedTradeTargetLabel} · ${renderPlayerColorLabel(selectedTradeTargetPlayer.color)}`
-          : "Offenes Angebot an alle Spieler"
-      }
-    >
-      <span className="trade-target-select-dot" aria-hidden="true" />
-      <span className="trade-target-select-copy">{selectedTradeTargetLabel}</span>
-      <span className="trade-target-select-caret" aria-hidden="true" />
-      <select
-        className="trade-target-select"
-        aria-label="Zielspieler wählen"
-        value={props.tradeForm.targetPlayerId}
-        onChange={(event) => props.setTradeForm((current) => ({ ...current, targetPlayerId: event.target.value }))}
-      >
-        <option value="">Alle Spieler</option>
-        {tradeTargetPlayers.map((player) => (
-          <option key={player.id} value={player.id}>
-            {`${player.id === props.match.you ? "Du" : player.username} · ${renderPlayerColorLabel(player.color)}`}
-          </option>
-        ))}
-      </select>
-    </label>
+    <TradeSelect
+      value={props.tradeForm.targetPlayerId}
+      ariaLabel="Zielspieler wählen"
+      className={selectedTradeTargetAccentClass}
+      options={playerTradeTargetOptions}
+      onChange={(value) => props.setTradeForm((current) => ({ ...current, targetPlayerId: value }))}
+    />
   ) : (
     <div className={`trade-target-static ${selectedTradeTargetAccentClass}`.trim()}>
       <span className="eyebrow">{tradeComposerContext.kind === "counter" ? "Gegenangebot an" : "Ziel"}</span>
-      {effectiveTradeTargetPlayer ? (
-        <PlayerIdentity
-          username={effectiveTradeTargetPlayer.username}
-          color={effectiveTradeTargetPlayer.color}
-          compact
-          isSelf={effectiveTradeTargetPlayer.id === props.match.you}
-        />
-      ) : (
-        <strong>Offen</strong>
-      )}
+      <div className="trade-target-static-body">
+        {effectiveTradeTargetPlayer ? (
+          <PlayerIdentity
+            username={effectiveTradeTargetPlayer.username}
+            color={effectiveTradeTargetPlayer.color}
+            compact
+            isSelf={effectiveTradeTargetPlayer.id === props.match.you}
+          />
+        ) : (
+          <strong className="trade-target-static-open">Offen</strong>
+        )}
+      </div>
     </div>
   );
   const playerTradeComposer = (
     <section className="trade-composer-card trade-composer-card-player">
-      <div className="trade-composer-headbar">
-        <div className="trade-composer-title">
-          <strong>{tradeComposerContext.kind === "counter" ? "Gegenangebot" : "Neues Angebot"}</strong>
-        </div>
-        {tradeComposerContext.kind === "counter" ? <span className="status-pill is-warning">Aktiv</span> : null}
-      </div>
       <div className="trade-composer-grid is-stacked">
         <div className="trade-matrix-shell is-player-draft">
           <div className="trade-matrix-head">
@@ -1973,9 +2117,11 @@ export function MatchScreen(props: {
       <div className="trade-composer-footer">
         {playerTradeTargetButtons}
         <div className="trade-composer-actions">
-          <div className="trade-composer-copy">
-            <span>{playerTradeSubmitHint}</span>
-          </div>
+          {playerTradeSubmitHint ? (
+            <div className="trade-composer-copy">
+              <span>{playerTradeSubmitHint}</span>
+            </div>
+          ) : null}
           <div className="trade-composer-button-row">
             {tradeComposerContext.kind === "counter" ? (
               <button type="button" className="ghost-button" onClick={resetPlayerTradeComposer}>
@@ -1992,95 +2138,86 @@ export function MatchScreen(props: {
   );
   const maritimeTradeComposer = (
     <section className="trade-composer-card">
-      <div className="trade-composer-headbar">
-        <div className="trade-composer-title">
-          <strong>{tradeMode === "bank" ? "Soforttausch" : "Beste Hafenrate"}</strong>
-        </div>
-      </div>
       <div className="trade-composer-grid is-stacked">
-        <div className="trade-compact-lane is-give">
-          <div className="trade-compact-lane-head">
-            <div className="trade-compact-lane-title">
-              <span className="eyebrow">Du gibst</span>
-              <span className={`trade-micro-pill ${visibleMaritimeGiveResources.length === 0 ? "is-muted" : ""}`.trim()}>
-                {visibleMaritimeGiveResources.length === 0 ? "Keine Rate" : `${maritimeRatio}:1`}
-              </span>
-            </div>
-          </div>
-          <TradeResourcePillRow
-            resources={maritimeGiveSelection}
-            emptyLabel="Keine Rate"
-            tone="give"
-          />
-        </div>
-        <div className="trade-compact-lane is-receive">
-          <div className="trade-compact-lane-head">
-            <div className="trade-compact-lane-title">
-              <span className="eyebrow">Du erhältst</span>
-              <span className="trade-micro-pill">1 Karte</span>
-            </div>
-          </div>
-          <TradeResourcePillRow resources={maritimeReceiveSelection} emptyLabel="Kein Ziel" tone="receive" />
-        </div>
         {visibleMaritimeGiveResources.length ? (
-          <div className="trade-matrix-shell">
-            <div className="trade-matrix-head is-maritime">
-              <span aria-hidden="true" />
-              <span>Info</span>
-              <span>Einsatz</span>
-              <span>Ziel</span>
+          <>
+            <div className="trade-matrix-shell is-maritime-draft">
+              <div className="trade-matrix-head is-maritime">
+                <span aria-hidden="true" />
+                <span>Hand</span>
+                <span>Rate</span>
+                <span>Einsatz</span>
+              </div>
+              <div className="trade-matrix-list">
+                {RESOURCES.map((resource) => {
+                  const ratio = maritimeRatesByResource[resource];
+                  const available = props.selfPlayer?.resources?.[resource] ?? 0;
+                  const giveVisible = visibleMaritimeGiveResources.includes(resource);
+                  const giveSelected = props.maritimeForm.give === resource;
+                  const canUseAsGive = giveVisible && available >= ratio;
+
+                  return (
+                    <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
+                      <div className="trade-matrix-resource" title={renderResourceLabel(resource)}>
+                        <span className="trade-matrix-resource-icon" aria-hidden="true">
+                          <ResourceIcon resource={resource} shell size={14} />
+                        </span>
+                      </div>
+                      <span className="trade-matrix-meta">{available}</span>
+                      <span
+                        className={`trade-matrix-cell-display is-give ${giveSelected ? "is-active" : ""} ${
+                          !canUseAsGive ? "is-disabled" : ""
+                        }`.trim()}
+                      >
+                        {giveVisible ? `${ratio}:1` : "—"}
+                      </span>
+                      <TradeMatrixDraftControl
+                        value={giveSelected ? 1 : 0}
+                        tone="give"
+                        incrementDisabled={!canUseAsGive}
+                        incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
+                        decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
+                        onIncrement={() => handleSelectMaritimeGive(resource)}
+                        onDecrement={handleClearMaritimeGive}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="trade-matrix-list">
+            <div className="trade-maritime-receive-picker" role="group" aria-label="Zielrohstoff wählen">
               {RESOURCES.map((resource) => {
-                const ratio = maritimeRatesByResource[resource];
-                const available = props.selfPlayer?.resources?.[resource] ?? 0;
-                const giveVisible = visibleMaritimeGiveResources.includes(resource);
-                const giveSelected = props.maritimeForm.give === resource;
-                const receiveSelected = props.maritimeForm.receive === resource;
+                const active = props.maritimeForm.receive === resource;
+                const disabled = resource === props.maritimeForm.give;
 
                 return (
-                  <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
-                    <div className="trade-matrix-resource" title={renderResourceLabel(resource)}>
-                      <span className="trade-matrix-resource-icon" aria-hidden="true">
-                        <ResourceIcon resource={resource} shell size={14} />
-                      </span>
-                    </div>
-                    <span className="trade-matrix-meta">{`${available} · ${ratio}:1`}</span>
-                    <TradeMatrixCellButton
-                      value={giveVisible ? `${ratio}:1` : "—"}
-                      tone="give"
-                      active={giveSelected}
-                      disabled={!giveVisible || available < ratio}
-                      title={`${renderResourceLabel(resource)} als Einsatz wählen`}
-                      onClick={() => handleSelectMaritimeGive(resource)}
-                    />
-                    <TradeMatrixCellButton
-                      value={receiveSelected ? "1" : "○"}
-                      tone="receive"
-                      active={receiveSelected}
-                      title={`${renderResourceLabel(resource)} als Ziel wählen`}
-                      onClick={() => handleSelectMaritimeReceive(resource)}
-                    />
-                  </div>
+                  <button
+                    key={`maritime-receive-${resource}`}
+                    type="button"
+                    className={`trade-maritime-receive-option ${active ? "is-active" : ""}`.trim()}
+                    disabled={disabled}
+                    title={renderResourceLabel(resource)}
+                    aria-label={renderResourceLabel(resource)}
+                    aria-pressed={active}
+                    onClick={() => handleSelectMaritimeReceive(resource)}
+                  >
+                    <ResourceIcon resource={resource} shell size={14} />
+                  </button>
                 );
               })}
             </div>
-          </div>
+          </>
         ) : (
           <div className="trade-inline-empty">Für diesen Modus ist aktuell kein passender Rohstoff verfügbar.</div>
         )}
       </div>
       <div className="trade-composer-footer">
-        <article className="trade-target-shell is-static">
-          <div className="trade-target-static">
-            <span className="eyebrow">Ziel</span>
-            <strong>{tradeMode === "bank" ? "Bank" : "Hafen"}</strong>
-          </div>
-        </article>
         <div className="trade-composer-actions">
-          <div className="trade-composer-copy">
-            <span>{maritimeTradeSubmitHint}</span>
-          </div>
+          {maritimeTradeSubmitHint ? (
+            <div className="trade-composer-copy">
+              <span>{maritimeTradeSubmitHint}</span>
+            </div>
+          ) : null}
           <div className="trade-composer-button-row">
             <button type="button" className="secondary-button trade-submit-button" disabled={!canSubmitMaritimeTrade} onClick={handleExecuteMaritimeTrade}>
               {maritimeActionLabel}

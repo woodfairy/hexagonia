@@ -212,7 +212,7 @@ export function App() {
     targetPlayerId: ""
   });
   const [maritimeForm, setMaritimeForm] = useState<MaritimeFormState>({
-    give: "brick",
+    give: "",
     receive: "grain"
   });
   const [yearOfPlenty, setYearOfPlenty] = useState<[Resource, Resource]>(["brick", "grain"]);

@@ -4453,21 +4453,28 @@ select {
 }
 
 .trade-target-select-shell {
+  appearance: none;
+  -webkit-appearance: none;
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.42rem;
   min-inline-size: 0;
+  inline-size: 100%;
   min-block-size: 2.08rem;
   padding: 0.22rem 0.62rem 0.22rem 0.56rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.88rem;
   background: rgba(6, 15, 23, 0.82);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
   transition:
     border-color 160ms ease,
     background 160ms ease,
-    box-shadow 160ms ease;
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .trade-target-select-shell[class*="player-accent-"] {
@@ -4478,11 +4485,31 @@ select {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.018);
 }
 
-.trade-target-select-shell:focus-within {
+.trade-target-select-shell:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.22);
+  transform: translateY(-1px);
+}
+
+.trade-target-select-shell:is(:focus-visible, .is-open) {
+  outline: none;
   border-color: rgba(var(--accent-rgb), 0.4);
   box-shadow:
     inset 0 0 0 1px rgba(var(--accent-rgb), 0.08),
     0 0 0 0.12rem rgba(var(--accent-rgb), 0.08);
+}
+
+.trade-target-select-shell:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.trade-target-select-leading,
+.trade-select-menu-icon {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 0.94rem;
+  block-size: 0.94rem;
+  color: var(--text);
 }
 
 .trade-target-select-dot {
@@ -4502,7 +4529,15 @@ select {
     inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
+.trade-select-menu-option[class*="player-accent-"] .trade-target-select-dot {
+  background: var(--player-accent, var(--accent));
+  box-shadow:
+    0 0 0 0.18rem var(--player-accent-soft, rgba(255, 255, 255, 0.08)),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
 .trade-target-select-copy {
+  display: block;
   min-inline-size: 0;
   overflow: hidden;
   color: var(--text);
@@ -4513,28 +4548,6 @@ select {
   white-space: nowrap;
 }
 
-.trade-target-select {
-  position: absolute;
-  inset: 0;
-  min-block-size: 100%;
-  inline-size: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: 0.8rem;
-  font-weight: 700;
-  line-height: 1.12;
-  opacity: 0;
-  cursor: pointer;
-  appearance: none;
-}
-
-.trade-target-select:focus {
-  outline: none;
-}
-
 .trade-target-select-caret {
   inline-size: 0.46rem;
   block-size: 0.46rem;
@@ -4542,7 +4555,131 @@ select {
   border-inline-end: 2px solid var(--muted);
   border-block-end: 2px solid var(--muted);
   transform: rotate(45deg) translateY(-0.04rem);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease;
   pointer-events: none;
+}
+
+.trade-target-select-shell.is-open .trade-target-select-caret {
+  border-color: var(--text);
+  transform: rotate(225deg) translateY(0.04rem);
+}
+
+.trade-select-menu {
+  z-index: 48;
+  display: grid;
+  gap: 0.26rem;
+  padding: 0.34rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(6, 15, 23, 0.96);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.trade-select-menu-option {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.56rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 0.52rem 0.58rem;
+  border: 1px solid transparent;
+  border-radius: 0.82rem;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.trade-select-menu-option:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.trade-select-menu-option:is(:focus-visible, .is-active) {
+  outline: none;
+  border-color: rgba(var(--accent-rgb), 0.38);
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), rgba(255, 255, 255, 0.03)),
+    rgba(10, 18, 28, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+}
+
+.trade-select-menu-option[class*="player-accent-"] {
+  border-color: var(--player-accent-border, rgba(255, 255, 255, 0.08));
+  background:
+    linear-gradient(180deg, var(--player-accent-soft, rgba(255, 255, 255, 0.04)), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.trade-select-menu-option.is-active[class*="player-accent-"] {
+  border-color: var(--player-accent-border, rgba(255, 255, 255, 0.14));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025)),
+    var(--player-accent-soft, rgba(255, 255, 255, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.trade-select-menu-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  transform: none;
+}
+
+.trade-select-menu-copy {
+  display: grid;
+  gap: 0.08rem;
+  min-inline-size: 0;
+}
+
+.trade-select-menu-label {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-select-menu-meta {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-select-menu-check {
+  min-inline-size: 0.72rem;
+  color: rgba(var(--accent-rgb), 0.92);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.trade-select-menu-check.is-visible {
+  opacity: 1;
 }
 
 .trade-target-card.trade-target-card-compact {
@@ -4784,7 +4921,6 @@ select {
 }
 
 .trade-composer-card,
-.trade-target-shell,
 .trade-offer-card {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-card);
@@ -4802,7 +4938,6 @@ select {
   padding: 0.62rem 0.66rem;
 }
 
-.trade-composer-headbar,
 .trade-composer-actions,
 .trade-offer-card-head {
   display: flex;
@@ -4812,25 +4947,16 @@ select {
   flex-wrap: wrap;
 }
 
-.trade-composer-title,
 .trade-composer-copy,
-.trade-offer-card-title,
-.trade-offer-lane {
+.trade-offer-card-title {
   display: grid;
   gap: 0.14rem;
   min-inline-size: 0;
 }
 
-.trade-composer-title strong,
 .trade-composer-copy strong {
   font-size: 0.98rem;
   line-height: 1.04;
-}
-
-.trade-composer-headbar .status-pill {
-  min-block-size: 1.56rem;
-  padding: 0.1rem 0.46rem;
-  font-size: 0.72rem;
 }
 
 .trade-composer-grid {
@@ -4840,70 +4966,6 @@ select {
 
 .trade-composer-grid.is-stacked {
   grid-template-columns: minmax(0, 1fr);
-}
-
-.trade-compact-lane {
-  display: grid;
-  gap: 0.28rem;
-  min-inline-size: 0;
-  padding: 0.42rem 0.48rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.92rem;
-  background: rgba(6, 15, 23, 0.56);
-}
-
-.trade-compact-lane.is-give {
-  border-color: rgba(240, 142, 133, 0.22);
-  background: linear-gradient(180deg, rgba(240, 142, 133, 0.08), rgba(255, 255, 255, 0.025));
-}
-
-.trade-compact-lane.is-receive {
-  border-color: rgba(139, 209, 167, 0.22);
-  background: linear-gradient(180deg, rgba(139, 209, 167, 0.08), rgba(255, 255, 255, 0.025));
-}
-
-.trade-compact-lane .trade-resource-pill-row {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-block-end: 0.06rem;
-  scrollbar-width: thin;
-}
-
-.trade-compact-lane .trade-resource-pill {
-  min-block-size: 1.42rem;
-  padding: 0.08rem 0.38rem;
-  font-size: 0.68rem;
-}
-
-.trade-compact-lane-head,
-.trade-compact-lane-title {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-inline-size: 0;
-  flex-wrap: wrap;
-}
-
-.trade-compact-lane-head {
-  justify-content: space-between;
-}
-
-.trade-micro-pill {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 1.42rem;
-  padding: 0.08rem 0.42rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--muted);
-  font-size: 0.71rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.trade-micro-pill.is-muted {
-  opacity: 0.72;
 }
 
 .trade-matrix-shell {
@@ -4926,6 +4988,11 @@ select {
 .trade-matrix-shell.is-player-draft .trade-matrix-head,
 .trade-matrix-shell.is-player-draft .trade-matrix-row {
   grid-template-columns: 1.72rem minmax(2rem, auto) minmax(4.15rem, 1fr) minmax(4.15rem, 1fr);
+}
+
+.trade-matrix-shell.is-maritime-draft .trade-matrix-head,
+.trade-matrix-shell.is-maritime-draft .trade-matrix-row {
+  grid-template-columns: 1.72rem minmax(1.9rem, auto) minmax(3.18rem, 0.8fr) minmax(4.15rem, 1fr);
 }
 
 .trade-matrix-head {
@@ -5026,6 +5093,39 @@ select {
   opacity: 0.36;
 }
 
+.trade-matrix-cell-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 0;
+  min-block-size: 1.78rem;
+  padding: 0.1rem 0.28rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.74rem;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.trade-matrix-cell-display.is-give {
+  border-color: rgba(240, 142, 133, 0.14);
+  background: rgba(240, 142, 133, 0.08);
+}
+
+.trade-matrix-cell-display.is-active {
+  border-color: rgba(var(--accent-rgb), 0.38);
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(10, 18, 28, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+}
+
+.trade-matrix-cell-display.is-disabled {
+  opacity: 0.36;
+}
+
 .trade-matrix-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -5087,25 +5187,61 @@ select {
   line-height: 1.24;
 }
 
-.trade-target-shell {
+.trade-maritime-receive-picker {
   display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.3rem;
-  min-inline-size: 0;
-  padding: 0.38rem 0.42rem;
 }
 
-.trade-target-shell.is-static {
-  border-style: dashed;
+.trade-maritime-receive-option {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  padding: 0;
+  border: 1px solid rgba(139, 209, 167, 0.14);
+  border-radius: 0.72rem;
+  background: rgba(139, 209, 167, 0.06);
+  color: var(--text);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.trade-maritime-receive-option:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.28);
+  transform: translateY(-1px);
+}
+
+.trade-maritime-receive-option.is-active {
+  border-color: rgba(var(--accent-rgb), 0.38);
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(10, 18, 28, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+}
+
+.trade-maritime-receive-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+  transform: none;
 }
 
 .trade-target-static {
   display: grid;
-  gap: 0.08rem;
+  gap: 0.28rem;
   min-inline-size: 0;
-  padding: 0.22rem 0.28rem;
+  padding: 0.44rem 0.48rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.68rem;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.92rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(255, 255, 255, 0.028);
 }
 
 .trade-target-static[class*="player-accent-"] {
@@ -5113,6 +5249,57 @@ select {
   background:
     linear-gradient(180deg, var(--player-accent-soft, rgba(255, 255, 255, 0.06)), rgba(255, 255, 255, 0.02)),
     rgba(255, 255, 255, 0.03);
+}
+
+.trade-target-static > .eyebrow {
+  padding-inline-start: 0.04rem;
+}
+
+.trade-target-static-body {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  min-block-size: 2.4rem;
+  padding: 0.44rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.82rem;
+  background: rgba(7, 15, 23, 0.44);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.trade-target-static[class*="player-accent-"] .trade-target-static-body {
+  border-color: var(--player-accent-border, rgba(255, 255, 255, 0.1));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(7, 15, 23, 0.5);
+}
+
+.trade-target-static .player-identity {
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.56rem;
+  flex-wrap: nowrap;
+}
+
+.trade-target-static .player-identity-copy {
+  gap: 0.12rem;
+}
+
+.trade-target-static .player-name-text {
+  font-size: 0.98rem;
+}
+
+.trade-target-static .player-identity-copy span {
+  font-size: 0.76rem;
+  line-height: 1.08;
+}
+
+.trade-target-static-open {
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.08;
+  color: var(--text);
 }
 
 .trade-composer-footer {
@@ -5136,8 +5323,7 @@ select {
 
 .trade-composer-button-row,
 .trade-offer-row-meta,
-.trade-offer-row-actions,
-.trade-resource-pill-row {
+.trade-offer-row-actions {
   display: flex;
   align-items: center;
   gap: 0.38rem;
@@ -5189,83 +5375,30 @@ select {
 }
 
 .trade-offer-row-trade {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.42rem;
-  align-items: center;
-}
-
-.trade-offer-row-arrow {
-  color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 900;
+  min-inline-size: 0;
 }
 
 .trade-offer-row-actions {
   justify-content: flex-end;
 }
 
-.trade-offer-lane {
-  padding: 0.38rem 0.44rem;
+.trade-offer-summary {
+  padding: 0.46rem 0.52rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.84rem;
-  background: rgba(6, 15, 23, 0.6);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(6, 15, 23, 0.62);
 }
 
-.trade-offer-lane.compact {
-  gap: 0.18rem;
+.trade-offer-summary .match-notification-trade-chip,
+.trade-offer-summary .match-notification-trade-empty {
+  min-block-size: 1.66rem;
+  padding: 0.16rem 0.4rem;
 }
 
-.trade-offer-lane.is-give {
-  border-color: rgba(240, 142, 133, 0.16);
-}
-
-.trade-offer-lane.is-receive {
-  border-color: rgba(139, 209, 167, 0.16);
-}
-
-.trade-resource-pill-row {
-  align-items: flex-start;
-}
-
-.trade-resource-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.24rem;
-  min-block-size: 1.56rem;
-  padding: 0.12rem 0.34rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text);
-  font-size: 0.72rem;
-  line-height: 1.08;
-  font-variant-numeric: tabular-nums;
-}
-
-.trade-resource-pill.is-action {
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-}
-
-.trade-resource-pill.is-action:hover {
-  border-color: rgba(var(--accent-rgb), 0.26);
-}
-
-.trade-resource-pill.is-give {
-  border-color: rgba(240, 142, 133, 0.2);
-  background: rgba(240, 142, 133, 0.12);
-}
-
-.trade-resource-pill.is-receive {
-  border-color: rgba(139, 209, 167, 0.2);
-  background: rgba(139, 209, 167, 0.12);
-}
-
-.trade-resource-pill.is-empty {
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.02);
+.trade-offer-summary .match-notification-trade-arrow {
+  inline-size: 1.7rem;
 }
 
 @container (max-width: 44rem) {
@@ -5291,7 +5424,6 @@ select {
 }
 
 @container (max-width: 31rem) {
-  .trade-composer-headbar,
   .trade-composer-actions,
   .trade-offer-row-head {
     flex-direction: column;
@@ -5350,11 +5482,7 @@ select {
   }
 
   .trade-offer-row-trade {
-    grid-template-columns: 1fr;
-  }
-
-  .trade-offer-row-arrow {
-    display: none;
+    min-inline-size: 0;
   }
 
   .trade-offer-row-actions {
@@ -7008,6 +7136,11 @@ select {
   .trade-matrix-shell.is-player-draft .trade-matrix-head,
   .trade-matrix-shell.is-player-draft .trade-matrix-row {
     grid-template-columns: 1.54rem minmax(1.82rem, auto) minmax(3.18rem, 1fr) minmax(3.18rem, 1fr);
+  }
+
+  .trade-matrix-shell.is-maritime-draft .trade-matrix-head,
+  .trade-matrix-shell.is-maritime-draft .trade-matrix-row {
+    grid-template-columns: 1.54rem minmax(1.72rem, auto) minmax(2.72rem, 0.72fr) minmax(3.18rem, 1fr);
   }
 
   .trade-target-picker {

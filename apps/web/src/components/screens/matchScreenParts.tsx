@@ -26,19 +26,28 @@ export type MatchScreenNotification = Omit<MatchNotification, "eventType"> & {
   eventType: MatchNotification["eventType"] | "dice_pending" | "turn_status";
 };
 
-function MatchNotificationTradeSummary(props: {
-  summary: NonNullable<MatchScreenNotification["tradeSummary"]>;
+export function TradeCompactSummary(props: {
+  give: ResourceMap;
+  receive: ResourceMap;
+  className?: string;
+  ariaLabel?: string;
 }) {
   return (
-    <div className="match-notification-trade-summary" aria-label="Handelszusammenfassung">
-      <MatchNotificationTradeSide resources={props.summary.give} tone="give" />
+    <div className={`match-notification-trade-summary ${props.className ?? ""}`.trim()} aria-label={props.ariaLabel ?? "Handelszusammenfassung"}>
+      <TradeCompactSummarySide resources={props.give} tone="give" />
       <span className="match-notification-trade-arrow" aria-hidden="true" />
-      <MatchNotificationTradeSide resources={props.summary.receive} tone="receive" />
+      <TradeCompactSummarySide resources={props.receive} tone="receive" />
     </div>
   );
 }
 
-function MatchNotificationTradeSide(props: {
+function MatchNotificationTradeSummary(props: {
+  summary: NonNullable<MatchScreenNotification["tradeSummary"]>;
+}) {
+  return <TradeCompactSummary give={props.summary.give} receive={props.summary.receive} />;
+}
+
+function TradeCompactSummarySide(props: {
   resources: ResourceMap;
   tone: "give" | "receive";
 }) {
