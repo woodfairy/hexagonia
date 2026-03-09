@@ -214,7 +214,15 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
         {armed ? props.armedContent ?? props.content : props.content}
       </button>
       {armed ? (
-        <button type="button" className="ghost-button inline-confirm-cancel" onClick={props.onClear} aria-label="Bestätigung abbrechen">
+        <button
+          type="button"
+          className="inline-confirm-cancel"
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onClear();
+          }}
+          aria-label="Bestätigung abbrechen"
+        >
           ×
         </button>
       ) : null}
@@ -999,6 +1007,7 @@ export function MatchScreen(props: {
               disabled: !props.match.allowedMoves.canRoll,
               confirmKey: null,
               confirmLabel: null,
+              armedLabel: null,
               onClick: () => {
                 props.onRollDice();
                 props.onAction(createMatchActionMessage({ type: "roll_dice" }));
@@ -1015,9 +1024,10 @@ export function MatchScreen(props: {
              disabled: false,
              confirmKey: endTurnConfirmKey,
              confirmLabel: endTurnConfirmation?.confirmLabel ?? "Zug beenden",
+             armedLabel: "Jetzt beenden",
              onClick: () => props.onAction(endTurnMessage)
-           }
-         ]
+            }
+          ]
       : [])
   ];
   const hasQuickActions = primaryActions.length > 0;
@@ -1054,7 +1064,7 @@ export function MatchScreen(props: {
                   {renderQuickActionIcon(action.id)}
                 </span>
               ) : null}
-              <span className="match-quick-action-label">{action.confirmLabel ?? action.label}</span>
+              <span className="match-quick-action-label">{action.armedLabel ?? action.confirmLabel ?? action.label}</span>
             </>
           );
 

@@ -643,6 +643,7 @@ select:focus-visible {
   position: relative;
   display: block;
   min-inline-size: 0;
+  overflow: visible;
 }
 
 .inline-confirm-control > button {
@@ -652,6 +653,7 @@ select:focus-visible {
 
 .inline-confirm-control > button.is-armed:not(:disabled) {
   border-color: rgba(var(--accent-rgb), 0.52);
+  padding-inline-end: calc(var(--pad-control-inline) + 2.5rem);
   box-shadow:
     0 0 0 1px rgba(var(--accent-rgb), 0.08),
     0 0 0 0.18rem rgba(var(--accent-rgb), 0.08);
@@ -660,20 +662,32 @@ select:focus-visible {
 
 .inline-confirm-cancel {
   position: absolute;
-  inset-block-start: -0.34rem;
-  inset-inline-end: -0.34rem;
-  z-index: 2;
-  inline-size: 1.82rem;
-  min-inline-size: 1.82rem;
-  block-size: 1.82rem;
-  min-block-size: 1.82rem;
+  inset-block-start: 0.48rem;
+  inset-inline-end: 0.48rem;
+  z-index: 3;
+  inline-size: 1.9rem;
+  min-inline-size: 1.9rem;
+  block-size: 1.9rem;
+  min-block-size: 1.9rem;
   padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
   display: grid;
   place-items: center;
+  background: rgba(5, 12, 20, 0.66);
+  color: rgba(255, 255, 255, 0.86);
   line-height: 1;
-  font-size: 1rem;
-  box-shadow: 0 0.45rem 1rem rgba(3, 8, 13, 0.22);
+  font-size: 1.02rem;
+  box-shadow:
+    0 0.45rem 1rem rgba(3, 8, 13, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.inline-confirm-cancel:hover,
+.inline-confirm-cancel:focus-visible {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(7, 16, 26, 0.86);
 }
 
 .match-quick-action-button.is-armed::after,
@@ -2450,6 +2464,9 @@ select {
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .build-action-grid {
