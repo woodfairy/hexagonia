@@ -957,6 +957,12 @@ export function MatchScreen(props: {
     selectedMaritimeGiveResource !== props.maritimeForm.receive &&
     visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
     (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
+  const canChooseMaritimeReceive =
+    tradeMode !== "player" &&
+    props.match.allowedMoves.canMaritimeTrade &&
+    !!selectedMaritimeGiveResource &&
+    visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
+    (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
   const canPlayYearOfPlenty = canBankPayYearOfPlenty(props.match.bank, props.yearOfPlenty);
   const developmentCards = props.selfPlayer?.developmentCards ?? [];
   const hiddenVictoryPoints = props.selfPlayer?.hiddenVictoryPoints ?? 0;
@@ -2147,7 +2153,7 @@ export function MatchScreen(props: {
                 const giveSelected = props.maritimeForm.give === resource;
                 const canUseAsGive = giveVisible && available >= ratio;
                 const receiveSelected = props.maritimeForm.receive === resource;
-                const canUseAsReceive = resource !== props.maritimeForm.give;
+                const canUseAsReceive = canChooseMaritimeReceive && resource !== props.maritimeForm.give;
 
                 return (
                   <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
