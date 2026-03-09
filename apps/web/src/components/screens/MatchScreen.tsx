@@ -104,7 +104,6 @@ const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
 const AUTO_FOCUS_STORAGE_KEY = "hexagonia:auto-focus";
 const BOARD_LEGEND_STORAGE_KEY = "hexagonia:board-legend";
 const BOARD_HUD_STORAGE_KEY = "hexagonia:board-hud";
-const BOARD_SPOTLIGHT_STORAGE_KEY = "hexagonia:board-spotlight";
 const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
   { resource: "brick", note: "Lehm für Straßen und Siedlungen." },
   { resource: "lumber", note: "Holz für Straßen und Siedlungen." },
@@ -235,23 +234,15 @@ export function MatchScreen(props: {
   });
   const [boardLegendOpen, setBoardLegendOpen] = useState(() => {
     if (typeof window === "undefined") {
-      return true;
-    }
-
-    if (window.innerWidth <= 1023 || window.innerHeight <= 560) {
-      return false;
-    }
-
-    if (isDenseLegendViewport(window.innerWidth, window.innerHeight)) {
       return false;
     }
 
     const stored = window.localStorage.getItem(BOARD_LEGEND_STORAGE_KEY);
     if (stored) {
-      return stored !== "closed";
+      return stored === "open";
     }
 
-    return true;
+    return false;
   });
   const [boardHudOpen, setBoardHudOpen] = useState(() => {
     if (typeof window === "undefined") {
@@ -264,18 +255,6 @@ export function MatchScreen(props: {
     }
 
     return window.innerWidth > 1023;
-  });
-  const [boardSpotlightOpen, setBoardSpotlightOpen] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    const stored = window.localStorage.getItem(BOARD_SPOTLIGHT_STORAGE_KEY);
-    if (stored) {
-      return stored === "open";
-    }
-
-    return false;
   });
   const [buildActionTooltip, setBuildActionTooltip] = useState<BuildActionTooltipState | null>(null);
   const latestDiceEvent = useMemo(() => getLatestDiceRollEvent(props.match), [props.match]);
@@ -986,14 +965,6 @@ export function MatchScreen(props: {
 
     window.localStorage.setItem(BOARD_HUD_STORAGE_KEY, boardHudOpen ? "open" : "closed");
   }, [boardHudOpen]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(BOARD_SPOTLIGHT_STORAGE_KEY, boardSpotlightOpen ? "open" : "closed");
-  }, [boardSpotlightOpen]);
 
   useEffect(() => {
     if (!buildActionTooltip) {
@@ -2064,20 +2035,18 @@ export function MatchScreen(props: {
               <div className={`board-legend ${boardLegendOpen ? "is-open" : "is-collapsed"}`}>
                 <button
                   type="button"
-                  className={`board-legend-toggle ${boardLegendOpen ? "is-open" : ""}`}
+                  className={`board-legend-icon-button ${boardLegendOpen ? "is-open" : ""}`}
                   onClick={() => setBoardLegendOpen((current) => !current)}
                   aria-expanded={boardLegendOpen}
+                  aria-controls="board-legend-panel"
+                  aria-label={boardLegendOpen ? "Legende schließen" : "Legende öffnen"}
                 >
-                  <span className="board-legend-toggle-copy">
-                    <strong>Legende</strong>
-                    <span>Rohstoffe, Häfen und Brett-Hinweise</span>
-                  </span>
-                  <span className="board-legend-toggle-icon" aria-hidden="true">
-                    {boardLegendOpen ? "-" : "+"}
+                  <span className="board-legend-icon-glyph" aria-hidden="true">
+                    i
                   </span>
                 </button>
                 {boardLegendOpen ? (
-                  <div className="board-legend-panel">
+                  <div id="board-legend-panel" className="board-legend-panel">
                     <div className="board-legend-section">
                       <span className="eyebrow">Spielfeldfarben</span>
                       {resourceLegendList}
@@ -2095,38 +2064,16 @@ export function MatchScreen(props: {
               </div>
             ) : null}
             {!isMobileViewport ? (
-              <div
-                className={`board-spotlight ${isCompactViewport ? "is-compact" : ""} ${
-                  boardSpotlightOpen ? "is-open" : "is-collapsed"
-                }`.trim()}
-              >
-                <button
-                  type="button"
-                  className={`board-spotlight-toggle ${boardSpotlightOpen ? "is-open" : ""}`}
-                  aria-expanded={boardSpotlightOpen}
-                  aria-controls="board-spotlight-card"
-                  aria-label={boardSpotlightOpen ? "Info schließen" : "Info öffnen"}
-                  onClick={() => setBoardSpotlightOpen((current) => !current)}
-                >
-                  <span className="board-spotlight-toggle-copy">
-                    <strong>Info</strong>
-                    <span>{displayHeroNotification.label}</span>
-                  </span>
-                  <span className="board-spotlight-toggle-icon" aria-hidden="true">
-                    i
-                  </span>
-                </button>
-                {boardSpotlightOpen ? (
-                  <div id="board-spotlight-card">
-                    <MatchNotificationCard
-                      key={`desktop-${displayHeroNotification.key}`}
-                      match={props.match}
-                      notification={displayHeroNotification}
-                      variant="hero"
-                      badgeLimit={isCompactViewport ? 2 : 4}
-                    />
-                  </div>
-                ) : null}
+              <div className={`board-spotlight ${isCompactViewport ? "is-compact" : ""}`.trim()}>
+                <div id="board-spotlight-card">
+                  <MatchNotificationCard
+                    key={`desktop-${displayHeroNotification.key}`}
+                    match={props.match}
+                    notification={displayHeroNotification}
+                    variant="hero"
+                    badgeLimit={isCompactViewport ? 2 : 4}
+                  />
+                </div>
               </div>
             ) : null}
             <div
