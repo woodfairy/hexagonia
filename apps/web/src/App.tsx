@@ -238,6 +238,8 @@ export function App() {
   const robberUiDiceEventIdRef = useRef<string | null>(null);
   const robberUiBlockTimerRef = useRef<number | null>(null);
   const wasRobberUiDeferredRef = useRef(false);
+  const lastDiceHapticMatchIdRef = useRef<string | null>(null);
+  const lastDiceHapticEventIdRef = useRef<string | null>(null);
   const matchFeedbackStateRef = useRef<{
     matchId: string | null;
     currentPlayerId: string | null;
@@ -304,7 +306,7 @@ export function App() {
     [isGuestLanding]
   );
 
-  const handleDiceAnimationHaptic = useCallback(() => {
+  const handleRollDiceHaptic = useCallback(() => {
     playUiFeedback({ haptic: "dice" });
   }, [playUiFeedback]);
 
@@ -435,6 +437,7 @@ export function App() {
         winnerId: null,
         eventCount: 0
       };
+      lastDiceHapticEventIdRef.current = null;
       return;
     }
 
@@ -470,6 +473,36 @@ export function App() {
       eventCount: match.eventLog.length
     };
   }, [match, playUiFeedback]);
+
+  useEffect(() => {
+    const latestDiceEventId = latestDiceEvent?.id ?? null;
+
+    if (!match) {
+      lastDiceHapticMatchIdRef.current = null;
+      lastDiceHapticEventIdRef.current = null;
+      return;
+    }
+
+    if (lastDiceHapticMatchIdRef.current !== match.matchId) {
+      lastDiceHapticMatchIdRef.current = match.matchId;
+      lastDiceHapticEventIdRef.current = latestDiceEventId;
+      return;
+    }
+
+    if (lastDiceHapticEventIdRef.current === null) {
+      lastDiceHapticEventIdRef.current = latestDiceEventId;
+      return;
+    }
+
+    if (!latestDiceEvent || latestDiceEventId === lastDiceHapticEventIdRef.current) {
+      return;
+    }
+
+    lastDiceHapticEventIdRef.current = latestDiceEventId;
+    if (latestDiceEvent.byPlayerId !== match.you) {
+      playUiFeedback({ haptic: "dice" });
+    }
+  }, [latestDiceEvent, match, playUiFeedback]);
 
   useEffect(() => {
     setPendingBoardAction(null);
@@ -2383,7 +2416,7 @@ export function App() {
               onAction={handleMatchAction}
               onCancelPendingBoardAction={handleCancelPendingBoardAction}
               onConfirmPendingBoardAction={handleConfirmPendingBoardAction}
-              onDiceAnimationStart={handleDiceAnimationHaptic}
+              onRollDice={handleRollDiceHaptic}
               onEdgeSelect={handleEdgeSelect}
               onOfferTrade={sendTradeOffer}
               onSelectPendingRobberTarget={handleSelectPendingRobberTarget}

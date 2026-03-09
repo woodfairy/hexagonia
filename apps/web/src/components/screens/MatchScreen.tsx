@@ -239,7 +239,7 @@ export function MatchScreen(props: {
   onConfirmPendingBoardAction: () => void;
   onCancelPendingBoardAction: () => void;
   onSelectPendingRobberTarget: (targetPlayerId: string) => void;
-  onDiceAnimationStart: () => void;
+  onRollDice: () => void;
   onOfferTrade: () => void;
   onVertexSelect: (vertexId: string) => void;
   onEdgeSelect: (edgeId: string) => void;
@@ -1000,6 +1000,7 @@ export function MatchScreen(props: {
               confirmKey: null,
               confirmLabel: null,
               onClick: () => {
+                props.onRollDice();
                 props.onAction(createMatchActionMessage({ type: "roll_dice" }));
               }
             }
@@ -1272,7 +1273,6 @@ export function MatchScreen(props: {
     }
 
     seenDiceEventIdRef.current = latestDiceEvent.id;
-    props.onDiceAnimationStart();
     if (diceAnimationTimerRef.current !== null) {
       window.clearInterval(diceAnimationTimerRef.current);
     }
@@ -1332,7 +1332,7 @@ export function MatchScreen(props: {
         }, DICE_SETTLE_MS);
       }, DICE_ROLL_MS);
     }, DICE_EXPAND_MS);
-  }, [latestDiceEvent, previousMatch, props.match, props.onDiceAnimationStart]);
+  }, [latestDiceEvent, previousMatch, props.match]);
 
   useEffect(() => {
     const normalizedGive = createEmptyResourceMap();
