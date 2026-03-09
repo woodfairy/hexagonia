@@ -3190,11 +3190,6 @@ select {
   --tab-grid-columns: 4;
 }
 
-.tab-strip.mobile.has-five-tabs {
-  --tab-columns: 3;
-  --tab-grid-columns: 6;
-}
-
 .tab-strip button {
   position: relative;
   overflow: hidden;
@@ -5303,6 +5298,10 @@ select {
   .sheet-quick-actions .quick-action-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-quick-actions .quick-action-grid.is-single {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sheet-quick-actions .quick-action-grid > * {

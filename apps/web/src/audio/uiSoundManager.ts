@@ -158,6 +158,14 @@ function resolveInitialMusicPlaybackMode(): MusicPlaybackMode {
   return window.localStorage.getItem(MUSIC_MODE_STORAGE_KEY) === "cycle" ? "cycle" : "single";
 }
 
+function resolveInitialMuted(): boolean {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(UI_SOUND_STORAGE_KEY) !== "on";
+}
+
 class UiSoundManager {
   private context: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -167,8 +175,7 @@ class UiSoundManager {
   private musicElement: HTMLAudioElement | null = null;
   private currentMusicTrackId: string | null = null;
   private musicPlaybackBlocked = false;
-  private muted =
-    typeof window !== "undefined" && window.localStorage.getItem(UI_SOUND_STORAGE_KEY) === "muted";
+  private muted = resolveInitialMuted();
   private hasStoredMusicPlaybackPreference =
     typeof window !== "undefined" && window.localStorage.getItem(MUSIC_PLAYBACK_STORAGE_KEY) !== null;
   private hasStoredMusicTrackPreference =

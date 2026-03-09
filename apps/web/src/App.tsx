@@ -391,19 +391,19 @@ export function App() {
   }, [isGuestLanding]);
 
   useEffect(() => {
-    if (session === undefined) {
-      return;
-    }
-
-    void uiSoundManager.enableMusicByDefault();
-  }, [session]);
-
-  useEffect(() => {
     if (!session) {
       return;
     }
 
     void uiSoundManager.applyAuthenticatedMusicDefault();
+  }, [session]);
+
+  useEffect(() => {
+    if (session === undefined) {
+      return;
+    }
+
+    void uiSoundManager.enableMusicByDefault();
   }, [session]);
 
   useEffect(() => {

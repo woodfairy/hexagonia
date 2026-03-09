@@ -498,6 +498,7 @@ export function MatchScreen(props: {
   );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
+  const mobileTabColumns = isMobileViewport ? 2 : 3;
   const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
   const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
   const getTabTransitionOrder = (tab: MatchPanelTab) => {
@@ -2153,8 +2154,8 @@ export function MatchScreen(props: {
           {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
           {effectiveSheetState !== "peek" ? (
             <div
-              className={`tab-strip mobile ${visibleTabs.length > 4 ? "has-five-tabs center-last-item" : ""}`.trim()}
-              style={getTabStripStyle(visibleTabs, visibleTabs.length > 4 ? 3 : 2)}
+              className="tab-strip mobile"
+              style={getTabStripStyle(visibleTabs, mobileTabColumns)}
               role="tablist"
               aria-label="Mobile Match Navigation"
             >
@@ -2164,7 +2165,7 @@ export function MatchScreen(props: {
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab.id}
-                  style={getTabButtonStyle(visibleTabs, tab.id, visibleTabs.length > 4 ? 3 : 2)}
+                  style={getTabButtonStyle(visibleTabs, tab.id, mobileTabColumns)}
                   className={`${activeTab === tab.id ? "is-active" : ""} ${tab.id === "trade" && incomingTradeCount > 0 ? "has-alert" : ""}`.trim()}
                   onClick={() => changeActiveTab(tab.id)}
                 >
