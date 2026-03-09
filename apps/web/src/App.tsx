@@ -125,7 +125,7 @@ interface UiFeedbackRequest {
 function getMatchEventHapticId(event: MatchEvent): Parameters<typeof uiHapticsManager.play>[0] | null {
   switch (event.type) {
     case "dice_rolled":
-      return event.payload.total === 7 ? "robber" : "dice";
+      return "robber";
     case "resources_discarded":
     case "robber_moved":
       return "robber";
@@ -250,6 +250,7 @@ export function App() {
   const robberUiDiceEventIdRef = useRef<string | null>(null);
   const robberUiBlockTimerRef = useRef<number | null>(null);
   const wasRobberUiDeferredRef = useRef(false);
+  const lastSevenDiceHapticEventIdRef = useRef<string | null>(null);
   const matchFeedbackStateRef = useRef<{
     matchId: string | null;
     currentPlayerId: string | null;
@@ -447,6 +448,7 @@ export function App() {
         winnerId: null,
         eventCount: 0
       };
+      lastSevenDiceHapticEventIdRef.current = null;
       return;
     }
 
@@ -482,6 +484,29 @@ export function App() {
       eventCount: match.eventLog.length
     };
   }, [match, playUiFeedback]);
+
+  useEffect(() => {
+    const latestDiceEventId = latestDiceEvent?.id ?? null;
+
+    if (!match) {
+      lastSevenDiceHapticEventIdRef.current = null;
+      return;
+    }
+
+    if (lastSevenDiceHapticEventIdRef.current === null) {
+      lastSevenDiceHapticEventIdRef.current = latestDiceEventId;
+      return;
+    }
+
+    if (!latestDiceEvent || latestDiceEventId === lastSevenDiceHapticEventIdRef.current) {
+      return;
+    }
+
+    lastSevenDiceHapticEventIdRef.current = latestDiceEventId;
+    if (latestDiceEvent.payload.total === 7) {
+      playUiFeedback({ haptic: "robber" });
+    }
+  }, [latestDiceEvent, match, playUiFeedback]);
 
   useEffect(() => {
     setPendingMatchConfirmation(null);

@@ -5,7 +5,6 @@ export type UiHapticId = "dialog" | "nudge" | "success" | "error" | "event" | "d
 const UI_HAPTICS_STORAGE_KEY = "hexagonia:ui-haptics-muted";
 const STRONG_BUZZ_PATTERN: HapticPattern = [{ duration: 1000 }];
 const STRONG_BUZZ_OPTIONS: HapticTriggerOptions = { intensity: 1 };
-const DICE_HAPTIC_DEDUP_MS = 700;
 
 interface UiHapticDefinition {
   pattern: HapticPattern;
@@ -33,7 +32,6 @@ class UiHapticsManager {
   private muted =
     typeof window !== "undefined" && window.localStorage.getItem(UI_HAPTICS_STORAGE_KEY) === "muted";
   private supported: boolean | null = null;
-  private lastPlayedAt: Partial<Record<UiHapticId, number>> = {};
 
   isMuted(): boolean {
     return this.muted;
@@ -65,13 +63,8 @@ class UiHapticsManager {
       return;
     }
 
-    if (this.shouldDeduplicate(hapticId)) {
-      return;
-    }
-
     const definition = HAPTIC_LIBRARY[hapticId];
     await this.triggerPattern(engine, definition.pattern, definition.options);
-    this.lastPlayedAt[hapticId] = Date.now();
   }
 
   private ensureEngine(): WebHaptics | null {
@@ -96,16 +89,6 @@ class UiHapticsManager {
 
     return this.engine;
   }
-
-  private shouldDeduplicate(hapticId: UiHapticId): boolean {
-    if (hapticId !== "dice") {
-      return false;
-    }
-
-    const lastPlayedAt = this.lastPlayedAt[hapticId];
-    return typeof lastPlayedAt === "number" && Date.now() - lastPlayedAt < DICE_HAPTIC_DEDUP_MS;
-  }
-
   private async triggerPattern(
     engine: WebHaptics,
     pattern: HapticPattern,
