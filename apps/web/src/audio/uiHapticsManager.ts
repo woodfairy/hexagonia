@@ -13,17 +13,7 @@ const HAPTIC_LIBRARY: Record<UiHapticId, HapticPattern> = {
     { duration: 16, intensity: 0.34 },
     { delay: 28, duration: 24, intensity: 0.48 }
   ],
-  dice: [
-    { duration: 36, intensity: 0.3 },
-    { delay: 18, duration: 42, intensity: 0.42 },
-    { delay: 14, duration: 52, intensity: 0.58 },
-    { delay: 16, duration: 64, intensity: 0.7 },
-    { delay: 16, duration: 58, intensity: 0.62 },
-    { delay: 14, duration: 52, intensity: 0.76 },
-    { delay: 16, duration: 46, intensity: 0.6 },
-    { delay: 12, duration: 40, intensity: 0.48 },
-    { delay: 10, duration: 34, intensity: 0.36 }
-  ],
+  dice: "buzz",
   robber: [
     { duration: 24, intensity: 0.68 },
     { delay: 34, duration: 18, intensity: 0.28 },
@@ -63,11 +53,7 @@ class UiHapticsManager {
       return;
     }
 
-    try {
-      await engine.trigger(HAPTIC_LIBRARY[hapticId]);
-    } catch {
-      // Ignore unsupported or blocked haptic attempts.
-    }
+    await this.triggerPattern(engine, HAPTIC_LIBRARY[hapticId]);
   }
 
   private ensureEngine(): WebHaptics | null {
@@ -91,6 +77,14 @@ class UiHapticsManager {
     }
 
     return this.engine;
+  }
+
+  private async triggerPattern(engine: WebHaptics, pattern: HapticPattern): Promise<void> {
+    try {
+      await engine.trigger(pattern);
+    } catch {
+      // Ignore unsupported or blocked haptic attempts.
+    }
   }
 }
 

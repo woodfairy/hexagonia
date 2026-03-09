@@ -249,6 +249,7 @@ export function App() {
   const robberUiMatchIdRef = useRef<string | null>(null);
   const robberUiDiceEventIdRef = useRef<string | null>(null);
   const robberUiBlockTimerRef = useRef<number | null>(null);
+  const wasRobberUiDeferredRef = useRef(false);
   const matchFeedbackStateRef = useRef<{
     matchId: string | null;
     currentPlayerId: string | null;
@@ -548,6 +549,34 @@ export function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const wasDeferred = wasRobberUiDeferredRef.current;
+    wasRobberUiDeferredRef.current = robberUiDeferredByDiceAnimation;
+
+    if (!wasDeferred || robberUiDeferredByDiceAnimation || !match) {
+      return;
+    }
+
+    const robberUiActive =
+      match.phase === "robber_interrupt" &&
+      (requiredDiscardCount > 0 ||
+        match.allowedMoves.robberMoveOptions.length > 0 ||
+        match.robberDiscardStatus.length > 0 ||
+        pendingRobberTargetSelection !== null);
+
+    if (!robberUiActive) {
+      return;
+    }
+
+    playUiFeedback({ haptic: "dice" });
+  }, [
+    match,
+    pendingRobberTargetSelection,
+    playUiFeedback,
+    requiredDiscardCount,
+    robberUiDeferredByDiceAnimation
+  ]);
 
   useEffect(() => {
     if (!match || interactionMode !== "robber") {
