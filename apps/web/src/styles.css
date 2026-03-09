@@ -647,7 +647,9 @@ select:focus-visible {
   gap: 0;
   min-inline-size: 0;
   overflow: hidden;
-  transition: grid-template-columns 180ms ease, gap 180ms ease;
+  transition:
+    grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    gap 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .inline-confirm-control > button {
@@ -663,6 +665,18 @@ select:focus-visible {
 
 .inline-confirm-main {
   grid-column: 2;
+  transform: translateX(0);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 220ms ease,
+    filter 180ms ease;
+}
+
+.inline-confirm-main-content {
+  display: contents;
 }
 
 .inline-confirm-main.is-armed:not(:disabled) {
@@ -671,6 +685,7 @@ select:focus-visible {
     0 0 0 1px rgba(var(--accent-rgb), 0.08),
     0 0 0 0.18rem rgba(var(--accent-rgb), 0.08);
   filter: saturate(1.08);
+  transform: translateX(0);
 }
 
 .inline-confirm-cancel {
@@ -693,11 +708,12 @@ select:focus-visible {
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 0.55rem 1.1rem rgba(3, 8, 13, 0.16);
   transition:
-    opacity 160ms ease,
-    transform 180ms ease,
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 160ms ease,
     background 160ms ease,
-    color 160ms ease;
+    color 160ms ease,
+    box-shadow 220ms ease;
 }
 
 .inline-confirm-control.is-armed .inline-confirm-cancel {
@@ -706,11 +722,23 @@ select:focus-visible {
   pointer-events: auto;
 }
 
+.inline-confirm-control.is-armed .inline-confirm-main {
+  transform: translateX(0.08rem);
+}
+
 .inline-confirm-cancel:hover,
 .inline-confirm-cancel:focus-visible {
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inline-confirm-control,
+  .inline-confirm-main,
+  .inline-confirm-cancel {
+    transition: none;
+  }
 }
 
 .match-quick-action-button.is-armed::after,

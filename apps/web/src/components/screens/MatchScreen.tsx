@@ -221,7 +221,7 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
         }}
         {...props.buttonProps}
       >
-        {armed ? props.armedContent ?? props.content : props.content}
+        <span className="inline-confirm-main-content">{armed ? props.armedContent ?? props.content : props.content}</span>
       </button>
     </span>
   );
