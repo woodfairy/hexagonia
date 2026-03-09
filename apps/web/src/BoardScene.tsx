@@ -3979,15 +3979,15 @@ function createFarmsteadFeature(
 }
 
 function getBarnRoofGeometry(scale: number): THREE.BufferGeometry {
-  const cacheKey = `barn-roof:${scale.toFixed(4)}`;
+  const cacheKey = `barn-roof-pyramid-v2:${scale.toFixed(4)}`;
   const cached = terrainPropGeometryCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   const geometry = markSharedResource(new THREE.ConeGeometry(0.23 * scale, 0.14 * scale, 4));
-  geometry.rotateY(Math.PI / 4);
   geometry.scale(1, 1, 0.72);
+  geometry.rotateY(Math.PI / 4);
   terrainPropGeometryCache.set(cacheKey, geometry);
   return geometry;
 }
@@ -4358,10 +4358,10 @@ function createSheepfoldFeature(scale: number, active: boolean): THREE.Group {
 
   const sheepA = createSheepFigure(scale * 0.84, woolMaterial, faceMaterial, hoofMaterial, active);
   sheepA.position.set(-0.09 * scale, 0.02 * scale, -0.05 * scale);
-  sheepA.rotation.y = 0.18;
+  sheepA.rotation.y = 0.96;
   const sheepB = createSheepFigure(scale * 0.7, createWoolMaterial(active, false), faceMaterial, hoofMaterial, active);
-  sheepB.position.set(-0.03 * scale, 0.02 * scale, -0.1 * scale);
-  sheepB.rotation.y = Math.PI - 0.28;
+  sheepB.position.set(0.04 * scale, 0.02 * scale, -0.24 * scale);
+  sheepB.rotation.y = Math.PI + 0.22;
   const trough = createPastureGroundDetail(scale * 1.02, active, "trough");
   trough.position.set(0, 0.01 * scale, -0.18 * scale);
 
