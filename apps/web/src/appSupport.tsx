@@ -73,6 +73,8 @@ export function getReconnectJitter(attempt: number): number {
   return (attempt * 173) % 351;
 }
 
+const DEEP_LINK_BOARD_SKELETON_ROWS = [3, 4, 5, 4, 3] as const;
+
 export function getToastHapticId(tone: ToastMessage["tone"]) {
   switch (tone) {
     case "error":
@@ -103,18 +105,20 @@ export function StatusSurface(props: { title: string; text: string }) {
   );
 }
 
-export function AppHeaderSkeleton(props: { eyebrow: string }) {
+export function AppHeaderSkeleton(props: { eyebrow: string; compact?: boolean }) {
   return (
-    <header className="app-header app-header-skeleton" aria-hidden="true">
+    <header className={`app-header app-header-skeleton ${props.compact ? "is-compact" : ""}`.trim()} aria-hidden="true">
       <div className="brand-cluster">
         <div className="brand-mark app-skeleton-brand-mark" />
-        <div className="brand-copy">
-          <span className="eyebrow">{props.eyebrow}</span>
-          <div className="brand-title-row">
-            <span className="skeleton-shape app-skeleton-title" />
-            <span className="skeleton-shape app-skeleton-meta" />
+        {!props.compact ? (
+          <div className="brand-copy">
+            <span className="eyebrow">{props.eyebrow}</span>
+            <div className="brand-title-row">
+              <span className="skeleton-shape app-skeleton-title" />
+              <span className="skeleton-shape app-skeleton-meta" />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="header-utilities">
@@ -151,35 +155,13 @@ export function DeepLinkBootSkeleton(props: {
             </div>
             <article className="surface deep-link-board-skeleton">
               <div className="deep-link-board-glow" />
-              <div className="deep-link-board-hex-row is-row-1">
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-              </div>
-              <div className="deep-link-board-hex-row is-row-2">
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-              </div>
-              <div className="deep-link-board-hex-row is-row-3">
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-              </div>
-              <div className="deep-link-board-hex-row is-row-4">
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-              </div>
-              <div className="deep-link-board-hex-row is-row-5">
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-                <span className="skeleton-shape deep-link-board-hex" />
-              </div>
+              {DEEP_LINK_BOARD_SKELETON_ROWS.map((hexCount, rowIndex) => (
+                <div key={rowIndex} className="deep-link-board-hex-row">
+                  {Array.from({ length: hexCount }).map((_, hexIndex) => (
+                    <span key={hexIndex} className="skeleton-shape deep-link-board-hex" />
+                  ))}
+                </div>
+              ))}
             </article>
             <div className="board-bottom-hint deep-link-skeleton-bottom">
               <span className="skeleton-shape deep-link-line is-short" />

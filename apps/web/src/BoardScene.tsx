@@ -62,8 +62,9 @@ type BoardVertex = MatchSnapshot["board"]["vertices"][number];
 type BoardVerticesById = Map<string, BoardVertex>;
 
 const TILE_HEIGHT = 0.82;
-const PORT_MARKER_DISTANCE = 2.25;
-const BOARD_CAMERA_PORT_PADDING = 1.6;
+const PORT_MARKER_DISTANCE = 2.08;
+const BOARD_CAMERA_PORT_PADDING = 1.5;
+const PORT_BRIDGE_RADIUS = 0.105;
 const BOARD_FIT_SAFETY_MARGIN = 1.06;
 const ROLL_FIT_SAFETY_MARGIN = 1.04;
 const TILE_OUTER_BEVEL_SIZE = 0.18;
@@ -88,6 +89,7 @@ const tileSandGeometryCache = new Map<string, THREE.ShapeGeometry>();
 const terrainPropGeometryCache = new Map<string, THREE.BufferGeometry>();
 const tokenSpriteMaterialCache = new Map<string, THREE.SpriteMaterial>();
 const portSpriteMaterialCache = new Map<PortType, THREE.SpriteMaterial>();
+const portBridgeVertexInsetCache = new Map<string, number>();
 const roadHitProxyGeometryCache = new Map<string, THREE.BoxGeometry>();
 const tileProxyGeometryCache = new Map<string, THREE.CylinderGeometry>();
 const TOKEN_PIP_COUNT_BY_NUMBER: Record<number, number> = {
@@ -638,6 +640,10 @@ export function BoardScene(props: BoardSceneProps) {
 
     handleResize();
     window.addEventListener("resize", handleResize);
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(handleResize) : null;
+    if (resizeObserver && mountRef.current) {
+      resizeObserver.observe(mountRef.current);
+    }
 
     const raycaster = new THREE.Raycaster();
     raycaster.layers.set(INTERACTIVE_LAYER);
@@ -990,6 +996,7 @@ export function BoardScene(props: BoardSceneProps) {
       renderer.domElement.removeEventListener("pointercancel", onPointerCancel);
       renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       renderer.domElement.removeEventListener("webglcontextrestored", onContextRestored);
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", updateCanvasRect, true);
       window.removeEventListener("keydown", onKeyDown);
@@ -1119,7 +1126,7 @@ export function BoardScene(props: BoardSceneProps) {
         continue;
       }
 
-      const marker = createPortMarker(port, edge, tile, verticesById, terrainSurfaceByTile);
+      const marker = createPortMarker(port, edge, tile, verticesById, props.visualSettings.pieceStyle, terrainSurfaceByTile);
       const proxy = createPortInteractiveProxy();
       const proxyPosition = marker.userData.proxyPosition as THREE.Vector3 | undefined;
       if (proxyPosition) {
@@ -5121,6 +5128,7 @@ function createPortMarker(
   edge: MatchSnapshot["board"]["edges"][number],
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  pieceStyle: BoardVisualSettings["pieceStyle"],
   terrainSurfaceByTile?: Map<string, TileTerrainSurfaceBundle>
 ): THREE.Group {
   const palette = getPortMarkerPalette(port.type);
@@ -5147,87 +5155,31 @@ function createPortMarker(
   }
   const sideways = new THREE.Vector3(-outward.z, 0, outward.x).normalize();
   const markerPosition = edgeCenter.clone().add(outward.clone().multiplyScalar(PORT_MARKER_DISTANCE));
-  const bridgeHeight = Math.max(leftSurfaceHeight, rightSurfaceHeight, terrainHeight) + 0.14;
-  const bridgeStartInset = 0.18;
-  const dockAttachDepth = 0.54;
-  const dockAttachSpread = 0.56;
-  const leftBridgeStart = new THREE.Vector3(left.x, leftSurfaceHeight + 0.14, left.y).add(outward.clone().multiplyScalar(bridgeStartInset));
-  const rightBridgeStart = new THREE.Vector3(right.x, rightSurfaceHeight + 0.14, right.y).add(outward.clone().multiplyScalar(bridgeStartInset));
-  const leftBridgeEnd = markerPosition
+  const badgeHeight = Math.max(leftSurfaceHeight, rightSurfaceHeight, terrainHeight) + 0.92;
+  const badgePosition = new THREE.Vector3(markerPosition.x, badgeHeight, markerPosition.z);
+  const badgeAttachSpread = 0.46;
+  const badgeAttachDepth = 0.08;
+  const bridgeAttachHeight = badgeHeight - 0.18;
+  const leftBridgeEnd = badgePosition
     .clone()
-    .add(sideways.clone().multiplyScalar(-dockAttachSpread))
-    .add(outward.clone().multiplyScalar(-dockAttachDepth))
-    .setY(bridgeHeight);
-  const rightBridgeEnd = markerPosition
+    .add(sideways.clone().multiplyScalar(-badgeAttachSpread))
+    .add(outward.clone().multiplyScalar(-badgeAttachDepth))
+    .setY(bridgeAttachHeight);
+  const rightBridgeEnd = badgePosition
     .clone()
-    .add(sideways.clone().multiplyScalar(dockAttachSpread))
-    .add(outward.clone().multiplyScalar(-dockAttachDepth))
-    .setY(bridgeHeight);
+    .add(sideways.clone().multiplyScalar(badgeAttachSpread))
+    .add(outward.clone().multiplyScalar(-badgeAttachDepth))
+    .setY(bridgeAttachHeight);
 
   const marker = new THREE.Group();
-  const leftBridge = createPortBridge(leftBridgeStart, leftBridgeEnd, palette);
-  const rightBridge = createPortBridge(rightBridgeStart, rightBridgeEnd, palette);
-
-  const dockBase = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.02, 1.12, 0.18, 6),
-    new THREE.MeshStandardMaterial({
-      color: palette.base,
-      roughness: 0.78,
-      metalness: 0.04,
-      emissive: new THREE.Color(palette.emissive),
-      emissiveIntensity: port.type === "generic" ? 0.12 : 0.18
-    })
-  );
-  dockBase.position.set(markerPosition.x, TILE_HEIGHT + 0.12, markerPosition.z);
-  dockBase.rotation.y = Math.atan2(outward.x, outward.z) + Math.PI / 6;
-
-  const dockTop = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.84, 0.92, 0.1, 6),
-    new THREE.MeshStandardMaterial({
-      color: palette.top,
-      roughness: 0.42,
-      metalness: 0.04,
-      emissive: new THREE.Color(palette.emissive),
-      emissiveIntensity: port.type === "generic" ? 0.04 : 0.1
-    })
-  );
-  dockTop.position.set(markerPosition.x, TILE_HEIGHT + 0.24, markerPosition.z);
-  dockTop.rotation.y = dockBase.rotation.y;
-
-  const createBollard = (offset: number) => {
-    const bollard = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.065, 0.075, 0.28, 10),
-      new THREE.MeshStandardMaterial({
-        color: palette.bollard,
-        roughness: 0.72,
-        metalness: 0.08
-      })
-    );
-    const position = markerPosition
-      .clone()
-      .add(sideways.clone().multiplyScalar(offset))
-      .add(outward.clone().multiplyScalar(-0.14));
-    bollard.position.set(position.x, TILE_HEIGHT + 0.34, position.z);
-    return bollard;
-  };
-
-  const signPost = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.08, 0.1, 0.76, 8),
-    new THREE.MeshStandardMaterial({
-      color: palette.bollard,
-      roughness: 0.62,
-      metalness: 0.08,
-      emissive: new THREE.Color(palette.emissive),
-      emissiveIntensity: 0.08
-    })
-  );
-  signPost.position.set(markerPosition.x, TILE_HEIGHT + 0.6, markerPosition.z);
+  const leftBridge = createPortBridge(resolvePortBridgeStart(left, leftSurfaceHeight, leftBridgeEnd, pieceStyle), leftBridgeEnd, palette);
+  const rightBridge = createPortBridge(resolvePortBridgeStart(right, rightSurfaceHeight, rightBridgeEnd, pieceStyle), rightBridgeEnd, palette);
 
   const badge = createPortSprite(port.type);
-  badge.position.set(markerPosition.x, TILE_HEIGHT + 1.12, markerPosition.z);
+  badge.position.copy(badgePosition);
 
-  marker.userData.proxyPosition = new THREE.Vector3(markerPosition.x, TILE_HEIGHT + 1.02, markerPosition.z);
-  marker.add(leftBridge, rightBridge, dockBase, dockTop, createBollard(-0.34), createBollard(0.34), signPost, badge);
+  marker.userData.proxyPosition = badgePosition.clone().setY(badgeHeight - 0.08);
+  marker.add(leftBridge, rightBridge, badge);
   return marker;
 }
 
@@ -5237,9 +5189,9 @@ function createPortBridge(
   palette: ReturnType<typeof getPortMarkerPalette>
 ): THREE.Mesh {
   const direction = end.clone().sub(start);
-  const span = Math.max(direction.length() - 0.24, 0.26);
+  const span = Math.max(direction.length() - PORT_BRIDGE_RADIUS * 2, 0.22);
   const bridge = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.105, span, 4, 8),
+    new THREE.CapsuleGeometry(PORT_BRIDGE_RADIUS, span, 4, 8),
     new THREE.MeshStandardMaterial({
       color: palette.bridge,
       roughness: 0.52,
@@ -5255,6 +5207,51 @@ function createPortBridge(
   bridge.castShadow = false;
   bridge.receiveShadow = true;
   return bridge;
+}
+
+function resolvePortBridgeStart(
+  vertex: BoardVertex,
+  surfaceHeight: number,
+  bridgeEnd: THREE.Vector3,
+  pieceStyle: BoardVisualSettings["pieceStyle"]
+): THREE.Vector3 {
+  const start = new THREE.Vector3(vertex.x, surfaceHeight + 0.14, vertex.y);
+  const inset = getPortBridgeVertexInset(vertex.building, pieceStyle);
+  if (inset <= 0) {
+    return start;
+  }
+
+  const direction = bridgeEnd.clone().sub(start);
+  const length = direction.length();
+  if (length <= 0.0001) {
+    return start;
+  }
+
+  return start.add(direction.multiplyScalar(Math.min(inset, Math.max(length - PORT_BRIDGE_RADIUS * 2, 0)) / length));
+}
+
+function getPortBridgeVertexInset(
+  building: BoardVertex["building"],
+  pieceStyle: BoardVisualSettings["pieceStyle"]
+): number {
+  if (!building) {
+    return 0;
+  }
+
+  const cacheKey = `${pieceStyle}:${building.type}`;
+  const cachedInset = portBridgeVertexInsetCache.get(cacheKey);
+  if (typeof cachedInset === "number") {
+    return cachedInset;
+  }
+
+  const probe = createBuildingPieceModel(building.type, "#ffffff", pieceStyle);
+  probe.updateMatrixWorld(true);
+  const bounds = new THREE.Box3().setFromObject(probe);
+  const size = new THREE.Vector3();
+  bounds.getSize(size);
+  const inset = Math.max(size.x, size.z) * 0.5 + (building.type === "city" ? 0.16 : 0.12);
+  portBridgeVertexInsetCache.set(cacheKey, inset);
+  return inset;
 }
 
 function createPortSprite(type: PortType): THREE.Sprite {

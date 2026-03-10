@@ -2241,6 +2241,7 @@ export function App() {
       <>
         <main className={`app-shell ${route.kind === "match" ? "is-match-screen" : ""}`.trim()}>
           <AppHeaderSkeleton
+            compact={route.kind === "match"}
             eyebrow={
               route.kind === "match"
                 ? "Laufende Partie"
