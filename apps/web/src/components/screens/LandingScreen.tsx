@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import type { Locale } from "@hexagonia/shared";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import { createCatalogText, createText, getLocaleName, resolveText, useI18n } from "../../i18n";
 import { HarborIcon } from "../../resourceIcons";
@@ -322,19 +323,20 @@ export function LandingScreen(props: {
 
         <div className="landing-header-tools">
           <div className="landing-header-actions">
-            <div className="segmented-control landing-auth-toggle">
-              {availableLocales.map((entry) => (
-                <button
-                  key={entry}
-                  type="button"
-                  className={locale === entry ? "is-active" : ""}
-                  title={resolveText(locale, getLocaleName(entry))}
-                  onClick={() => setLocale(entry)}
-                >
-                  {entry.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <label className="landing-locale-select-shell">
+              <span className="sr-only">{text("Sprache", "Language")}</span>
+              <select
+                value={locale}
+                aria-label={text("Sprache", "Language")}
+                onChange={(event) => setLocale(event.target.value as Locale)}
+              >
+                {availableLocales.map((entry) => (
+                  <option key={entry} value={entry}>
+                    {`${resolveText(locale, getLocaleName(entry))} (${entry.toUpperCase()})`}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="landing-music-panel">
             <div className="landing-music-copy">

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState, type CSSProperties, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
+import { memo, startTransition } from "react";
 import type { FocusEvent, MouseEvent, PointerEvent } from "react";
 import type {
   ClientMessage,
@@ -132,6 +133,38 @@ type TradeSelectOption = {
   disabled?: boolean;
   title?: string;
 };
+
+export interface MatchScreenProps {
+  boardVisualSettings: BoardVisualSettings;
+  match: MatchSnapshot;
+  pendingDiceEvent: Extract<MatchSnapshot["eventLog"][number], { type: "dice_rolled" }> | null;
+  diceRevealPending: boolean;
+  room: RoomDetails | null;
+  selfPlayer: MatchSnapshot["players"][number] | null;
+  profileMenuProps: MatchProfileMenuProps;
+  interactionMode: InteractionMode;
+  selectedRoadEdges: string[];
+  tradeForm: TradeFormState;
+  maritimeForm: MaritimeFormState;
+  yearOfPlenty: [Resource, Resource];
+  monopolyResource: Resource;
+  pendingBoardAction: PendingBoardActionState | null;
+  onAction: (message: ClientMessage) => void;
+  onConfirmPendingBoardAction: () => void;
+  onCancelPendingBoardAction: () => void;
+  onSelectPendingRobberTarget: (targetPlayerId: string) => void;
+  onRollDice: () => void;
+  onOfferTrade: () => void;
+  onVertexSelect: (vertexId: string) => void;
+  onEdgeSelect: (edgeId: string) => void;
+  onTileSelect: (tileId: string) => void;
+  setInteractionMode: (mode: InteractionMode) => void;
+  setSelectedRoadEdges: Dispatch<SetStateAction<string[]>>;
+  setTradeForm: Dispatch<SetStateAction<TradeFormState>>;
+  setMaritimeForm: Dispatch<SetStateAction<MaritimeFormState>>;
+  setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
+  setMonopolyResource: Dispatch<SetStateAction<Resource>>;
+}
 
 const MATCH_TABS: Array<{ id: MatchPanelTab; labelKey: string }> = [
   { id: "actions", labelKey: "match.tab.actions" },
@@ -312,6 +345,90 @@ function getTabButtonStyle(tabLayout: MatchTabLayout, tabId: MatchPanelTab): CSS
     gridColumn: `${layout.start} / span ${layout.span}`,
     gridRow: `${layout.row + 1}`
   };
+}
+
+function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function areBoardVisualSettingsEqual(left: BoardVisualSettings, right: BoardVisualSettings): boolean {
+  return (
+    left.textures === right.textures &&
+    left.props === right.props &&
+    left.terrainRelief === right.terrainRelief &&
+    left.resourceIcons === right.resourceIcons &&
+    left.pieceStyle === right.pieceStyle
+  );
+}
+
+function arePendingBoardActionsEqual(
+  left: PendingBoardActionState | null,
+  right: PendingBoardActionState | null
+): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.key === right.key &&
+    left.selection.kind === right.selection.kind &&
+    left.selection.id === right.selection.id &&
+    areStringArraysEqual(left.targetPlayerIds, right.targetPlayerIds)
+  );
+}
+
+function areProfileMenuPropsEqual(left: MatchProfileMenuProps, right: MatchProfileMenuProps): boolean {
+  return (
+    left.connectionState === right.connectionState &&
+    left.soundMuted === right.soundMuted &&
+    left.hapticsMuted === right.hapticsMuted &&
+    left.hapticsSupported === right.hapticsSupported &&
+    left.musicPaused === right.musicPaused &&
+    left.musicPlaybackMode === right.musicPlaybackMode &&
+    left.selectedMusicTrackId === right.selectedMusicTrackId &&
+    left.musicTracks === right.musicTracks &&
+    left.session === right.session &&
+    left.roomCode === right.roomCode &&
+    areBoardVisualSettingsEqual(left.boardVisualSettings, right.boardVisualSettings)
+  );
+}
+
+function areMatchScreenPropsEqual(left: MatchScreenProps, right: MatchScreenProps): boolean {
+  return (
+    left.match === right.match &&
+    left.pendingDiceEvent === right.pendingDiceEvent &&
+    left.diceRevealPending === right.diceRevealPending &&
+    left.room === right.room &&
+    left.selfPlayer === right.selfPlayer &&
+    left.interactionMode === right.interactionMode &&
+    left.tradeForm === right.tradeForm &&
+    left.maritimeForm === right.maritimeForm &&
+    left.monopolyResource === right.monopolyResource &&
+    left.yearOfPlenty[0] === right.yearOfPlenty[0] &&
+    left.yearOfPlenty[1] === right.yearOfPlenty[1] &&
+    areStringArraysEqual(left.selectedRoadEdges, right.selectedRoadEdges) &&
+    arePendingBoardActionsEqual(left.pendingBoardAction, right.pendingBoardAction) &&
+    areBoardVisualSettingsEqual(left.boardVisualSettings, right.boardVisualSettings) &&
+    areProfileMenuPropsEqual(left.profileMenuProps, right.profileMenuProps)
+  );
 }
 
 interface DiceDisplayState {
@@ -681,37 +798,95 @@ function TradeOfferCard(props: {
   );
 }
 
-export function MatchScreen(props: {
-  boardVisualSettings: BoardVisualSettings;
-  match: MatchSnapshot;
-  pendingDiceEvent: Extract<MatchSnapshot["eventLog"][number], { type: "dice_rolled" }> | null;
-  diceRevealPending: boolean;
-  room: RoomDetails | null;
-  selfPlayer: MatchSnapshot["players"][number] | null;
-  profileMenuProps: MatchProfileMenuProps;
-  interactionMode: InteractionMode;
-  selectedRoadEdges: string[];
-  tradeForm: TradeFormState;
-  maritimeForm: MaritimeFormState;
-  yearOfPlenty: [Resource, Resource];
-  monopolyResource: Resource;
-  pendingBoardAction: PendingBoardActionState | null;
-  onAction: (message: ClientMessage) => void;
-  onConfirmPendingBoardAction: () => void;
-  onCancelPendingBoardAction: () => void;
-  onSelectPendingRobberTarget: (targetPlayerId: string) => void;
-  onRollDice: () => void;
-  onOfferTrade: () => void;
-  onVertexSelect: (vertexId: string) => void;
-  onEdgeSelect: (edgeId: string) => void;
-  onTileSelect: (tileId: string) => void;
-  setInteractionMode: (mode: InteractionMode) => void;
-  setSelectedRoadEdges: Dispatch<SetStateAction<string[]>>;
-  setTradeForm: Dispatch<SetStateAction<TradeFormState>>;
-  setMaritimeForm: Dispatch<SetStateAction<MaritimeFormState>>;
-  setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
-  setMonopolyResource: Dispatch<SetStateAction<Resource>>;
-}) {
+const PlayersPanel = memo(function PlayersPanel(props: { match: MatchSnapshot }) {
+  const { translate } = useI18n();
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate(key, undefined, undefined, params);
+  const hasDisconnectCountdown = props.match.players.some(
+    (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
+  );
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!hasDisconnectCountdown) {
+      return;
+    }
+
+    setCountdownNow(Date.now());
+    const timer = window.setInterval(() => {
+      setCountdownNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [hasDisconnectCountdown]);
+
+  return (
+    <div className="panel-frame players-frame">
+      <div className="scroll-list player-card-list">
+        {props.match.players.map((player) => {
+          const presence = getPlayerPresenceState(player, countdownNow);
+          return (
+            <article
+              key={player.id}
+              className={`player-card player-surface player-accent-${player.color} ${player.id === props.match.currentPlayerId ? "is-active-turn" : ""}`}
+            >
+              <div className="player-card-head">
+                <div className="player-card-identity-block">
+                  <PlayerIdentity
+                    username={player.username}
+                    color={player.color}
+                    isSelf={player.id === props.match.you}
+                    compact
+                    meta={null}
+                  />
+                  <div className="player-card-presence">
+                    <span className={`status-pill player-connection-pill ${presence.toneClass}`}>
+                      <span className={`online-indicator ${presence.indicatorClass}`} aria-hidden="true" />
+                      {presence.label}
+                    </span>
+                    <span className="player-connection-detail">{presence.detail}</span>
+                  </div>
+                </div>
+                <div className="player-card-head-side">
+                  <PlayerColorBadge
+                    color={player.color}
+                    label={
+                      player.id === props.match.you
+                        ? t("match.playerBadge.withColor", {
+                            player: t("shared.you"),
+                            color: renderPlayerColorLabel(player.color)
+                          })
+                        : renderPlayerColorLabel(player.color)
+                    }
+                    compact
+                  />
+                </div>
+              </div>
+              <div className="player-stat-grid player-stat-grid-compact">
+                <PlayerStatCard label={t("shared.vpShort")} value={String(player.publicVictoryPoints)} />
+                <PlayerStatCard label={t("match.players.cards")} value={String(player.resourceCount)} />
+                <PlayerStatCard label={t("match.players.roads")} value={String(player.roadsBuilt)} />
+                <PlayerStatCard label={t("match.players.knights")} value={String(player.playedKnightCount)} />
+              </div>
+              <div className="status-strip player-award-strip">
+                {player.id === props.match.currentPlayerId ? (
+                  <span className={`status-pill player-badge player-accent-${player.color}`}>{t("match.players.activeTurn")}</span>
+                ) : null}
+                {player.hasLongestRoad ? <span className="status-pill award-pill is-longest-road">{t("match.award.longestRoad")}</span> : null}
+                {player.hasLargestArmy ? <span className="status-pill award-pill is-largest-army">{t("match.award.largestArmy")}</span> : null}
+                {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
+                  <span className="status-pill muted">{t("match.players.noAward")}</span>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+function MatchScreenComponent(props: MatchScreenProps) {
   const { locale, translate } = useI18n();
   const t = (key: string, params?: Record<string, string | number>) =>
     translate(key, undefined, undefined, params);
@@ -804,7 +979,6 @@ export function MatchScreen(props: {
     phase: "idle",
     actorName: latestDiceEvent ? getPlayerName(props.match, latestDiceEvent.byPlayerId) : null
   }));
-  const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const seenDiceEventIdRef = useRef<string | null>(latestDiceEvent?.id ?? null);
   const diceAnimationTimerRef = useRef<number | null>(null);
   const diceAnimationCompleteRef = useRef<number | null>(null);
@@ -1127,7 +1301,9 @@ export function MatchScreen(props: {
     }
 
     setTabTransitionDirection(getTabTransitionOrder(nextTab) >= getTabTransitionOrder(activeTab) ? "forward" : "backward");
-    setActiveTab(nextTab);
+    startTransition(() => {
+      setActiveTab(nextTab);
+    });
   };
   const openHandPanel = () => {
     changeActiveTab("hand");
@@ -1380,7 +1556,7 @@ export function MatchScreen(props: {
   const renderActiveTabPanel = (mobile = false) => (
     <div className={`tab-panel-shell ${mobile ? "mobile" : ""}`.trim()}>
       <div key={`${mobile ? "mobile" : "desktop"}-${activeTab}`} className={`tab-panel-view is-${tabTransitionDirection}`}>
-        {tabPanels[activeTab]}
+        {tabPanels[activeTab]()}
       </div>
     </div>
   );
@@ -1443,9 +1619,6 @@ export function MatchScreen(props: {
       : [])
   ];
   const hasQuickActions = primaryActions.length > 0;
-  const hasDisconnectCountdown = props.match.players.some(
-    (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
-  );
   const visibleInlineConfirmKeys = new Set([
     ...(buyDevelopmentConfirmKey ? [buyDevelopmentConfirmKey] : []),
     ...(finishRoadBuildingConfirmKey ? [finishRoadBuildingConfirmKey] : []),
@@ -1622,19 +1795,6 @@ export function MatchScreen(props: {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!hasDisconnectCountdown) {
-      return;
-    }
-
-    setCountdownNow(Date.now());
-    const timer = window.setInterval(() => {
-      setCountdownNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [hasDisconnectCountdown]);
 
   useEffect(() => {
     if (diceAnimationTimerRef.current !== null) {
@@ -2469,8 +2629,8 @@ export function MatchScreen(props: {
       {tradeIncomingOffersSection}
     </div>
   );
-  const tabPanels: Record<MatchPanelTab, ReactNode> = {
-    overview: (
+  const tabPanels: Record<MatchPanelTab, () => ReactNode> = {
+    overview: () => (
       <div className={`panel-frame overview-frame ${isMobileViewport ? "is-mobile-overview" : ""}`}>
         {props.match.phase === "robber_interrupt" && props.match.robberDiscardStatus.length > 0 ? (
           <section className="dock-section robber-discard-surface">
@@ -2594,7 +2754,7 @@ export function MatchScreen(props: {
         ) : null}
       </div>
     ),
-    actions: (
+    actions: () => (
       <div className="panel-frame actions-frame">
         <section className="dock-section">
           <div className="action-status-card">
@@ -2745,7 +2905,7 @@ export function MatchScreen(props: {
         ) : null}
       </div>
     ),
-    hand: (
+    hand: () => (
       <div className="panel-frame hand-frame">
         <section className="dock-section">
           <div className="dock-section-head">
@@ -2802,72 +2962,9 @@ export function MatchScreen(props: {
         </section>
       </div>
     ),
-    trade: tradeWorkspace,
-    players: (
-      <div className="panel-frame players-frame">
-        <div className="scroll-list player-card-list">
-          {props.match.players.map((player) => {
-            const presence = getPlayerPresenceState(player, countdownNow);
-            return (
-              <article
-                key={player.id}
-                className={`player-card player-surface player-accent-${player.color} ${player.id === props.match.currentPlayerId ? "is-active-turn" : ""}`}
-              >
-                <div className="player-card-head">
-                  <div className="player-card-identity-block">
-                    <PlayerIdentity
-                      username={player.username}
-                      color={player.color}
-                      isSelf={player.id === props.match.you}
-                      compact
-                      meta={null}
-                    />
-                    <div className="player-card-presence">
-                      <span className={`status-pill player-connection-pill ${presence.toneClass}`}>
-                        <span className={`online-indicator ${presence.indicatorClass}`} aria-hidden="true" />
-                        {presence.label}
-                      </span>
-                      <span className="player-connection-detail">{presence.detail}</span>
-                    </div>
-                  </div>
-                  <div className="player-card-head-side">
-                      <PlayerColorBadge
-                        color={player.color}
-                        label={
-                          player.id === props.match.you
-                            ? t("match.playerBadge.withColor", {
-                                player: t("shared.you"),
-                                color: renderPlayerColorLabel(player.color)
-                              })
-                            : renderPlayerColorLabel(player.color)
-                        }
-                        compact
-                      />
-                  </div>
-                  </div>
-                <div className="player-stat-grid player-stat-grid-compact">
-                  <PlayerStatCard label={t("shared.vpShort")} value={String(player.publicVictoryPoints)} />
-                  <PlayerStatCard label={t("match.players.cards")} value={String(player.resourceCount)} />
-                  <PlayerStatCard label={t("match.players.roads")} value={String(player.roadsBuilt)} />
-                  <PlayerStatCard label={t("match.players.knights")} value={String(player.playedKnightCount)} />
-                </div>
-                  <div className="status-strip player-award-strip">
-                    {player.id === props.match.currentPlayerId ? (
-                      <span className={`status-pill player-badge player-accent-${player.color}`}>{t("match.players.activeTurn")}</span>
-                    ) : null}
-                    {player.hasLongestRoad ? <span className="status-pill award-pill is-longest-road">{t("match.award.longestRoad")}</span> : null}
-                    {player.hasLargestArmy ? <span className="status-pill award-pill is-largest-army">{t("match.award.largestArmy")}</span> : null}
-                    {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
-                      <span className="status-pill muted">{t("match.players.noAward")}</span>
-                    ) : null}
-                  </div>
-              </article>
-            );
-          })}
-        </div>
-      </div>
-    ),
-    profile: (
+    trade: () => tradeWorkspace,
+    players: () => <PlayersPanel match={props.match} />,
+    profile: () => (
       <div className="panel-frame profile-frame">
         <ProfileMenuPanel {...props.profileMenuProps} inline />
       </div>
@@ -3196,4 +3293,6 @@ export function MatchScreen(props: {
     </section>
   );
 }
+
+export const MatchScreen = memo(MatchScreenComponent, areMatchScreenPropsEqual);
 

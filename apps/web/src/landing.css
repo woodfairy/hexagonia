@@ -198,6 +198,46 @@ body.guest-landing-mode {
   flex-wrap: wrap;
 }
 
+.landing-locale-select-shell {
+  position: relative;
+  min-inline-size: min(100%, 14rem);
+  max-inline-size: 100%;
+}
+
+.landing-locale-select-shell::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 0.95rem;
+  inset-block-start: 50%;
+  inline-size: 0.56rem;
+  block-size: 0.56rem;
+  border-inline-end: 2px solid var(--landing-muted);
+  border-block-end: 2px solid var(--landing-muted);
+  transform: translateY(-62%) rotate(45deg);
+  pointer-events: none;
+}
+
+.landing-locale-select-shell > select {
+  appearance: none;
+  min-block-size: 2.55rem;
+  inline-size: 100%;
+  padding: 0.66rem 2.4rem 0.66rem 0.92rem;
+  border: 1px solid var(--landing-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--landing-text);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.landing-locale-select-shell > select:hover,
+.landing-locale-select-shell > select:focus-visible {
+  border-color: rgba(182, 148, 255, 0.34);
+  background: rgba(182, 148, 255, 0.12);
+  outline: none;
+}
+
 .landing-nav-button {
   min-block-size: 2.55rem;
   padding: 0.72rem 1rem;
@@ -839,16 +879,6 @@ body.guest-landing-mode {
   gap: 0.42rem;
 }
 
-.landing-auth-toggle.segmented-control {
-  padding: 0.3rem;
-  border-color: var(--landing-line);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.landing-auth-toggle.segmented-control button {
-  min-block-size: 2.4rem;
-}
-
 .landing-auth-note {
   display: grid;
   gap: 0.18rem;
@@ -1217,10 +1247,8 @@ body.guest-landing-mode .toast-stack {
     grid-template-columns: 1fr;
   }
 
-  .landing-auth-toggle.segmented-control {
+  .landing-locale-select-shell {
     inline-size: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-flow: row;
   }
 
   .landing-hero-stats,

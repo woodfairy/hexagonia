@@ -5,6 +5,7 @@ import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
 import {
   createText,
+  getLocaleName,
   normalizeLocale,
   resolveText,
   useI18n
@@ -145,7 +146,6 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
         <div className="profile-music-panel">
           <div className="profile-music-copy">
             <strong>{resolveText(locale, createText("Sprache", "Language"))}</strong>
-            <span>{resolveText(locale, createText("Die Auswahl gilt in der gesamten App.", "This selection applies across the whole app."))}</span>
           </div>
           <label className="profile-locale-select-shell">
             <select
@@ -158,7 +158,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             >
               {availableLocales.map((entry) => (
                 <option key={entry} value={entry}>
-                  {entry}
+                  {`${resolveText(locale, getLocaleName(entry))} (${entry.toUpperCase()})`}
                 </option>
               ))}
             </select>

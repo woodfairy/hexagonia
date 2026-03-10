@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
+import { memo } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { MatchSnapshot, PortType, Resource } from "@hexagonia/shared";
 import { createUltraTerrainTextureBundle, type UltraTerrainTextureBundle } from "./boardUltraTerrain";
@@ -194,9 +195,12 @@ type CameraFitMode = "selection" | "board";
 interface BoardTooltipState {
   title: string;
   detail: string;
+  accentColor: string;
+}
+
+interface BoardTooltipPosition {
   x: number;
   y: number;
-  accentColor: string;
 }
 
 interface ReliefAnchor {
@@ -409,7 +413,7 @@ function applyReliefPropPresentation<T extends THREE.Object3D>(
   return object;
 }
 
-export function BoardScene(props: BoardSceneProps) {
+function BoardSceneComponent(props: BoardSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -442,6 +446,10 @@ export function BoardScene(props: BoardSceneProps) {
   const markShadowDirtyRef = useRef<() => void>(() => {});
   const pointerPositionRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const canvasRectRef = useRef<DOMRect | null>(null);
+  const boardTooltipElementRef = useRef<HTMLDivElement | null>(null);
+  const boardTooltipContentRef = useRef<BoardTooltipState | null>(null);
+  const boardTooltipPositionRef = useRef<BoardTooltipPosition | null>(null);
+  const boardTooltipKeyRef = useRef<string | null>(null);
   const [boardTooltip, setBoardTooltip] = useState<BoardTooltipState | null>(null);
   const handlersRef = useRef({
     onVertexSelect: props.onVertexSelect,
@@ -457,6 +465,30 @@ export function BoardScene(props: BoardSceneProps) {
     [props.armedSelection, props.snapshot, props.interactionMode, props.selectedRoadEdges, props.focusCue]
   );
 
+  const syncBoardTooltipElement = () => {
+    const tooltipElement = boardTooltipElementRef.current;
+    const tooltipPosition = boardTooltipPositionRef.current;
+    const tooltipContent = boardTooltipContentRef.current;
+    if (!tooltipElement || !tooltipPosition || !tooltipContent) {
+      return;
+    }
+
+    tooltipElement.style.insetInlineStart = `${tooltipPosition.x}px`;
+    tooltipElement.style.insetBlockStart = `${tooltipPosition.y}px`;
+    tooltipElement.style.setProperty("--board-tooltip-accent", tooltipContent.accentColor);
+  };
+
+  const clearBoardTooltip = () => {
+    boardTooltipContentRef.current = null;
+    boardTooltipPositionRef.current = null;
+    if (boardTooltipKeyRef.current === null) {
+      return;
+    }
+
+    boardTooltipKeyRef.current = null;
+    setBoardTooltip(null);
+  };
+
   useEffect(() => {
     handlersRef.current = {
       onVertexSelect: props.onVertexSelect,
@@ -464,6 +496,10 @@ export function BoardScene(props: BoardSceneProps) {
       onTileSelect: props.onTileSelect
     };
   }, [props.onEdgeSelect, props.onTileSelect, props.onVertexSelect]);
+
+  useEffect(() => {
+    syncBoardTooltipElement();
+  }, [boardTooltip]);
 
   useEffect(() => {
     if (!mountRef.current || rendererRef.current) {
@@ -710,7 +746,7 @@ export function BoardScene(props: BoardSceneProps) {
       const pointerPosition = pointerPositionRef.current;
       const rect = canvasRectRef.current;
       if (!tooltip || !pointerPosition || !rect) {
-        setBoardTooltip(null);
+        clearBoardTooltip();
         return;
       }
 
@@ -724,14 +760,22 @@ export function BoardScene(props: BoardSceneProps) {
         Math.max(pointerPosition.clientY - rect.top + 16, 12),
         Math.max(12, rect.height - tooltipHeight - 12)
       );
-
-      setBoardTooltip({
+      const nextTooltip = {
         title: tooltip.title,
         detail: tooltip.detail,
-        x,
-        y,
         accentColor: tooltip.accentColor
-      });
+      } satisfies BoardTooltipState;
+      boardTooltipContentRef.current = nextTooltip;
+      boardTooltipPositionRef.current = { x, y };
+      syncBoardTooltipElement();
+
+      const nextTooltipKey = `${tooltip.title}\u0000${tooltip.detail}\u0000${tooltip.accentColor}`;
+      if (boardTooltipKeyRef.current === nextTooltipKey) {
+        return;
+      }
+
+      boardTooltipKeyRef.current = nextTooltipKey;
+      setBoardTooltip(nextTooltip);
     };
 
     const triggerInteractiveSelection = (hit: { kind: Exclude<InteractiveMeta["kind"], "port">; id: string }) => {
@@ -768,7 +812,7 @@ export function BoardScene(props: BoardSceneProps) {
       pointerPositionRef.current = null;
       pointerDirtyRef.current = false;
       updateHoveredObject(null);
-      setBoardTooltip(null);
+      clearBoardTooltip();
       if (!userInteractingRef.current) {
         renderer.domElement.style.cursor = "";
       }
@@ -1022,7 +1066,7 @@ export function BoardScene(props: BoardSceneProps) {
       return;
     }
 
-    setBoardTooltip(null);
+    clearBoardTooltip();
     setInteractiveHoverState(hoveredInteractiveRef.current, false);
     hoveredInteractiveRef.current = null;
     if (rendererRef.current && !userInteractingRef.current) {
@@ -1154,7 +1198,7 @@ export function BoardScene(props: BoardSceneProps) {
       return;
     }
 
-    setBoardTooltip(null);
+    clearBoardTooltip();
     setInteractiveHoverState(hoveredInteractiveRef.current, false);
     hoveredInteractiveRef.current = null;
     if (rendererRef.current && !userInteractingRef.current) {
@@ -1410,11 +1454,12 @@ export function BoardScene(props: BoardSceneProps) {
     <div className="board-canvas" ref={mountRef}>
       {boardTooltip ? (
         <div
+          ref={boardTooltipElementRef}
           className="board-canvas-tooltip"
           style={
             {
-              insetInlineStart: `${boardTooltip.x}px`,
-              insetBlockStart: `${boardTooltip.y}px`,
+              insetInlineStart: `${boardTooltipPositionRef.current?.x ?? 0}px`,
+              insetBlockStart: `${boardTooltipPositionRef.current?.y ?? 0}px`,
               "--board-tooltip-accent": boardTooltip.accentColor
             } as CSSProperties
           }
@@ -1429,6 +1474,75 @@ export function BoardScene(props: BoardSceneProps) {
     </div>
   );
 }
+
+function areBoardSceneStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function areBoardVisualSettingsEqual(left: BoardVisualSettings, right: BoardVisualSettings): boolean {
+  return (
+    left.textures === right.textures &&
+    left.props === right.props &&
+    left.terrainRelief === right.terrainRelief &&
+    left.resourceIcons === right.resourceIcons &&
+    left.pieceStyle === right.pieceStyle
+  );
+}
+
+function areBoardSelectionsEqual(
+  left: ArmedBoardSelection | null | undefined,
+  right: ArmedBoardSelection | null | undefined
+): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.kind === right.kind && left.id === right.id;
+}
+
+function areBoardFocusCuesEqual(left: BoardFocusCue | null, right: BoardFocusCue | null): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.key === right.key;
+}
+
+function areBoardScenePropsEqual(left: BoardSceneProps, right: BoardSceneProps): boolean {
+  return (
+    left.snapshot === right.snapshot &&
+    left.interactionMode === right.interactionMode &&
+    areBoardVisualSettingsEqual(left.visualSettings, right.visualSettings) &&
+    areBoardSceneStringArraysEqual(left.selectedRoadEdges, right.selectedRoadEdges) &&
+    areBoardSelectionsEqual(left.armedSelection, right.armedSelection) &&
+    areBoardFocusCuesEqual(left.focusCue, right.focusCue) &&
+    areBoardFocusCuesEqual(left.cameraCue, right.cameraCue)
+  );
+}
+
+export const BoardScene = memo(BoardSceneComponent, areBoardScenePropsEqual);
 
 function markSharedResource<T extends { userData: Record<string, unknown> }>(resource: T): T {
   resource.userData[SHARED_RESOURCE_FLAG] = true;

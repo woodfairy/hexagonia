@@ -17,6 +17,7 @@ import type {
   TurnRule,
   UserRole
 } from "@hexagonia/shared";
+import { Suspense, lazy } from "react";
 import {
   BUILD_COSTS,
   cloneResourceMap,
@@ -73,7 +74,7 @@ import {
 } from "./boardVisuals";
 import { AppHeader } from "./components/shell/AppHeader";
 import { ToastStack, type ToastMessage } from "./components/shell/ToastStack";
-import { AdminScreen, type AdminCreateFormState, type AdminUserDraftState } from "./components/screens/AdminScreen";
+import type { AdminCreateFormState, AdminUserDraftState } from "./components/screens/AdminScreen";
 import { LandingScreen } from "./components/screens/LandingScreen";
 import { LobbyScreen } from "./components/screens/LobbyScreen";
 import {
@@ -81,13 +82,11 @@ import {
   RobberWaitDialog
 } from "./components/screens/MatchDialogs";
 import {
-  MatchScreen,
   type MaritimeFormState,
   type PendingBoardActionState,
   type TradeFormState
 } from "./components/screens/MatchScreen";
 import { getLatestDiceRollEvent } from "./components/screens/matchScreenViewModel";
-import { RoomScreen } from "./components/screens/RoomScreen";
 import { PlayerMention } from "./components/shared/PlayerText";
 import {
   createText,
@@ -113,6 +112,25 @@ const TEXT = {
   title: createText("Hexagonia", "Hexagonia"),
   subtitle: createText("Mit Freunden spielen, handeln und direkt loslegen", "Play, trade, and jump in with friends")
 } as const;
+
+const loadAdminScreen = () => import("./components/screens/AdminScreen");
+const loadRoomScreen = () => import("./components/screens/RoomScreen");
+const loadMatchScreen = () => import("./components/screens/MatchScreen");
+
+const LazyAdminScreen = lazy(async () => {
+  const module = await loadAdminScreen();
+  return { default: module.AdminScreen };
+});
+
+const LazyRoomScreen = lazy(async () => {
+  const module = await loadRoomScreen();
+  return { default: module.RoomScreen };
+});
+
+const LazyMatchScreen = lazy(async () => {
+  const module = await loadMatchScreen();
+  return { default: module.MatchScreen };
+});
 
 const HEARTBEAT_INTERVAL_MS = 15000;
 const HEARTBEAT_TIMEOUT_MS = 40000;
@@ -1671,9 +1689,32 @@ export function App() {
     }
   }, [navigateTo, route.kind, session]);
 
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    void loadRoomScreen();
+    if (session.role === "admin") {
+      void loadAdminScreen();
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (route.kind === "match" || !!match || room?.status === "in_match") {
+      void loadMatchScreen();
+      return;
+    }
+
+    if (route.kind === "room" || !!room) {
+      void loadRoomScreen();
+    }
+  }, [match, room, route.kind]);
+
   const handleOpenTrackedRoom = useCallback(
     (roomId: string) => {
       playUiFeedback({ haptic: "dialog" });
+      void loadRoomScreen();
       navigateTo({ kind: "room", roomId });
       triggerReconnect(createText("Der Raum wird wieder verbunden.", "Reconnecting room."));
     },
@@ -1683,6 +1724,7 @@ export function App() {
   const handleResumeMatch = useCallback(
     (matchId: string) => {
       playUiFeedback({ haptic: "dialog" });
+      void loadMatchScreen();
       navigateTo({ kind: "match", matchId });
       triggerReconnect(createText("Die Partie wird wieder verbunden.", "Reconnecting match."));
     },
@@ -1691,6 +1733,7 @@ export function App() {
 
   const handleOpenAdmin = useCallback(() => {
     playUiFeedback({ haptic: "dialog" });
+    void loadAdminScreen();
     navigateTo({ kind: "admin" });
   }, [navigateTo, playUiFeedback]);
 
@@ -1799,6 +1842,7 @@ export function App() {
       const nextRoom = await createRoom();
       setRoom(nextRoom);
       await loadMyRooms();
+      void loadRoomScreen();
       navigateTo({ kind: "room", roomId: nextRoom.id });
       subscribeRoom(nextRoom.id);
       pushToast(
@@ -1830,6 +1874,7 @@ export function App() {
       const joinedRoom = await joinRoom(targetRoom.id);
       setRoom(joinedRoom);
       await loadMyRooms();
+      void loadRoomScreen();
       navigateTo({ kind: "room", roomId: joinedRoom.id });
       subscribeRoom(joinedRoom.id);
       pushToast(
@@ -2088,6 +2133,7 @@ export function App() {
       const result = await startRoom(room.id);
       setRoom(result.room);
       await loadMyRooms();
+      void loadMatchScreen();
       navigateTo({ kind: "match", matchId: result.matchId });
       sendCurrent({
         type: "match.reconnect",
@@ -2109,7 +2155,7 @@ export function App() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       suppressCloseToastRef.current = true;
       await logout();
@@ -2141,7 +2187,7 @@ export function App() {
         describeClientError(logoutError)
       );
     }
-  };
+  }, [clearHeartbeatTimer, clearReconnectTimer, navigateTo, pushToast]);
 
   const handleAdminCreateFormChange = (field: keyof AdminCreateFormState, value: string) => {
     setAdminCreateForm((current) => {
@@ -2323,7 +2369,7 @@ export function App() {
     }
   };
 
-  const handleCopyRoomCode = async () => {
+  const handleCopyRoomCode = useCallback(async () => {
     if (!room?.code) {
       return;
     }
@@ -2338,9 +2384,9 @@ export function App() {
         createText("Der Raumcode konnte nicht in die Zwischenablage kopiert werden.", "The room code could not be copied to the clipboard.")
       );
     }
-  };
+  }, [pushToast, room?.code]);
 
-  const handleCopyInviteLink = async () => {
+  const handleCopyInviteLink = useCallback(async () => {
     if (!room?.code) {
       return;
     }
@@ -2358,7 +2404,7 @@ export function App() {
         createText("Der Einladungslink konnte nicht in die Zwischenablage kopiert werden.", "The invite link could not be copied to the clipboard.")
       );
     }
-  };
+  }, [pushToast, room?.code]);
 
   const handleVertexSelect = (vertexId: string) => {
     if (!match) {
@@ -2618,15 +2664,79 @@ export function App() {
     );
   }
 
-  const headerRoomProps =
-    (activeScreen === "room" || activeScreen === "match") && room?.code
-      ? {
-          roomCode: room.code,
-          onCopyInviteLink: handleCopyInviteLink,
-          onCopyRoomCode: handleCopyRoomCode
-        }
-      : {};
-  const headerAdminProps = session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {};
+  const headerRoomProps = useMemo(
+    () =>
+      (activeScreen === "room" || activeScreen === "match") && room?.code
+        ? {
+            roomCode: room.code,
+            onCopyInviteLink: handleCopyInviteLink,
+            onCopyRoomCode: handleCopyRoomCode
+          }
+        : {},
+    [activeScreen, handleCopyInviteLink, handleCopyRoomCode, room?.code]
+  );
+  const headerAdminProps = useMemo(
+    () => (session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {}),
+    [handleOpenAdmin, session?.role]
+  );
+  const handleNavigateHome = useCallback(() => {
+    navigateTo({ kind: session ? "play" : "home" });
+  }, [navigateTo, session]);
+  const handleNavigateMatchHome = useCallback(() => {
+    navigateTo({ kind: "play" });
+  }, [navigateTo]);
+  const matchProfileMenuProps =
+    useMemo(
+      () =>
+        session
+          ? {
+              boardVisualSettings,
+              connectionState,
+              hapticsMuted,
+              hapticsSupported,
+              musicPaused,
+              musicPlaybackMode,
+              musicTracks,
+              selectedMusicTrackId,
+              session,
+              soundMuted,
+              onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
+              onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
+              onLogout: handleLogout,
+              onLocaleChange: handleLocaleChange,
+              onNavigateHome: handleNavigateMatchHome,
+              onSelectMusicTrack: handleSelectMusicTrack,
+              onToggleHapticsMuted: handleToggleHapticsMuted,
+              onToggleSoundMuted: handleToggleSoundMuted,
+              onToggleMusicPaused: handleToggleMusicPaused,
+              ...headerAdminProps,
+              ...headerRoomProps
+            }
+          : null,
+      [
+        boardVisualSettings,
+        connectionState,
+        handleBoardVisualSettingsChange,
+        handleLocaleChange,
+        handleLogout,
+        handleMusicPlaybackModeChange,
+        handleNavigateMatchHome,
+        handleSelectMusicTrack,
+        handleToggleHapticsMuted,
+        handleToggleMusicPaused,
+        handleToggleSoundMuted,
+        hapticsMuted,
+        hapticsSupported,
+        headerAdminProps,
+        headerRoomProps,
+        musicPaused,
+        musicPlaybackMode,
+        musicTracks,
+        selectedMusicTrackId,
+        session,
+        soundMuted
+      ]
+    );
 
   const displayEyebrow = !session
     ? resolveText(locale, createText("Mit Freunden spielen", "Play with friends"))
@@ -2684,7 +2794,7 @@ export function App() {
           onLogout={handleLogout}
           onLocaleChange={handleLocaleChange}
           onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
-          onNavigateHome={() => navigateTo({ kind: session ? "play" : "home" })}
+          onNavigateHome={handleNavigateHome}
           onSelectMusicTrack={handleSelectMusicTrack}
           onBoardVisualSettingsChange={handleBoardVisualSettingsChange}
           onToggleHapticsMuted={handleToggleHapticsMuted}
@@ -2711,48 +2821,52 @@ export function App() {
         ) : null}
 
         {activeScreen === "admin" && session?.role === "admin" ? (
-          <AdminScreen
-            createForm={adminCreateForm}
-            matches={adminMatches}
-            rooms={adminRooms}
-            session={session}
-            userDrafts={adminUserDrafts}
-            users={adminUsers}
-            onCloseRoom={handleAdminCloseRoom}
-            onCreateFormChange={handleAdminCreateFormChange}
-            onCreateUser={handleAdminCreateUser}
-            onDeleteMatch={handleAdminDeleteMatch}
-            onDeleteUser={handleAdminDeleteUser}
-            onOpenRoom={handleOpenTrackedRoom}
-            onSaveUser={handleAdminSaveUser}
-            onUserDraftChange={handleAdminUserDraftChange}
-          />
+          <Suspense fallback={<DeepLinkBootSkeleton kind="admin" />}>
+            <LazyAdminScreen
+              createForm={adminCreateForm}
+              matches={adminMatches}
+              rooms={adminRooms}
+              session={session}
+              userDrafts={adminUserDrafts}
+              users={adminUsers}
+              onCloseRoom={handleAdminCloseRoom}
+              onCreateFormChange={handleAdminCreateFormChange}
+              onCreateUser={handleAdminCreateUser}
+              onDeleteMatch={handleAdminDeleteMatch}
+              onDeleteUser={handleAdminDeleteUser}
+              onOpenRoom={handleOpenTrackedRoom}
+              onSaveUser={handleAdminSaveUser}
+              onUserDraftChange={handleAdminUserDraftChange}
+            />
+          </Suspense>
         ) : null}
 
         {activeScreen === "room" && session ? (
           room ? (
-            <RoomScreen
-              joinRoomPending={roomJoinPending}
-              leavePending={roomLeavePending}
-              presence={presence}
-              readyPending={roomReadyPending}
-              room={room}
-              session={session}
-              startPending={roomStartPending}
-              onCopyCode={handleCopyRoomCode}
-              onCopyInviteLink={handleCopyInviteLink}
-              onJoinRoom={handleJoinRoom}
-              onBoardSizeChange={handleRoomBoardSizeChange}
-              onKickUser={handleKickRoomUser}
-              onLeave={handleLeaveRoom}
-              onReady={handleReadyToggle}
-              onSetupModeChange={handleRoomSetupModeChange}
-              onRulesPresetChange={handleRoomRulesPresetChange}
-              onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
-              onStartingSeatChange={handleRoomStartingSeatChange}
-              onStart={handleStartRoom}
-              onTurnRuleChange={handleRoomTurnRuleChange}
-            />
+            <Suspense fallback={<DeepLinkBootSkeleton kind="room" />}>
+              <LazyRoomScreen
+                joinRoomPending={roomJoinPending}
+                leavePending={roomLeavePending}
+                presence={presence}
+                readyPending={roomReadyPending}
+                room={room}
+                session={session}
+                startPending={roomStartPending}
+                onCopyCode={handleCopyRoomCode}
+                onCopyInviteLink={handleCopyInviteLink}
+                onJoinRoom={handleJoinRoom}
+                onBoardSizeChange={handleRoomBoardSizeChange}
+                onKickUser={handleKickRoomUser}
+                onLeave={handleLeaveRoom}
+                onReady={handleReadyToggle}
+                onSetupModeChange={handleRoomSetupModeChange}
+                onRulesPresetChange={handleRoomRulesPresetChange}
+                onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
+                onStartingSeatChange={handleRoomStartingSeatChange}
+                onStart={handleStartRoom}
+                onTurnRuleChange={handleRoomTurnRuleChange}
+              />
+            </Suspense>
           ) : (
             <DeepLinkBootSkeleton kind="room" />
           )
@@ -2760,59 +2874,39 @@ export function App() {
 
         {activeScreen === "match" && session ? (
           match ? (
-            <MatchScreen
-              boardVisualSettings={boardVisualSettings}
-              interactionMode={interactionMode}
-              maritimeForm={maritimeForm}
-              match={match}
-              pendingDiceEvent={pendingDiceRevealEvent}
-              diceRevealPending={robberUiDeferredByDiceAnimation}
-              monopolyResource={monopolyResource}
-              profileMenuProps={{
-                boardVisualSettings,
-                connectionState,
-                hapticsMuted,
-                hapticsSupported,
-                musicPaused,
-                musicPlaybackMode,
-                musicTracks,
-                selectedMusicTrackId,
-                session,
-                soundMuted,
-                onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
-                onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
-                onLogout: handleLogout,
-                onLocaleChange: handleLocaleChange,
-                onNavigateHome: () => navigateTo({ kind: "play" }),
-                onSelectMusicTrack: handleSelectMusicTrack,
-                onToggleHapticsMuted: handleToggleHapticsMuted,
-                onToggleSoundMuted: handleToggleSoundMuted,
-                onToggleMusicPaused: handleToggleMusicPaused,
-                ...headerAdminProps,
-                ...headerRoomProps
-              }}
-              room={room}
-              selfPlayer={selfPlayer}
-              selectedRoadEdges={selectedRoadEdges}
-              setInteractionMode={setInteractionMode}
-              setMaritimeForm={setMaritimeForm}
-              setMonopolyResource={setMonopolyResource}
-              setSelectedRoadEdges={setSelectedRoadEdges}
-              setTradeForm={setTradeForm}
-              setYearOfPlenty={setYearOfPlenty}
-              tradeForm={tradeForm}
-              yearOfPlenty={yearOfPlenty}
-              onAction={handleMatchAction}
-              onCancelPendingBoardAction={handleCancelPendingBoardAction}
-              onConfirmPendingBoardAction={handleConfirmPendingBoardAction}
-              onRollDice={handleRollDiceHaptic}
-              onEdgeSelect={handleEdgeSelect}
-              onOfferTrade={sendTradeOffer}
-              onSelectPendingRobberTarget={handleSelectPendingRobberTarget}
-              onTileSelect={handleTileSelect}
-              onVertexSelect={handleVertexSelect}
-              pendingBoardAction={robberUiDeferredByDiceAnimation ? null : pendingBoardAction}
-            />
+            <Suspense fallback={<DeepLinkBootSkeleton kind="match" />}>
+              <LazyMatchScreen
+                boardVisualSettings={boardVisualSettings}
+                interactionMode={interactionMode}
+                maritimeForm={maritimeForm}
+                match={match}
+                pendingDiceEvent={pendingDiceRevealEvent}
+                diceRevealPending={robberUiDeferredByDiceAnimation}
+                monopolyResource={monopolyResource}
+                profileMenuProps={matchProfileMenuProps!}
+                room={room}
+                selfPlayer={selfPlayer}
+                selectedRoadEdges={selectedRoadEdges}
+                setInteractionMode={setInteractionMode}
+                setMaritimeForm={setMaritimeForm}
+                setMonopolyResource={setMonopolyResource}
+                setSelectedRoadEdges={setSelectedRoadEdges}
+                setTradeForm={setTradeForm}
+                setYearOfPlenty={setYearOfPlenty}
+                tradeForm={tradeForm}
+                yearOfPlenty={yearOfPlenty}
+                onAction={handleMatchAction}
+                onCancelPendingBoardAction={handleCancelPendingBoardAction}
+                onConfirmPendingBoardAction={handleConfirmPendingBoardAction}
+                onRollDice={handleRollDiceHaptic}
+                onEdgeSelect={handleEdgeSelect}
+                onOfferTrade={sendTradeOffer}
+                onSelectPendingRobberTarget={handleSelectPendingRobberTarget}
+                onTileSelect={handleTileSelect}
+                onVertexSelect={handleVertexSelect}
+                pendingBoardAction={robberUiDeferredByDiceAnimation ? null : pendingBoardAction}
+              />
+            </Suspense>
           ) : (
             <DeepLinkBootSkeleton kind="match" />
           )
