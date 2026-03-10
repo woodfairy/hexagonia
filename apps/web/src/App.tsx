@@ -141,6 +141,21 @@ function describeClientError(error: unknown): LocalizedText {
   }
 
   if (error instanceof Error && error.message) {
+    switch (error.message) {
+      case "client.recaptcha.browser_only":
+        return createText("reCAPTCHA ist nur im Browser verfügbar.", "reCAPTCHA is only available in the browser.");
+      case "client.recaptcha.load_failed":
+        return createText("reCAPTCHA konnte nicht geladen werden.", "reCAPTCHA could not be loaded.");
+      case "client.recaptcha.unavailable":
+        return createText("reCAPTCHA ist nicht verfügbar.", "reCAPTCHA is not available.");
+      case "client.recaptcha.init_failed":
+        return createText("reCAPTCHA konnte nicht initialisiert werden.", "reCAPTCHA could not be initialized.");
+      case "client.recaptcha.execute_failed":
+        return createText("reCAPTCHA-Prüfung konnte nicht abgeschlossen werden.", "reCAPTCHA verification could not be completed.");
+      default:
+        break;
+    }
+
     return createText(error.message, error.message);
   }
 
@@ -360,10 +375,7 @@ export function App() {
     if (activeScreen === "lobby") {
       return {
         eyebrow: resolveText(locale, createText("Spielzentrale", "Game hub")),
-        title:
-          locale === "en"
-            ? `Welcome, ${session.username}`
-            : `Willkommen, ${session.username}`,
+        title: resolveText(locale, createText("Willkommen, {username}", "Welcome, {username}", { username: session.username })),
         meta: resolveText(locale, createText("Raum erstellen oder mit einem Code beitreten", "Create a room or join with a code"))
       };
     }
@@ -383,9 +395,13 @@ export function App() {
           ? resolveText(locale, createText("Raumlobby", "Room lobby"))
           : resolveText(locale, createText("Raum wird geladen", "Loading room")),
         meta: room
-          ? locale === "en"
-            ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/6 players`
-            : `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/6 Spieler`
+          ? resolveText(
+              locale,
+              createText("Code {code} · {count}/6 Spieler", "Code {code} · {count}/6 players", {
+                code: room.code,
+                count: room.seats.filter((seat) => seat.userId).length
+              })
+            )
           : resolveText(locale, createText("Synchronisation läuft", "Sync in progress"))
       };
     }
@@ -393,14 +409,12 @@ export function App() {
     return {
       eyebrow: resolveText(locale, createText("Laufende Partie", "Live match")),
       title: match
-        ? locale === "en"
-          ? `Turn ${match.turn}`
-          : `Zug ${match.turn}`
+        ? resolveText(locale, createText("Zug {turn}", "Turn {turn}", { turn: match.turn }))
         : resolveText(locale, createText("Partie wird geladen", "Loading match")),
       meta: match
-        ? locale === "en"
-          ? `Current turn: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
-          : `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+        ? resolveText(locale, createText("Am Zug: {player}", "Current turn: {player}", {
+            player: match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"
+          }))
         : resolveText(locale, createText("Verbindung läuft", "Connection active"))
     };
   }, [activeScreen, locale, match, room, session]);
@@ -973,7 +987,7 @@ export function App() {
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
-      triggerReconnect("Die Verbindung wird wiederhergestellt.");
+      triggerReconnect(createText("Die Verbindung wird wiederhergestellt.", "Reconnecting."));
     }, delay);
   }, [triggerReconnect]);
 
@@ -1495,8 +1509,7 @@ export function App() {
         return;
       }
 
-      const confirmation = getMatchActionConfirmation(currentMatch, message.action);
-      if (!confirmation) {
+      if (!getMatchActionConfirmation(currentMatch, message.action)) {
         dispatchMatchAction(message, options?.afterConfirm);
         return;
       }
@@ -1520,7 +1533,6 @@ export function App() {
       }
 
       setPendingBoardAction({
-        ...confirmation,
         key: nextKey,
         message,
         selection,
@@ -1547,14 +1559,12 @@ export function App() {
         tileId: current.selection.id,
         targetPlayerId
       };
-      const confirmation = getMatchActionConfirmation(currentMatch, action);
-      if (!confirmation) {
+      if (!getMatchActionConfirmation(currentMatch, action)) {
         return null;
       }
 
       return {
         ...current,
-        ...confirmation,
         key: getMatchActionKey(action),
         message: {
           ...current.message,
@@ -1659,7 +1669,7 @@ export function App() {
     (roomId: string) => {
       playUiFeedback({ haptic: "dialog" });
       navigateTo({ kind: "room", roomId });
-      triggerReconnect("Der Raum wird wieder verbunden.");
+      triggerReconnect(createText("Der Raum wird wieder verbunden.", "Reconnecting room."));
     },
     [navigateTo, playUiFeedback, triggerReconnect]
   );
@@ -1668,7 +1678,7 @@ export function App() {
     (matchId: string) => {
       playUiFeedback({ haptic: "dialog" });
       navigateTo({ kind: "match", matchId });
-      triggerReconnect("Die Partie wird wieder verbunden.");
+      triggerReconnect(createText("Die Partie wird wieder verbunden.", "Reconnecting match."));
     },
     [navigateTo, playUiFeedback, triggerReconnect]
   );
@@ -2025,7 +2035,7 @@ export function App() {
       navigateTo({ kind: "play" });
       pushToast(
         "info",
-        createText("Raum verlassen", "Left room"),
+        createText("Raum verlassen", "Leave room"),
         createText("Du bist zurück in der Zentrale.", "You are back in the hub.")
       );
     } catch (leaveError) {
@@ -2623,9 +2633,13 @@ export function App() {
       : activeScreen === "lobby"
         ? ""
         : activeScreen === "room" && room
-          ? locale === "en"
-            ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/6 players`
-            : `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/6 Spieler`
+          ? resolveText(
+              locale,
+              createText("Code {code} - {count}/6 Spieler", "Code {code} - {count}/6 players", {
+                code: room.code,
+                count: room.seats.filter((seat) => seat.userId).length
+              })
+            )
           : activeScreen === "match" && match
             ? currentMatchPlayer
               ? (

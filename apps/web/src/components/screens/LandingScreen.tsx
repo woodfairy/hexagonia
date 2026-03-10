@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
-import { createText, getLocaleName, resolveText, useI18n } from "../../i18n";
+import { createCatalogText, createText, getLocaleName, resolveText, useI18n } from "../../i18n";
 import { HarborIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
@@ -229,7 +229,7 @@ export function LandingScreen(props: {
     revealNodes.forEach((node) => observer.observe(node));
 
     return () => observer.disconnect();
-  }, [prefersReducedMotion]);
+  }, [locale, prefersReducedMotion, props.authMode, props.inviteCode]);
 
   useEffect(() => {
     if (!trackMenuOpen) {
@@ -382,7 +382,9 @@ export function LandingScreen(props: {
                 onClick={() => props.onToggleMusicPaused()}
                 disabled={!hasMusicTracks}
               >
-                {props.musicPaused ? text("Start", "Play") : text("Pause", "Pause")}
+                {props.musicPaused
+                  ? resolveText(locale, createCatalogText("landing.music.playButton", "Start", "Play"))
+                  : text("Pause", "Pause")}
               </button>
               <button
                 type="button"
@@ -638,13 +640,13 @@ export function LandingScreen(props: {
                 <LoadingButtonContent
                   loading={props.authSubmitPending}
                   idleLabel={authSubmitLabel}
-                  loadingLabel={props.authMode === "login" ? text("Anmeldung läuft...", "Signing in...") : text("Registrierung läuft...", "Creating account...")}
+                loadingLabel={props.authMode === "login" ? text("Anmeldung läuft...", "Signing in...") : text("Registrierung läuft...", "Registering...")}
                 />
               </button>
 
               {props.authMode === "register" ? (
                 <p className="landing-recaptcha-note">
-                  {text("Diese Seite ist durch reCAPTCHA geschützt. Es gelten die Google", "This page is protected by reCAPTCHA. The Google")}{" "}
+                {text("Diese Seite ist durch reCAPTCHA geschützt. Es gelten die Google", "This site is protected by reCAPTCHA and the Google")}{" "}
                   <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
                     {text("Datenschutzerklärung", "Privacy Policy")}
                   </a>{" "}

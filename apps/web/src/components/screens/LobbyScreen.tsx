@@ -17,6 +17,8 @@ export function LobbyScreen(props: {
   onResumeMatch: (matchId: string) => void;
 }) {
   const { locale } = useI18n();
+  const text = (de: string, en: string, params?: Record<string, string | number>) =>
+    resolveText(locale, createText(de, en, params));
 
   return (
     <section className="screen-shell lobby-shell">
@@ -36,11 +38,9 @@ export function LobbyScreen(props: {
               const canResumeMatch = room.status === "in_match" && !!room.matchId;
               const meta = [
                 resolveText(locale, room.status === "in_match" ? createText("Laufende Partie", "Live match") : createText("Raum offen", "Room open")),
-                locale === "en" ? `${occupiedSeats}/6 players` : `${occupiedSeats}/6 Spieler`,
+                text("{count}/6 Spieler", "{count}/6 players", { count: occupiedSeats }),
                 mySeat
-                  ? locale === "en"
-                    ? `You at seat ${mySeat.index + 1}`
-                    : `Du auf Platz ${mySeat.index + 1}`
+                  ? text("Du auf Platz {seat}", "You at seat {seat}", { seat: mySeat.index + 1 })
                   : resolveText(locale, createText("Teilnahme gespeichert", "Participation saved"))
               ].join(" - ");
 
@@ -59,11 +59,9 @@ export function LobbyScreen(props: {
                     <div className="resume-card-meta-row">
                       <PlayerColorBadge
                         color={mySeat.color}
-                        label={
-                          locale === "en"
-                            ? `Your color: ${renderPlayerColorLabel(locale, mySeat.color)}`
-                            : `Deine Farbe: ${renderPlayerColorLabel(locale, mySeat.color)}`
-                        }
+                        label={text("Deine Farbe: {color}", "Your color: {color}", {
+                          color: renderPlayerColorLabel(locale, mySeat.color)
+                        })}
                         compact
                       />
                     </div>

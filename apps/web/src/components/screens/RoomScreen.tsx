@@ -37,9 +37,10 @@ export function RoomScreen(props: {
   onCopyInviteLink: () => void;
 }) {
   const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveText(locale, createText(de, en));
-  const seatText = (index: number) => (locale === "en" ? `Seat ${index + 1}` : `Platz ${index + 1}`);
-  const playerText = (index: number) => (locale === "en" ? `Player ${index + 1}` : `Spieler ${index + 1}`);
+  const text = (de: string, en: string, params?: Record<string, string | number>) =>
+    resolveText(locale, createText(de, en, params));
+  const seatText = (index: number) => text("Platz {count}", "Seat {count}", { count: index + 1 });
+  const playerText = (index: number) => text("Spieler {count}", "Player {count}", { count: index + 1 });
 
   const currentSeat = props.room.seats.find((seat) => seat.userId === props.session.id) ?? null;
   const seatedPlayers = props.room.seats.filter((seat) => seat.userId);
@@ -121,9 +122,9 @@ export function RoomScreen(props: {
           </div>
 
           <div className="room-meta-strip">
-            <span className="status-pill">{locale === "en" ? `${seatedPlayers.length}/6 occupied` : `${seatedPlayers.length}/6 besetzt`}</span>
+            <span className="status-pill">{text("{count}/6 besetzt", "{count}/6 occupied", { count: seatedPlayers.length })}</span>
             <span className={`status-pill ${readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"}`}>
-              {locale === "en" ? `${readyPlayers} ready` : `${readyPlayers} bereit`}
+              {text("{count} bereit", "{count} ready", { count: readyPlayers })}
             </span>
             <span className="status-pill">
               {effectiveGameConfig.boardSize === "extended" ? text("Erweitertes Brett", "Extended board") : text("Standardbrett", "Standard board")}
@@ -311,9 +312,11 @@ export function RoomScreen(props: {
                           "Benutzerdefinierte Regeln blenden alle Detail-Einstellungen für Brett, Aufbau, Zugregel und Startspieler auf.",
                           "Custom rules reveal all detailed settings for board, setup, turn rule, and starting player."
                         )
-                      : locale === "en"
-                        ? `The latest official rules always apply: ${effectiveRulesSummary}.`
-                        : `Es gelten immer die aktuellsten offiziellen Regeln: ${effectiveRulesSummary}.`}
+                      : text(
+                          "Es gelten immer die aktuellsten offiziellen Regeln: {summary}.",
+                          "The latest official rules always apply: {summary}.",
+                          { summary: effectiveRulesSummary }
+                        )}
                   </p>
                 </div>
 

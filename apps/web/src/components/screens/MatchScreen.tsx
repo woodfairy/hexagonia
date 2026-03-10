@@ -75,9 +75,6 @@ export interface MaritimeFormState {
 
 export interface PendingBoardActionState {
   key: string;
-  title: string;
-  detail: string;
-  confirmLabel: string;
   message: Extract<ClientMessage, { type: "match.action" }>;
   selection: ArmedBoardSelection;
   targetPlayerIds: string[];
@@ -714,7 +711,9 @@ export function MatchScreen(props: {
   setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
   setMonopolyResource: Dispatch<SetStateAction<Resource>>;
 }) {
-  const { translate: t } = useI18n();
+  const { locale, translate } = useI18n();
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate(key, undefined, undefined, params);
   const [activeTab, setActiveTab] = useState<MatchPanelTab>(() => readPersistedMatchPanelTab());
   const [tabTransitionDirection, setTabTransitionDirection] = useState<"forward" | "backward">("forward");
   const [sheetState, setSheetState] = useState<SheetState>(() => {
@@ -787,11 +786,11 @@ export function MatchScreen(props: {
   const [armedActionKey, setArmedActionKey] = useState<string | null>(null);
   const matchTabs = useMemo(
     () => MATCH_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) })),
-    [t]
+    [translate]
   );
   const mobileMatchTabs = useMemo(
     () => MOBILE_MATCH_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) })),
-    [t]
+    [translate]
   );
   const latestDiceEvent = useMemo(
     () => props.pendingDiceEvent ?? getLatestDiceRollEvent(props.match),
@@ -831,7 +830,7 @@ export function MatchScreen(props: {
         viewerId: props.match.you,
         privateCache: notificationCacheRef.current
       }),
-    [props.match]
+    [locale, props.match]
   );
   const heroNotification = notificationState.heroNotification;
   const boardFocusNotification = notificationState.boardFocusNotification;
@@ -878,11 +877,11 @@ export function MatchScreen(props: {
   ).length;
   const actionCue = useMemo(
     () => createOwnActionCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
-    [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
+    [activePlayer, locale, props.interactionMode, props.match, props.selectedRoadEdges]
   );
   const actionCameraCue = useMemo(
     () => createOwnActionCameraCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
-    [activePlayer, props.interactionMode, props.match, props.selectedRoadEdges]
+    [activePlayer, locale, props.interactionMode, props.match, props.selectedRoadEdges]
   );
   const visibleNotificationCue = isDiceAnimationActive ? null : notificationState.boardCue;
   const highlightCue = actionCue ?? visibleNotificationCue;
@@ -1092,6 +1091,7 @@ export function MatchScreen(props: {
     [
       activePlayer,
       isCurrentPlayer,
+      locale,
       props.match.phase,
       props.match.turn,
       props.match.version,
@@ -1357,6 +1357,9 @@ export function MatchScreen(props: {
         return player ? [player] : [];
       })
     : [];
+  const pendingBoardActionConfirmation = props.pendingBoardAction
+    ? getMatchActionConfirmation(props.match, props.pendingBoardAction.message.action)
+    : null;
   const pendingBoardActionNeedsTarget =
     !!props.pendingBoardAction &&
     props.pendingBoardAction.message.action.type === "move_robber" &&
@@ -2958,8 +2961,8 @@ export function MatchScreen(props: {
               >
                 <div className="board-inline-confirm-copy">
                   <span className="eyebrow">{t("shared.confirmation")}</span>
-                  <strong id="board-inline-confirm-title">{props.pendingBoardAction.title}</strong>
-                  <span>{renderMatchPlayerText(props.match, props.pendingBoardAction.detail)}</span>
+                  <strong id="board-inline-confirm-title">{pendingBoardActionConfirmation?.title ?? ""}</strong>
+                  <span>{renderMatchPlayerText(props.match, pendingBoardActionConfirmation?.detail ?? "")}</span>
                 </div>
                 {pendingBoardActionNeedsTarget ? (
                   <div className="board-inline-confirm-targets">
@@ -2990,7 +2993,7 @@ export function MatchScreen(props: {
                     disabled={!canConfirmPendingBoardAction}
                     onClick={props.onConfirmPendingBoardAction}
                   >
-                    {props.pendingBoardAction.confirmLabel}
+                    {pendingBoardActionConfirmation?.confirmLabel ?? ""}
                   </button>
                 </div>
               </aside>

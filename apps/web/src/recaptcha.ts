@@ -31,7 +31,7 @@ function ensureContainer(): HTMLDivElement {
 
 function loadScript(): Promise<void> {
   if (typeof window === "undefined") {
-    return Promise.reject(new Error("reCAPTCHA ist nur im Browser verfügbar."));
+    return Promise.reject(new Error("client.recaptcha.browser_only"));
   }
 
   if (window.grecaptcha) {
@@ -46,9 +46,7 @@ function loadScript(): Promise<void> {
     const existing = document.getElementById(RECAPTCHA_SCRIPT_ID);
     if (existing instanceof HTMLScriptElement) {
       existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("reCAPTCHA konnte nicht geladen werden.")), {
-        once: true
-      });
+      existing.addEventListener("error", () => reject(new Error("client.recaptcha.load_failed")), { once: true });
       return;
     }
 
@@ -58,7 +56,7 @@ function loadScript(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("reCAPTCHA konnte nicht geladen werden."));
+    script.onerror = () => reject(new Error("client.recaptcha.load_failed"));
     document.head.appendChild(script);
   }).catch((error) => {
     scriptPromise = null;
@@ -74,7 +72,7 @@ async function ensureWidget(siteKey: string): Promise<number> {
   return await new Promise<number>((resolve, reject) => {
     const recaptcha = window.grecaptcha;
     if (!recaptcha) {
-      reject(new Error("reCAPTCHA ist nicht verfügbar."));
+      reject(new Error("client.recaptcha.unavailable"));
       return;
     }
 
@@ -87,8 +85,8 @@ async function ensureWidget(siteKey: string): Promise<number> {
           });
         }
         resolve(widgetId);
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error("reCAPTCHA konnte nicht initialisiert werden."));
+      } catch {
+        reject(new Error("client.recaptcha.init_failed"));
       }
     });
   });
@@ -105,13 +103,13 @@ export async function getRecaptchaRegisterToken(): Promise<string | null> {
   return await new Promise<string>((resolve, reject) => {
     const recaptcha = window.grecaptcha;
     if (!recaptcha) {
-      reject(new Error("reCAPTCHA ist nicht verfügbar."));
+      reject(new Error("client.recaptcha.unavailable"));
       return;
     }
 
     recaptcha.ready(() => {
       recaptcha.execute(nextWidgetId).then(resolve).catch(() => {
-        reject(new Error("reCAPTCHA-Prüfung konnte nicht abgeschlossen werden."));
+        reject(new Error("client.recaptcha.execute_failed"));
       });
     });
   });

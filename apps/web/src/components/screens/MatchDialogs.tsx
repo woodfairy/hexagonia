@@ -7,6 +7,12 @@ import { getPlayerAccentClass, renderResourceLabel } from "../../ui";
 import { PlayerIdentity } from "../shared/PlayerIdentity";
 import { PlayerMention } from "../shared/PlayerText";
 
+type TranslationParams = Parameters<typeof createText>[2];
+
+function resolveDialogText(locale: Locale, de: string, en: string, params?: TranslationParams): string {
+  return resolveText(locale, createText(de, en, params));
+}
+
 function getRobberDiscardGroups(
   players: MatchSnapshot["players"],
   robberDiscardStatus: MatchSnapshot["robberDiscardStatus"]
@@ -27,53 +33,53 @@ function getRobberWaitDialogCopy(
   currentPlayer: MatchSnapshot["players"][number] | null,
   pendingPlayers: ReturnType<typeof getRobberDiscardGroups>["pending"]
 ): { title: string; statusLabel: string; detail: ReactNode } {
+  const text = (de: string, en: string, params?: TranslationParams) => resolveDialogText(locale, de, en, params);
+
   if (pendingPlayers.length > 0) {
     return {
-      title: locale === "en" ? "The robber strikes" : "Der Räuber schlägt zu",
+      title: text("Der Räuber schlägt zu", "The robber strikes"),
       statusLabel:
         pendingPlayers.length === 1
-          ? locale === "en"
-            ? "1 discard pending"
-            : "1 Abwurf offen"
-          : locale === "en"
-            ? `${pendingPlayers.length} discards pending`
-            : `${pendingPlayers.length} Abwürfe offen`,
+          ? text("1 Abwurf offen", "1 discard pending")
+          : text("{count} Abwürfe offen", "{count} discards pending", { count: pendingPlayers.length }),
       detail: currentPlayer ? (
         <>
-          {locale === "en"
-            ? "Before the robber is moved, affected players must discard cards now. Afterwards "
-            : "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen. Danach setzt "}
+          {text(
+            "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen. Danach setzt ",
+            "Before the robber is moved, affected players must discard cards now. Afterwards "
+          )}
           <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention>
-          {locale === "en" ? " moves the robber." : " den Räuber."}
+          {text(" den Räuber.", " moves the robber.")}
         </>
-      ) : locale === "en" ? (
-        "Before the robber is moved, affected players must discard cards now."
       ) : (
-        "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen."
+        text(
+          "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen.",
+          "Before the robber is moved, affected players must discard cards now."
+        )
       )
     };
   }
 
   if (currentPlayer) {
     return {
-      title: locale === "en" ? "Robber is moving" : "Räuber wird versetzt",
-      statusLabel: locale === "en" ? "Robber action active" : "Räuberzug aktiv",
+      title: text("Räuber wird versetzt", "Robber is moving"),
+      statusLabel: text("Räuberzug aktiv", "Robber action active"),
       detail: (
         <>
           <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention>
-          {locale === "en" ? " is now moving the robber." : " versetzt jetzt den Räuber."}
+          {text(" versetzt jetzt den Räuber.", " is now moving the robber.")}
         </>
       )
     };
   }
 
   return {
-    title: locale === "en" ? "Robber is moving" : "Räuber wird versetzt",
-    statusLabel: locale === "en" ? "Robber action active" : "Räuberzug aktiv",
-    detail:
-      locale === "en"
-        ? "All discards are complete. The robber is now being moved."
-        : "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt."
+    title: text("Räuber wird versetzt", "Robber is moving"),
+    statusLabel: text("Räuberzug aktiv", "Robber action active"),
+    detail: text(
+      "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt.",
+      "All discards are complete. The robber is now being moved."
+    )
   };
 }
 
@@ -85,7 +91,7 @@ export function ConfirmActionDialog(props: {
   onCancel: () => void;
 }) {
   const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveText(locale, createText(de, en));
+  const text = (de: string, en: string) => resolveDialogText(locale, de, en);
 
   return (
     <div className="confirm-overlay" role="presentation" onClick={props.onCancel}>
@@ -121,7 +127,7 @@ export function RobberTargetDialog(props: {
   onSelect: (targetPlayerId: string) => void;
 }) {
   const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveText(locale, createText(de, en));
+  const text = (de: string, en: string) => resolveDialogText(locale, de, en);
   const targets = props.targetPlayerIds.flatMap((targetPlayerId) => {
     const player = props.players.find((entry) => entry.id === targetPlayerId);
     return player ? [player] : [];
@@ -155,7 +161,9 @@ export function RobberTargetDialog(props: {
               onClick={() => props.onSelect(player.id)}
             >
               <PlayerIdentity color={player.color} username={player.username} />
-              <span className="robber-target-meta">{player.connected ? text("Online", "Online") : text("Getrennt", "Disconnected")}</span>
+              <span className="robber-target-meta">
+                {player.connected ? text("Online", "Online") : text("Getrennt", "Disconnected")}
+              </span>
             </button>
           ))}
         </div>
@@ -185,7 +193,7 @@ export function RobberDiscardDialog(props: {
   onExpand: () => void;
 }) {
   const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveText(locale, createText(de, en));
+  const text = (de: string, en: string, params?: TranslationParams) => resolveDialogText(locale, de, en, params);
   const ownedTotal = RESOURCES.reduce((total, resource) => total + (props.ownedResources?.[resource] ?? 0), 0);
   const { pending: pendingPlayers, completed: completedPlayers } = getRobberDiscardGroups(
     props.players,
@@ -199,16 +207,14 @@ export function RobberDiscardDialog(props: {
           <span className="eyebrow">{text("Räuberphase", "Robber phase")}</span>
           <strong id="robber-discard-mini-title">
             {props.remainingCount > 0
-              ? locale === "en"
-                ? `${props.remainingCount} cards remaining`
-                : `Noch ${props.remainingCount} Karten offen`
+              ? text("Noch {count} Karten offen", "{count} cards remaining", { count: props.remainingCount })
               : text("Auswahl vollständig", "Selection complete")}
           </strong>
           <span>
             {pendingPlayers.length > 0
-              ? locale === "en"
-                ? `${pendingPlayers.length} players are still waiting to discard.`
-                : `${pendingPlayers.length} Spieler warten noch auf den Abwurf.`
+              ? text("{count} Spieler warten noch auf den Abwurf.", "{count} players are still waiting to discard.", {
+                  count: pendingPlayers.length
+                })
               : text("Alle Abwürfe sind erledigt.", "All discards are complete.")}
           </span>
         </div>
@@ -226,24 +232,24 @@ export function RobberDiscardDialog(props: {
           <span className="eyebrow">{text("Räuberphase", "Robber phase")}</span>
           <h2 id="discard-dialog-title">{text("Karten abwerfen", "Discard cards")}</h2>
           <p>
-            {locale === "en"
-              ? `You have more than seven cards. Choose exactly ${props.requiredCount} cards to return to the bank so the match can continue.`
-              : `Du hast mehr als sieben Karten. Wähle genau ${props.requiredCount} Karten aus, die du an die Bank abgibst, damit die Partie weitergehen kann.`}
+            {text(
+              "Du hast mehr als sieben Karten. Wähle genau {count} Karten aus, die du an die Bank abgibst, damit die Partie weitergehen kann.",
+              "You have more than seven cards. Choose exactly {count} cards to return to the bank so the match can continue.",
+              { count: props.requiredCount }
+            )}
           </p>
           <p className="discard-owned-total">
-            {locale === "en" ? `Currently in your hand: ${ownedTotal} cards` : `Aktuell auf deiner Hand: ${ownedTotal} Karten`}
+            {text("Aktuell auf deiner Hand: {count} Karten", "Currently in your hand: {count} cards", { count: ownedTotal })}
           </p>
         </div>
 
         <div className="discard-summary">
-          <span className="status-pill">{locale === "en" ? `In hand: ${ownedTotal}` : `Auf der Hand: ${ownedTotal}`}</span>
-          <span className="status-pill">{locale === "en" ? `${props.selectedCount} selected` : `${props.selectedCount} ausgewählt`}</span>
+          <span className="status-pill">{text("Auf der Hand: {count}", "In hand: {count}", { count: ownedTotal })}</span>
+          <span className="status-pill">{text("{count} ausgewählt", "{count} selected", { count: props.selectedCount })}</span>
           <span className={`status-pill ${props.remainingCount === 0 ? "" : "is-warning"}`}>
             {props.remainingCount === 0
               ? text("Auswahl vollständig", "Selection complete")
-              : locale === "en"
-                ? `${props.remainingCount} remaining`
-                : `Noch ${props.remainingCount} offen`}
+              : text("Noch {count} offen", "{count} remaining", { count: props.remainingCount })}
           </span>
           <button type="button" className="ghost-button discard-minimize-button" onClick={props.onMinimize}>
             {text("Verkleinern", "Minimize")}
@@ -263,7 +269,7 @@ export function RobberDiscardDialog(props: {
                     <PlayerIdentity username={player.username} color={player.color} compact />
                     <div className="discard-status-player-meta">
                       <span className="status-pill is-warning">{text("offen", "pending")}</span>
-                      <span>{locale === "en" ? `${requiredCount} left to discard` : `noch ${requiredCount} abwerfen`}</span>
+                      <span>{text("noch {count} abwerfen", "{count} left to discard", { count: requiredCount })}</span>
                     </div>
                   </article>
                 ))}
@@ -290,7 +296,9 @@ export function RobberDiscardDialog(props: {
                 ))}
               </div>
             ) : (
-              <div className="discard-status-empty">{text("Bisher hat noch niemand seinen Abwurf abgeschlossen.", "Nobody has completed their discard yet.")}</div>
+              <div className="discard-status-empty">
+                {text("Bisher hat noch niemand seinen Abwurf abgeschlossen.", "Nobody has completed their discard yet.")}
+              </div>
             )}
           </section>
         </div>
@@ -307,7 +315,7 @@ export function RobberDiscardDialog(props: {
                   </span>
                   <div className="discard-resource-copy">
                     <strong>{renderResourceLabel(locale, resource)}</strong>
-                    <span>{locale === "en" ? `${owned} in hand` : `${owned} auf der Hand`}</span>
+                    <span>{text("{count} auf der Hand", "{count} in hand", { count: owned })}</span>
                   </div>
                 </div>
                 <div className="discard-stepper">
@@ -316,11 +324,10 @@ export function RobberDiscardDialog(props: {
                   </button>
                   <div
                     className="discard-stepper-count"
-                    aria-label={
-                      locale === "en"
-                        ? `${selected} ${renderResourceLabel(locale, resource)} selected`
-                        : `${selected} ${renderResourceLabel(locale, resource)} ausgewählt`
-                    }
+                    aria-label={text("{count} {resource} ausgewählt", "{count} {resource} selected", {
+                      count: selected,
+                      resource: renderResourceLabel(locale, resource)
+                    })}
                   >
                     {selected}
                   </div>
@@ -342,9 +349,7 @@ export function RobberDiscardDialog(props: {
           <div className={`discard-helper ${props.remainingCount === 0 ? "" : "is-warning"}`}>
             {props.remainingCount === 0
               ? text("Die Auswahl ist vollständig. Du kannst jetzt abwerfen.", "The selection is complete. You can discard now.")
-              : locale === "en"
-                ? `Choose ${props.remainingCount} more cards.`
-                : `Wähle noch ${props.remainingCount} Karten aus.`}
+              : text("Wähle noch {count} Karten aus.", "Choose {count} more cards.", { count: props.remainingCount })}
           </div>
           <div className="discard-actions-buttons">
             <button type="button" className="ghost-button" onClick={props.onMinimize}>
@@ -366,7 +371,7 @@ export function RobberWaitDialog(props: {
   robberDiscardStatus: MatchSnapshot["robberDiscardStatus"];
 }) {
   const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveText(locale, createText(de, en));
+  const text = (de: string, en: string, params?: TranslationParams) => resolveDialogText(locale, de, en, params);
   const { pending: pendingPlayers, completed: completedPlayers } = getRobberDiscardGroups(
     props.players,
     props.robberDiscardStatus
@@ -395,9 +400,11 @@ export function RobberWaitDialog(props: {
               <strong>{text("Abwürfe im Hintergrund", "Discards in progress")}</strong>
               <span>
                 {pendingPlayers.length > 0
-                  ? locale === "en"
-                    ? `${pendingPlayers.length} ${pendingPlayers.length === 1 ? "player is still waiting" : "players are still waiting"}`
-                    : `${pendingPlayers.length} ${pendingPlayers.length === 1 ? "Spieler wartet noch" : "Spieler warten noch"}`
+                  ? pendingPlayers.length === 1
+                    ? text("1 Spieler wartet noch", "1 player is still waiting")
+                    : text("{count} Spieler warten noch", "{count} players are still waiting", {
+                        count: pendingPlayers.length
+                      })
                   : text("Alle Abwürfe sind erledigt", "All discards are complete")}
               </span>
             </div>
@@ -414,7 +421,7 @@ export function RobberWaitDialog(props: {
                 <PlayerIdentity username={player.username} color={player.color} compact />
                 <div className="robber-wait-row-meta">
                   <span className="status-pill is-warning">{text("offen", "pending")}</span>
-                  <span>{locale === "en" ? `${requiredCount} left to discard` : `noch ${requiredCount} abwerfen`}</span>
+                  <span>{text("noch {count} abwerfen", "{count} left to discard", { count: requiredCount })}</span>
                 </div>
               </article>
             ))}

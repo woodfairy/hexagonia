@@ -270,6 +270,10 @@ const ROLL_FOCUS_DISTANCE_PROFILE = {
   padding: 9
 } as const;
 
+function t(key: string, params?: Record<string, string | number>) {
+  return translate(getDocumentLocale(), key, undefined, undefined, params);
+}
+
 function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: BoardVisualSettings): string {
   const tileKey = board.tiles
     .map(
@@ -5370,16 +5374,16 @@ function getPortTooltip(type: PortType): { title: string; detail: string; accent
   const palette = getPortMarkerPalette(type);
   if (type === "generic") {
     return {
-      title: "3:1-Hafen",
-      detail: "Tausche 3 gleiche Rohstoffe gegen 1 beliebigen Rohstoff, wenn deine Siedlung oder Stadt an diesem Hafen liegt.",
+      title: t("match.legend.harborLabel.generic"),
+      detail: t("board.harbor.generic.detail"),
       accentColor: palette.accent
     };
   }
 
   const resourceLabel = renderResourceLabel(type);
   return {
-    title: `${resourceLabel}-Hafen`,
-    detail: `Tausche 2 ${resourceLabel} gegen 1 beliebigen Rohstoff, wenn deine Siedlung oder Stadt an diesem Hafen liegt.`,
+    title: t("match.legend.harborLabel.resource", { resource: resourceLabel }),
+    detail: t("board.harbor.resource.detail", { resource: resourceLabel }),
     accentColor: palette.accent
   };
 }
