@@ -1043,24 +1043,29 @@ function handleMaritimeTrade(
   state: GameState,
   playerId: string,
   give: Resource,
-  receive: Resource,
+  receive: ResourceMap,
   giveCount: number
 ): void {
   ensurePhase(state.phase === "turn_action" || state.phase === "paired_player_action");
   ensureCurrentPlayer(state, playerId);
-  if (give === receive) {
-    throw new GameRuleError("Es müssen unterschiedliche Rohstoffe gehandelt werden.");
-  }
 
   const ratio = getMaritimeRate(state, playerId, give);
-  if (giveCount !== ratio) {
+  if (giveCount < ratio || giveCount % ratio !== 0) {
     throw new GameRuleError("Der gewählte Hafenkurs ist ungültig.");
   }
 
   const payment = createEmptyResourceMap();
   payment[give] = giveCount;
-  const reward = createEmptyResourceMap();
-  reward[receive] = 1;
+  const reward = cloneResourceMap(receive);
+  if (isEmptyResourceMap(reward)) {
+    throw new GameRuleError("Es muss mindestens ein Zielrohstoff gewählt werden.");
+  }
+  if ((reward[give] ?? 0) > 0) {
+    throw new GameRuleError("Es müssen unterschiedliche Rohstoffe gehandelt werden.");
+  }
+  if (totalResources(reward) !== giveCount / ratio) {
+    throw new GameRuleError("Die gewählte Hafenverteilung ist ungültig.");
+  }
   const player = getPlayer(state, playerId);
 
   if (!hasResources(player.resources, payment) || !hasResources(state.bank, reward)) {
@@ -1075,7 +1080,7 @@ function handleMaritimeTrade(
   appendEvent(state, {
     type: "maritime_trade",
     byPlayerId: playerId,
-    payload: { give, receive, giveCount }
+    payload: { give, receive: reward, giveCount }
   });
 }
 

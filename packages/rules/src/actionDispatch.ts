@@ -30,7 +30,7 @@ export interface ActionHandlerSet<TState> {
     state: TState,
     playerId: string,
     give: Resource,
-    receive: Resource,
+    receive: ResourceMap,
     giveCount: number
   ): void;
   handleEndTurn(state: TState, playerId: string): void;

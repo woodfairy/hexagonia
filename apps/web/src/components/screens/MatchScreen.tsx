@@ -68,7 +68,8 @@ export interface TradeFormState {
 
 export interface MaritimeFormState {
   give: Resource | "";
-  receive: Resource | "";
+  giveCount: number;
+  receive: ResourceMap;
 }
 
 export interface PendingBoardActionState {
@@ -873,6 +874,13 @@ export function MatchScreen(props: {
   const visibleMaritimeGiveResources = RESOURCES;
   const selectedMaritimeGiveResource = props.maritimeForm.give || null;
   const maritimeRatio = selectedMaritimeGiveResource ? (maritimeRatesByResource[selectedMaritimeGiveResource] ?? 4) : 0;
+  const maritimeReceiveTotal = totalResources(props.maritimeForm.receive);
+  const selectedMaritimeGiveAvailable = selectedMaritimeGiveResource
+    ? (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0)
+    : 0;
+  const selectedMaritimeGiveMaxCount =
+    selectedMaritimeGiveResource && maritimeRatio > 0 ? Math.floor(selectedMaritimeGiveAvailable / maritimeRatio) * maritimeRatio : 0;
+  const maritimeReceiveCapacity = maritimeRatio > 0 ? Math.floor(props.maritimeForm.giveCount / maritimeRatio) : 0;
   const tradeGiveTotal = totalResources(props.tradeForm.give);
   const tradeWantTotal = totalResources(props.tradeForm.want);
   const selectedTradeTargetPlayer =
@@ -954,8 +962,10 @@ export function MatchScreen(props: {
     tradeMode !== "player" &&
     props.match.allowedMoves.canMaritimeTrade &&
     !!selectedMaritimeGiveResource &&
-    !!props.maritimeForm.receive &&
-    selectedMaritimeGiveResource !== props.maritimeForm.receive &&
+    props.maritimeForm.giveCount >= maritimeRatio &&
+    props.maritimeForm.giveCount <= selectedMaritimeGiveMaxCount &&
+    maritimeReceiveTotal > 0 &&
+    maritimeReceiveTotal === maritimeReceiveCapacity &&
     visibleMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
     (props.selfPlayer?.resources?.[selectedMaritimeGiveResource] ?? 0) >= maritimeRatio;
   const canChooseMaritimeGive = tradeMode !== "player" && props.match.allowedMoves.canMaritimeTrade;
@@ -1748,6 +1758,15 @@ export function MatchScreen(props: {
 
   useEffect(() => {
     if (!props.maritimeForm.give) {
+      if (props.maritimeForm.giveCount === 0 && maritimeReceiveTotal === 0) {
+        return;
+      }
+
+      props.setMaritimeForm((current) => ({
+        ...current,
+        giveCount: 0,
+        receive: createEmptyResourceMap()
+      }));
       return;
     }
 
@@ -1757,15 +1776,59 @@ export function MatchScreen(props: {
         : visibleMaritimeGiveResources.includes(props.maritimeForm.give)
           ? props.maritimeForm.give
           : affordableMaritimeGiveResources[0] ?? visibleMaritimeGiveResources[0] ?? "";
-    if (normalizedGive === props.maritimeForm.give) {
+    const normalizedRatio = normalizedGive ? (maritimeRatesByResource[normalizedGive] ?? 4) : 0;
+    const normalizedAvailable = normalizedGive ? (props.selfPlayer?.resources?.[normalizedGive] ?? 0) : 0;
+    const normalizedMaxCount =
+      normalizedGive && normalizedRatio > 0 ? Math.floor(normalizedAvailable / normalizedRatio) * normalizedRatio : 0;
+    const normalizedGiveCount =
+      normalizedGive && normalizedMaxCount > 0
+        ? Math.min(Math.max(normalizedRatio, props.maritimeForm.giveCount), normalizedMaxCount)
+        : 0;
+    const normalizedReceive = (() => {
+      const next = createEmptyResourceMap();
+      const maxTotal = normalizedRatio > 0 ? Math.floor(normalizedGiveCount / normalizedRatio) : 0;
+      let remaining = maxTotal;
+      for (const resource of RESOURCES) {
+        if (resource === normalizedGive) {
+          next[resource] = 0;
+          continue;
+        }
+
+        const allowedByBank = props.match.bank[resource] ?? 0;
+        const requested = props.maritimeForm.receive[resource] ?? 0;
+        const kept = Math.max(0, Math.min(requested, allowedByBank, remaining));
+        next[resource] = kept;
+        remaining -= kept;
+      }
+      return next;
+    })();
+
+    if (
+      normalizedGive === props.maritimeForm.give &&
+      normalizedGiveCount === props.maritimeForm.giveCount &&
+      equalResourceMaps(normalizedReceive, props.maritimeForm.receive)
+    ) {
       return;
     }
 
     props.setMaritimeForm((current) => ({
       ...current,
-      give: normalizedGive
+      give: normalizedGive,
+      giveCount: normalizedGiveCount,
+      receive: normalizedReceive
     }));
-  }, [affordableMaritimeGiveResources, props.maritimeForm.give, props.setMaritimeForm, visibleMaritimeGiveResources]);
+  }, [
+    affordableMaritimeGiveResources,
+    maritimeReceiveTotal,
+    maritimeRatesByResource,
+    props.maritimeForm.give,
+    props.maritimeForm.giveCount,
+    props.maritimeForm.receive,
+    props.match.bank,
+    props.selfPlayer?.resources,
+    props.setMaritimeForm,
+    visibleMaritimeGiveResources
+  ]);
 
   useEffect(() => {
     const visibleOfferIds = new Set([...ownTradeOffers, ...incomingTradeOffers].map((offer) => offer.id));
@@ -1815,29 +1878,48 @@ export function MatchScreen(props: {
     }));
   };
   const handleSelectMaritimeGive = (resource: Resource) => {
+    const ratio = maritimeRatesByResource[resource] ?? 4;
+    const available = props.selfPlayer?.resources?.[resource] ?? 0;
+    const maxCount = Math.floor(available / ratio) * ratio;
     props.setMaritimeForm((current) => ({
-      ...current,
       give: resource,
-      receive: current.receive === resource ? "" : current.receive
+      giveCount:
+        current.give === resource
+          ? Math.min(current.giveCount + ratio, maxCount)
+          : Math.min(ratio, maxCount),
+      receive: current.give === resource ? current.receive : createEmptyResourceMap()
     }));
   };
   const handleClearMaritimeGive = () => {
+    if (!selectedMaritimeGiveResource) {
+      return;
+    }
+
     props.setMaritimeForm((current) => ({
-      ...current,
-      give: "",
-      receive: ""
+      give: current.give,
+      giveCount: Math.max(0, current.giveCount - maritimeRatio),
+      receive: current.giveCount - maritimeRatio > 0 ? current.receive : createEmptyResourceMap()
     }));
   };
   const handleSelectMaritimeReceive = (resource: Resource) => {
+    if (!selectedMaritimeGiveResource || resource === selectedMaritimeGiveResource) {
+      return;
+    }
+
     props.setMaritimeForm((current) => ({
       ...current,
-      receive: resource
+      receive: setTradeDraftCount(
+        current.receive,
+        resource,
+        (current.receive[resource] ?? 0) + 1,
+        Math.min(99, props.match.bank[resource] ?? 0)
+      )
     }));
   };
-  const handleClearMaritimeReceive = () => {
+  const handleClearMaritimeReceive = (resource: Resource) => {
     props.setMaritimeForm((current) => ({
       ...current,
-      receive: ""
+      receive: setTradeDraftCount(current.receive, resource, (current.receive[resource] ?? 0) - 1, Math.min(99, props.match.bank[resource] ?? 0))
     }));
   };
   const resetPlayerTradeComposer = () => {
@@ -1866,7 +1948,7 @@ export function MatchScreen(props: {
       return;
     }
 
-    if (!props.maritimeForm.receive) {
+    if (maritimeReceiveTotal === 0) {
       return;
     }
 
@@ -1874,10 +1956,16 @@ export function MatchScreen(props: {
       createMatchActionMessage({
         type: "maritime_trade",
         give: selectedMaritimeGiveResource,
-        receive: props.maritimeForm.receive,
-        giveCount: maritimeRatio
+        receive: cloneTradeResourceMap(props.maritimeForm.receive),
+        giveCount: props.maritimeForm.giveCount
       })
     );
+
+    props.setMaritimeForm({
+      give: "",
+      giveCount: 0,
+      receive: createEmptyResourceMap()
+    });
   };
   const handleWithdrawTradeOffer = (tradeId: string) => {
     props.onAction(
@@ -2010,10 +2098,10 @@ export function MatchScreen(props: {
       ? "Nicht genug Rohstoffe für einen Hafentausch."
       : !selectedMaritimeGiveResource
         ? "Einsatz wählen."
-        : !props.maritimeForm.receive
-          ? "Ziel wählen."
-        : props.maritimeForm.give === props.maritimeForm.receive
-          ? "Anderen Rohstoff wählen."
+        : maritimeReceiveTotal === 0
+          ? "Erhalten verteilen."
+        : maritimeReceiveTotal < maritimeReceiveCapacity
+          ? `Noch ${maritimeReceiveCapacity - maritimeReceiveTotal} offen.`
           : "";
   const maritimeActionLabel =
     affordableMaritimeGiveResources.length === 0
@@ -2077,8 +2165,8 @@ export function MatchScreen(props: {
           <div className="trade-matrix-head">
             <span aria-hidden="true" />
             <span>Hand</span>
-            <span>Gibst</span>
-            <span>Willst</span>
+              <span>Geben</span>
+              <span>Erhalten</span>
           </div>
           <div className="trade-matrix-list">
             {RESOURCES.map((resource) => {
@@ -2160,14 +2248,19 @@ export function MatchScreen(props: {
                 const available = props.selfPlayer?.resources?.[resource] ?? 0;
                 const giveVisible = visibleMaritimeGiveResources.includes(resource);
                 const giveSelected = props.maritimeForm.give === resource;
-                const canUseAsGive = canChooseMaritimeGive && giveVisible && available >= ratio;
-                const receiveSelected = props.maritimeForm.receive === resource;
+                const giveMaxValue = Math.floor(available / ratio) * ratio;
+                const giveValue = giveSelected ? props.maritimeForm.giveCount : 0;
+                const giveIncrementDisabled =
+                  !canChooseMaritimeGive || !giveVisible || available < ratio || (giveSelected && giveValue >= giveMaxValue);
+                const receiveValue = props.maritimeForm.receive[resource] ?? 0;
                 const canUseAsReceive =
                   tradeMode !== "player" &&
                   props.match.allowedMoves.canMaritimeTrade &&
                   !!selectedMaritimeGiveResource &&
                   affordableMaritimeGiveResources.includes(selectedMaritimeGiveResource) &&
-                  resource !== selectedMaritimeGiveResource;
+                  resource !== selectedMaritimeGiveResource &&
+                  receiveValue < (props.match.bank[resource] ?? 0) &&
+                  maritimeReceiveTotal < maritimeReceiveCapacity;
 
                 return (
                   <div key={`maritime-matrix-${resource}`} className="trade-matrix-row">
@@ -2179,28 +2272,28 @@ export function MatchScreen(props: {
                     <span className="trade-matrix-meta">{available}</span>
                     <span
                       className={`trade-matrix-cell-display is-give ${giveSelected ? "is-active" : ""} ${
-                        !canUseAsGive ? "is-disabled" : ""
+                        giveIncrementDisabled ? "is-disabled" : ""
                       }`.trim()}
                     >
                       {giveVisible ? `${ratio}:1` : "—"}
                     </span>
                     <TradeMatrixDraftControl
-                      value={giveSelected ? ratio : 0}
+                      value={giveValue}
                       tone="give"
-                      incrementDisabled={!canUseAsGive}
+                      incrementDisabled={giveIncrementDisabled}
                       incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
                       decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
                       onIncrement={() => handleSelectMaritimeGive(resource)}
                       onDecrement={handleClearMaritimeGive}
                     />
                     <TradeMatrixDraftControl
-                      value={receiveSelected ? 1 : 0}
+                      value={receiveValue}
                       tone="receive"
                       incrementDisabled={!canUseAsReceive}
                       incrementTitle={`${renderResourceLabel(resource)} als Ziel wählen`}
                       decrementTitle={`${renderResourceLabel(resource)} aus Ziel entfernen`}
                       onIncrement={() => handleSelectMaritimeReceive(resource)}
-                      onDecrement={handleClearMaritimeReceive}
+                      onDecrement={() => handleClearMaritimeReceive(resource)}
                     />
                   </div>
                 );

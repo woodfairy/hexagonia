@@ -776,16 +776,17 @@ function createMaritimeTradeNotification(
   viewerId: string
 ): MatchNotification {
   const { give, receive, giveCount } = event.payload;
+  const receiveSummary = renderResourceMap(receive);
   return createBaseNotification(match, event, {
     label: "Handel",
     title: getPlayerPredicate(match, viewerId, event.byPlayerId, "handelt mit dem Hafen", "handelst mit dem Hafen"),
     detail:
-      give && receive && giveCount !== null
-        ? `${giveCount} ${renderResourceLabel(give)} gegen ${renderResourceLabel(receive)}.`
+      give && giveCount !== null
+        ? `${giveCount} ${renderResourceLabel(give)} gegen ${receiveSummary || "nichts"}.`
         : "Der Hafenhandel wurde ausgeführt.",
     badges: [
       ...(give && giveCount !== null ? [{ label: `${giveCount} ${renderResourceLabel(give)}` }] : []),
-      ...(receive ? [{ label: `1 ${renderResourceLabel(receive)}`, tone: "warning" as const }] : [])
+      ...(receiveSummary ? [{ label: receiveSummary, tone: "warning" as const }] : [])
     ]
   });
 }

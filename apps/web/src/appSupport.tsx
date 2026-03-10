@@ -59,7 +59,7 @@ export function getMatchActionKey(action: MatchAction): string {
     case "withdraw_trade_offer":
       return `withdraw_trade_offer:${action.tradeId}`;
     case "maritime_trade":
-      return `maritime_trade:${action.give}:${action.receive}:${action.giveCount}`;
+      return `maritime_trade:${action.give}:${serializeResourceMap(action.receive)}:${action.giveCount}`;
     case "end_turn":
       return "end_turn";
     default: {
@@ -450,7 +450,7 @@ export function getMatchActionConfirmation(
     case "maritime_trade":
       return {
         title: "Hafenhandel bestätigen?",
-        detail: `Tausche ${action.giveCount} ${renderResourceLabel(action.give)} gegen 1 ${renderResourceLabel(action.receive)}.`,
+        detail: `Tausche ${action.giveCount} ${renderResourceLabel(action.give)} gegen ${renderResourceMap(action.receive) || "nichts"}.`,
         confirmLabel: "Tausch senden"
       };
     case "discard_resources":

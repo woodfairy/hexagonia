@@ -292,7 +292,7 @@ export type ActionIntent =
   | {
       type: "maritime_trade";
       give: Resource;
-      receive: Resource;
+      receive: ResourceMap;
       giveCount: number;
     }
   | {
