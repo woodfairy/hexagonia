@@ -104,11 +104,9 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
       : resolveText(locale, createText("Playlist starten", "Start playlist"));
   const musicControlDescription = props.musicPaused
     ? selectedMusicTrack?.name ?? resolveText(locale, createText("Keine Songs verfügbar", "No songs available"))
-    : props.musicPlaybackMode === "cycle"
-      ? selectedMusicTrack
-        ? resolveText(locale, createText("Gerade: {track}", "Now playing: {track}", { track: selectedMusicTrack.name }))
-        : resolveText(locale, createText("Keine Songs verfügbar", "No songs available"))
-      : resolveText(locale, createText("Wechselt beim nächsten Klick zur Playlist", "Switches to playlist on the next tap"));
+    : selectedMusicTrack
+      ? resolveText(locale, createText("Gerade: {track}", "Now playing: {track}", { track: selectedMusicTrack.name }))
+      : resolveText(locale, createText("Keine Songs verfügbar", "No songs available"));
   const musicControlStatus = props.musicPaused
     ? resolveText(locale, createText("Pausiert", "Paused"))
     : props.musicPlaybackMode === "cycle"
