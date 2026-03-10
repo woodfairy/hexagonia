@@ -2664,79 +2664,46 @@ export function App() {
     );
   }
 
-  const headerRoomProps = useMemo(
-    () =>
-      (activeScreen === "room" || activeScreen === "match") && room?.code
-        ? {
-            roomCode: room.code,
-            onCopyInviteLink: handleCopyInviteLink,
-            onCopyRoomCode: handleCopyRoomCode
-          }
-        : {},
-    [activeScreen, handleCopyInviteLink, handleCopyRoomCode, room?.code]
-  );
-  const headerAdminProps = useMemo(
-    () => (session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {}),
-    [handleOpenAdmin, session?.role]
-  );
-  const handleNavigateHome = useCallback(() => {
+  const headerRoomProps =
+    (activeScreen === "room" || activeScreen === "match") && room?.code
+      ? {
+          roomCode: room.code,
+          onCopyInviteLink: handleCopyInviteLink,
+          onCopyRoomCode: handleCopyRoomCode
+        }
+      : {};
+  const headerAdminProps = session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {};
+  const handleNavigateHome = () => {
     navigateTo({ kind: session ? "play" : "home" });
-  }, [navigateTo, session]);
-  const handleNavigateMatchHome = useCallback(() => {
+  };
+  const handleNavigateMatchHome = () => {
     navigateTo({ kind: "play" });
-  }, [navigateTo]);
-  const matchProfileMenuProps =
-    useMemo(
-      () =>
-        session
-          ? {
-              boardVisualSettings,
-              connectionState,
-              hapticsMuted,
-              hapticsSupported,
-              musicPaused,
-              musicPlaybackMode,
-              musicTracks,
-              selectedMusicTrackId,
-              session,
-              soundMuted,
-              onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
-              onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
-              onLogout: handleLogout,
-              onLocaleChange: handleLocaleChange,
-              onNavigateHome: handleNavigateMatchHome,
-              onSelectMusicTrack: handleSelectMusicTrack,
-              onToggleHapticsMuted: handleToggleHapticsMuted,
-              onToggleSoundMuted: handleToggleSoundMuted,
-              onToggleMusicPaused: handleToggleMusicPaused,
-              ...headerAdminProps,
-              ...headerRoomProps
-            }
-          : null,
-      [
+  };
+  const matchProfileMenuProps = session
+    ? {
         boardVisualSettings,
         connectionState,
-        handleBoardVisualSettingsChange,
-        handleLocaleChange,
-        handleLogout,
-        handleMusicPlaybackModeChange,
-        handleNavigateMatchHome,
-        handleSelectMusicTrack,
-        handleToggleHapticsMuted,
-        handleToggleMusicPaused,
-        handleToggleSoundMuted,
         hapticsMuted,
         hapticsSupported,
-        headerAdminProps,
-        headerRoomProps,
         musicPaused,
         musicPlaybackMode,
         musicTracks,
         selectedMusicTrackId,
         session,
-        soundMuted
-      ]
-    );
+        soundMuted,
+        onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
+        onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
+        onLogout: handleLogout,
+        onLocaleChange: handleLocaleChange,
+        onNavigateHome: handleNavigateMatchHome,
+        onSelectMusicTrack: handleSelectMusicTrack,
+        onToggleHapticsMuted: handleToggleHapticsMuted,
+        onToggleSoundMuted: handleToggleSoundMuted,
+        onToggleMusicPaused: handleToggleMusicPaused,
+        ...headerAdminProps,
+        ...headerRoomProps
+      }
+    : null;
 
   const displayEyebrow = !session
     ? resolveText(locale, createText("Mit Freunden spielen", "Play with friends"))
