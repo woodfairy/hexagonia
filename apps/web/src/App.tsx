@@ -444,6 +444,9 @@ export function App() {
   const handleLocaleChange = useCallback(
     async (nextLocale: Locale) => {
       persistStoredLocale(nextLocale);
+      if (typeof document !== "undefined") {
+        document.documentElement.lang = nextLocale;
+      }
       setGuestLocale(nextLocale);
 
       const currentSession = sessionRef.current;
@@ -457,6 +460,9 @@ export function App() {
         const updatedUser = await updateCurrentUserLocale(nextLocale);
         setSession(updatedUser);
       } catch (error) {
+        if (typeof document !== "undefined") {
+          document.documentElement.lang = currentSession.locale;
+        }
         setSession((current) => (current ? { ...current, locale: currentSession.locale } : current));
         pushToast(
           "error",
