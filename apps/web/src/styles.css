@@ -3928,9 +3928,9 @@ select {
 
 .trade-frame {
   align-content: start;
-  block-size: 100%;
-  min-block-size: 0;
-  overflow: hidden;
+  block-size: max-content;
+  min-block-size: 100%;
+  overflow: visible;
 }
 
 .hand-frame {
@@ -4815,68 +4815,152 @@ select {
   inset-block-start: 0.85rem;
   inset-inline-start: 50%;
   z-index: 4;
-  inline-size: min(32rem, calc(100% - 1.5rem));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.72rem 0.9rem;
+  inline-size: min(33.5rem, calc(100% - 1.5rem));
   transform: translateX(-50%);
-  padding: 0.82rem 0.9rem;
-  border-color: rgba(var(--accent-rgb), 0.42);
+  padding: 0.88rem 0.96rem 0.94rem;
+  border-color: var(--player-accent-border, rgba(var(--accent-rgb), 0.42));
   background:
-    linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), rgba(6, 15, 23, 0.92) 42%),
+    radial-gradient(circle at top left, var(--player-accent-soft, rgba(var(--accent-rgb), 0.16)), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(6, 15, 23, 0.92) 22%),
     rgba(6, 15, 23, 0.92);
   box-shadow:
-    0 1rem 2.2rem rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(var(--accent-rgb), 0.08);
-  backdrop-filter: blur(12px);
+    0 1.15rem 2.5rem rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
   pointer-events: auto;
 }
 
-.trade-banner.is-board-alert .trade-banner-copy > strong {
-  font-size: 1rem;
+.trade-banner.is-board-alert::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  pointer-events: none;
 }
 
-.trade-banner.is-board-alert .trade-banner-copy > span {
-  color: rgba(255, 255, 255, 0.76);
+.trade-banner-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  grid-column: 1 / -1;
 }
 
-.trade-banner.is-board-alert .trade-banner-actions {
-  align-self: stretch;
+.trade-banner-kicker,
+.trade-banner-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+  min-inline-size: 0;
 }
 
 .trade-banner-copy {
   display: grid;
-  gap: 0.34rem;
+  gap: 0.22rem;
   min-inline-size: 0;
+}
+
+.trade-banner-copy > strong {
+  font-size: 1rem;
+  line-height: 1.02;
+}
+
+.trade-banner-copy > span {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.82rem;
+  line-height: 1.22;
+}
+
+.trade-banner-target-pill {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .trade-banner-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.58rem;
-}
-
-.trade-banner-lane {
-  display: grid;
-  gap: 0.24rem;
-  padding: 0.72rem 0.78rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+  min-inline-size: 0;
+  padding: 0.68rem 0.72rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: calc(var(--radius-card) - 0.18rem);
-  background: rgba(7, 15, 23, 0.56);
+  border-radius: calc(var(--radius-card) - 0.08rem);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(4, 12, 20, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.trade-banner-lane strong {
-  display: block;
-  line-height: 1.14;
+.trade-banner-flow-side {
+  display: grid;
+  gap: 0.28rem;
+  min-inline-size: 0;
+}
+
+.trade-banner-flow-side .eyebrow {
+  padding-inline: 0.04rem;
+}
+
+.trade-banner-flow-side .match-notification-trade-side {
+  gap: 0.34rem;
+}
+
+.trade-banner-flow-side.is-give .match-notification-trade-side {
+  justify-content: flex-start;
+}
+
+.trade-banner-flow-side.is-receive .match-notification-trade-side {
+  justify-content: flex-end;
+}
+
+.trade-banner-flow-side .match-notification-trade-chip,
+.trade-banner-flow-side .match-notification-trade-empty {
+  min-block-size: 1.72rem;
+  padding: 0.18rem 0.44rem;
+  font-size: 0.76rem;
+}
+
+.trade-banner-flow-arrow {
+  inline-size: 1.8rem;
+  min-block-size: 2rem;
 }
 
 .trade-banner-actions {
   flex-wrap: wrap;
 }
 
+.trade-banner.is-board-alert .trade-banner-copy,
+.trade-banner.is-board-alert .trade-banner-summary {
+  grid-column: 1;
+}
+
+.trade-banner.is-board-alert .trade-banner-actions {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  align-self: stretch;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.48rem;
+}
+
+.trade-banner.is-board-alert .trade-banner-actions > * {
+  min-block-size: 2.16rem;
+  padding: 0.38rem 0.86rem;
+  font-size: 0.86rem;
+}
+
 .trade-workspace {
-  grid-template-rows: auto auto auto minmax(0, 1fr);
-  gap: 0.46rem;
-  min-block-size: 0;
-  block-size: 100%;
-  overflow: hidden;
+  grid-template-rows: none;
+  gap: 0.72rem;
+  min-block-size: 100%;
+  block-size: max-content;
+  overflow: visible;
   container-type: inline-size;
 }
 
@@ -4892,22 +4976,16 @@ select {
 
 .trade-zone {
   display: grid;
-  gap: 0.34rem;
+  gap: 0.48rem;
   min-inline-size: 0;
 }
 
-.trade-zone-scroll {
-  min-block-size: 0;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.trade-zone-scroll > .scroll-list,
 .trade-offer-list {
   min-block-size: 0;
 }
 
-.trade-zone-scroll > .scroll-list {
-  block-size: 100%;
+.trade-zone-offers {
+  margin-block-start: 0.18rem;
 }
 
 .trade-mode-segmented {
@@ -7053,6 +7131,12 @@ select {
     inset-inline-end: 0.75rem;
     inline-size: auto;
     transform: none;
+    grid-template-columns: 1fr;
+  }
+
+  .trade-banner.is-board-alert .trade-banner-actions {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .trade-banner-actions,
@@ -7114,8 +7198,25 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .trade-banner-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .trade-banner-summary {
     grid-template-columns: 1fr;
+    padding: 0.72rem;
+  }
+
+  .trade-banner-flow-arrow {
+    justify-self: center;
+    inline-size: 2.1rem;
+    min-block-size: 1.4rem;
+    transform: rotate(90deg);
+  }
+
+  .trade-banner-flow-side.is-receive .match-notification-trade-side {
+    justify-content: flex-start;
   }
 
   .trade-composer-copy span {

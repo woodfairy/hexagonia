@@ -212,21 +212,41 @@ export function TradeBanner(props: {
     (!trade.toPlayerId || trade.toPlayerId === props.currentUserId);
   const proposerName = getPlayerName(props.match, trade.fromPlayerId);
   const summary = getTradePerspectiveSummary(props.match, props.currentUserId, trade);
+  const fromViewerPerspective = trade.fromPlayerId === props.currentUserId;
+  const isViewerTradeParty = !trade.toPlayerId || trade.toPlayerId === props.currentUserId;
+  const giveResources = fromViewerPerspective ? trade.give : isViewerTradeParty ? trade.want : trade.give;
+  const receiveResources = fromViewerPerspective ? trade.want : isViewerTradeParty ? trade.give : trade.want;
   const targetLabel = trade.toPlayerId ? `An ${getPlayerName(props.match, trade.toPlayerId)}` : "Offen für alle";
+  const accentClass = getPlayerAccentClass(getPlayerColor(props.match, trade.fromPlayerId));
+  const title = fromViewerPerspective ? "Dein Handelsangebot" : `Angebot von ${proposerName}`;
+  const detail = fromViewerPerspective ? targetLabel : trade.toPlayerId === props.currentUserId ? "Direkt an dich" : targetLabel;
 
   return (
-    <div className={`trade-banner ${props.className ?? ""}`.trim()}>
-      <div className="trade-banner-copy">
-        <strong>{renderMatchPlayerText(props.match, trade.fromPlayerId === props.currentUserId ? "Dein Angebot" : `Angebot von ${proposerName}`)}</strong>
-        <span>{renderMatchPlayerText(props.match, targetLabel)}</span>
-        <div className="trade-banner-summary">
-          {summary.map((entry) => (
-            <article key={entry.label} className="trade-banner-lane">
-              <span className="eyebrow">{renderMatchPlayerText(props.match, entry.label)}</span>
-              <strong>{entry.value}</strong>
-            </article>
-          ))}
+    <div className={`trade-banner ${accentClass} ${props.className ?? ""}`.trim()}>
+      <div className="trade-banner-head">
+        <div className="trade-banner-kicker">
+          <span className="eyebrow">Handel</span>
+          <PlayerBadge match={props.match} playerId={trade.fromPlayerId} compact />
         </div>
+        <div className="trade-banner-meta">
+          <span className="status-pill muted">{`Zug ${trade.createdAtTurn}`}</span>
+          <span className="status-pill trade-banner-target-pill">{renderMatchPlayerText(props.match, targetLabel)}</span>
+        </div>
+      </div>
+      <div className="trade-banner-copy">
+        <strong>{renderMatchPlayerText(props.match, title)}</strong>
+        <span>{renderMatchPlayerText(props.match, detail)}</span>
+      </div>
+      <div className="trade-banner-summary">
+        <article className="trade-banner-flow-side is-give">
+          <span className="eyebrow">{renderMatchPlayerText(props.match, summary[0]?.label ?? "Du gibst")}</span>
+          <TradeCompactSummarySide resources={giveResources} tone="give" />
+        </article>
+        <span className="trade-banner-flow-arrow match-notification-trade-arrow" aria-hidden="true" />
+        <article className="trade-banner-flow-side is-receive">
+          <span className="eyebrow">{renderMatchPlayerText(props.match, summary[1]?.label ?? "Du erhältst")}</span>
+          <TradeCompactSummarySide resources={receiveResources} tone="receive" />
+        </article>
       </div>
       <div className="trade-banner-actions">
         {responderVisible ? (

@@ -2343,13 +2343,13 @@ export function MatchScreen(props: {
     </section>
   ) : null;
   const tradeIncomingOffersSection = (
-    <section className="dock-section dock-section-fill trade-zone trade-zone-scroll">
+    <section className="dock-section trade-zone trade-zone-offers">
       <div className="dock-section-head">
-        <h3>Eingehend</h3>
+        <h3>Angebote</h3>
         <span>{incomingTradeOffers.length ? `${incomingTradeOffers.length} sichtbar` : "Keine Angebote"}</span>
       </div>
       {incomingTradeOffers.length ? (
-        <div className="scroll-list trade-offer-list">
+        <div className="trade-offer-list">
           {incomingTradeOffers.map((trade) => (
             <TradeOfferCard
               key={trade.id}
