@@ -4,6 +4,7 @@ import { uiHapticsManager } from "../../audio/uiHapticsManager";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
 import { LocaleSelect } from "../shared/LocaleSelect";
+import { PopupSelect } from "../shared/PopupSelect";
 import {
   createText,
   normalizeLocale,
@@ -47,6 +48,16 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
   const selectedMusicTrack =
     props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
   const emptyTrackLabel = resolveText(locale, createText("Kein Song", "No track"));
+  const musicModeOptions: ReadonlyArray<{ value: MusicPlaybackMode; label: string }> = [
+    { value: "single", label: resolveText(locale, createText("Ein Song loopen", "Loop one song")) },
+    { value: "cycle", label: resolveText(locale, createText("Alle Songs abwechselnd", "Cycle all songs")) }
+  ];
+  const musicTrackOptions = props.musicTracks.length
+    ? props.musicTracks.map((track) => ({
+        value: track.id,
+        label: track.name
+      }))
+    : [{ value: "", label: resolveText(locale, createText("Keine Songs gefunden", "No songs found")) }];
   const musicSummary =
     props.musicTracks.length === 0
       ? resolveText(locale, createText("Keine Songs in assets/songs gefunden", "No songs found in assets/songs"))
@@ -165,32 +176,27 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           </div>
           <label className="profile-music-select-shell">
             <span>{resolveText(locale, createText("Modus", "Mode"))}</span>
-            <select
+            <PopupSelect
               value={props.musicPlaybackMode}
-              onChange={(event) => props.onMusicPlaybackModeChange(event.target.value as MusicPlaybackMode)}
+              onChange={props.onMusicPlaybackModeChange}
+              ariaLabel={resolveText(locale, createText("Musikmodus", "Music mode"))}
+              variant="profile"
+              className="profile-popup-select-shell"
+              options={musicModeOptions}
               disabled={props.musicTracks.length === 0}
-            >
-              <option value="single">{resolveText(locale, createText("Ein Song loopen", "Loop one song"))}</option>
-              <option value="cycle">{resolveText(locale, createText("Alle Songs abwechselnd", "Cycle all songs"))}</option>
-            </select>
+            />
           </label>
           <label className="profile-music-select-shell">
             <span>{resolveText(locale, props.musicPlaybackMode === "cycle" ? createText("Aktueller Song", "Current song") : createText("Song", "Song"))}</span>
-            <select
+            <PopupSelect
               value={props.selectedMusicTrackId ?? ""}
-              onChange={(event) => props.onSelectMusicTrack(event.target.value)}
+              onChange={props.onSelectMusicTrack}
+              ariaLabel={resolveText(locale, createText("Song auswählen", "Choose song"))}
+              variant="profile"
+              className="profile-popup-select-shell"
+              options={musicTrackOptions}
               disabled={props.musicTracks.length === 0}
-            >
-              {props.musicTracks.length === 0 ? (
-                <option value="">{resolveText(locale, createText("Keine Songs gefunden", "No songs found"))}</option>
-              ) : (
-                props.musicTracks.map((track) => (
-                  <option key={track.id} value={track.id}>
-                    {track.name}
-                  </option>
-                ))
-              )}
-            </select>
+            />
           </label>
           <button
             type="button"

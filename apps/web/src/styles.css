@@ -556,28 +556,13 @@ select::-ms-expand {
   font-size: 0.78rem;
 }
 
-.profile-music-select-shell::after {
-  content: "";
-  position: absolute;
-  inset-inline-end: 1rem;
-  inset-block-end: 1rem;
-  inline-size: 0.56rem;
-  block-size: 0.56rem;
-  border-inline-end: 2px solid var(--muted);
-  border-block-end: 2px solid var(--muted);
-  transform: rotate(45deg);
-  pointer-events: none;
-}
-
-.profile-music-select-shell > select {
-  min-inline-size: 0;
-  padding-inline-end: 2.5rem;
-  line-height: 1.2;
-  background-image: none;
-}
-
 .locale-select-shell {
   inline-size: 100%;
+}
+
+.profile-popup-select-shell.locale-select-shell-profile {
+  inline-size: 100%;
+  max-inline-size: 100%;
 }
 
 .locale-select-shell-profile {
@@ -724,15 +709,6 @@ select::-ms-expand {
 .locale-select-option-code {
   flex: 0 0 auto;
   opacity: 0.6;
-}
-
-.locale-select-option-check {
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
-.locale-select-option-check.is-visible {
-  opacity: 1;
 }
 
 .locale-select-option-profile {
