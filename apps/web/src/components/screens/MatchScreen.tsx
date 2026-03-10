@@ -826,6 +826,7 @@ export function MatchScreen(props: {
   const notificationState = useMemo(
     () =>
       createMatchNotificationState({
+        locale,
         currentMatch: props.match,
         previousMatch: previousMatchRef.current,
         viewerId: props.match.you,

@@ -1,32 +1,72 @@
-import type { DevelopmentCardType, MatchSnapshot, Resource, ResourceMap, TradeOfferView } from "@hexagonia/shared";
+import type { DevelopmentCardType, Locale, MatchSnapshot, Resource, ResourceMap, TradeOfferView } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
 import type { BoardFocusBadge, BoardFocusCue } from "../../BoardScene";
-import { createCatalogText, createText, getDocumentLocale, resolveText } from "../../i18n";
-import { renderEventLabel, renderResourceLabel, renderResourceMap } from "../../ui";
+import { createCatalogText, createText, resolveText } from "../../i18n";
+import {
+  renderEventLabel as renderEventLabelByLocale,
+  renderResourceLabel as renderResourceLabelByLocale,
+  renderResourceMap as renderResourceMapByLocale
+} from "../../ui";
 
 type MatchEvent = MatchSnapshot["eventLog"][number];
 type MatchEventOf<TType extends MatchEvent["type"]> = Extract<MatchEvent, { type: TType }>;
 type MatchPlayer = MatchSnapshot["players"][number];
 type TranslationParams = Parameters<typeof createText>[2];
 
+interface NotificationTextHelpers {
+  locale: Locale;
+  t: (de: string, params?: TranslationParams) => string;
+  tk: (key: string, fallbackDe: string, params?: TranslationParams) => string;
+  formatNameList: (names: string[]) => string;
+  renderEventLabel: (type: MatchEvent["type"]) => string;
+  renderResourceLabel: (resource: Resource | "desert" | string) => string;
+  renderResourceMap: (resourceMap: ResourceMap) => string;
+}
+
+let activeNotificationTextHelpers = createNotificationTextHelpers("de");
+
+function createNotificationTextHelpers(locale: Locale): NotificationTextHelpers {
+  return {
+    locale,
+    t: (de, params) => resolveText(locale, createText(de, undefined, params)),
+    tk: (key, fallbackDe, params) => resolveText(locale, createCatalogText(key, fallbackDe, undefined, params)),
+    formatNameList: (names) => formatNameList(locale, names),
+    renderEventLabel: (type) => renderEventLabelByLocale(locale, type),
+    renderResourceLabel: (resource) => renderResourceLabelByLocale(locale, resource),
+    renderResourceMap: (resourceMap) => renderResourceMapByLocale(locale, resourceMap)
+  };
+}
+
 function t(de: string, params?: TranslationParams): string {
-  return resolveText(getDocumentLocale(), createText(de, undefined, params));
+  return activeNotificationTextHelpers.t(de, params);
 }
 
 function tk(key: string, fallbackDe: string, params?: TranslationParams): string {
-  return resolveText(getDocumentLocale(), createCatalogText(key, fallbackDe, undefined, params));
+  return activeNotificationTextHelpers.tk(key, fallbackDe, params);
 }
 
-function formatNameList(names: string[]): string {
+function formatNameList(locale: Locale, names: string[]): string {
   if (names.length === 0) {
-    return t("niemand");
+    return resolveText(locale, createText("niemand"));
   }
 
   try {
-    return new Intl.ListFormat(getDocumentLocale(), { style: "long", type: "conjunction" }).format(names);
+    return new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(names);
   } catch {
     return names.join(", ");
   }
+}
+
+function renderEventLabel(type: MatchEvent["type"]): string {
+  return activeNotificationTextHelpers.renderEventLabel(type);
+}
+
+function renderResourceLabel(resource: Resource | "desert" | string): string {
+  return activeNotificationTextHelpers.renderResourceLabel(resource);
+}
+
+function renderResourceMap(resourceMap: ResourceMap): string {
+  return activeNotificationTextHelpers.renderResourceMap(resourceMap);
 }
 
 export interface MatchNotification {
@@ -66,10 +106,12 @@ export interface MatchNotificationState {
 }
 
 interface NotificationBuildContext {
+  locale: Locale;
   currentMatch: MatchSnapshot;
   previousMatch: MatchSnapshot | null;
   viewerId: string;
   privateCache: MatchNotificationPrivateCache;
+  text: NotificationTextHelpers;
 }
 
 export function createEmptyMatchNotificationPrivateCache(): MatchNotificationPrivateCache {
@@ -81,52 +123,62 @@ export function createEmptyMatchNotificationPrivateCache(): MatchNotificationPri
 }
 
 export function createMatchNotificationState(args: {
+  locale: Locale;
   currentMatch: MatchSnapshot;
   previousMatch: MatchSnapshot | null;
   viewerId: string;
   privateCache: MatchNotificationPrivateCache;
 }): MatchNotificationState {
   const privateCache = clonePrivateCache(args.privateCache);
+  const text = createNotificationTextHelpers(args.locale);
+  const previousText = activeNotificationTextHelpers;
+  activeNotificationTextHelpers = text;
   const context: NotificationBuildContext = {
+    locale: args.locale,
     currentMatch: args.currentMatch,
     previousMatch: args.previousMatch,
     viewerId: args.viewerId,
-    privateCache
+    privateCache,
+    text
   };
 
-  const previousEventIds = new Set(args.previousMatch?.eventLog.map((event) => event.id) ?? []);
-  const newlySeenEventIds = args.previousMatch
-    ? args.currentMatch.eventLog.filter((event) => !previousEventIds.has(event.id)).map((event) => event.id)
-    : [];
-  const newlySeenEventIdSet = new Set(newlySeenEventIds);
+  try {
+    const previousEventIds = new Set(args.previousMatch?.eventLog.map((event) => event.id) ?? []);
+    const newlySeenEventIds = args.previousMatch
+      ? args.currentMatch.eventLog.filter((event) => !previousEventIds.has(event.id)).map((event) => event.id)
+      : [];
+    const newlySeenEventIdSet = new Set(newlySeenEventIds);
 
-  const notificationsInOrder = args.currentMatch.eventLog
-    .map((event) => createNotification(context, event))
-    .filter((notification): notification is MatchNotification => !!notification);
-  const historyNotifications = notificationsInOrder.slice().reverse();
-  const recentNotifications = historyNotifications.slice(0, 8);
-  const newNotifications = notificationsInOrder.filter((notification) => newlySeenEventIdSet.has(notification.eventId));
-  const heroNotification = newNotifications.at(-1) ?? notificationsInOrder.at(-1) ?? null;
-  const boardFocusNotification = pickBoardFocusNotification(newNotifications, notificationsInOrder);
-  const boardCue = boardFocusNotification?.cue ?? null;
-  const announcementText =
-    args.previousMatch && newNotifications.length
-      ? newNotifications
-          .filter((notification) => shouldAnnounce(notification))
-          .slice(-3)
-          .map((notification) => `${notification.title}. ${notification.detail}`)
-          .join(" ")
-      : null;
+    const notificationsInOrder = args.currentMatch.eventLog
+      .map((event) => createNotification(context, event))
+      .filter((notification): notification is MatchNotification => !!notification);
+    const historyNotifications = notificationsInOrder.slice().reverse();
+    const recentNotifications = historyNotifications.slice(0, 8);
+    const newNotifications = notificationsInOrder.filter((notification) => newlySeenEventIdSet.has(notification.eventId));
+    const heroNotification = newNotifications.at(-1) ?? notificationsInOrder.at(-1) ?? null;
+    const boardFocusNotification = pickBoardFocusNotification(newNotifications, notificationsInOrder);
+    const boardCue = boardFocusNotification?.cue ?? null;
+    const announcementText =
+      args.previousMatch && newNotifications.length
+        ? newNotifications
+            .filter((notification) => shouldAnnounce(notification))
+            .slice(-3)
+            .map((notification) => `${notification.title}. ${notification.detail}`)
+            .join(" ")
+        : null;
 
-  return {
-    heroNotification,
-    boardFocusNotification,
-    recentNotifications,
-    historyNotifications,
-    announcementText,
-    boardCue,
-    privateCache
-  };
+    return {
+      heroNotification,
+      boardFocusNotification,
+      recentNotifications,
+      historyNotifications,
+      announcementText,
+      boardCue,
+      privateCache
+    };
+  } finally {
+    activeNotificationTextHelpers = previousText;
+  }
 }
 
 function pickBoardFocusNotification(
@@ -1543,5 +1595,5 @@ function getPlayerById(match: MatchSnapshot, playerId?: string): MatchPlayer | n
 }
 
 function joinNames(names: string[]): string {
-  return formatNameList(names);
+  return activeNotificationTextHelpers.formatNameList(names);
 }

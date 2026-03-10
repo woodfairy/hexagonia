@@ -5,7 +5,6 @@ import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
 import {
   createText,
-  getLocaleName,
   normalizeLocale,
   resolveText,
   useI18n
@@ -148,35 +147,22 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <strong>{resolveText(locale, createText("Sprache", "Language"))}</strong>
             <span>{resolveText(locale, createText("Die Auswahl gilt in der gesamten App.", "This selection applies across the whole app."))}</span>
           </div>
-          <div className="profile-board-toggle-grid" role="group" aria-label={resolveText(locale, createText("Sprache", "Language"))}>
-            {availableLocales.map((entry) => (
-              <button
-                key={entry}
-                type="button"
-                className={`menu-action menu-toggle-action ${activeLocale === entry ? "is-active" : "is-muted"}`}
-                aria-pressed={activeLocale === entry}
-                onClick={() => {
-                  props.onLocaleChange(entry);
-                  playSoftMenuHaptic();
-                }}
-              >
-                <span className="menu-toggle-copy">
-                  <strong>{resolveText(locale, getLocaleName(entry))}</strong>
-                  <span>
-                    {resolveText(
-                      locale,
-                      createText("Locale-Code {code}", "Locale code {code}", { code: entry.toUpperCase() })
-                    )}
-                  </span>
-                </span>
-                <span className={`status-pill ${activeLocale === entry ? "" : "muted"}`}>
-                  {activeLocale === entry
-                    ? resolveText(locale, createText("Aktiv", "Active"))
-                    : resolveText(locale, createText("Wählen", "Select"))}
-                </span>
-              </button>
-            ))}
-          </div>
+          <label className="profile-locale-select-shell">
+            <select
+              value={activeLocale}
+              aria-label={resolveText(locale, createText("Sprache", "Language"))}
+              onChange={(event) => {
+                props.onLocaleChange(event.target.value as Locale);
+                playSoftMenuHaptic();
+              }}
+            >
+              {availableLocales.map((entry) => (
+                <option key={entry} value={entry}>
+                  {entry}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="profile-music-panel">

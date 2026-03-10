@@ -546,6 +546,12 @@ select::-ms-expand {
   position: relative;
 }
 
+.profile-locale-select-shell {
+  position: relative;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+}
+
 .profile-music-copy strong {
   font-size: 0.92rem;
 }
@@ -556,7 +562,8 @@ select::-ms-expand {
   font-size: 0.78rem;
 }
 
-.profile-music-select-shell::after {
+.profile-music-select-shell::after,
+.profile-locale-select-shell::after {
   content: "";
   position: absolute;
   inset-inline-end: 1rem;
@@ -574,6 +581,31 @@ select::-ms-expand {
   padding-inline-end: 2.5rem;
   line-height: 1.2;
   background-image: none;
+}
+
+.profile-locale-select-shell > select {
+  min-inline-size: 0;
+  inline-size: auto;
+  min-block-size: 2.5rem;
+  padding: 0.62rem 2.3rem 0.62rem 0.9rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.26);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: lowercase;
+  background-image: none;
+}
+
+.profile-locale-select-shell::after {
+  inset-inline-end: 0.92rem;
+  inset-block-start: 50%;
+  inset-block-end: auto;
+  transform: translateY(-62%) rotate(45deg);
 }
 
 .profile-music-toggle {
