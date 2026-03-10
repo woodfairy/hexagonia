@@ -252,7 +252,7 @@ select::-ms-expand {
   padding: 0.58rem 0.78rem;
 }
 
-.app-shell.is-match-screen > .app-header.is-compact {
+.app-shell.has-flush-header > .app-header {
   margin-block-start: calc(-1 * max(var(--pad-app-edge), env(safe-area-inset-top)));
   margin-inline-start: calc(-1 * max(var(--pad-app-edge), env(safe-area-inset-left)));
   margin-inline-end: calc(-1 * max(var(--pad-app-edge), env(safe-area-inset-right)));

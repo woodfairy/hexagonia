@@ -2239,6 +2239,9 @@ export function App() {
   };
 
   const guestInviteCode = !session && route.kind === "invite" ? route.code : null;
+  const isPlayHeaderFlush = activeScreen === "lobby";
+  const appShellClassName = `app-shell ${activeScreen === "match" ? "is-match-screen" : ""} ${activeScreen === "match" || isPlayHeaderFlush ? "has-flush-header" : ""}`.trim();
+  const bootShellClassName = `app-shell ${route.kind === "match" ? "is-match-screen" : ""} ${route.kind === "match" || route.kind === "play" ? "has-flush-header" : ""}`.trim();
 
   useEffect(() => {
     const guestClassName = "guest-landing-mode";
@@ -2254,7 +2257,7 @@ export function App() {
   if (isBootingDeepLink) {
     return (
       <>
-        <main className={`app-shell ${route.kind === "match" ? "is-match-screen" : ""}`.trim()}>
+        <main className={bootShellClassName}>
           <AppHeaderSkeleton
             compact={route.kind === "match"}
             eyebrow={
@@ -2333,7 +2336,7 @@ export function App() {
             : headerContext.meta;
 
   return (
-    <main className={`app-shell ${activeScreen === "match" ? "is-match-screen" : ""}`.trim()}>
+    <main className={appShellClassName}>
       <AppHeader
         boardVisualSettings={boardVisualSettings}
         compact={activeScreen === "match"}
