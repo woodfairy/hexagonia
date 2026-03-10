@@ -52,6 +52,10 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
     { value: "single", label: resolveText(locale, createText("Ein Song loopen", "Loop one song")) },
     { value: "cycle", label: resolveText(locale, createText("Alle Songs abwechselnd", "Cycle all songs")) }
   ];
+  const pieceStyleOptions: ReadonlyArray<{ value: BoardVisualSettings["pieceStyle"]; label: string }> = [
+    { value: "modern", label: resolveText(locale, createText("Modern", "Modern")) },
+    { value: "detailed", label: resolveText(locale, createText("Detailliert", "Detailed")) }
+  ];
   const musicTrackOptions = props.musicTracks.length
     ? props.musicTracks.map((track) => ({
         value: track.id,
@@ -141,7 +145,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <LocaleSelect
               value={activeLocale}
               ariaLabel={resolveText(locale, createText("Sprache", "Language"))}
-              variant="profile"
+              variant="landing"
               className="profile-popup-select-shell"
               onChange={(nextLocale) => {
                 props.onLocaleChange(nextLocale);
@@ -257,13 +261,14 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           </div>
           <label className="profile-music-select-shell">
             <span>{resolveText(locale, createText("Figurenstil", "Piece style"))}</span>
-            <select
+            <PopupSelect
               value={props.boardVisualSettings.pieceStyle}
-              onChange={(event) => setBoardPieceStyle(event.target.value as BoardVisualSettings["pieceStyle"])}
-            >
-              <option value="modern">{resolveText(locale, createText("Modern", "Modern"))}</option>
-              <option value="detailed">{resolveText(locale, createText("Detailliert", "Detailed"))}</option>
-            </select>
+              onChange={setBoardPieceStyle}
+              ariaLabel={resolveText(locale, createText("Figurenstil", "Piece style"))}
+              variant="landing"
+              className="profile-popup-select-shell"
+              options={pieceStyleOptions}
+            />
           </label>
           <div className="profile-board-toggle-grid" role="group" aria-label={resolveText(locale, createText("Feldstil", "Board style"))}>
             <button

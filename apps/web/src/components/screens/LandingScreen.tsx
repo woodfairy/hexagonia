@@ -163,6 +163,7 @@ export function LandingScreen(props: {
   const text = (de: string, en: string) => resolveText(locale, createText(de, en));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [optimisticTrackSwitchId, setOptimisticTrackSwitchId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -231,6 +232,25 @@ export function LandingScreen(props: {
     return () => observer.disconnect();
   }, [locale, prefersReducedMotion, props.authMode, props.inviteCode]);
 
+  useEffect(() => {
+    if (!optimisticTrackSwitchId) {
+      return;
+    }
+
+    if (props.selectedMusicTrackId === optimisticTrackSwitchId || !props.musicPaused) {
+      setOptimisticTrackSwitchId(null);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setOptimisticTrackSwitchId(null);
+    }, 1400);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [optimisticTrackSwitchId, props.musicPaused, props.selectedMusicTrackId]);
+
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
     const node = section?.querySelector(".landing-auth-panel") ?? section;
@@ -276,6 +296,7 @@ export function LandingScreen(props: {
   const hasMusicTracks = props.musicTracks.length > 0;
   const selectedTrack = props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
   const landingModeLabel = props.musicPlaybackMode === "cycle" ? text("Playlist", "Playlist") : text("Loop", "Loop");
+  const landingMusicPaused = optimisticTrackSwitchId ? false : props.musicPaused;
   const musicTrackOptions = props.musicTracks.length
     ? props.musicTracks.map((track) => ({
         value: track.id,
@@ -314,7 +335,15 @@ export function LandingScreen(props: {
                 <PopupSelect
                   value={selectedTrack?.id ?? ""}
                   options={musicTrackOptions}
-                  onChange={props.onSelectMusicTrack}
+                  onChange={(trackId) => {
+                    if (!props.musicPaused && trackId !== props.selectedMusicTrackId) {
+                      setOptimisticTrackSwitchId(trackId);
+                    } else {
+                      setOptimisticTrackSwitchId(null);
+                    }
+
+                    props.onSelectMusicTrack(trackId);
+                  }}
                   ariaLabel={text("Song wählen", "Choose track")}
                   variant="landing"
                   disabled={!hasMusicTracks}
@@ -322,12 +351,12 @@ export function LandingScreen(props: {
               </div>
               <button
                 type="button"
-                className={`landing-music-chip ${props.musicPaused ? "is-muted" : "is-active"}`}
-                aria-pressed={!props.musicPaused}
+                className={`landing-music-chip ${landingMusicPaused ? "is-muted" : "is-active"}`}
+                aria-pressed={!landingMusicPaused}
                 onClick={() => props.onToggleMusicPaused()}
                 disabled={!hasMusicTracks}
               >
-                {props.musicPaused
+                {landingMusicPaused
                   ? resolveText(locale, createCatalogText("landing.music.playButton", "Start", "Play"))
                   : text("Pause", "Pause")}
               </button>
