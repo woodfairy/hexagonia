@@ -58,27 +58,6 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
         label: track.name
       }))
     : [{ value: "", label: resolveText(locale, createText("Keine Songs gefunden", "No songs found")) }];
-  const musicSummary =
-    props.musicTracks.length === 0
-      ? resolveText(locale, createText("Keine Songs in assets/songs gefunden", "No songs found in assets/songs"))
-      : props.musicPlaybackMode === "cycle"
-        ? resolveText(
-            locale,
-            createText(
-              "Alle {count} Songs laufen nacheinander",
-              "All {count} songs play in sequence",
-              { count: props.musicTracks.length }
-            )
-          )
-        : resolveText(
-            locale,
-            createText(
-              "{track} in Dauerschleife",
-              "{track} on loop",
-              { track: selectedMusicTrack?.name ?? emptyTrackLabel }
-            )
-          );
-
   const playSoftMenuHaptic = () => void uiHapticsManager.play("soft");
 
   const toggleBoardVisualSetting = (setting: ToggleableBoardVisualSetting) => {
@@ -159,7 +138,6 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <strong>{resolveText(locale, createText("Sprache", "Language"))}</strong>
           </div>
           <label className="profile-music-select-shell">
-            <span>{resolveText(locale, createText("Sprache", "Language"))}</span>
             <LocaleSelect
               value={activeLocale}
               ariaLabel={resolveText(locale, createText("Sprache", "Language"))}
@@ -176,7 +154,6 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
         <div className="profile-music-panel">
           <div className="profile-music-copy">
             <strong>{resolveText(locale, createText("Musikplayer", "Music player"))}</strong>
-            <span>{musicSummary}</span>
           </div>
           <label className="profile-music-select-shell">
             <span>{resolveText(locale, createText("Modus", "Mode"))}</span>
@@ -184,7 +161,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               value={props.musicPlaybackMode}
               onChange={props.onMusicPlaybackModeChange}
               ariaLabel={resolveText(locale, createText("Musikmodus", "Music mode"))}
-              variant="profile"
+              variant="landing"
               className="profile-popup-select-shell"
               options={musicModeOptions}
               disabled={props.musicTracks.length === 0}
@@ -196,7 +173,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               value={props.selectedMusicTrackId ?? ""}
               onChange={props.onSelectMusicTrack}
               ariaLabel={resolveText(locale, createText("Song auswählen", "Choose song"))}
-              variant="profile"
+              variant="landing"
               className="profile-popup-select-shell"
               options={musicTrackOptions}
               disabled={props.musicTracks.length === 0}

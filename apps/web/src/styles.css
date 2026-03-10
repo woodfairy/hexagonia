@@ -560,7 +560,7 @@ select::-ms-expand {
   inline-size: 100%;
 }
 
-.profile-popup-select-shell.locale-select-shell-profile {
+.profile-popup-select-shell {
   inline-size: 100%;
   max-inline-size: 100%;
 }
