@@ -23,7 +23,6 @@ export interface StartingPlayerRollResult {
   winnerPlayerId: string;
   winnerSeatIndex: number;
   rounds: StartingPlayerRollRound[];
-  summary: string;
 }
 
 interface BaseMatchEvent<TType extends string, TPayload extends Record<string, unknown>> {
@@ -41,7 +40,6 @@ export type MatchEvent =
         winnerPlayerId: string;
         winnerSeatIndex: number;
         rounds: StartingPlayerRollRound[];
-        summary: string;
       }
     >
   | BaseMatchEvent<

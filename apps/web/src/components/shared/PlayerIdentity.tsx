@@ -1,5 +1,6 @@
 import type { PlayerColor } from "@hexagonia/shared";
 import type { ReactNode } from "react";
+import { createText, resolveText, useI18n } from "../../i18n";
 import { getPlayerAccentClass, renderPlayerColorLabel } from "../../ui";
 import { PlayerMention } from "./PlayerText";
 
@@ -10,6 +11,7 @@ export function PlayerIdentity(props: {
   compact?: boolean;
   meta?: ReactNode;
 }) {
+  const { locale } = useI18n();
   const accentClass = getPlayerAccentClass(props.color);
   const meta =
     props.meta !== undefined
@@ -17,10 +19,11 @@ export function PlayerIdentity(props: {
       : props.isSelf
         ? (
             <>
-              <PlayerMention color={props.color}>Du</PlayerMention> spielst {renderPlayerColorLabel(props.color)}
+              <PlayerMention color={props.color}>{resolveText(locale, createText("Du", "You"))}</PlayerMention>{" "}
+              {resolveText(locale, createText("spielst", "play"))} {renderPlayerColorLabel(locale, props.color)}
             </>
           )
-        : renderPlayerColorLabel(props.color);
+        : renderPlayerColorLabel(locale, props.color);
 
   return (
     <span className={`player-identity ${accentClass} ${props.compact ? "is-compact" : ""}`}>
@@ -38,8 +41,9 @@ export function PlayerColorBadge(props: {
   label?: ReactNode;
   compact?: boolean;
 }) {
+  const { locale } = useI18n();
   const accentClass = getPlayerAccentClass(props.color);
-  const label = props.label ?? renderPlayerColorLabel(props.color);
+  const label = props.label ?? renderPlayerColorLabel(locale, props.color);
 
   return (
     <span className={`player-badge ${accentClass} ${props.compact ? "is-compact" : ""}`}>

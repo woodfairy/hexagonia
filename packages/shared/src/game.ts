@@ -1,5 +1,7 @@
 import type { MatchEvent } from "./events.js";
+import type { ErrorDescriptor } from "./errors.js";
 import type { GameConfig, RoomGameConfig } from "./gameConfig.js";
+import type { Locale } from "./locale.js";
 
 export const RESOURCES = ["brick", "lumber", "ore", "grain", "wool"] as const;
 export const PLAYER_COLORS = ["red", "blue", "white", "orange", "green", "purple"] as const;
@@ -337,7 +339,8 @@ export type ServerMessage =
     }
   | {
       type: "match.error";
-      error: string;
+      errorCode: string;
+      errorParams?: ErrorDescriptor["errorParams"];
       actionType?: ActionIntent["type"];
     }
   | {
@@ -351,6 +354,7 @@ export interface AuthUser {
   id: string;
   username: string;
   role: UserRole;
+  locale: Locale;
 }
 
 export interface AdminUserRecord extends AuthUser {

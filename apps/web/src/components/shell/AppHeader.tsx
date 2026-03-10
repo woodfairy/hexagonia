@@ -1,7 +1,8 @@
-import type { AuthUser } from "@hexagonia/shared";
+import type { AuthUser, Locale } from "@hexagonia/shared";
 import type { ReactNode } from "react";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
+import { createText, resolveText, type LocalizedText, useI18n } from "../../i18n";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel } from "../../ui";
 import { ProfileMenu } from "./ProfileMenu";
@@ -11,7 +12,7 @@ export function AppHeader(props: {
   boardVisualSettings: BoardVisualSettings;
   session: AuthUser | null | undefined;
   connectionState: ConnectionState;
-  connectionStatusText: string;
+  connectionStatusText: LocalizedText;
   compact?: boolean;
   eyebrow: string;
   title: string;
@@ -34,8 +35,10 @@ export function AppHeader(props: {
   onToggleSoundMuted: () => void;
   onToggleHapticsMuted: () => void;
   onToggleMusicPaused: () => void;
+  onLocaleChange: (locale: Locale) => void;
   onLogout: () => void | Promise<void>;
 }) {
+  const { locale } = useI18n();
   const profileRoomProps = props.roomCode
     ? {
         roomCode: props.roomCode,
@@ -47,16 +50,21 @@ export function AppHeader(props: {
   return (
     <header className={`app-header ${props.compact ? "is-compact" : ""}`.trim()}>
       <div className="brand-cluster">
-        <button type="button" className="brand-mark" onClick={props.onNavigateHome} aria-label="Zur Startseite von Hexagonia">
+        <button
+          type="button"
+          className="brand-mark"
+          onClick={props.onNavigateHome}
+          aria-label={resolveText(locale, createText("Zur Startseite von Hexagonia", "Go to the Hexagonia home page"))}
+        >
           <img src={hexaLogo} alt="Hexagonia" className="brand-mark-image" />
         </button>
         <span className="brand-wordmark">HEXAGONIA</span>
       </div>
 
       <div className="header-utilities">
-        <div className={`connection-indicator is-${props.connectionState}`} title={props.connectionStatusText}>
+        <div className={`connection-indicator is-${props.connectionState}`} title={resolveText(locale, props.connectionStatusText)}>
           <span className="connection-dot" aria-hidden="true" />
-          <span>{renderConnectionLabel(props.session, props.connectionState)}</span>
+          <span>{renderConnectionLabel(locale, props.session, props.connectionState)}</span>
         </div>
         {props.session ? (
           <ProfileMenu
@@ -73,6 +81,7 @@ export function AppHeader(props: {
             onBoardVisualSettingsChange={props.onBoardVisualSettingsChange}
             onMusicPlaybackModeChange={props.onMusicPlaybackModeChange}
             onLogout={props.onLogout}
+            onLocaleChange={props.onLocaleChange}
             onNavigateHome={props.onNavigateHome}
             onSelectMusicTrack={props.onSelectMusicTrack}
             onToggleHapticsMuted={props.onToggleHapticsMuted}

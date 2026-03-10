@@ -11,11 +11,13 @@ import {
   roomToPlayers
 } from "@hexagonia/rules";
 import {
+  DEFAULT_LOCALE,
   BOARD_SIZES,
   RULES_PRESETS,
   TURN_RULES,
   mergeGameConfig,
   mergeRoomGameConfig,
+  sanitizeLocale,
   resolveRoomGameConfig,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
@@ -24,6 +26,7 @@ import {
   type AuthUser,
   type ClientMessage,
   type GameConfig,
+  type Locale,
   type RoomGameConfigPatch,
   type RoomDetails
 } from "@hexagonia/shared";
@@ -31,6 +34,7 @@ import type { RawData } from "ws";
 import { z } from "zod";
 import type { AppConfig } from "./config.js";
 import { Database } from "./db.js";
+import { AppError, getErrorDescriptor, getZodErrorDescriptor, sendError } from "./errorDescriptors.js";
 import { RealtimeHub } from "./realtime.js";
 import { RoomLifecycleService } from "./roomLifecycleService.js";
 
@@ -42,18 +46,36 @@ const usernameSchema = z
   .min(USERNAME_MIN_LENGTH)
   .max(USERNAME_MAX_LENGTH)
   .refine(isValidUsername, {
-    message: "Der Nutzername darf nur Buchstaben und Zahlen enthalten."
+    message: "validation.username_invalid_characters"
   });
+
+const localeSchema = z.string().transform((value, context) => {
+  const normalized = sanitizeLocale(value);
+  if (!normalized) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "validation.invalid_input"
+    });
+    return z.NEVER;
+  }
+
+  return normalized;
+});
 
 const registerSchema = z.object({
   username: usernameSchema,
   password: z.string().min(8).max(128),
-  recaptchaToken: z.string().min(1).max(4096).optional()
+  recaptchaToken: z.string().min(1).max(4096).optional(),
+  locale: localeSchema.optional()
 });
 
 const loginSchema = z.object({
   username: usernameSchema,
   password: z.string().min(8).max(128)
+});
+
+const authLocaleSchema = z.object({
+  locale: localeSchema
 });
 
 const joinRoomSchema = z.object({
@@ -87,7 +109,7 @@ const roomSettingsSchema = z
       body.startingPlayer !== undefined ||
       body.enabledExpansions !== undefined,
     {
-      message: "Mindestens eine Spieleinstellung muss gesetzt werden."
+      message: "validation.room_settings_required"
     }
   )
   .refine(
@@ -96,7 +118,7 @@ const roomSettingsSchema = z
       body.startingPlayer.mode !== undefined ||
       body.startingPlayer.seatIndex !== undefined,
     {
-      message: "Mindestens eine Startspieler-Einstellung muss gesetzt werden."
+      message: "validation.starting_player_settings_required"
     }
   );
 
@@ -119,7 +141,7 @@ const adminUpdateUserSchema = z
     role: userRoleSchema.optional()
   })
   .refine((body) => Object.keys(body).length > 0, {
-    message: "Mindestens ein Feld muss aktualisiert werden."
+    message: "validation.user_update_required"
   });
 
 export async function createApp(config: AppConfig): Promise<FastifyInstance> {
@@ -154,26 +176,23 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof z.ZodError) {
-      return reply.code(400).send({
-        error: formatZodError(error)
-      });
+      const descriptor = getZodErrorDescriptor(error);
+      return sendError(reply, 400, descriptor.errorCode, descriptor.errorParams);
     }
 
     const statusCode =
       typeof (error as { statusCode?: number }).statusCode === "number"
         ? (error as { statusCode: number }).statusCode
         : 500;
-
-    const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler.";
-    const safeMessage =
-      statusCode >= 500
-        ? "Interner Serverfehler. Bitte versuche es erneut."
-        : errorMessage;
+    const descriptor = getErrorDescriptor(error);
 
     request.log.error({ err: error }, "request failed");
-    return reply.code(statusCode).send({
-      error: safeMessage
-    });
+    return sendError(
+      reply,
+      statusCode,
+      descriptor?.errorCode ?? (statusCode >= 500 ? "generic.internal" : "generic.unknown"),
+      descriptor?.errorParams
+    );
   });
 
   app.get("/api/health", async () => ({ ok: true }));
@@ -194,14 +213,15 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
       const user = await db.createUser({
         username: body.username,
-        passwordHash
+        passwordHash,
+        locale: body.locale ?? DEFAULT_LOCALE
       });
 
       await createSession(reply, db, user.id);
       return { user };
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return reply.code(409).send({ error: "Der Nutzername ist bereits vergeben." });
+        return sendError(reply, 409, "auth.username_taken");
       }
       throw error;
     }
@@ -212,7 +232,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const record = await db.getUserWithPasswordByUsername(body.username);
 
     if (!record || !(await argon2.verify(record.passwordHash, body.password))) {
-      return reply.code(401).send({ error: "Ungültige Zugangsdaten." });
+      return sendError(reply, 401, "auth.invalid_credentials");
     }
 
     await createSession(reply, db, record.id);
@@ -220,7 +240,8 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       user: {
         id: record.id,
         username: record.username,
-        role: record.role
+        role: record.role,
+        locale: record.locale
       }
     };
   });
@@ -240,6 +261,23 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     return { user };
+  });
+
+  app.patch("/api/auth/me", async (request, reply) => {
+    const user = await requireUser(request, reply, db);
+    if (!user) {
+      return reply;
+    }
+
+    const body = authLocaleSchema.parse(request.body ?? {});
+    const updated = await db.updateUser(user.id, {
+      locale: body.locale
+    });
+    if (!updated) {
+      return sendError(reply, 404, "auth.user_not_found");
+    }
+
+    return { user: updated };
   });
 
   app.get("/api/admin/users", async (request, reply) => {
@@ -274,7 +312,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return { user };
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return reply.code(409).send({ error: "Der Nutzername ist bereits vergeben." });
+        return sendError(reply, 409, "auth.username_taken");
       }
       throw error;
     }
@@ -290,11 +328,11 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const userId = (request.params as { userId: string }).userId;
     const currentUser = await db.getUserById(userId);
     if (!currentUser) {
-      return reply.code(404).send({ error: "Nutzer nicht gefunden." });
+      return sendError(reply, 404, "admin.user_not_found");
     }
 
     if (currentUser.role === "admin" && body.role === "user" && (await db.countAdmins()) <= 1) {
-      return reply.code(409).send({ error: "Der letzte Admin kann nicht entzogen werden." });
+      return sendError(reply, 409, "admin.last_admin_role_required");
     }
 
     try {
@@ -311,13 +349,13 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       });
 
       if (!updated) {
-        return reply.code(404).send({ error: "Nutzer nicht gefunden." });
+        return sendError(reply, 404, "admin.user_not_found");
       }
 
       return { user: updated };
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return reply.code(409).send({ error: "Der Nutzername ist bereits vergeben." });
+        return sendError(reply, 409, "auth.username_taken");
       }
       throw error;
     }
@@ -332,24 +370,24 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const userId = (request.params as { userId: string }).userId;
     const targetUser = await db.getUserById(userId);
     if (!targetUser) {
-      return reply.code(404).send({ error: "Nutzer nicht gefunden." });
+      return sendError(reply, 404, "admin.user_not_found");
     }
 
     if (targetUser.id === admin.id) {
-      return reply.code(409).send({ error: "Den aktuell angemeldeten Admin kannst du nicht löschen." });
+      return sendError(reply, 409, "admin.cannot_delete_current_admin");
     }
 
     if (targetUser.role === "admin" && (await db.countAdmins()) <= 1) {
-      return reply.code(409).send({ error: "Der letzte Admin kann nicht gelöscht werden." });
+      return sendError(reply, 409, "admin.last_admin_delete_forbidden");
     }
 
     const affectedRooms = await db.listUserRooms(targetUser.id);
     for (const room of affectedRooms) {
       if (room.matchId) {
-        await lifecycle.resetMatchToRoom(
-          room.matchId,
-          `Partie durch Admin beendet, weil ${targetUser.username} entfernt wurde.`
-        );
+        await lifecycle.resetMatchToRoom(room.matchId, {
+          errorCode: "match.terminated.admin_removed_user",
+          errorParams: { username: targetUser.username }
+        });
       }
 
       const refreshedRoom = await db.getRoom(room.id);
@@ -387,7 +425,9 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     if (room.matchId) {
-      await lifecycle.resetMatchToRoom(room.matchId, "Partie wurde vom Admin gestoppt.");
+      await lifecycle.resetMatchToRoom(room.matchId, {
+        errorCode: "match.terminated.admin_stopped"
+      });
     }
 
     const refreshedRoom = (await db.getRoom(room.id)) ?? room;
@@ -423,12 +463,11 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     }
 
     const matchId = (request.params as { matchId: string }).matchId;
-    const room = await lifecycle.resetMatchToRoom(
-      matchId,
-      "Partie wurde vom Admin zur Reparatur entfernt."
-    );
+    const room = await lifecycle.resetMatchToRoom(matchId, {
+      errorCode: "match.terminated.admin_repair"
+    });
     if (!room) {
-      return reply.code(404).send({ error: "Partie nicht gefunden." });
+      return sendError(reply, 404, "match.not_found");
     }
 
     return { room };
@@ -463,7 +502,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     const room = await db.getRoom((request.params as { roomId: string }).roomId);
     if (!room) {
-      return reply.code(404).send({ error: "Raum nicht gefunden." });
+      return sendError(reply, 404, "room.not_found");
     }
     return { room };
   });
@@ -476,7 +515,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     const room = await db.getRoomByCode((request.params as { code: string }).code);
     if (!room) {
-      return reply.code(404).send({ error: "Raum nicht gefunden." });
+      return sendError(reply, 404, "room.not_found");
     }
     return { room };
   });
@@ -492,7 +531,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     if (room.status !== "open") {
-      return reply.code(409).send({ error: "Dieser Raum nimmt gerade keine neuen Spieler an." });
+      return sendError(reply, 409, "room.closed_to_new_players");
     }
 
     const body = joinRoomSchema.parse(request.body ?? {});
@@ -503,7 +542,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
 
     const seat = body.seatIndex !== undefined ? room.seats[body.seatIndex] : room.seats.find((entry) => !entry.userId);
     if (!seat || seat.userId) {
-      return reply.code(409).send({ error: "Kein freier Platz mehr vorhanden." });
+      return sendError(reply, 409, "room.no_free_seat");
     }
 
     seat.userId = user.id;
@@ -526,7 +565,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     if (room.status === "in_match") {
-      return reply.code(409).send({ error: "Laufende Partien werden über Reconnect fortgesetzt, nicht über Verlassen." });
+      return sendError(reply, 409, "room.leave_requires_reconnect");
     }
 
     const seat = room.seats.find((entry) => entry.userId === user.id);
@@ -549,20 +588,20 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     if (room.status !== "open") {
-      return reply.code(409).send({ error: "Spieler können nur in der Lobby entfernt werden." });
+      return sendError(reply, 409, "room.kick_only_in_lobby");
     }
     if (room.ownerUserId !== user.id) {
-      return reply.code(403).send({ error: "Nur der Host kann Spieler aus der Lobby entfernen." });
+      return sendError(reply, 403, "room.kick_only_host");
     }
 
     const body = kickRoomSchema.parse(request.body ?? {});
     if (body.userId === user.id) {
-      return reply.code(409).send({ error: "Du kannst dich nicht selbst entfernen." });
+      return sendError(reply, 409, "room.kick_self_forbidden");
     }
 
     const seat = room.seats.find((entry) => entry.userId === body.userId);
     if (!seat) {
-      return reply.code(404).send({ error: "Dieser Spieler sitzt nicht in diesem Raum." });
+      return sendError(reply, 404, "room.player_not_in_room");
     }
 
     const saved = await lifecycle.removeUserFromOpenRoom(room, body.userId);
@@ -580,12 +619,12 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     if (room.status !== "open") {
-      return reply.code(409).send({ error: "Bereits gestartete Räume können nicht mehr bereit gesetzt werden." });
+      return sendError(reply, 409, "room.ready_after_start_forbidden");
     }
 
     const seat = room.seats.find((entry) => entry.userId === user.id);
     if (!seat) {
-      return reply.code(403).send({ error: "Nur sitzende Spieler können bereit gesetzt werden." });
+      return sendError(reply, 403, "room.ready_requires_seat");
     }
 
     const body = readySchema.parse(request.body);
@@ -606,10 +645,10 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     if (room.ownerUserId !== user.id) {
-      return reply.code(403).send({ error: "Nur der Host kann die Spieleinstellungen ändern." });
+      return sendError(reply, 403, "room.settings_only_host");
     }
     if (room.status !== "open") {
-      return reply.code(409).send({ error: "Spieleinstellungen können nur in der Lobby geändert werden." });
+      return sendError(reply, 409, "room.settings_only_in_lobby");
     }
 
     const body = roomSettingsSchema.parse(request.body ?? {});
@@ -617,11 +656,11 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
     const effectiveNextGameConfig = resolveRoomGameConfig(nextGameConfig, room.seats);
     if (body.startingPlayer?.seatIndex !== undefined) {
       if (effectiveNextGameConfig.startingPlayer.mode !== "manual") {
-        return reply.code(409).send({ error: "Ein fester Startspieler kann nur im manuellen Modus gewählt werden." });
+        return sendError(reply, 409, "room.manual_start_player_only");
       }
       const seat = room.seats.find((entry) => entry.index === body.startingPlayer?.seatIndex);
       if (!seat?.userId) {
-        return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
+        return sendError(reply, 409, "room.start_player_not_in_room");
       }
     } else if (
       effectiveNextGameConfig.startingPlayer.mode === "manual" &&
@@ -629,7 +668,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
         (entry) => entry.index === effectiveNextGameConfig.startingPlayer.seatIndex && !!entry.userId
       )
     ) {
-      return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
+      return sendError(reply, 409, "room.start_player_not_in_room");
     }
     room.gameConfig = nextGameConfig;
     const saved = await db.saveRoom(room);
@@ -648,18 +687,18 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
       return reply;
     }
     if (room.ownerUserId !== user.id) {
-      return reply.code(403).send({ error: "Nur der Raumbesitzer kann das Spiel starten." });
+      return sendError(reply, 403, "room.start_only_owner");
     }
     if (room.status !== "open") {
-      return reply.code(409).send({ error: "Dieser Raum hat bereits ein aktives Spiel." });
+      return sendError(reply, 409, "room.match_already_active");
     }
 
     const seatedPlayers = room.seats.filter((seat) => seat.userId);
     if (seatedPlayers.length < 3 || seatedPlayers.length > 6) {
-      return reply.code(409).send({ error: "Für diese Partie werden 3 bis 6 Spieler benötigt." });
+      return sendError(reply, 409, "room.invalid_player_count");
     }
     if (seatedPlayers.some((seat) => !seat.ready)) {
-      return reply.code(409).send({ error: "Alle sitzenden Spieler müssen bereit sein." });
+      return sendError(reply, 409, "room.all_players_must_be_ready");
     }
 
     const effectiveRoomGameConfig = resolveRoomGameConfig(room.gameConfig, room.seats);
@@ -669,7 +708,7 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
         (seat) => seat.index === effectiveRoomGameConfig.startingPlayer.seatIndex
       );
       if (!configuredStartSeat?.userId) {
-        return reply.code(409).send({ error: "Der gewählte Startspieler sitzt nicht im Raum." });
+        return sendError(reply, 409, "room.start_player_not_in_room");
       }
     }
 
@@ -746,15 +785,17 @@ export async function createApp(config: AppConfig): Promise<FastifyInstance> {
             socket.send(
               JSON.stringify({
                 type: "match.error",
-                error: "Unbekannter Nachrichtentyp."
+                errorCode: "ws.unknown_message_type"
               })
             );
         }
       } catch (error) {
+        const descriptor = getErrorDescriptor(error);
         socket.send(
           JSON.stringify({
             type: "match.error",
-            error: error instanceof Error ? error.message : "Unbekannter Fehler"
+            errorCode: descriptor?.errorCode ?? "generic.unknown",
+            ...(descriptor?.errorParams ? { errorParams: descriptor.errorParams } : {})
           })
         );
       }
@@ -793,7 +834,7 @@ async function verifyRegistrationRecaptcha(input: {
       return;
     }
 
-    throw new Error("reCAPTCHA-Token fehlt.");
+    throw new AppError(400, "auth.recaptcha_token_missing");
   }
 
   const controller = new AbortController();
@@ -824,7 +865,7 @@ async function verifyRegistrationRecaptcha(input: {
         return;
       }
 
-      throw new Error("reCAPTCHA-Prüfung ist fehlgeschlagen.");
+      throw new AppError(400, "auth.recaptcha_verification_failed");
     }
 
     const verification = (await response.json()) as RecaptchaVerificationResponse;
@@ -837,7 +878,7 @@ async function verifyRegistrationRecaptcha(input: {
         return;
       }
 
-      throw new Error("reCAPTCHA-Prüfung ist fehlgeschlagen.");
+      throw new AppError(400, "auth.recaptcha_verification_failed");
     }
   } catch (error) {
     if (failOpen) {
@@ -876,7 +917,7 @@ async function requireUser(
 ): Promise<AuthUser | null> {
   const user = await getUserFromRequest(request, db);
   if (!user) {
-    reply.code(401).send({ error: "Nicht angemeldet." });
+    sendError(reply, 401, "auth.not_authenticated");
     return null;
   }
   return user;
@@ -893,7 +934,7 @@ async function requireAdmin(
   }
 
   if (user.role !== "admin") {
-    reply.code(403).send({ error: "Adminrechte erforderlich." });
+    sendError(reply, 403, "auth.admin_required");
     return null;
   }
 
@@ -920,7 +961,7 @@ async function requireRoom(
 ): Promise<RoomDetails | null> {
   const room = await db.getRoom(roomId);
   if (!room) {
-    reply.code(404).send({ error: "Raum nicht gefunden." });
+    sendError(reply, 404, "room.not_found");
     return null;
   }
   return room;
@@ -966,7 +1007,9 @@ async function resetLegacyMatches(
 
     await lifecycle.resetMatchToRoom(
       room.matchId,
-      "Partie wurde nach dem Regel-Update beendet. Bitte startet eine neue Runde."
+      {
+        errorCode: "match.terminated.schema_mismatch"
+      }
     );
     resetMatches += 1;
   }
@@ -989,7 +1032,7 @@ function resolveManualStartingSeatIndex(room: RoomDetails, gameConfig: GameConfi
     (entry) => entry.index === gameConfig.startingPlayer.seatIndex
   );
   if (!seat?.userId) {
-    throw new Error("Der gewählte Startspieler sitzt nicht im Raum.");
+    throw new AppError(409, "room.start_player_not_in_room");
   }
 
   return seat.index;
@@ -1017,44 +1060,4 @@ function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>): RoomGameCo
       ? { enabledExpansions: body.enabledExpansions }
       : {})
   };
-}
-
-
-function formatZodError(error: z.ZodError): string {
-  const firstIssue = error.issues[0];
-  if (!firstIssue) {
-    return "Ungültige Eingabe.";
-  }
-
-  const field = String(firstIssue.path[0] ?? "");
-
-  if (field === "username" && firstIssue.code === "too_small" && typeof firstIssue.minimum === "number") {
-    return `Der Nutzername muss mindestens ${firstIssue.minimum} Zeichen haben.`;
-  }
-
-  if (field === "username" && firstIssue.code === "too_big" && typeof firstIssue.maximum === "number") {
-    return `Der Nutzername darf höchstens ${firstIssue.maximum} Zeichen haben.`;
-  }
-
-  if (field === "username") {
-    return "Der Nutzername darf nur Buchstaben und Zahlen enthalten.";
-  }
-
-  if (field === "password" && firstIssue.code === "too_small" && typeof firstIssue.minimum === "number") {
-    return `Das Passwort muss mindestens ${firstIssue.minimum} Zeichen haben.`;
-  }
-
-  if (field === "password" && firstIssue.code === "too_big" && typeof firstIssue.maximum === "number") {
-    return `Das Passwort darf höchstens ${firstIssue.maximum} Zeichen haben.`;
-  }
-
-  if (field === "seatIndex") {
-    return "Der gewählte Sitzplatz ist ungültig.";
-  }
-
-  if (field === "ready") {
-    return "Der Bereit-Status ist ungültig.";
-  }
-
-  return firstIssue.message || "Ungültige Eingabe.";
 }

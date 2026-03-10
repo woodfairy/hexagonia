@@ -10,6 +10,7 @@ import type { ToastMessage } from "./components/shell/ToastStack";
 import type {
   AdminUserDraftState
 } from "./components/screens/AdminScreen";
+import { createText, resolveText, useI18n } from "./i18n";
 import { renderResourceLabel, renderResourceMap } from "./ui";
 
 type MatchAction = Extract<ClientMessage, { type: "match.action" }>["action"];
@@ -94,10 +95,11 @@ export function getActionableTradeCount(match: MatchSnapshot): number {
 }
 
 export function StatusSurface(props: { title: string; text: string }) {
+  const { locale } = useI18n();
   return (
     <section className="screen-shell status-shell">
       <article className="surface status-surface">
-        <div className="eyebrow">Synchronisation</div>
+        <div className="eyebrow">{resolveText(locale, createText("Synchronisation", "Synchronization"))}</div>
         <h1>{props.title}</h1>
         <p className="hero-copy">{props.text}</p>
       </article>
@@ -391,7 +393,7 @@ export function getMatchActionConfirmation(
   switch (action.type) {
     case "place_initial_settlement":
       return {
-        title: "Start-Siedlung setzen?",
+        title: text("Start-Siedlung setzen?", "Place initial settlement?"),
         detail: "Die ausgewählte Position wird als deine Start-Siedlung gesetzt.",
         confirmLabel: "Siedlung setzen"
       };

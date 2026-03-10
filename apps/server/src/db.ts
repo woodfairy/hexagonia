@@ -5,6 +5,7 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
+  Locale,
   MatchEvent,
   RoomDetails,
   RoomGameConfig,
@@ -12,9 +13,11 @@ import type {
   UserRole
 } from "@hexagonia/shared";
 import {
+  DEFAULT_LOCALE,
   PLAYER_COLORS,
   createRoomGameConfig,
   isOfficialRoomGameConfig,
+  normalizeLocale as normalizeSharedLocale,
   resolveRoomGameConfigFromLegacy,
   sanitizeRoomGameConfig
 } from "@hexagonia/shared";
@@ -36,6 +39,7 @@ create table if not exists users (
   email text unique not null,
   username text unique not null,
   role text not null default 'user',
+  locale text not null default 'de',
   password_hash text not null,
   created_at timestamptz not null default now()
 );
@@ -89,6 +93,7 @@ create table if not exists match_events (
 
 const MIGRATION_SQL = `
 alter table users add column if not exists role text not null default 'user';
+alter table users add column if not exists locale text not null default 'de';
 alter table rooms add column if not exists game_config jsonb;
 alter table rooms add column if not exists setup_mode text not null default 'official_variable';
 alter table rooms add column if not exists starting_player_mode text not null default 'rolled';
@@ -140,25 +145,26 @@ export class Database {
     username: string;
     passwordHash: string;
     role?: UserRole;
+    locale?: Locale;
   }): Promise<AuthUser> {
     const id = randomUUID();
     const email = (input.email ?? `${id}@users.hexagonia.local`).toLowerCase();
     const result = await this.pool.query(
       `
-      insert into users (id, email, username, role, password_hash)
-      values ($1, $2, $3, $4, $5)
-      returning id, username, role
+      insert into users (id, email, username, role, locale, password_hash)
+      values ($1, $2, $3, $4, $5, $6)
+      returning id, username, role, locale
       `,
-      [id, email, input.username, input.role ?? "user", input.passwordHash]
+      [id, email, input.username, input.role ?? "user", input.locale ?? DEFAULT_LOCALE, input.passwordHash]
     );
 
-    return result.rows[0] as AuthUser;
+    return normalizeAuthUser(result.rows[0] as AuthUserRow);
   }
 
   async getUserWithPasswordByEmail(email: string): Promise<StoredUser | null> {
     const result = await this.pool.query(
       `
-      select id, email, username, role, password_hash as "passwordHash"
+      select id, email, username, role, locale, password_hash as "passwordHash"
       from users
       where email = $1
       limit 1
@@ -172,7 +178,7 @@ export class Database {
   async getUserWithPasswordByUsername(username: string): Promise<StoredUser | null> {
     const result = await this.pool.query(
       `
-      select id, email, username, role, password_hash as "passwordHash"
+      select id, email, username, role, locale, password_hash as "passwordHash"
       from users
       where username = $1
       limit 1
@@ -186,7 +192,7 @@ export class Database {
   async getUserById(id: string): Promise<AuthUser | null> {
     const result = await this.pool.query(
       `
-      select id, username, role
+      select id, username, role, locale
       from users
       where id = $1
       limit 1
@@ -194,13 +200,13 @@ export class Database {
       [id]
     );
 
-    return (result.rows[0] as AuthUser | undefined) ?? null;
+    return result.rows[0] ? normalizeAuthUser(result.rows[0] as AuthUserRow) : null;
   }
 
   async listUsers(): Promise<AdminUserRecord[]> {
     const result = await this.pool.query(
       `
-      select id, username, role, created_at as "createdAt"
+      select id, username, role, locale, created_at as "createdAt"
       from users
       order by
         case role when 'admin' then 0 else 1 end,
@@ -229,6 +235,7 @@ export class Database {
       email?: string;
       username?: string;
       role?: UserRole;
+      locale?: Locale;
       passwordHash?: string;
     }
   ): Promise<AuthUser | null> {
@@ -243,20 +250,22 @@ export class Database {
       set email = $2,
           username = $3,
           role = $4,
-          password_hash = $5
+          locale = $5,
+          password_hash = $6
       where id = $1
-      returning id, username, role
+      returning id, username, role, locale
       `,
       [
         userId,
         patch.email?.toLowerCase() ?? current.email,
         patch.username ?? current.username,
         patch.role ?? current.role,
+        patch.locale ?? current.locale,
         patch.passwordHash ?? current.passwordHash
       ]
     );
 
-    return (result.rows[0] as AuthUser | undefined) ?? null;
+    return result.rows[0] ? normalizeAuthUser(result.rows[0] as AuthUserRow) : null;
   }
 
   async createManagedUser(input: {
@@ -276,7 +285,7 @@ export class Database {
   async getAdminUserById(userId: string): Promise<AdminUserRecord | null> {
     const result = await this.pool.query(
       `
-      select id, username, role, created_at as "createdAt"
+      select id, username, role, locale, created_at as "createdAt"
       from users
       where id = $1
       limit 1
@@ -303,6 +312,7 @@ export class Database {
       const updated = await this.updateUser(existing.id, {
         username: input.username,
         role: "admin",
+        locale: DEFAULT_LOCALE,
         passwordHash: input.passwordHash,
         ...(input.email ? { email: input.email } : {})
       });
@@ -348,7 +358,8 @@ export class Database {
         u.id as "userIdResolved",
         u.email as "userEmail",
         u.username as "userUsername",
-        u.role as "userRole"
+        u.role as "userRole",
+        u.locale as "userLocale"
       from sessions s
       join users u on u.id = s.user_id
       where s.id = $1 and s.expires_at > now()
@@ -366,6 +377,7 @@ export class Database {
           userEmail: string;
           userUsername: string;
           userRole: UserRole;
+          userLocale: Locale | string;
         }
       | undefined;
 
@@ -382,7 +394,8 @@ export class Database {
       user: {
         id: row.userIdResolved,
         username: row.userUsername,
-        role: row.userRole
+        role: row.userRole,
+        locale: normalizeLocale(row.userLocale)
       }
     };
   }
@@ -647,7 +660,7 @@ export class Database {
   private async getUserWithPasswordById(userId: string): Promise<StoredUser | null> {
     const result = await this.pool.query(
       `
-      select id, email, username, role, password_hash as "passwordHash"
+      select id, email, username, role, locale, password_hash as "passwordHash"
       from users
       where id = $1
       limit 1
@@ -715,7 +728,15 @@ interface AdminUserRecordRow {
   id: string;
   username: string;
   role: UserRole;
+  locale: Locale | string;
   createdAt: Date | string;
+}
+
+interface AuthUserRow {
+  id: string;
+  username: string;
+  role: UserRole;
+  locale: Locale | string;
 }
 
 interface AdminMatchSummaryRow {
@@ -733,8 +754,22 @@ function normalizeUser(row: AdminUserRecordRow): AdminUserRecord {
     id: row.id,
     username: row.username,
     role: row.role,
+    locale: normalizeLocale(row.locale),
     createdAt: new Date(row.createdAt).toISOString()
   };
+}
+
+function normalizeAuthUser(row: AuthUserRow): AuthUser {
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    locale: normalizeLocale(row.locale)
+  };
+}
+
+function normalizeLocale(value: Locale | string | null | undefined): Locale {
+  return normalizeSharedLocale(value, DEFAULT_LOCALE);
 }
 
 function normalizeAdminMatch(row: AdminMatchSummaryRow): AdminMatchSummary {

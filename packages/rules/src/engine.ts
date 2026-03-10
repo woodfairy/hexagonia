@@ -3,6 +3,7 @@ import type {
   AllowedMoves,
   DevelopmentCardType,
   EdgeView,
+  ErrorParams,
   GameConfig,
   MatchEvent,
   MatchEventInput,
@@ -207,7 +208,15 @@ const DEVELOPMENT_DECK_COUNTS_BY_BOARD_SIZE: Record<
   }
 };
 
-export class GameRuleError extends Error {}
+export class GameRuleError extends Error {
+  constructor(
+    public readonly errorCode: string,
+    public readonly errorParams?: ErrorParams
+  ) {
+    super(errorCode);
+    this.name = "GameRuleError";
+  }
+}
 
 const ACTION_HANDLERS: ActionHandlerSet<GameState> = {
   handleInitialSettlement,
@@ -326,8 +335,7 @@ export function createMatchState(input: {
       payload: {
         winnerPlayerId: input.startingPlayerRoll.winnerPlayerId,
         winnerSeatIndex: input.startingPlayerRoll.winnerSeatIndex,
-        rounds: input.startingPlayerRoll.rounds,
-        summary: input.startingPlayerRoll.summary
+        rounds: input.startingPlayerRoll.rounds
       }
     });
   }
@@ -389,12 +397,12 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
 
 export function applyAction(state: GameState, playerId: string, action: ActionIntent): GameState {
   if (state.phase === "game_over") {
-    throw new GameRuleError("Das Spiel ist bereits beendet.");
+    throw new GameRuleError("game.already_over");
   }
 
   const next = cloneState(state);
   if (next.pendingDevelopmentEffect && !isPendingDevelopmentAction(action)) {
-    throw new GameRuleError("Der laufende Entwicklungskarten-Effekt muss zuerst abgeschlossen werden.");
+    throw new GameRuleError("game.pending_development_effect");
   }
 
   if (
@@ -405,7 +413,7 @@ export function applyAction(state: GameState, playerId: string, action: ActionIn
     !applyTradeAction(ACTION_HANDLERS, next, playerId, action) &&
     !applyTurnAction(ACTION_HANDLERS, next, playerId, action)
   ) {
-    throw new GameRuleError(`Unbekannte Aktion: ${action.type}`);
+    throw new GameRuleError("game.unknown_action", { actionType: action.type });
   }
 
   updateAwards(next);
@@ -495,14 +503,13 @@ export function rollStartingPlayer(
 
   const winner = contenders[0] ?? orderedPlayers[0];
   if (!winner) {
-    throw new GameRuleError("Es konnte kein Startspieler ausgewürfelt werden.");
+    throw new GameRuleError("game.starting_player_unresolved");
   }
 
   return {
     winnerPlayerId: winner.id,
     winnerSeatIndex: winner.seatIndex,
-    rounds,
-    summary: summarizeStartingPlayerRoll(rounds)
+    rounds
   };
 }
 
@@ -510,11 +517,11 @@ function handleInitialSettlement(state: GameState, playerId: string, vertexId: s
   ensurePhase(state.phase === "setup_forward" || state.phase === "setup_reverse");
   ensureCurrentPlayer(state, playerId);
   if (!state.setupState || state.setupState.stage !== "settlement") {
-    throw new GameRuleError("Aktuell wird keine Start-Siedlung erwartet.");
+    throw new GameRuleError("game.initial_settlement_not_expected");
   }
 
   if (!getInitialSettlementVertices(state).includes(vertexId)) {
-    throw new GameRuleError("Diese Startposition ist nicht erlaubt.");
+    throw new GameRuleError("game.initial_settlement_not_allowed");
   }
 
   placeBuilding(state, playerId, vertexId, "settlement");
@@ -536,12 +543,12 @@ function handleInitialRoad(state: GameState, playerId: string, edgeId: string): 
   ensurePhase(state.phase === "setup_forward" || state.phase === "setup_reverse");
   ensureCurrentPlayer(state, playerId);
   if (!state.setupState || state.setupState.stage !== "road" || !state.setupState.pendingSettlementVertexId) {
-    throw new GameRuleError("Aktuell wird keine Start-Straße erwartet.");
+    throw new GameRuleError("game.initial_road_not_expected");
   }
 
   const legalEdges = getInitialRoadEdges(state, state.setupState.pendingSettlementVertexId);
   if (!legalEdges.includes(edgeId)) {
-    throw new GameRuleError("Diese Startstraße ist nicht erlaubt.");
+    throw new GameRuleError("game.initial_road_not_allowed");
   }
 
   placeRoad(state, playerId, edgeId);
@@ -588,17 +595,17 @@ function handleDiscardResources(state: GameState, playerId: string, resources: R
   ensurePhase(state.phase === "robber_interrupt");
   const robberState = state.robberState;
   if (!robberState) {
-    throw new GameRuleError("Kein Räuberstatus aktiv.");
+    throw new GameRuleError("game.robber_state_missing");
   }
 
   const required = robberState.pendingDiscardByPlayerId[playerId] ?? 0;
   if (!required) {
-    throw new GameRuleError("Für diesen Spieler ist kein Abwurf offen.");
+    throw new GameRuleError("game.discard_not_pending");
   }
 
   const player = getPlayer(state, playerId);
   if (!hasResources(player.resources, resources) || totalResources(resources) !== required) {
-    throw new GameRuleError("Der gewählte Abwurf ist ungültig.");
+    throw new GameRuleError("game.discard_invalid");
   }
 
   player.resources = subtractResources(player.resources, resources);
@@ -690,12 +697,12 @@ function handleBuildCity(state: GameState, playerId: string, vertexId: string): 
   ensureCurrentPlayer(state, playerId);
   const player = getPlayer(state, playerId);
   if (player.cities.length >= 4) {
-    throw new GameRuleError("Es sind keine Städte mehr verfügbar.");
+    throw new GameRuleError("game.cities_unavailable");
   }
 
   const vertex = getVertex(state, vertexId);
   if (vertex.building?.ownerId !== playerId || vertex.building.type !== "settlement") {
-    throw new GameRuleError("Hier steht keine eigene Siedlung.");
+    throw new GameRuleError("game.no_own_settlement");
   }
 
   payCost(state, playerId, BUILD_COSTS.city);
@@ -718,7 +725,7 @@ function handleBuyDevelopmentCard(state: GameState, playerId: string): void {
   ensurePhase(isBuildActionPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   if (!state.developmentDeck.length) {
-    throw new GameRuleError("Der Entwicklungskartenstapel ist leer.");
+    throw new GameRuleError("game.development_deck_empty");
   }
 
   payCost(state, playerId, BUILD_COSTS.development);
@@ -758,7 +765,7 @@ function handlePlayRoadBuilding(state: GameState, playerId: string): void {
   ensurePhase(isDevelopmentCardPhase(state.phase));
   ensureCurrentPlayer(state, playerId);
   if (!getLegalRoadEdges(state, playerId).length) {
-    throw new GameRuleError("Aktuell kann keine kostenlose Straße gesetzt werden.");
+    throw new GameRuleError("game.free_road_not_available");
   }
 
   playDevelopmentCard(state, playerId, "road_building");
@@ -786,7 +793,7 @@ function handlePlaceFreeRoad(state: GameState, playerId: string, edgeId: string)
   ensureCurrentPlayer(state, playerId);
   const effect = getPendingRoadBuildingEffect(state);
   if (!getLegalRoadEdges(state, playerId).includes(edgeId)) {
-    throw new GameRuleError("Diese kostenlose Straße ist aktuell nicht erlaubt.");
+    throw new GameRuleError("game.free_road_not_allowed");
   }
 
   placeRoad(state, playerId, edgeId);
@@ -812,7 +819,7 @@ function handleFinishRoadBuilding(state: GameState, playerId: string): void {
   ensureCurrentPlayer(state, playerId);
   const effect = getPendingRoadBuildingEffect(state);
   if (effect.remainingRoads === 2) {
-    throw new GameRuleError("Bevor Straßenbau beendet wird, muss mindestens eine Straße gesetzt werden.");
+    throw new GameRuleError("game.road_building_requires_one_road");
   }
 
   state.pendingDevelopmentEffect = null;
@@ -833,7 +840,7 @@ function handlePlayYearOfPlenty(
   take[resources[0]] += 1;
   take[resources[1]] += 1;
   if (!hasResources(state.bank, take)) {
-    throw new GameRuleError("Die Bank kann diese Rohstoffe nicht ausgeben.");
+    throw new GameRuleError("game.bank_cannot_pay");
   }
 
   state.bank = subtractResources(state.bank, take);
@@ -877,15 +884,15 @@ function handleMoveRobber(
   ensurePhase(state.phase === "robber_interrupt");
   ensureCurrentPlayer(state, playerId);
   if (!state.robberState) {
-    throw new GameRuleError("Kein aktiver Räuberstatus.");
+    throw new GameRuleError("game.robber_state_inactive");
   }
   if (hasPendingDiscard(state)) {
-    throw new GameRuleError("Zuerst müssen alle geforderten Karten abgeworfen werden.");
+    throw new GameRuleError("game.robber_discard_first");
   }
 
   const currentRobberTile = state.board.tiles.find((tile) => tile.robber)!;
   if (currentRobberTile.id === tileId) {
-    throw new GameRuleError("Der Räuber muss auf ein anderes Feld bewegt werden.");
+    throw new GameRuleError("game.robber_must_move");
   }
 
   currentRobberTile.robber = false;
@@ -894,12 +901,12 @@ function handleMoveRobber(
   const victims = getRobberStealTargets(state, playerId, tileId);
   if (victims.length > 0) {
     if (victims.length > 1 && !targetPlayerId) {
-      throw new GameRuleError("Wähle den Spieler aus, von dem gestohlen werden soll.");
+      throw new GameRuleError("game.robber_target_required");
     }
 
     const victimId = targetPlayerId ?? victims[0]!;
     if (!victims.includes(victimId)) {
-      throw new GameRuleError("Von diesem Spieler kann hier nicht gestohlen werden.");
+      throw new GameRuleError("game.robber_target_invalid");
     }
     stealRandomResource(state, playerId, victimId);
   }
@@ -924,26 +931,26 @@ function handleCreateTradeOffer(
 ): void {
   ensurePhase(state.phase === "turn_action");
   if (isEmptyResourceMap(give) && isEmptyResourceMap(want)) {
-    throw new GameRuleError("Ein Handel darf nicht komplett leer sein.");
+    throw new GameRuleError("trade.empty");
   }
 
   const player = getPlayer(state, playerId);
   const currentPlayerId = getCurrentPlayer(state).id;
   if (!hasResources(player.resources, give)) {
-    throw new GameRuleError("Diese Rohstoffe sind nicht verfügbar.");
+    throw new GameRuleError("trade.resources_unavailable");
   }
   if (toPlayerId === playerId) {
-    throw new GameRuleError("Ein Handel mit dir selbst ist nicht erlaubt.");
+    throw new GameRuleError("trade.self_forbidden");
   }
   if (toPlayerId && !state.players.some((entry) => entry.id === toPlayerId)) {
-    throw new GameRuleError("Ungültiger Handelspartner.");
+    throw new GameRuleError("trade.partner_invalid");
   }
   if (playerId === currentPlayerId) {
     if (toPlayerId === currentPlayerId) {
-      throw new GameRuleError("Der aktive Spieler kann sich nicht selbst adressieren.");
+      throw new GameRuleError("trade.active_player_self_target_forbidden");
     }
   } else if (toPlayerId !== currentPlayerId) {
-    throw new GameRuleError("Gegenangebote müssen an den aktiven Spieler gehen.");
+    throw new GameRuleError("trade.counter_must_target_active_player");
   }
 
   const trade: InternalTradeOffer = {
@@ -968,16 +975,16 @@ function handleAcceptTradeOffer(state: GameState, playerId: string, tradeId: str
   ensurePhase(state.phase === "turn_action");
   const trade = getTradeOffer(state, tradeId);
   if (!trade) {
-    throw new GameRuleError("Dieser Handel ist nicht mehr aktiv.");
+    throw new GameRuleError("trade.inactive");
   }
   if (!canPlayerAcceptTradeOffer(state, playerId, trade)) {
-    throw new GameRuleError("Dieser Handel kann von dir nicht angenommen werden.");
+    throw new GameRuleError("trade.cannot_accept");
   }
 
   const proposer = getPlayer(state, trade.fromPlayerId);
   const responder = getPlayer(state, playerId);
   if (!hasResources(proposer.resources, trade.give) || !hasResources(responder.resources, trade.want)) {
-    throw new GameRuleError("Einer der Spieler hat nicht mehr genügend Rohstoffe.");
+    throw new GameRuleError("trade.insufficient_resources");
   }
 
   proposer.resources = subtractResources(proposer.resources, trade.give);
@@ -998,10 +1005,10 @@ function handleDeclineTradeOffer(state: GameState, playerId: string, tradeId: st
   ensurePhase(state.phase === "turn_action");
   const trade = getTradeOffer(state, tradeId);
   if (!trade) {
-    throw new GameRuleError("Dieser Handel ist nicht aktiv.");
+    throw new GameRuleError("trade.inactive");
   }
   if (!canPlayerDeclineTradeOffer(state, playerId, trade)) {
-    throw new GameRuleError("Dieses Angebot kann von dir nicht abgelehnt werden.");
+    throw new GameRuleError("trade.cannot_decline");
   }
 
   if (trade.toPlayerId) {
@@ -1024,10 +1031,10 @@ function handleWithdrawTradeOffer(state: GameState, playerId: string, tradeId: s
   ensurePhase(state.phase === "turn_action");
   const trade = getTradeOffer(state, tradeId);
   if (!trade) {
-    throw new GameRuleError("Dieser Handel ist nicht aktiv.");
+    throw new GameRuleError("trade.inactive");
   }
   if (!canPlayerWithdrawTradeOffer(playerId, trade)) {
-    throw new GameRuleError("Nur der anbietende Spieler kann das Angebot zurückziehen.");
+    throw new GameRuleError("trade.only_offer_owner_can_withdraw");
   }
 
   state.tradeOffers = state.tradeOffers.filter((offer) => offer.id !== tradeId);
@@ -1051,25 +1058,25 @@ function handleMaritimeTrade(
 
   const ratio = getMaritimeRate(state, playerId, give);
   if (giveCount < ratio || giveCount % ratio !== 0) {
-    throw new GameRuleError("Der gewählte Hafenkurs ist ungültig.");
+    throw new GameRuleError("trade.harbor_rate_invalid");
   }
 
   const payment = createEmptyResourceMap();
   payment[give] = giveCount;
   const reward = cloneResourceMap(receive);
   if (isEmptyResourceMap(reward)) {
-    throw new GameRuleError("Es muss mindestens ein Zielrohstoff gewählt werden.");
+    throw new GameRuleError("trade.receive_required");
   }
   if ((reward[give] ?? 0) > 0) {
-    throw new GameRuleError("Es müssen unterschiedliche Rohstoffe gehandelt werden.");
+    throw new GameRuleError("trade.resources_must_differ");
   }
   if (totalResources(reward) !== giveCount / ratio) {
-    throw new GameRuleError("Die gewählte Hafenverteilung ist ungültig.");
+    throw new GameRuleError("trade.harbor_distribution_invalid");
   }
   const player = getPlayer(state, playerId);
 
   if (!hasResources(player.resources, payment) || !hasResources(state.bank, reward)) {
-    throw new GameRuleError("Der Hafenhandel ist mit diesen Beständen nicht möglich.");
+    throw new GameRuleError("trade.maritime_not_possible");
   }
 
   player.resources = subtractResources(player.resources, payment);
@@ -1215,7 +1222,7 @@ function resetTurnFlags(state: GameState): void {
 function placeRoad(state: GameState, playerId: string, edgeId: string): void {
   const player = getPlayer(state, playerId);
   if (player.roads.length >= 15) {
-    throw new GameRuleError("Es sind keine Straßen mehr verfügbar.");
+    throw new GameRuleError("game.roads_unavailable");
   }
 
   const edge = getEdge(state, edgeId);
@@ -1232,11 +1239,11 @@ function placeBuilding(
 ): void {
   const player = getPlayer(state, playerId);
   if (type === "settlement" && player.settlements.length >= 5) {
-    throw new GameRuleError("Es sind keine Siedlungen mehr verfügbar.");
+    throw new GameRuleError("game.settlements_unavailable");
   }
 
   if (type === "settlement" && !isSettlementVertexOpen(state, vertexId)) {
-    throw new GameRuleError("Diese Kreuzung ist nicht frei.");
+    throw new GameRuleError("game.intersection_occupied");
   }
 
   const vertex = getVertex(state, vertexId);
@@ -1843,7 +1850,7 @@ function getPairedPlayerIndex(state: GameState): number {
 function ensureRoadPlacement(state: GameState, playerId: string, edgeId: string): void {
   const edge = getEdge(state, edgeId);
   if (edge.ownerId) {
-    throw new GameRuleError("Die Straße ist bereits belegt.");
+    throw new GameRuleError("game.road_occupied");
   }
 
   const connected = edge.vertexIds.some((vertexId) => {
@@ -1858,18 +1865,18 @@ function ensureRoadPlacement(state: GameState, playerId: string, edgeId: string)
   });
 
   if (!connected) {
-    throw new GameRuleError("Straßen müssen an das eigene Netz anschließen.");
+    throw new GameRuleError("game.road_must_connect");
   }
 }
 
 function ensureSettlementPlacement(state: GameState, playerId: string, vertexId: string): void {
   if (!isSettlementVertexOpen(state, vertexId)) {
-    throw new GameRuleError("Diese Kreuzung ist nicht frei.");
+    throw new GameRuleError("game.intersection_occupied");
   }
 
   const vertex = getVertex(state, vertexId);
   if (!vertex.edgeIds.some((edgeId) => getEdge(state, edgeId).ownerId === playerId)) {
-    throw new GameRuleError("Neue Siedlungen müssen an eine eigene Straße grenzen.");
+    throw new GameRuleError("game.settlement_requires_road");
   }
 }
 
@@ -1893,14 +1900,14 @@ function playDevelopmentCard(
 ): void {
   const player = getPlayer(state, playerId);
   if (player.hasPlayedDevelopmentCardThisTurn) {
-    throw new GameRuleError("Es darf nur eine Entwicklungskarte pro Zug gespielt werden.");
+    throw new GameRuleError("game.one_development_per_turn");
   }
 
   const cardIndex = player.developmentCards.findIndex(
     (card) => card.type === type && card.boughtOnTurn < state.turn
   );
   if (cardIndex === -1) {
-    throw new GameRuleError("Diese Entwicklungskarte ist aktuell nicht spielbar.");
+    throw new GameRuleError("game.development_not_playable");
   }
 
   player.developmentCards.splice(cardIndex, 1);
@@ -1910,7 +1917,7 @@ function playDevelopmentCard(
 function payCost(state: GameState, playerId: string, cost: Partial<ResourceMap>): void {
   const player = getPlayer(state, playerId);
   if (!hasResources(player.resources, cost)) {
-    throw new GameRuleError("Nicht genügend Rohstoffe vorhanden.");
+    throw new GameRuleError("game.resources_insufficient");
   }
 
   player.resources = subtractResources(player.resources, cost);
@@ -1979,15 +1986,6 @@ function nextDie(state: GameState): number {
 
 function seatedPlayersColorKey(playerCount: number): 3 | 4 {
   return playerCount === 3 ? 3 : 4;
-}
-
-function summarizeStartingPlayerRoll(rounds: StartingPlayerRollRound[]): string {
-  return rounds
-    .map((round, index) => {
-      const summary = round.rolls.map((roll) => `${roll.username} ${roll.total}`).join(" · ");
-      return index === 0 ? summary : `Stechen: ${summary}`;
-    })
-    .join(" / ");
 }
 
 function rotatePlayers<T>(players: readonly T[], startIndex: number): T[] {
@@ -2104,7 +2102,7 @@ function completeRoadBuildingIfDone(state: GameState): void {
 
 function getPendingRoadBuildingEffect(state: GameState): PendingRoadBuildingEffect {
   if (!state.pendingDevelopmentEffect || state.pendingDevelopmentEffect.type !== "road_building") {
-    throw new GameRuleError("Es ist kein aktiver Straßenbau-Effekt offen.");
+    throw new GameRuleError("game.no_active_road_building");
   }
 
   return state.pendingDevelopmentEffect;
@@ -2303,13 +2301,13 @@ function cloneState(state: GameState): GameState {
 
 function ensureCurrentPlayer(state: GameState, playerId: string): void {
   if (getCurrentPlayer(state).id !== playerId) {
-    throw new GameRuleError("Dieser Zug gehört einem anderen Spieler.");
+    throw new GameRuleError("game.turn_other_player");
   }
 }
 
 function ensurePhase(condition: boolean): void {
   if (!condition) {
-    throw new GameRuleError("Diese Aktion ist in der aktuellen Spielphase nicht erlaubt.");
+    throw new GameRuleError("game.action_phase_not_allowed");
   }
 }
 
@@ -2320,7 +2318,7 @@ function getCurrentPlayer(state: GameState): InternalPlayer {
 function getPlayer(state: GameState, playerId: string): InternalPlayer {
   const player = state.players.find((entry) => entry.id === playerId);
   if (!player) {
-    throw new GameRuleError("Unbekannter Spieler.");
+    throw new GameRuleError("game.unknown_player");
   }
   return player;
 }
@@ -2328,7 +2326,7 @@ function getPlayer(state: GameState, playerId: string): InternalPlayer {
 function getTile(state: GameState, tileId: string): TileView {
   const tile = state.board.tiles.find((entry) => entry.id === tileId);
   if (!tile) {
-    throw new GameRuleError("Unbekanntes Feld.");
+    throw new GameRuleError("game.unknown_tile");
   }
   return tile;
 }
@@ -2336,7 +2334,7 @@ function getTile(state: GameState, tileId: string): TileView {
 function getVertex(state: GameState, vertexId: string): VertexView {
   const vertex = state.board.vertices.find((entry) => entry.id === vertexId);
   if (!vertex) {
-    throw new GameRuleError("Unbekannte Kreuzung.");
+    throw new GameRuleError("game.unknown_vertex");
   }
   return vertex;
 }
@@ -2344,7 +2342,7 @@ function getVertex(state: GameState, vertexId: string): VertexView {
 function getEdge(state: GameState, edgeId: string): EdgeView {
   const edge = state.board.edges.find((entry) => entry.id === edgeId);
   if (!edge) {
-    throw new GameRuleError("Unbekannte Kante.");
+    throw new GameRuleError("game.unknown_edge");
   }
   return edge;
 }

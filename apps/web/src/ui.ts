@@ -1,13 +1,24 @@
 import type {
   AuthUser,
   BoardSize,
+  Locale,
   MatchEventType,
   MatchPhase,
   PlayerColor,
   ResourceMap,
   TurnRule
 } from "@hexagonia/shared";
-import { RESOURCES } from "@hexagonia/shared";
+import { DEFAULT_LOCALE as DEFAULT_LOCALE_VALUE } from "@hexagonia/shared";
+import {
+  formatPhase as formatPhaseByLocale,
+  renderBoardSizeLabel as renderBoardSizeLabelByLocale,
+  renderConnectionLabel as renderConnectionLabelByLocale,
+  renderEventLabel as renderEventLabelByLocale,
+  renderPlayerColorLabel as renderPlayerColorLabelByLocale,
+  renderResourceLabel as renderResourceLabelByLocale,
+  renderResourceMap as renderResourceMapByLocale,
+  renderTurnRuleLabel as renderTurnRuleLabelByLocale
+} from "./i18n";
 
 export type AuthMode = "login" | "register";
 export type ConnectionState = "offline" | "connecting" | "online";
@@ -97,123 +108,110 @@ export function writeRoute(route: RouteState, mode: "push" | "replace" = "push")
   window.history.pushState(null, "", historyUrl);
 }
 
-export function renderConnectionLabel(session: AuthUser | null | undefined, connectionState: ConnectionState): string {
-  if (!session) {
-    return "Offline";
+function getActiveLocale(value?: Locale): Locale {
+  if (value) {
+    return value;
   }
 
-  if (connectionState === "online") {
-    return "Live";
+  if (typeof document !== "undefined") {
+    const lang = document.documentElement.lang;
+    if (lang === "en" || lang === "de") {
+      return lang;
+    }
   }
 
-  if (connectionState === "connecting") {
-    return "Verbindet...";
+  return DEFAULT_LOCALE_VALUE;
+}
+
+export function renderConnectionLabel(
+  session: AuthUser | null | undefined,
+  connectionState: ConnectionState
+): string;
+export function renderConnectionLabel(
+  locale: Locale,
+  session: AuthUser | null | undefined,
+  connectionState: ConnectionState
+): string;
+export function renderConnectionLabel(
+  first: Locale | AuthUser | null | undefined,
+  second: AuthUser | ConnectionState | null | undefined,
+  third?: ConnectionState
+): string {
+  if (typeof first === "string" && third) {
+    return renderConnectionLabelByLocale(first, !!second, third);
   }
 
-  return "Offline";
+  return renderConnectionLabelByLocale(getActiveLocale(), !!first, second as ConnectionState);
 }
 
-export function renderEventLabel(type: MatchEventType): string {
-  const labels: Record<MatchEventType, string> = {
-    starting_player_rolled: "Startspieler ausgewürfelt.",
-    match_started: "Partie gestartet.",
-    initial_settlement_placed: "Start-Siedlung gesetzt.",
-    initial_road_placed: "Start-Straße gesetzt.",
-    dice_rolled: "Würfel geworfen.",
-    resources_distributed: "Rohstoffe verteilt.",
-    resources_discarded: "Rohstoffe abgeworfen.",
-    initial_resources_granted: "Start-Rohstoffe erhalten.",
-    road_built: "Straße gebaut.",
-    settlement_built: "Siedlung gebaut.",
-    city_built: "Stadt gebaut.",
-    development_card_bought: "Entwicklung gekauft.",
-    development_card_played: "Entwicklung gespielt.",
-    robber_moved: "Räuber versetzt.",
-    longest_road_awarded: "Längste Straße erhalten.",
-    longest_road_lost: "Längste Straße verloren.",
-    largest_army_awarded: "Größte Rittermacht erhalten.",
-    largest_army_lost: "Größte Rittermacht verloren.",
-    trade_offered: "Handelsangebot gesendet.",
-    trade_declined: "Handelsangebot abgelehnt.",
-    trade_cancelled: "Handelsangebot zurückgezogen.",
-    trade_completed: "Handel abgeschlossen.",
-    maritime_trade: "Hafenhandel ausgeführt.",
-    special_build_started: "Sonderbauphase gestartet.",
-    paired_player_started: "Paired-Players-Phase gestartet.",
-    beginner_setup_applied: "Anfängeraufbau gesetzt.",
-    game_won: "Partie gewonnen.",
-    turn_ended: "Zug beendet."
-  };
+export function renderEventLabel(type: MatchEventType): string;
+export function renderEventLabel(locale: Locale, type: MatchEventType): string;
+export function renderEventLabel(first: Locale | MatchEventType, second?: MatchEventType): string {
+  if (second) {
+    return renderEventLabelByLocale(first as Locale, second);
+  }
 
-  return labels[type] ?? "Spielstatus aktualisiert.";
+  return renderEventLabelByLocale(getActiveLocale(), first as MatchEventType);
 }
 
-export function formatPhase(phase: MatchPhase): string {
-  const labels: Record<MatchPhase, string> = {
-    room: "Raum",
-    setup_forward: "Startaufbau vorwärts",
-    setup_reverse: "Startaufbau rückwärts",
-    turn_roll: "Würfeln",
-    turn_action: "Aktionsphase",
-    special_build: "Sonderbauphase",
-    paired_player_action: "Paired Players",
-    robber_interrupt: "Räuber",
-    game_over: "Spiel beendet"
-  };
+export function formatPhase(phase: MatchPhase): string;
+export function formatPhase(locale: Locale, phase: MatchPhase): string;
+export function formatPhase(first: Locale | MatchPhase, second?: MatchPhase): string {
+  if (second) {
+    return formatPhaseByLocale(first as Locale, second);
+  }
 
-  return labels[phase];
+  return formatPhaseByLocale(getActiveLocale(), first as MatchPhase);
 }
 
-export function renderResourceMap(resourceMap: ResourceMap): string {
-  return RESOURCES.map((resource) => [resource, resourceMap[resource]] as const)
-    .filter(([, count]) => count > 0)
-    .map(([resource, count]) => `${count} ${renderResourceLabel(resource)}`)
-    .join(", ");
+export function renderResourceMap(resourceMap: ResourceMap): string;
+export function renderResourceMap(locale: Locale, resourceMap: ResourceMap): string;
+export function renderResourceMap(first: Locale | ResourceMap, second?: ResourceMap): string {
+  if (second) {
+    return renderResourceMapByLocale(first as Locale, second);
+  }
+
+  return renderResourceMapByLocale(getActiveLocale(), first as ResourceMap);
 }
 
-export function renderResourceLabel(resource: string): string {
-  const labels: Record<string, string> = {
-    brick: "Lehm",
-    lumber: "Holz",
-    ore: "Erz",
-    grain: "Getreide",
-    wool: "Wolle",
-    desert: "Wüste"
-  };
+export function renderResourceLabel(resource: string): string;
+export function renderResourceLabel(locale: Locale, resource: string): string;
+export function renderResourceLabel(first: Locale | string, second?: string): string {
+  if (second !== undefined) {
+    return renderResourceLabelByLocale(first as Locale, second);
+  }
 
-  return labels[resource] ?? resource;
+  return renderResourceLabelByLocale(getActiveLocale(), first as string);
 }
 
-export function renderPlayerColorLabel(color: PlayerColor): string {
-  const labels: Record<PlayerColor, string> = {
-    red: "Rot",
-    blue: "Blau",
-    white: "Weiß",
-    orange: "Orange",
-    green: "Grün",
-    purple: "Lila"
-  };
+export function renderPlayerColorLabel(color: PlayerColor): string;
+export function renderPlayerColorLabel(locale: Locale, color: PlayerColor): string;
+export function renderPlayerColorLabel(first: Locale | PlayerColor, second?: PlayerColor): string {
+  if (second) {
+    return renderPlayerColorLabelByLocale(first as Locale, second);
+  }
 
-  return labels[color];
+  return renderPlayerColorLabelByLocale(getActiveLocale(), first as PlayerColor);
 }
 
-export function renderBoardSizeLabel(boardSize: BoardSize): string {
-  const labels: Record<BoardSize, string> = {
-    standard: "Standard",
-    extended: "Erweitert"
-  };
+export function renderBoardSizeLabel(boardSize: BoardSize): string;
+export function renderBoardSizeLabel(locale: Locale, boardSize: BoardSize): string;
+export function renderBoardSizeLabel(first: Locale | BoardSize, second?: BoardSize): string {
+  if (second) {
+    return renderBoardSizeLabelByLocale(first as Locale, second);
+  }
 
-  return labels[boardSize];
+  return renderBoardSizeLabelByLocale(getActiveLocale(), first as BoardSize);
 }
 
-export function renderTurnRuleLabel(turnRule: TurnRule): string {
-  const labels: Record<TurnRule, string> = {
-    standard: "Standard",
-    paired_players: "Paired Players",
-    special_build_phase: "Sonderbauphase"
-  };
+export function renderTurnRuleLabel(turnRule: TurnRule): string;
+export function renderTurnRuleLabel(locale: Locale, turnRule: TurnRule): string;
+export function renderTurnRuleLabel(first: Locale | TurnRule, second?: TurnRule): string {
+  if (second) {
+    return renderTurnRuleLabelByLocale(first as Locale, second);
+  }
 
-  return labels[turnRule];
+  return renderTurnRuleLabelByLocale(getActiveLocale(), first as TurnRule);
 }
 
 export function getPlayerAccentClass(color: PlayerColor | null | undefined): string {

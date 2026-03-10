@@ -7,8 +7,9 @@ import {
   updatePlayerConnection,
   type GameState
 } from "@hexagonia/rules";
-import type { ActionIntent, AuthUser, RoomDetails, ServerMessage } from "@hexagonia/shared";
+import type { ActionIntent, AuthUser, ErrorDescriptor, RoomDetails, ServerMessage } from "@hexagonia/shared";
 import { Database } from "./db.js";
+import { createErrorDescriptorError } from "./errorDescriptors.js";
 import type { RoomLifecycleService } from "./roomLifecycleService.js";
 
 interface SocketContext {
@@ -99,7 +100,7 @@ export class RealtimeHub {
       context.matchId = null;
       this.send(context.socket, {
         type: "match.error",
-        error: "Der Spieler gehört nicht zu dieser Partie."
+        errorCode: "match.player_not_in_match"
       });
       return;
     }
@@ -161,14 +162,15 @@ export class RealtimeHub {
     this.broadcastMatchState(nextState, latestEvent);
   }
 
-  terminateMatch(matchId: string, reason: string): void {
+  terminateMatch(matchId: string, reason: ErrorDescriptor): void {
     const subscribers = this.matchSubscribers.get(matchId);
     if (subscribers) {
       for (const context of subscribers) {
         context.matchId = null;
         this.send(context.socket, {
           type: "match.error",
-          error: reason
+          errorCode: reason.errorCode,
+          ...(reason.errorParams ? { errorParams: reason.errorParams } : {})
         });
       }
 
@@ -238,7 +240,7 @@ export class RealtimeHub {
 
     const loaded = await this.db.loadMatchState(matchId);
     if (!loaded) {
-      throw new Error(`Unknown match ${matchId}`);
+      throw createErrorDescriptorError("match.not_found");
     }
 
     this.activeMatches.set(matchId, loaded);

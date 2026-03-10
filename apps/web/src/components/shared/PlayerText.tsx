@@ -5,6 +5,8 @@ import { getPlayerAccentClass } from "../../ui";
 const SELF_PLAYER_TOKENS = [
   "Du",
   "du",
+  "You",
+  "you",
   "Dich",
   "dich",
   "Dir",

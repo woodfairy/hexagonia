@@ -7,6 +7,7 @@ import type {
 } from "@hexagonia/shared";
 import { BUILD_COSTS, RESOURCES } from "@hexagonia/shared";
 import type { BoardFocusCue, InteractionMode } from "../../BoardScene";
+import { createText, getDocumentLocale, resolveText } from "../../i18n";
 import { renderResourceLabel } from "../../ui";
 
 export type BuildActionId = "road" | "settlement" | "city" | "development";
@@ -16,6 +17,10 @@ export interface TurnStatus {
   detail: string;
   playerId?: string;
   callout?: string;
+}
+
+function text(de: string, en: string): string {
+  return resolveText(getDocumentLocale(), createText(de, en));
 }
 
 export function getRobberDiscardGroups(match: MatchSnapshot) {
@@ -41,11 +46,11 @@ export function getRobberDiscardGroups(match: MatchSnapshot) {
 
 export function renderDevelopmentLabel(type: DevelopmentCardView["type"]): string {
   const labels: Record<DevelopmentCardView["type"], string> = {
-    knight: "Ritter",
-    victory_point: "Siegpunkt",
+    knight: text("Ritter", "Knight"),
+    victory_point: text("Siegpunkt", "Victory point"),
     road_building: "Straßenbau",
-    year_of_plenty: "Erfindung",
-    monopoly: "Monopol"
+    year_of_plenty: text("Erfindung", "Year of plenty"),
+    monopoly: text("Monopol", "Monopoly")
   };
 
   return labels[type] ?? type;

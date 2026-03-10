@@ -2,6 +2,8 @@ import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
+  ErrorDescriptor,
+  Locale,
   RoomDetails,
   RoomGameConfigPatch,
   UserRole
@@ -29,6 +31,17 @@ function getDefaultWebSocketUrl(): string {
   return url.toString();
 }
 
+export class ApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly errorCode: string,
+    public readonly errorParams?: ErrorDescriptor["errorParams"]
+  ) {
+    super(errorCode);
+    this.name = "ApiError";
+  }
+}
+
 const API_BASE_URL = getRuntimeApiBaseUrl() ?? getDefaultApiBaseUrl();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -46,17 +59,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const contentType = response.headers.get("content-type") ?? "";
     const payload = contentType.includes("application/json")
-      ? ((await response.json().catch(() => null)) as { error?: string; message?: string } | null)
+      ? ((await response.json().catch(() => null)) as
+          | {
+              errorCode?: string;
+              errorParams?: ErrorDescriptor["errorParams"];
+              error?: string;
+              message?: string;
+            }
+          | null)
       : null;
     const fallbackText = payload
       ? null
       : ((await response.text().catch(() => "")) || "").replace(/\s+/g, " ").trim();
-    const message =
+
+    if (payload?.errorCode) {
+      throw new ApiError(response.status, payload.errorCode, payload.errorParams);
+    }
+
+    const fallbackMessage =
       payload?.error ??
       payload?.message ??
       (fallbackText && fallbackText.length < 240 ? fallbackText : null) ??
-      `${response.status} ${response.statusText || "Fehler"}`;
-    throw new Error(message);
+      `${response.status} ${response.statusText || "Error"}`;
+    throw new ApiError(response.status, "generic.unknown", { message: fallbackMessage });
   }
 
   return (await response.json()) as T;
@@ -66,6 +91,7 @@ export async function register(payload: {
   username: string;
   password: string;
   recaptchaToken?: string;
+  locale: Locale;
 }): Promise<AuthUser> {
   const response = await request<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",
@@ -93,6 +119,14 @@ export async function logout(): Promise<void> {
 
 export async function getCurrentUser(): Promise<AuthUser> {
   const response = await request<{ user: AuthUser }>("/api/auth/me");
+  return response.user;
+}
+
+export async function updateCurrentUserLocale(locale: Locale): Promise<AuthUser> {
+  const response = await request<{ user: AuthUser }>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify({ locale })
+  });
   return response.user;
 }
 

@@ -5,6 +5,7 @@ import type {
   AuthUser,
   BoardSize,
   ClientMessage,
+  Locale,
   MatchSnapshot,
   Resource,
   ResourceMap,
@@ -40,12 +41,14 @@ import {
   getRoomByCode,
   joinRoom,
   kickRoomUser,
+  ApiError,
   leaveRoom,
   login,
   logout,
   register,
   setReady,
   startRoom,
+  updateCurrentUserLocale,
   updateAdminUser,
   updateRoomSettings
 } from "./api";
@@ -86,6 +89,16 @@ import {
 import { getLatestDiceRollEvent } from "./components/screens/matchScreenViewModel";
 import { RoomScreen } from "./components/screens/RoomScreen";
 import { PlayerMention } from "./components/shared/PlayerText";
+import {
+  createText,
+  getInitialGuestLocale,
+  I18nProvider,
+  localizeError,
+  normalizeLocale,
+  persistStoredLocale,
+  resolveText,
+  type LocalizedText
+} from "./i18n";
 import { getRecaptchaRegisterToken } from "./recaptcha";
 import {
   type AuthMode,
@@ -97,8 +110,8 @@ import {
 } from "./ui";
 
 const TEXT = {
-  title: "Hexagonia",
-  subtitle: "Mit Freunden spielen, handeln und direkt loslegen"
+  title: createText("Hexagonia", "Hexagonia"),
+  subtitle: createText("Mit Freunden spielen, handeln und direkt loslegen", "Play, trade, and jump in with friends")
 } as const;
 
 const HEARTBEAT_INTERVAL_MS = 15000;
@@ -115,6 +128,27 @@ type DiceRollEvent = Extract<MatchEvent, { type: "dice_rolled" }>;
 interface UiFeedbackRequest {
   sound?: Parameters<typeof uiSoundManager.play>;
   haptic?: Parameters<typeof uiHapticsManager.play>[0];
+}
+
+function describeClientError(error: unknown): LocalizedText {
+  if (error instanceof ApiError) {
+    if (error.errorCode === "generic.unknown" && error.errorParams?.message) {
+      const message = String(error.errorParams.message);
+      return createText(message, message);
+    }
+
+    return localizeError(error.errorCode, error.errorParams);
+  }
+
+  if (error instanceof Error && error.message) {
+    return createText(error.message, error.message);
+  }
+
+  return localizeError("generic.unknown");
+}
+
+function toLocalizedText(value: string | LocalizedText): LocalizedText {
+  return typeof value === "string" ? createText(value, value) : value;
 }
 
 function getMatchEventHapticId(event: MatchEvent): Parameters<typeof uiHapticsManager.play>[0] | null {
@@ -168,13 +202,14 @@ function getNewMatchEventHaptic(events: MatchEvent[]): Parameters<typeof uiHapti
 }
 
 export function App() {
+  const [guestLocale, setGuestLocale] = useState<Locale>(() => getInitialGuestLocale());
   const [session, setSession] = useState<AuthUser | null | undefined>(undefined);
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [match, setMatch] = useState<MatchSnapshot | null>(null);
   const [serverMatch, setServerMatch] = useState<MatchSnapshot | null>(null);
   const [myRooms, setMyRooms] = useState<RoomDetails[]>([]);
   const [presence, setPresence] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("Verbindung wird aufgebaut.");
+  const [status, setStatus] = useState<LocalizedText>(createText("Verbindung wird aufgebaut.", "Connecting."));
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [socketEpoch, setSocketEpoch] = useState(0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -227,6 +262,7 @@ export function App() {
   const [pendingDiceRevealEvent, setPendingDiceRevealEvent] = useState<DiceRollEvent | null>(null);
   const musicTracks = useMemo(() => uiSoundManager.getMusicTracks(), []);
   const hapticsSupported = uiHapticsManager.isSupported();
+  const locale = normalizeLocale(session?.locale ?? guestLocale);
 
   const wsRef = useRef<WebSocket | null>(null);
   const suppressCloseToastRef = useRef(false);
@@ -315,54 +351,73 @@ export function App() {
   const headerContext = useMemo(() => {
     if (!session) {
       return {
-        eyebrow: "Mit Freunden spielen",
-        title: TEXT.title,
-        meta: TEXT.subtitle
+        eyebrow: resolveText(locale, createText("Mit Freunden spielen", "Play with friends")),
+        title: resolveText(locale, TEXT.title),
+        meta: resolveText(locale, TEXT.subtitle)
       };
     }
 
     if (activeScreen === "lobby") {
       return {
-        eyebrow: "Spielzentrale",
-        title: `Willkommen, ${session.username}`,
-        meta: "Raum erstellen oder mit einem Code beitreten"
+        eyebrow: resolveText(locale, createText("Spielzentrale", "Game hub")),
+        title:
+          locale === "en"
+            ? `Welcome, ${session.username}`
+            : `Willkommen, ${session.username}`,
+        meta: resolveText(locale, createText("Raum erstellen oder mit einem Code beitreten", "Create a room or join with a code"))
       };
     }
 
     if (activeScreen === "admin") {
       return {
-        eyebrow: "Administration",
-        title: "Admin-Konsole",
-        meta: "Konten, Räume und laufende Partien zentral verwalten"
+        eyebrow: resolveText(locale, createText("Administration", "Administration")),
+        title: resolveText(locale, createText("Admin-Konsole", "Admin console")),
+        meta: resolveText(locale, createText("Konten, Räume und laufende Partien zentral verwalten", "Manage accounts, rooms, and live matches centrally"))
       };
     }
 
     if (activeScreen === "room") {
       return {
-        eyebrow: "Privater Raum",
-        title: room ? "Raumlobby" : "Raum wird geladen",
-        meta: room ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/6 Spieler` : "Synchronisation läuft"
+        eyebrow: resolveText(locale, createText("Privater Raum", "Private room")),
+        title: room
+          ? resolveText(locale, createText("Raumlobby", "Room lobby"))
+          : resolveText(locale, createText("Raum wird geladen", "Loading room")),
+        meta: room
+          ? locale === "en"
+            ? `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/6 players`
+            : `Code ${room.code} · ${room.seats.filter((seat) => seat.userId).length}/6 Spieler`
+          : resolveText(locale, createText("Synchronisation läuft", "Sync in progress"))
       };
     }
 
     return {
-      eyebrow: "Laufende Partie",
-      title: match ? `Zug ${match.turn}` : "Partie wird geladen",
+      eyebrow: resolveText(locale, createText("Laufende Partie", "Live match")),
+      title: match
+        ? locale === "en"
+          ? `Turn ${match.turn}`
+          : `Zug ${match.turn}`
+        : resolveText(locale, createText("Partie wird geladen", "Loading match")),
       meta: match
-        ? `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
-        : "Verbindung läuft"
+        ? locale === "en"
+          ? `Current turn: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+          : `Am Zug: ${match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"}`
+        : resolveText(locale, createText("Verbindung läuft", "Connection active"))
     };
-  }, [activeScreen, match, room, session]);
+  }, [activeScreen, locale, match, room, session]);
 
   const removeToast = useCallback((toastId: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== toastId));
   }, []);
 
   const pushToast = useCallback(
-    (tone: ToastMessage["tone"], title: string, body?: string) => {
+    (tone: ToastMessage["tone"], title: string | LocalizedText, body?: string | LocalizedText) => {
       toastCounterRef.current += 1;
       const id = `toast-${Date.now()}-${toastCounterRef.current}`;
-      const nextToast: ToastMessage = body ? { id, tone, title, body } : { id, tone, title };
+      const localizedTitle = toLocalizedText(title);
+      const localizedBody = body ? toLocalizedText(body) : undefined;
+      const nextToast: ToastMessage = localizedBody
+        ? { id, tone, title: localizedTitle, body: localizedBody }
+        : { id, tone, title: localizedTitle };
       playUiFeedback({ haptic: getToastHapticId(tone) });
       setToasts((current) => [...current, nextToast].slice(-4));
       window.setTimeout(() => {
@@ -370,6 +425,33 @@ export function App() {
       }, tone === "error" ? 5400 : 3600);
     },
     [playUiFeedback, removeToast]
+  );
+
+  const handleLocaleChange = useCallback(
+    async (nextLocale: Locale) => {
+      persistStoredLocale(nextLocale);
+      setGuestLocale(nextLocale);
+
+      const currentSession = sessionRef.current;
+      if (!currentSession || currentSession.locale === nextLocale) {
+        return;
+      }
+
+      setSession((current) => (current ? { ...current, locale: nextLocale } : current));
+
+      try {
+        const updatedUser = await updateCurrentUserLocale(nextLocale);
+        setSession(updatedUser);
+      } catch (error) {
+        setSession((current) => (current ? { ...current, locale: currentSession.locale } : current));
+        pushToast(
+          "error",
+          createText("Sprache konnte nicht gespeichert werden", "Language could not be saved"),
+          describeClientError(error)
+        );
+      }
+    },
+    [pushToast]
   );
 
   useEffect(() => {
@@ -501,6 +583,11 @@ export function App() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    persistStoredLocale(locale);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     if (!match) {
@@ -804,7 +891,11 @@ export function App() {
         setMyRooms(rooms);
       } catch (error) {
         if (!silent) {
-          pushToast("error", "Partien konnten nicht geladen werden", (error as Error).message);
+          pushToast(
+            "error",
+            createText("Partien konnten nicht geladen werden", "Matches could not be loaded"),
+            describeClientError(error)
+          );
         }
       }
     },
@@ -828,7 +919,11 @@ export function App() {
         setAdminMatches(matches);
       } catch (error) {
         if (!silent) {
-          pushToast("error", "Admin-Daten konnten nicht geladen werden", (error as Error).message);
+          pushToast(
+            "error",
+            createText("Admin-Daten konnten nicht geladen werden", "Admin data could not be loaded"),
+            describeClientError(error)
+          );
         }
       }
     },
@@ -836,7 +931,7 @@ export function App() {
   );
 
   const triggerReconnect = useCallback(
-    (nextStatus = "Die Verbindung wird wiederhergestellt.") => {
+    (nextStatus = createText("Die Verbindung wird wiederhergestellt.", "Reconnecting.")) => {
       if (!sessionRef.current) {
         return;
       }
@@ -867,8 +962,14 @@ export function App() {
     const baseDelay = Math.min(RECONNECT_BASE_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_MS);
     const delay = baseDelay + getReconnectJitter(nextAttempt);
     const seconds = Math.max(1, Math.round(delay / 1000));
-    setConnectionState("connecting");
-    setStatus(`Hier auf der Insel ist der Empfang gerade schwach. Neuer Versuch in ${seconds}s.`);
+      setConnectionState("connecting");
+      setStatus(
+        createText(
+          "Hier auf der Insel ist der Empfang gerade schwach. Neuer Versuch in {seconds}s.",
+          "Signal is weak on the island right now. Retrying in {seconds}s.",
+          { seconds }
+        )
+      );
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
@@ -908,12 +1009,16 @@ export function App() {
       .then((user) => {
         setSession(user);
         setConnectionState("connecting");
-        setStatus(`Willkommen zurück, ${user.username}.`);
+        setStatus(
+          createText("Willkommen zurück, {username}.", "Welcome back, {username}.", {
+            username: user.username
+          })
+        );
       })
       .catch(() => {
         setSession(null);
         setConnectionState("offline");
-        setStatus("Bitte an- oder registrieren.");
+        setStatus(createText("Bitte an- oder registrieren.", "Please sign in or register."));
       });
   }, []);
 
@@ -938,7 +1043,7 @@ export function App() {
       wsRef.current?.close();
       wsRef.current = null;
       setConnectionState("offline");
-      setStatus("Bitte an- oder registrieren.");
+      setStatus(createText("Bitte an- oder registrieren.", "Please sign in or register."));
       return;
     }
 
@@ -952,7 +1057,7 @@ export function App() {
       setAdminMatches([]);
       setAdminUserDrafts({});
     }
-    triggerReconnect("Die Verbindung wird hergestellt.");
+    triggerReconnect(createText("Die Verbindung wird hergestellt.", "Connecting."));
   }, [clearHeartbeatTimer, clearReconnectTimer, loadAdminData, loadMyRooms, session, triggerReconnect]);
 
   useEffect(() => {
@@ -962,7 +1067,7 @@ export function App() {
       }
 
       reconnectAttemptRef.current = 0;
-      triggerReconnect("Die Verbindung wird nach deiner Rueckkehr wiederhergestellt.");
+      triggerReconnect(createText("Die Verbindung wird nach deiner Rückkehr wiederhergestellt.", "Reconnecting after your return."));
     };
 
     const onVisibilityChange = () => {
@@ -998,7 +1103,7 @@ export function App() {
         }
 
         if (Date.now() - lastServerActivityRef.current > HEARTBEAT_TIMEOUT_MS) {
-          setStatus("Hier auf der Insel scheint der Empfang schlecht zu sein. Ein neuer Versuch folgt.");
+          setStatus(createText("Hier auf der Insel scheint der Empfang schlecht zu sein. Ein neuer Versuch folgt.", "Signal seems weak on the island. Another attempt will follow."));
           socket.close();
           return;
         }
@@ -1015,7 +1120,7 @@ export function App() {
       reconnectAttemptRef.current = 0;
       lastServerActivityRef.current = Date.now();
       setConnectionState("online");
-      setStatus("Verbindung steht.");
+      setStatus(createText("Verbindung steht.", "Connection established."));
       startHeartbeat();
       syncRealtimeSubscriptions(socket);
       void loadMyRooms();
@@ -1059,10 +1164,10 @@ export function App() {
           );
           pushToast(
             "info",
-            "Partie zur Lobby zurückgesetzt",
+            createText("Partie zur Lobby zurückgesetzt", "Match reset to lobby"),
             isSeatedInRoom
-              ? "Ein Spieler wurde entfernt. Der Raum wartet jetzt wieder auf Spieler."
-              : "Die laufende Partie existiert nicht mehr. Du bist wieder in der Raumansicht."
+              ? createText("Ein Spieler wurde entfernt. Der Raum wartet jetzt wieder auf Spieler.", "A player was removed. The room is waiting for players again.")
+              : createText("Die laufende Partie existiert nicht mehr. Du bist wieder in der Raumansicht.", "The active match no longer exists. You are back in the room view.")
           );
           return;
         }
@@ -1073,7 +1178,11 @@ export function App() {
           setServerMatch(null);
           setPresence([]);
           navigateTo({ kind: "play" });
-          pushToast("info", "Raum geschlossen", "Dieser Raum wurde beendet und aus der Liste entfernt.");
+          pushToast(
+            "info",
+            createText("Raum geschlossen", "Room closed"),
+            createText("Dieser Raum wurde beendet und aus der Liste entfernt.", "This room was closed and removed from the list.")
+          );
           return;
         }
 
@@ -1088,7 +1197,11 @@ export function App() {
         }
       }
       if (message.type === "match.error") {
-        pushToast("error", "Aktion fehlgeschlagen", message.error);
+        pushToast(
+          "error",
+          createText("Aktion fehlgeschlagen", "Action failed"),
+          localizeError(message.errorCode, message.errorParams)
+        );
       }
       if (message.type === "presence.state") {
         setPresence(message.onlineUserIds);
@@ -1114,7 +1227,7 @@ export function App() {
 
       if (!sessionRef.current) {
         setConnectionState("offline");
-        setStatus("Bitte an- oder registrieren.");
+        setStatus(createText("Bitte an- oder registrieren.", "Please sign in or register."));
         return;
       }
 
@@ -1163,10 +1276,20 @@ export function App() {
           setRoom(nextRoom);
           navigateTo({ kind: "room", roomId: nextRoom.id });
           subscribeRoom(nextRoom.id);
-          pushToast("success", "Einladung geöffnet", `Du bist jetzt im Raum ${nextRoom.code}.`);
+          pushToast(
+            "success",
+            createText("Einladung geöffnet", "Invite opened"),
+            createText("Du bist jetzt im Raum {code}.", "You are now in room {code}.", {
+              code: nextRoom.code
+            })
+          );
         })
-        .catch((routeError: Error) => {
-          pushToast("error", "Einladung ungültig", routeError.message);
+        .catch((routeError) => {
+          pushToast(
+            "error",
+            createText("Einladung ungültig", "Invite invalid"),
+            describeClientError(routeError)
+          );
           navigateTo({ kind: "play" }, { replace: true });
         });
       return;
@@ -1174,15 +1297,19 @@ export function App() {
 
     if (route.kind === "room") {
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
-        triggerReconnect("Der Raum wird wieder verbunden.");
+        triggerReconnect(createText("Der Raum wird wieder verbunden.", "Reconnecting room."));
       }
       void getRoom(route.roomId)
         .then((nextRoom) => {
           setRoom(nextRoom);
           subscribeRoom(nextRoom.id);
         })
-        .catch((routeError: Error) => {
-          pushToast("error", "Raum konnte nicht geladen werden", routeError.message);
+        .catch((routeError) => {
+          pushToast(
+            "error",
+            createText("Raum konnte nicht geladen werden", "Room could not be loaded"),
+            describeClientError(routeError)
+          );
           navigateTo({ kind: "play" }, { replace: true });
         });
     }
@@ -1194,7 +1321,7 @@ export function App() {
           matchId: route.matchId
         });
       } else {
-        triggerReconnect("Die Partie wird wieder verbunden.");
+        triggerReconnect(createText("Die Partie wird wieder verbunden.", "Reconnecting match."));
       }
     }
   }, [loadAdminData, pushToast, route, session, triggerReconnect]);
@@ -1283,11 +1410,14 @@ export function App() {
   const sendCurrent = useCallback(
     (message: ClientMessage) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        triggerReconnect("Die Verbindung wird wiederhergestellt.");
+        triggerReconnect(createText("Die Verbindung wird wiederhergestellt.", "Reconnecting."));
         pushToast(
           "error",
-          "Empfang gerade schlecht",
-          "Hier auf der Insel scheint der Empfang schlecht zu sein. Bitte lade die Seite neu und versuche es erneut."
+          createText("Empfang gerade schlecht", "Signal is weak"),
+          createText(
+            "Hier auf der Insel scheint der Empfang schlecht zu sein. Bitte lade die Seite neu und versuche es erneut.",
+            "Signal seems weak on the island. Please reload the page and try again."
+          )
         );
         return;
       }
@@ -1477,7 +1607,15 @@ export function App() {
     }
 
     if (selectedDiscardCount !== requiredDiscardCount) {
-      pushToast("error", "Noch nicht vollständig", `Du musst genau ${requiredDiscardCount} Karten auswählen.`);
+      pushToast(
+        "error",
+        createText("Noch nicht vollständig", "Not complete yet"),
+        createText(
+          "Du musst genau {count} Karten auswählen.",
+          "You must select exactly {count} cards.",
+          { count: requiredDiscardCount }
+        )
+      );
       return;
     }
 
@@ -1612,15 +1750,24 @@ export function App() {
           : await register({
               username: authForm.username,
               password: authForm.password,
+              locale,
               ...(recaptchaToken ? { recaptchaToken } : {})
             });
 
       setSession(user);
       setAuthForm({ username: "", password: "" });
-      setStatus(`${user.username} ist angemeldet.`);
+      setStatus(
+        createText("{username} ist angemeldet.", "{username} is signed in.", {
+          username: user.username
+        })
+      );
       playUiFeedback({ haptic: "success" });
     } catch (authError) {
-      pushToast("error", "Anmeldung fehlgeschlagen", (authError as Error).message);
+      pushToast(
+        "error",
+        createText("Anmeldung fehlgeschlagen", "Sign-in failed"),
+        describeClientError(authError)
+      );
     } finally {
       setAuthSubmitPending(false);
     }
@@ -1638,9 +1785,19 @@ export function App() {
       await loadMyRooms();
       navigateTo({ kind: "room", roomId: nextRoom.id });
       subscribeRoom(nextRoom.id);
-      pushToast("success", "Raum erstellt", `Code ${nextRoom.code} ist bereit.`);
+      pushToast(
+        "success",
+        createText("Raum erstellt", "Room created"),
+        createText("Code {code} ist bereit.", "Code {code} is ready.", {
+          code: nextRoom.code
+        })
+      );
     } catch (roomError) {
-      pushToast("error", "Raum konnte nicht erstellt werden", (roomError as Error).message);
+      pushToast(
+        "error",
+        createText("Raum konnte nicht erstellt werden", "Room could not be created"),
+        describeClientError(roomError)
+      );
     } finally {
       setCreateRoomPending(false);
     }
@@ -1659,9 +1816,19 @@ export function App() {
       await loadMyRooms();
       navigateTo({ kind: "room", roomId: joinedRoom.id });
       subscribeRoom(joinedRoom.id);
-      pushToast("success", "Raum beigetreten", `Du bist jetzt im Raum ${joinedRoom.code}.`);
+      pushToast(
+        "success",
+        createText("Raum beigetreten", "Joined room"),
+        createText("Du bist jetzt im Raum {code}.", "You are now in room {code}.", {
+          code: joinedRoom.code
+        })
+      );
     } catch (joinError) {
-      pushToast("error", "Beitritt fehlgeschlagen", (joinError as Error).message);
+      pushToast(
+        "error",
+        createText("Beitritt fehlgeschlagen", "Join failed"),
+        describeClientError(joinError)
+      );
     } finally {
       setJoinByCodePending(false);
     }
@@ -1680,11 +1847,21 @@ export function App() {
       const joinedSeat = nextRoom.seats.find((seat) => seat.userId === sessionRef.current?.id) ?? null;
       pushToast(
         "success",
-        "Raum beigetreten",
-        joinedSeat ? `Du sitzt jetzt automatisch auf Platz ${joinedSeat.index + 1}.` : `Du bist jetzt im Raum ${nextRoom.code}.`
+        createText("Raum beigetreten", "Joined room"),
+        joinedSeat
+          ? createText("Du sitzt jetzt automatisch auf Platz {seat}.", "You were automatically seated at seat {seat}.", {
+              seat: joinedSeat.index + 1
+            })
+          : createText("Du bist jetzt im Raum {code}.", "You are now in room {code}.", {
+              code: nextRoom.code
+            })
       );
     } catch (joinError) {
-      pushToast("error", "Beitritt fehlgeschlagen", (joinError as Error).message);
+      pushToast(
+        "error",
+        createText("Beitritt fehlgeschlagen", "Join failed"),
+        describeClientError(joinError)
+      );
     } finally {
       setRoomJoinPending(false);
     }
@@ -1702,7 +1879,11 @@ export function App() {
       await loadMyRooms();
       playUiFeedback({ haptic: "success" });
     } catch (readyError) {
-      pushToast("error", "Ready-Status fehlgeschlagen", (readyError as Error).message);
+      pushToast(
+        "error",
+        createText("Ready-Status fehlgeschlagen", "Ready state failed"),
+        describeClientError(readyError)
+      );
     } finally {
       setRoomReadyPending(false);
     }
@@ -1718,7 +1899,11 @@ export function App() {
       setRoom(nextRoom);
       await loadMyRooms();
     } catch (settingsError) {
-      pushToast("error", "Aufbau konnte nicht geändert werden", (settingsError as Error).message);
+      pushToast(
+        "error",
+        createText("Aufbau konnte nicht geändert werden", "Setup could not be changed"),
+        describeClientError(settingsError)
+      );
     }
   };
 
@@ -1732,7 +1917,11 @@ export function App() {
       setRoom(nextRoom);
       await loadMyRooms();
     } catch (settingsError) {
-      pushToast("error", "Regelprofil konnte nicht geändert werden", (settingsError as Error).message);
+      pushToast(
+        "error",
+        createText("Regelprofil konnte nicht geändert werden", "Rules preset could not be changed"),
+        describeClientError(settingsError)
+      );
     }
   };
 
@@ -1746,7 +1935,11 @@ export function App() {
       setRoom(nextRoom);
       await loadMyRooms();
     } catch (settingsError) {
-      pushToast("error", "Spielfeld konnte nicht geändert werden", (settingsError as Error).message);
+      pushToast(
+        "error",
+        createText("Spielfeld konnte nicht geändert werden", "Board size could not be changed"),
+        describeClientError(settingsError)
+      );
     }
   };
 
@@ -1760,7 +1953,11 @@ export function App() {
       setRoom(nextRoom);
       await loadMyRooms();
     } catch (settingsError) {
-      pushToast("error", "Zugregel konnte nicht geändert werden", (settingsError as Error).message);
+      pushToast(
+        "error",
+        createText("Zugregel konnte nicht geändert werden", "Turn rule could not be changed"),
+        describeClientError(settingsError)
+      );
     }
   };
 
@@ -1778,7 +1975,11 @@ export function App() {
       setRoom(nextRoom);
       await loadMyRooms();
     } catch (settingsError) {
-      pushToast("error", "Startmodus konnte nicht geändert werden", (settingsError as Error).message);
+      pushToast(
+        "error",
+        createText("Startmodus konnte nicht geändert werden", "Starting mode could not be changed"),
+        describeClientError(settingsError)
+      );
     }
   };
 
@@ -1800,7 +2001,11 @@ export function App() {
       setRoom(nextRoom);
       await loadMyRooms();
     } catch (settingsError) {
-      pushToast("error", "Startspieler konnte nicht geändert werden", (settingsError as Error).message);
+      pushToast(
+        "error",
+        createText("Startspieler konnte nicht geändert werden", "Starting player could not be changed"),
+        describeClientError(settingsError)
+      );
     }
   };
 
@@ -1818,9 +2023,17 @@ export function App() {
       setPresence([]);
       await loadMyRooms();
       navigateTo({ kind: "play" });
-      pushToast("info", "Raum verlassen", "Du bist zurück in der Zentrale.");
+      pushToast(
+        "info",
+        createText("Raum verlassen", "Left room"),
+        createText("Du bist zurück in der Zentrale.", "You are back in the hub.")
+      );
     } catch (leaveError) {
-      pushToast("error", "Raum konnte nicht verlassen werden", (leaveError as Error).message);
+      pushToast(
+        "error",
+        createText("Raum konnte nicht verlassen werden", "Room could not be left"),
+        describeClientError(leaveError)
+      );
     } finally {
       setRoomLeavePending(false);
     }
@@ -1835,9 +2048,17 @@ export function App() {
       const nextRoom = await kickRoomUser(room.id, userId);
       setRoom(nextRoom);
       await loadMyRooms();
-      pushToast("info", "Spieler entfernt", "Der Platz in der Lobby wurde freigegeben.");
+      pushToast(
+        "info",
+        createText("Spieler entfernt", "Player removed"),
+        createText("Der Platz in der Lobby wurde freigegeben.", "The seat in the lobby is available again.")
+      );
     } catch (kickError) {
-      pushToast("error", "Spieler konnte nicht entfernt werden", (kickError as Error).message);
+      pushToast(
+        "error",
+        createText("Spieler konnte nicht entfernt werden", "Player could not be removed"),
+        describeClientError(kickError)
+      );
     }
   };
 
@@ -1856,9 +2077,17 @@ export function App() {
         type: "match.reconnect",
         matchId: result.matchId
       });
-      pushToast("success", "Partie startet", "Die neue Runde wurde erfolgreich gestartet.");
+      pushToast(
+        "success",
+        createText("Partie startet", "Match starting"),
+        createText("Die neue Runde wurde erfolgreich gestartet.", "The new round started successfully.")
+      );
     } catch (startError) {
-      pushToast("error", "Start fehlgeschlagen", (startError as Error).message);
+      pushToast(
+        "error",
+        createText("Start fehlgeschlagen", "Start failed"),
+        describeClientError(startError)
+      );
     } finally {
       setRoomStartPending(false);
     }
@@ -1884,9 +2113,17 @@ export function App() {
         role: "user"
       });
       navigateTo({ kind: "home" });
-      pushToast("info", "Abgemeldet", "Deine Sitzung wurde beendet.");
+      pushToast(
+        "info",
+        createText("Abgemeldet", "Signed out"),
+        createText("Deine Sitzung wurde beendet.", "Your session has ended.")
+      );
     } catch (logoutError) {
-      pushToast("error", "Logout fehlgeschlagen", (logoutError as Error).message);
+      pushToast(
+        "error",
+        createText("Logout fehlgeschlagen", "Sign-out failed"),
+        describeClientError(logoutError)
+      );
     }
   };
 
@@ -1922,9 +2159,17 @@ export function App() {
         role: "user"
       });
       await loadAdminData();
-      pushToast("success", "Nutzer angelegt", "Das Konto wurde in der Admin-Konsole angelegt.");
+      pushToast(
+        "success",
+        createText("Nutzer angelegt", "User created"),
+        createText("Das Konto wurde in der Admin-Konsole angelegt.", "The account was created in the admin console.")
+      );
     } catch (error) {
-      pushToast("error", "Nutzer konnte nicht angelegt werden", (error as Error).message);
+      pushToast(
+        "error",
+        createText("Nutzer konnte nicht angelegt werden", "User could not be created"),
+        describeClientError(error)
+      );
     }
   };
 
@@ -1960,7 +2205,11 @@ export function App() {
       }
 
       if (!Object.keys(payload).length) {
-        pushToast("info", "Keine Änderung", "Für dieses Konto wurden keine neuen Werte gesetzt.");
+        pushToast(
+          "info",
+          createText("Keine Änderung", "No changes"),
+          createText("Für dieses Konto wurden keine neuen Werte gesetzt.", "No new values were set for this account.")
+        );
         return;
       }
 
@@ -1969,9 +2218,19 @@ export function App() {
         setSession(updated);
       }
       await loadAdminData();
-      pushToast("success", "Nutzer gespeichert", `${updated.username} wurde aktualisiert.`);
+      pushToast(
+        "success",
+        createText("Nutzer gespeichert", "User saved"),
+        createText("{username} wurde aktualisiert.", "{username} was updated.", {
+          username: updated.username
+        })
+      );
     } catch (error) {
-      pushToast("error", "Nutzer konnte nicht gespeichert werden", (error as Error).message);
+      pushToast(
+        "error",
+        createText("Nutzer konnte nicht gespeichert werden", "User could not be saved"),
+        describeClientError(error)
+      );
     }
   };
 
@@ -1980,9 +2239,17 @@ export function App() {
       await deleteAdminUser(userId);
       await loadAdminData();
       await loadMyRooms();
-      pushToast("info", "Nutzer gelöscht", "Das Konto wurde entfernt und betroffene Räume aktualisiert.");
+      pushToast(
+        "info",
+        createText("Nutzer gelöscht", "User deleted"),
+        createText("Das Konto wurde entfernt und betroffene Räume aktualisiert.", "The account was removed and affected rooms were updated.")
+      );
     } catch (error) {
-      pushToast("error", "Nutzer konnte nicht gelöscht werden", (error as Error).message);
+      pushToast(
+        "error",
+        createText("Nutzer konnte nicht gelöscht werden", "User could not be deleted"),
+        describeClientError(error)
+      );
     }
   };
 
@@ -1998,9 +2265,19 @@ export function App() {
       }
       await loadAdminData();
       await loadMyRooms();
-      pushToast("info", "Raum geschlossen", `Raum ${savedRoom.code} wurde administrativ geschlossen.`);
+      pushToast(
+        "info",
+        createText("Raum geschlossen", "Room closed"),
+        createText("Raum {code} wurde administrativ geschlossen.", "Room {code} was closed by an admin.", {
+          code: savedRoom.code
+        })
+      );
     } catch (error) {
-      pushToast("error", "Raum konnte nicht geschlossen werden", (error as Error).message);
+      pushToast(
+        "error",
+        createText("Raum konnte nicht geschlossen werden", "Room could not be closed"),
+        describeClientError(error)
+      );
     }
   };
 
@@ -2016,9 +2293,17 @@ export function App() {
       }
       await loadAdminData();
       await loadMyRooms();
-      pushToast("info", "Match zurückgesetzt", "Die Partie wurde entfernt und der Raum wieder geöffnet.");
+      pushToast(
+        "info",
+        createText("Match zurückgesetzt", "Match reset"),
+        createText("Die Partie wurde entfernt und der Raum wieder geöffnet.", "The match was removed and the room was reopened.")
+      );
     } catch (error) {
-      pushToast("error", "Match konnte nicht zurückgesetzt werden", (error as Error).message);
+      pushToast(
+        "error",
+        createText("Match konnte nicht zurückgesetzt werden", "Match could not be reset"),
+        describeClientError(error)
+      );
     }
   };
 
@@ -2029,9 +2314,13 @@ export function App() {
 
     try {
       await navigator.clipboard.writeText(room.code);
-      pushToast("success", "Raumcode kopiert", room.code);
+      pushToast("success", createText("Raumcode kopiert", "Room code copied"), createText(room.code, room.code));
     } catch {
-      pushToast("error", "Kopieren fehlgeschlagen", "Der Raumcode konnte nicht in die Zwischenablage kopiert werden.");
+      pushToast(
+        "error",
+        createText("Kopieren fehlgeschlagen", "Copy failed"),
+        createText("Der Raumcode konnte nicht in die Zwischenablage kopiert werden.", "The room code could not be copied to the clipboard.")
+      );
     }
   };
 
@@ -2045,9 +2334,13 @@ export function App() {
       inviteUrl.pathname = getRoutePath({ kind: "invite", code: room.code });
       inviteUrl.hash = "";
       await navigator.clipboard.writeText(inviteUrl.toString());
-      pushToast("success", "Einladungslink kopiert", room.code);
+      pushToast("success", createText("Einladungslink kopiert", "Invite link copied"), createText(room.code, room.code));
     } catch {
-      pushToast("error", "Kopieren fehlgeschlagen", "Der Einladungslink konnte nicht in die Zwischenablage kopiert werden.");
+      pushToast(
+        "error",
+        createText("Kopieren fehlgeschlagen", "Copy failed"),
+        createText("Der Einladungslink konnte nicht in die Zwischenablage kopiert werden.", "The invite link could not be copied to the clipboard.")
+      );
     }
   };
 
@@ -2257,50 +2550,54 @@ export function App() {
 
   if (isBootingDeepLink) {
     return (
-      <>
-        <main className={bootShellClassName}>
-          <AppHeaderSkeleton
-            compact={usesCompactBootHeader}
-            eyebrow={
-              route.kind === "match"
-                ? "Laufende Partie"
-                : route.kind === "play"
-                  ? "HEXAGONIA"
-                : route.kind === "admin"
-                  ? "Administration"
-                  : "Privater Raum"
-            }
-          />
-          <div className="app-stage">
-            <DeepLinkBootSkeleton kind={route.kind} />
-          </div>
-        </main>
-        <ToastStack onDismiss={removeToast} toasts={toasts} />
-      </>
+      <I18nProvider locale={locale} setLocale={handleLocaleChange}>
+        <>
+          <main className={bootShellClassName}>
+            <AppHeaderSkeleton
+              compact={usesCompactBootHeader}
+              eyebrow={
+                route.kind === "match"
+                  ? resolveText(locale, createText("Laufende Partie", "Live match"))
+                  : route.kind === "play"
+                    ? "HEXAGONIA"
+                  : route.kind === "admin"
+                    ? resolveText(locale, createText("Administration", "Administration"))
+                    : resolveText(locale, createText("Privater Raum", "Private room"))
+              }
+            />
+            <div className="app-stage">
+              <DeepLinkBootSkeleton kind={route.kind} />
+            </div>
+          </main>
+          <ToastStack onDismiss={removeToast} toasts={toasts} />
+        </>
+      </I18nProvider>
     );
   }
 
   if (isGuestLanding) {
     return (
-      <>
-        <LandingScreen
-          authForm={authForm}
-          authSubmitPending={authSubmitPending}
-          authMode={authMode}
-          inviteCode={guestInviteCode}
-          musicPaused={session === undefined ? true : musicPaused}
-          musicPlaybackMode={musicPlaybackMode}
-          musicTracks={musicTracks}
-          selectedMusicTrackId={selectedMusicTrackId}
-          onAuthFieldChange={handleAuthFieldChange}
-          onAuthModeChange={setAuthMode}
-          onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
-          onSelectMusicTrack={handleSelectMusicTrack}
-          onSubmit={handleAuthSubmit}
-          onToggleMusicPaused={handleToggleMusicPaused}
-        />
-        <ToastStack onDismiss={removeToast} toasts={toasts} />
-      </>
+      <I18nProvider locale={locale} setLocale={handleLocaleChange}>
+        <>
+          <LandingScreen
+            authForm={authForm}
+            authSubmitPending={authSubmitPending}
+            authMode={authMode}
+            inviteCode={guestInviteCode}
+            musicPaused={session === undefined ? true : musicPaused}
+            musicPlaybackMode={musicPlaybackMode}
+            musicTracks={musicTracks}
+            selectedMusicTrackId={selectedMusicTrackId}
+            onAuthFieldChange={handleAuthFieldChange}
+            onAuthModeChange={setAuthMode}
+            onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
+            onSelectMusicTrack={handleSelectMusicTrack}
+            onSubmit={handleAuthSubmit}
+            onToggleMusicPaused={handleToggleMusicPaused}
+          />
+          <ToastStack onDismiss={removeToast} toasts={toasts} />
+        </>
+      </I18nProvider>
     );
   }
 
@@ -2314,59 +2611,69 @@ export function App() {
       : {};
   const headerAdminProps = session?.role === "admin" ? { onNavigateAdmin: handleOpenAdmin } : {};
 
-  const displayEyebrow = !session ? "Mit Freunden spielen" : activeScreen === "lobby" ? "HEXAGONIA" : headerContext.eyebrow;
+  const displayEyebrow = !session
+    ? resolveText(locale, createText("Mit Freunden spielen", "Play with friends"))
+    : activeScreen === "lobby"
+      ? "HEXAGONIA"
+      : headerContext.eyebrow;
   const currentMatchPlayer = match?.players.find((player) => player.id === match.currentPlayerId) ?? null;
   const displayMeta =
     !session
-      ? TEXT.subtitle
+      ? resolveText(locale, TEXT.subtitle)
       : activeScreen === "lobby"
         ? ""
         : activeScreen === "room" && room
-          ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/6 Spieler`
+          ? locale === "en"
+            ? `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/6 players`
+            : `Code ${room.code} - ${room.seats.filter((seat) => seat.userId).length}/6 Spieler`
           : activeScreen === "match" && match
             ? currentMatchPlayer
               ? (
                   <>
-                    Am Zug:{" "}
+                    {resolveText(locale, createText("Am Zug:", "Current turn:"))}{" "}
                     <PlayerMention color={currentMatchPlayer.color}>
-                      {currentMatchPlayer.id === match.you ? "Du" : currentMatchPlayer.username}
+                      {currentMatchPlayer.id === match.you
+                        ? resolveText(locale, createText("Du", "You"))
+                        : currentMatchPlayer.username}
                     </PlayerMention>
                   </>
                 )
-              : "Am Zug: -"
+              : resolveText(locale, createText("Am Zug: -", "Current turn: -"))
             : headerContext.meta;
 
   return (
-    <main className={appShellClassName}>
-      <AppHeader
-        boardVisualSettings={boardVisualSettings}
-        compact={usesCompactHeader}
-        connectionState={connectionState}
-        connectionStatusText={status}
-        eyebrow={displayEyebrow}
-        hapticsMuted={hapticsMuted}
-        hapticsSupported={hapticsSupported}
-        meta={displayMeta}
-        musicPaused={musicPaused}
-        musicPlaybackMode={musicPlaybackMode}
-        musicTracks={musicTracks}
-        selectedMusicTrackId={selectedMusicTrackId}
-        session={session}
-        soundMuted={soundMuted}
-        title={headerContext.title}
-        onLogout={handleLogout}
-        onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
-        onNavigateHome={() => navigateTo({ kind: session ? "play" : "home" })}
-        onSelectMusicTrack={handleSelectMusicTrack}
-        onBoardVisualSettingsChange={handleBoardVisualSettingsChange}
-        onToggleHapticsMuted={handleToggleHapticsMuted}
-        onToggleSoundMuted={handleToggleSoundMuted}
-        onToggleMusicPaused={handleToggleMusicPaused}
-        {...headerAdminProps}
-        {...headerRoomProps}
-      />
+    <I18nProvider locale={locale} setLocale={handleLocaleChange}>
+      <main className={appShellClassName}>
+        <AppHeader
+          boardVisualSettings={boardVisualSettings}
+          compact={usesCompactHeader}
+          connectionState={connectionState}
+          connectionStatusText={status}
+          eyebrow={displayEyebrow}
+          hapticsMuted={hapticsMuted}
+          hapticsSupported={hapticsSupported}
+          meta={displayMeta}
+          musicPaused={musicPaused}
+          musicPlaybackMode={musicPlaybackMode}
+          musicTracks={musicTracks}
+          selectedMusicTrackId={selectedMusicTrackId}
+          session={session}
+          soundMuted={soundMuted}
+          title={headerContext.title}
+          onLogout={handleLogout}
+          onLocaleChange={handleLocaleChange}
+          onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
+          onNavigateHome={() => navigateTo({ kind: session ? "play" : "home" })}
+          onSelectMusicTrack={handleSelectMusicTrack}
+          onBoardVisualSettingsChange={handleBoardVisualSettingsChange}
+          onToggleHapticsMuted={handleToggleHapticsMuted}
+          onToggleSoundMuted={handleToggleSoundMuted}
+          onToggleMusicPaused={handleToggleMusicPaused}
+          {...headerAdminProps}
+          {...headerRoomProps}
+        />
 
-      <div className="app-stage">
+        <div className="app-stage">
         {activeScreen === "lobby" && session ? (
           <LobbyScreen
             createRoomPending={createRoomPending}
@@ -2454,6 +2761,7 @@ export function App() {
                 onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
                 onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
                 onLogout: handleLogout,
+                onLocaleChange: handleLocaleChange,
                 onNavigateHome: () => navigateTo({ kind: "play" }),
                 onSelectMusicTrack: handleSelectMusicTrack,
                 onToggleHapticsMuted: handleToggleHapticsMuted,
@@ -2488,42 +2796,43 @@ export function App() {
             <DeepLinkBootSkeleton kind="match" />
           )
         ) : null}
-      </div>
+        </div>
 
-      {!robberUiDeferredByDiceAnimation && requiredDiscardCount > 0 ? (
-        <RobberDiscardDialog
-          canConfirm={canSubmitRobberDiscard}
-          draft={robberDiscardDraft}
-          minimized={robberDiscardMinimized}
-          ownedResources={selfPlayer?.resources ?? null}
-          remainingCount={remainingDiscardCount}
-          requiredCount={requiredDiscardCount}
-          players={match?.players ?? []}
-          robberDiscardStatus={robberDiscardStatus}
-          selectedCount={selectedDiscardCount}
-          onAdjust={handleAdjustRobberDiscard}
-          onConfirm={handleSubmitRobberDiscard}
-          onExpand={() => setRobberDiscardMinimized(false)}
-          onMinimize={() => setRobberDiscardMinimized(true)}
-        />
-      ) : null}
+        {!robberUiDeferredByDiceAnimation && requiredDiscardCount > 0 ? (
+          <RobberDiscardDialog
+            canConfirm={canSubmitRobberDiscard}
+            draft={robberDiscardDraft}
+            minimized={robberDiscardMinimized}
+            ownedResources={selfPlayer?.resources ?? null}
+            remainingCount={remainingDiscardCount}
+            requiredCount={requiredDiscardCount}
+            players={match?.players ?? []}
+            robberDiscardStatus={robberDiscardStatus}
+            selectedCount={selectedDiscardCount}
+            onAdjust={handleAdjustRobberDiscard}
+            onConfirm={handleSubmitRobberDiscard}
+            onExpand={() => setRobberDiscardMinimized(false)}
+            onMinimize={() => setRobberDiscardMinimized(true)}
+          />
+        ) : null}
 
-      {!robberUiDeferredByDiceAnimation &&
-      match &&
-      match.phase === "robber_interrupt" &&
-      requiredDiscardCount === 0 &&
-      robberDiscardStatus.length > 0 &&
-      match.allowedMoves.robberMoveOptions.length === 0 &&
-      !pendingBoardAction ? (
-        <RobberWaitDialog
-          currentPlayer={match.players.find((player) => player.id === match.currentPlayerId) ?? null}
-          players={match.players}
-          robberDiscardStatus={robberDiscardStatus}
-        />
-      ) : null}
+        {!robberUiDeferredByDiceAnimation &&
+        match &&
+        match.phase === "robber_interrupt" &&
+        requiredDiscardCount === 0 &&
+        robberDiscardStatus.length > 0 &&
+        match.allowedMoves.robberMoveOptions.length === 0 &&
+        !pendingBoardAction ? (
+          <RobberWaitDialog
+            currentPlayer={match.players.find((player) => player.id === match.currentPlayerId) ?? null}
+            players={match.players}
+            robberDiscardStatus={robberDiscardStatus}
+          />
+        ) : null}
 
-      <ToastStack onDismiss={removeToast} toasts={toasts} />
-    </main>
+        <ToastStack onDismiss={removeToast} toasts={toasts} />
+      </main>
+    </I18nProvider>
   );
 }
 

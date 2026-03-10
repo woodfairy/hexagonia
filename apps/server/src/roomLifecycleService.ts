@@ -1,10 +1,10 @@
 import type { GameState } from "@hexagonia/rules";
+import type { ErrorDescriptor, RoomDetails, SeatState } from "@hexagonia/shared";
 import { Database } from "./db.js";
-import type { RoomDetails, SeatState } from "@hexagonia/shared";
 
 export interface RoomLifecycleRealtimeBridge {
   broadcastRoom(room: RoomDetails): Promise<void>;
-  terminateMatch(matchId: string, reason: string): void;
+  terminateMatch(matchId: string, reason: ErrorDescriptor): void;
 }
 
 export class RoomLifecycleService {
@@ -13,7 +13,7 @@ export class RoomLifecycleService {
     private readonly realtime: RoomLifecycleRealtimeBridge
   ) {}
 
-  async resetMatchToRoom(matchId: string, reason: string): Promise<RoomDetails | null> {
+  async resetMatchToRoom(matchId: string, reason: ErrorDescriptor): Promise<RoomDetails | null> {
     this.realtime.terminateMatch(matchId, reason);
     const deleted = await this.db.deleteMatch(matchId);
     if (!deleted) {
@@ -69,8 +69,10 @@ export class RoomLifecycleService {
       return;
     }
 
-    const reason = `${evictedPlayer?.username ?? "Ein Spieler"} war über 5 Minuten getrennt und wurde aus dem Raum entfernt. Die Partie kehrt in die Lobby zurück.`;
-    this.realtime.terminateMatch(matchId, reason);
+    this.realtime.terminateMatch(matchId, {
+      errorCode: "match.terminated.player_evicted",
+      ...(evictedPlayer?.username ? { errorParams: { username: evictedPlayer.username } } : {})
+    });
     await this.db.deleteMatch(matchId);
 
     room.matchId = null;

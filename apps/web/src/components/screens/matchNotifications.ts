@@ -228,13 +228,39 @@ function createStartingPlayerNotification(
   match: MatchSnapshot,
   event: MatchEventOf<"starting_player_rolled">
 ): MatchNotification {
-  const summary = event.payload.summary;
+  const summary = summarizeStartingPlayerRounds(match, event);
   return createBaseNotification(match, event, {
     label: "Start",
     title: getPlayerPredicate(match, match.you, event.byPlayerId, "beginnt die Partie", "beginnst die Partie"),
     detail: summary ?? "Der Startspieler wurde ausgewählt.",
     emphasis: "success"
   });
+}
+
+function summarizeStartingPlayerRounds(
+  match: MatchSnapshot,
+  event: MatchEventOf<"starting_player_rolled">
+): string {
+  const winnerName = getDisplayPlayerName(match, match.you, event.payload.winnerPlayerId);
+  const lastRound = event.payload.rounds.at(-1);
+  const locale = typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "de";
+
+  if (!lastRound) {
+    return locale === "en" ? `${winnerName} starts the match.` : `${winnerName} beginnt die Partie.`;
+  }
+
+  const contenderCount = lastRound.contenderPlayerIds.length;
+  const hasRollOff = event.payload.rounds.length > 1 || contenderCount > 1;
+
+  if (locale === "en") {
+    return hasRollOff
+      ? `${winnerName} wins the roll-off with ${lastRound.highestTotal}.`
+      : `${winnerName} wins the starting roll with ${lastRound.highestTotal}.`;
+  }
+
+  return hasRollOff
+    ? `${winnerName} gewinnt das Stechen mit ${lastRound.highestTotal}.`
+    : `${winnerName} gewinnt den Startwurf mit ${lastRound.highestTotal}.`;
 }
 
 function createMatchStartedNotification(
