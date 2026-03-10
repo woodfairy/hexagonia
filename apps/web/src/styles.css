@@ -546,12 +546,6 @@ select::-ms-expand {
   position: relative;
 }
 
-.profile-locale-select-shell {
-  position: relative;
-  inline-size: min(100%, 15rem);
-  max-inline-size: 100%;
-}
-
 .profile-music-copy strong {
   font-size: 0.92rem;
 }
@@ -562,8 +556,7 @@ select::-ms-expand {
   font-size: 0.78rem;
 }
 
-.profile-music-select-shell::after,
-.profile-locale-select-shell::after {
+.profile-music-select-shell::after {
   content: "";
   position: absolute;
   inset-inline-end: 1rem;
@@ -583,11 +576,71 @@ select::-ms-expand {
   background-image: none;
 }
 
-.profile-locale-select-shell > select {
-  min-inline-size: 0;
+.locale-select-shell {
   inline-size: 100%;
+}
+
+.locale-select-shell-profile {
+  inline-size: min(100%, 15rem);
+  max-inline-size: 100%;
+}
+
+.locale-select-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.locale-select-trigger:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.locale-select-trigger:focus-visible {
+  outline: none;
+}
+
+.locale-select-trigger-copy {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.locale-select-trigger-caret {
+  inline-size: 0.56rem;
+  block-size: 0.56rem;
+  justify-self: end;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  opacity: 0.72;
+  transform: rotate(45deg) translateY(-0.08rem);
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+  pointer-events: none;
+}
+
+.locale-select-trigger.is-open .locale-select-trigger-caret {
+  opacity: 1;
+  transform: rotate(225deg) translateY(0.08rem);
+}
+
+.locale-select-trigger-profile {
   min-block-size: 2.5rem;
-  padding: 0.62rem 2.3rem 0.62rem 0.9rem;
+  padding: 0.62rem 0.9rem;
   border: 1px solid rgba(var(--accent-rgb), 0.26);
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
@@ -597,15 +650,109 @@ select::-ms-expand {
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.2;
-  text-transform: none;
-  background-image: none;
 }
 
-.profile-locale-select-shell::after {
-  inset-inline-end: 0.92rem;
-  inset-block-start: 50%;
-  inset-block-end: auto;
-  transform: translateY(-62%) rotate(45deg);
+.locale-select-trigger-profile:is(:hover, :focus-visible, .is-open) {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 0.12rem rgba(var(--accent-rgb), 0.08);
+}
+
+.locale-select-menu {
+  z-index: 64;
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.34rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.locale-select-menu-profile {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(6, 15, 23, 0.96);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.locale-select-option {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.locale-select-option:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.locale-select-option:focus-visible {
+  outline: none;
+}
+
+.locale-select-option-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.locale-select-option-label,
+.locale-select-option-code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.locale-select-option-code {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.locale-select-option-check {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.locale-select-option-check.is-visible {
+  opacity: 1;
+}
+
+.locale-select-option-profile {
+  padding: 0.68rem 0.78rem;
+  border-radius: 0.82rem;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+}
+
+.locale-select-option-profile:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.22);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.locale-select-option-profile:is(:focus-visible, .is-active) {
+  border-color: rgba(var(--accent-rgb), 0.38);
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), rgba(255, 255, 255, 0.03)),
+    rgba(10, 18, 28, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.1);
 }
 
 .profile-music-toggle {
@@ -2108,8 +2255,8 @@ select {
 }
 
 .deep-link-board-skeleton {
-  --deep-link-hex-width: clamp(4.85rem, 8vw, 6.5rem);
-  --deep-link-hex-height: clamp(4.2rem, 7vw, 5.65rem);
+  --deep-link-hex-width: clamp(4.2rem, 7vw, 5.65rem);
+  --deep-link-hex-height: clamp(4.85rem, 8vw, 6.5rem);
   position: relative;
   min-block-size: clamp(24rem, 56vh, 38rem);
   display: grid;
@@ -2134,7 +2281,7 @@ select {
 .deep-link-board-hex-row {
   position: relative;
   display: flex;
-  gap: calc(var(--deep-link-hex-width) * -0.25);
+  gap: 0;
 }
 
 .deep-link-board-hex-row + .deep-link-board-hex-row {
@@ -2144,7 +2291,7 @@ select {
 .deep-link-board-hex {
   inline-size: var(--deep-link-hex-width);
   block-size: var(--deep-link-hex-height);
-  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   border-radius: 0.85rem;
   opacity: 0.9;
 }

@@ -198,30 +198,14 @@ body.guest-landing-mode {
   flex-wrap: wrap;
 }
 
-.landing-locale-select-shell {
-  position: relative;
+.locale-select-shell-landing {
   min-inline-size: min(100%, 14rem);
   max-inline-size: 100%;
 }
 
-.landing-locale-select-shell::after {
-  content: "";
-  position: absolute;
-  inset-inline-end: 0.95rem;
-  inset-block-start: 50%;
-  inline-size: 0.56rem;
-  block-size: 0.56rem;
-  border-inline-end: 2px solid var(--landing-muted);
-  border-block-end: 2px solid var(--landing-muted);
-  transform: translateY(-62%) rotate(45deg);
-  pointer-events: none;
-}
-
-.landing-locale-select-shell > select {
-  appearance: none;
+.locale-select-trigger-landing {
   min-block-size: 2.55rem;
-  inline-size: 100%;
-  padding: 0.66rem 2.4rem 0.66rem 0.92rem;
+  padding: 0.66rem 0.92rem;
   border: 1px solid var(--landing-line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
@@ -231,11 +215,46 @@ body.guest-landing-mode {
   letter-spacing: 0.01em;
 }
 
-.landing-locale-select-shell > select:hover,
-.landing-locale-select-shell > select:focus-visible {
+.locale-select-trigger-landing .locale-select-trigger-caret {
+  color: var(--landing-muted);
+}
+
+.locale-select-trigger-landing:is(:hover, :focus-visible, .is-open) {
   border-color: rgba(182, 148, 255, 0.34);
   background: rgba(182, 148, 255, 0.12);
-  outline: none;
+  box-shadow: 0 0 0 0.12rem rgba(182, 148, 255, 0.12);
+}
+
+.locale-select-menu-landing {
+  border: 1px solid rgba(182, 148, 255, 0.24);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(17, 32, 55, 0.94), rgba(7, 18, 34, 0.96)),
+    rgba(5, 12, 24, 0.96);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(18px);
+}
+
+.locale-select-option-landing {
+  padding: 0.72rem 0.84rem;
+  border-radius: 0.98rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--landing-text);
+}
+
+.locale-select-option-landing:hover:not(:disabled) {
+  border-color: rgba(182, 148, 255, 0.22);
+  background: rgba(182, 148, 255, 0.12);
+}
+
+.locale-select-option-landing:is(:focus-visible, .is-active) {
+  border-color: rgba(182, 148, 255, 0.34);
+  background:
+    linear-gradient(180deg, rgba(182, 148, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(14, 28, 48, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(182, 148, 255, 0.12);
 }
 
 .landing-nav-button {
@@ -1247,7 +1266,7 @@ body.guest-landing-mode .toast-stack {
     grid-template-columns: 1fr;
   }
 
-  .landing-locale-select-shell {
+  .locale-select-shell-landing {
     inline-size: 100%;
   }
 

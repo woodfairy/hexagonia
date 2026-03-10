@@ -3,9 +3,9 @@ import type { AuthUser, Locale } from "@hexagonia/shared";
 import { uiHapticsManager } from "../../audio/uiHapticsManager";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
+import { LocaleSelect } from "../shared/LocaleSelect";
 import {
   createText,
-  getLocaleName,
   normalizeLocale,
   resolveText,
   useI18n
@@ -42,7 +42,7 @@ export interface ProfileMenuProps {
 type ToggleableBoardVisualSetting = "props" | "textures" | "terrainRelief" | "resourceIcons";
 
 export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; onRequestClose?: () => void }) {
-  const { locale, availableLocales } = useI18n();
+  const { locale } = useI18n();
   const activeLocale = normalizeLocale(props.session.locale);
   const selectedMusicTrack =
     props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
@@ -147,22 +147,15 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           <div className="profile-music-copy">
             <strong>{resolveText(locale, createText("Sprache", "Language"))}</strong>
           </div>
-          <label className="profile-locale-select-shell">
-            <select
-              value={activeLocale}
-              aria-label={resolveText(locale, createText("Sprache", "Language"))}
-              onChange={(event) => {
-                props.onLocaleChange(event.target.value as Locale);
-                playSoftMenuHaptic();
-              }}
-            >
-              {availableLocales.map((entry) => (
-                <option key={entry} value={entry}>
-                  {`${resolveText(locale, getLocaleName(entry))} (${entry.toUpperCase()})`}
-                </option>
-              ))}
-            </select>
-          </label>
+          <LocaleSelect
+            value={activeLocale}
+            ariaLabel={resolveText(locale, createText("Sprache", "Language"))}
+            variant="profile"
+            onChange={(nextLocale) => {
+              props.onLocaleChange(nextLocale);
+              playSoftMenuHaptic();
+            }}
+          />
         </div>
 
         <div className="profile-music-panel">

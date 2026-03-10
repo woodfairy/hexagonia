@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import type { Locale } from "@hexagonia/shared";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
-import { createCatalogText, createText, getLocaleName, resolveText, useI18n } from "../../i18n";
+import { createCatalogText, createText, resolveText, useI18n } from "../../i18n";
 import { HarborIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
+import { LocaleSelect } from "../shared/LocaleSelect";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import type { AuthMode } from "../../ui";
 import hexaLogo from "../../../../../assets/img/hexa.png";
@@ -158,7 +158,7 @@ export function LandingScreen(props: {
   onToggleMusicPaused: () => void;
   authSubmitPending: boolean;
 }) {
-  const { locale, setLocale, availableLocales } = useI18n();
+  const { locale, setLocale } = useI18n();
   const text = (de: string, en: string) => resolveText(locale, createText(de, en));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const trackMenuRef = useRef<HTMLDivElement | null>(null);
@@ -323,20 +323,7 @@ export function LandingScreen(props: {
 
         <div className="landing-header-tools">
           <div className="landing-header-actions">
-            <label className="landing-locale-select-shell">
-              <span className="sr-only">{text("Sprache", "Language")}</span>
-              <select
-                value={locale}
-                aria-label={text("Sprache", "Language")}
-                onChange={(event) => setLocale(event.target.value as Locale)}
-              >
-                {availableLocales.map((entry) => (
-                  <option key={entry} value={entry}>
-                    {`${resolveText(locale, getLocaleName(entry))} (${entry.toUpperCase()})`}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <LocaleSelect value={locale} ariaLabel={text("Sprache", "Language")} variant="landing" onChange={setLocale} />
           </div>
           <div className="landing-music-panel">
             <div className="landing-music-copy">
