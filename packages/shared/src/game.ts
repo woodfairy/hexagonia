@@ -190,6 +190,7 @@ export interface MatchSnapshot {
   robberDiscardStatus: RobberDiscardStatusView[];
   pendingDevelopmentEffect: PendingDevelopmentEffectView | null;
   allowedMoves: AllowedMoves;
+  publicInitialSettlementVertexIds: string[];
   eventLog: MatchEvent[];
   winnerId: string | null;
 }

@@ -390,6 +390,7 @@ export function createSnapshot(state: GameState, viewerId: string): MatchSnapsho
         }
       : null,
     allowedMoves: getAllowedMoves(state, viewerId),
+    publicInitialSettlementVertexIds: getPublicInitialSettlementVertexIds(state),
     eventLog: state.eventLog.slice(-25),
     winnerId: state.winnerId
   };
@@ -1631,6 +1632,7 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
   const hasPendingDevelopmentEffect = isCurrentPlayer && hasActivePendingDevelopmentEffect;
   const isBuildPhase = isBuildActionPhase(state.phase);
   const isDevelopmentPhase = isDevelopmentCardPhase(state.phase);
+  const publicInitialSettlementVertexIds = getPublicInitialSettlementVertexIds(state);
   const freeRoadEdgeIds =
     hasPendingDevelopmentEffect && state.pendingDevelopmentEffect?.type === "road_building"
       ? getLegalRoadEdges(state, playerId)
@@ -1647,13 +1649,7 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
     canEndTurn: isBuildPhase && isCurrentPlayer && !hasActivePendingDevelopmentEffect,
     canCreateTradeOffer: state.phase === "turn_action" && !hasActivePendingDevelopmentEffect,
     canMaritimeTrade: isCurrentPlayer && !hasActivePendingDevelopmentEffect && canUseMaritimeTrade(state),
-    initialSettlementVertexIds:
-      isCurrentPlayer &&
-      !!state.setupState &&
-      state.setupState.stage === "settlement" &&
-      (state.phase === "setup_forward" || state.phase === "setup_reverse")
-        ? getInitialSettlementVertices(state)
-        : [],
+    initialSettlementVertexIds: isCurrentPlayer ? publicInitialSettlementVertexIds : [],
     initialRoadEdgeIds:
       isCurrentPlayer &&
       !!state.setupState &&
@@ -1705,6 +1701,18 @@ function getAllowedMoves(state: GameState, playerId: string): AllowedMoves {
       .filter((offer) => canPlayerWithdrawTradeOffer(playerId, offer))
       .map((offer) => offer.id)
   };
+}
+
+function getPublicInitialSettlementVertexIds(state: GameState): string[] {
+  if (!state.setupState || state.setupState.stage !== "settlement") {
+    return [];
+  }
+
+  if (state.phase !== "setup_forward" && state.phase !== "setup_reverse") {
+    return [];
+  }
+
+  return getInitialSettlementVertices(state);
 }
 
 function getRobberDiscardStatusView(state: GameState): MatchSnapshot["robberDiscardStatus"] {

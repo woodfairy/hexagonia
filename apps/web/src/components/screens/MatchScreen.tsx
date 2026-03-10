@@ -36,6 +36,7 @@ import {
   canAffordCost,
   canBankPayYearOfPlenty,
   createBuildActionState,
+  createOpeningMatchCameraCue,
   createOwnActionCameraCue,
   createOwnActionCue,
   describeDevelopmentCardStatus,
@@ -883,6 +884,7 @@ export function MatchScreen(props: {
     () => createOwnActionCameraCue(props.match, activePlayer, props.interactionMode, props.selectedRoadEdges),
     [activePlayer, locale, props.interactionMode, props.match, props.selectedRoadEdges]
   );
+  const openingCameraCue = useMemo(() => createOpeningMatchCameraCue(props.match), [locale, props.match]);
   const visibleNotificationCue = isDiceAnimationActive ? null : notificationState.boardCue;
   const highlightCue = actionCue ?? visibleNotificationCue;
   const shouldAutoFocusRecentEvent =
@@ -895,7 +897,7 @@ export function MatchScreen(props: {
       boardFocusNotification.playerId !== props.match.you);
   const cameraCue =
     autoFocusEnabled && !isDiceAnimationActive
-      ? (actionCameraCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
+      ? (actionCameraCue ?? openingCameraCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
       : null;
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)

@@ -23,7 +23,7 @@ const envSchema = z.object({
   if (configuredCount > 0 && configuredCount < requiredAdminValues.length) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "ADMIN_USERNAME und ADMIN_PASSWORD müssen zusammen gesetzt werden."
+      message: "ADMIN_USERNAME and ADMIN_PASSWORD must be set together."
     });
   }
 });

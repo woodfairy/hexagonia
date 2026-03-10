@@ -2542,8 +2542,9 @@ export function App() {
   };
 
   const guestInviteCode = !session && route.kind === "invite" ? route.code : null;
-  const usesCompactHeader = activeScreen === "lobby" || activeScreen === "match";
-  const usesCompactBootHeader = route.kind === "play" || route.kind === "match";
+  const usesCompactHeader = activeScreen === "lobby" || activeScreen === "room" || activeScreen === "match";
+  const usesCompactBootHeader =
+    route.kind === "play" || route.kind === "invite" || route.kind === "room" || route.kind === "match";
   const appShellClassName = `app-shell ${activeScreen === "match" ? "is-match-screen" : ""} ${usesCompactHeader ? "has-flush-header" : ""}`.trim();
   const bootShellClassName = `app-shell ${route.kind === "match" ? "is-match-screen" : ""} ${usesCompactBootHeader ? "has-flush-header" : ""}`.trim();
 

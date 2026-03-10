@@ -336,18 +336,10 @@ export function createOwnActionCameraCue(
   }
 
   if (match.allowedMoves.initialSettlementVertexIds.length > 0) {
-    return {
-      key: `camera-initial-settlement-${match.version}-${match.allowedMoves.initialSettlementVertexIds.join(",")}`,
-      mode: "action",
-      title: t("match.camera.initialSettlement.title"),
-      detail: t("match.camera.initialSettlement.detail"),
-      vertexIds: match.allowedMoves.initialSettlementVertexIds,
-      edgeIds: [],
-      tileIds: [],
-      scale: "wide",
-      cameraFit: "board",
-      zoomPreset: "distribution"
-    };
+    return createInitialSettlementCameraCue(
+      match.allowedMoves.initialSettlementVertexIds,
+      `camera-initial-settlement-${match.version}-${match.allowedMoves.initialSettlementVertexIds.join(",")}`
+    );
   }
 
   if (match.allowedMoves.initialRoadEdgeIds.length > 0) {
@@ -473,6 +465,36 @@ export function createOwnActionCameraCue(
   }
 
   return null;
+}
+
+export function createOpeningMatchCameraCue(match: MatchSnapshot): BoardFocusCue | null {
+  if (match.version !== 1 || !match.publicInitialSettlementVertexIds.length) {
+    return null;
+  }
+
+  return createInitialSettlementCameraCue(
+    match.publicInitialSettlementVertexIds,
+    `camera-opening-initial-settlement-${match.version}-${match.publicInitialSettlementVertexIds.join(",")}`
+  );
+}
+
+function createInitialSettlementCameraCue(vertexIds: string[], key: string): BoardFocusCue | null {
+  if (!vertexIds.length) {
+    return null;
+  }
+
+  return {
+    key,
+    mode: "action",
+    title: t("match.camera.initialSettlement.title"),
+    detail: t("match.camera.initialSettlement.detail"),
+    vertexIds,
+    edgeIds: [],
+    tileIds: [],
+    scale: "wide",
+    cameraFit: "board",
+    zoomPreset: "distribution"
+  };
 }
 
 export function getLatestDiceRollEvent(
