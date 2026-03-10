@@ -174,6 +174,24 @@ const MOBILE_MATCH_TAB_LAYOUT: MatchTabLayoutConfig = {
 const AUTO_FOCUS_STORAGE_KEY = "hexagonia:auto-focus";
 const BOARD_LEGEND_STORAGE_KEY = "hexagonia:board-legend";
 const BOARD_HUD_STORAGE_KEY = "hexagonia:board-hud";
+const MATCH_ACTIVE_TAB_STORAGE_KEY = "hexagonia:match-active-tab";
+
+function isMatchPanelTab(value: string): value is MatchPanelTab {
+  return value === "overview" || value === "actions" || value === "hand" || value === "trade" || value === "players" || value === "profile";
+}
+
+function getDefaultMatchPanelTab(): MatchPanelTab {
+  return "actions";
+}
+
+function readPersistedMatchPanelTab() {
+  if (typeof window === "undefined") {
+    return getDefaultMatchPanelTab();
+  }
+
+  const storedTab = window.localStorage.getItem(MATCH_ACTIVE_TAB_STORAGE_KEY);
+  return storedTab && isMatchPanelTab(storedTab) ? storedTab : getDefaultMatchPanelTab();
+}
 const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
   { resource: "brick", note: "Lehm für Straßen und Siedlungen." },
   { resource: "lumber", note: "Holz für Straßen und Siedlungen." },
@@ -679,13 +697,7 @@ export function MatchScreen(props: {
   setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
   setMonopolyResource: Dispatch<SetStateAction<Resource>>;
 }) {
-  const [activeTab, setActiveTab] = useState<MatchPanelTab>(() => {
-    if (typeof window === "undefined") {
-      return "overview";
-    }
-
-    return window.innerWidth <= 1023 ? "actions" : "overview";
-  });
+  const [activeTab, setActiveTab] = useState<MatchPanelTab>(() => readPersistedMatchPanelTab());
   const [tabTransitionDirection, setTabTransitionDirection] = useState<"forward" | "backward">("forward");
   const [sheetState, setSheetState] = useState<SheetState>(() => {
     if (typeof window === "undefined") {
@@ -1519,9 +1531,17 @@ export function MatchScreen(props: {
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
       setTabTransitionDirection("backward");
-      setActiveTab("overview");
+      setActiveTab(visibleTabs[0]?.id ?? getDefaultMatchPanelTab());
     }
   }, [activeTab, visibleTabs]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(MATCH_ACTIVE_TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

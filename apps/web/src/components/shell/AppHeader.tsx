@@ -50,9 +50,7 @@ export function AppHeader(props: {
         <button type="button" className="brand-mark" onClick={props.onNavigateHome} aria-label="Zur Startseite von Hexagonia">
           <img src={hexaLogo} alt="Hexagonia" className="brand-mark-image" />
         </button>
-        {!props.compact ? (
-          <span className="brand-wordmark">HEXAGONIA</span>
-        ) : null}
+        <span className="brand-wordmark">HEXAGONIA</span>
       </div>
 
       <div className="header-utilities">

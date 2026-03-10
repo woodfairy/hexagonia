@@ -110,9 +110,7 @@ export function AppHeaderSkeleton(props: { eyebrow: string; compact?: boolean })
     <header className={`app-header app-header-skeleton ${props.compact ? "is-compact" : ""}`.trim()} aria-hidden="true">
       <div className="brand-cluster">
         <div className="brand-mark app-skeleton-brand-mark" />
-        {!props.compact ? (
-          <span className="skeleton-shape app-skeleton-wordmark" />
-        ) : null}
+        <span className="skeleton-shape app-skeleton-wordmark" />
       </div>
 
       <div className="header-utilities">

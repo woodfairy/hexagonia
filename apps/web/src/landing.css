@@ -398,7 +398,7 @@ body.guest-landing-mode {
   display: grid;
   gap: var(--landing-section-gap);
   padding:
-    1.1rem max(var(--landing-inline-space), env(safe-area-inset-right))
+    0.55rem max(var(--landing-inline-space), env(safe-area-inset-right))
     6rem max(var(--landing-inline-space), env(safe-area-inset-left));
 }
 

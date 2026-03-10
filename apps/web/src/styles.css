@@ -319,6 +319,11 @@ select::-ms-expand {
   white-space: nowrap;
 }
 
+.app-header.is-compact .brand-wordmark {
+  font-size: 0.88rem;
+  letter-spacing: 0.16em;
+}
+
 .brand-copy {
   min-inline-size: 0;
   display: grid;
@@ -2362,11 +2367,17 @@ select {
 }
 
 .board-stage-frame {
-  display: grid;
+  display: flex;
   min-block-size: 0;
   block-size: 100%;
   min-inline-size: 0;
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.65rem;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(228, 248, 255, 0.2), transparent 32%),
+    linear-gradient(180deg, #7dc3dc 0%, #4f9fbe 46%, #0f638b 100%);
 }
 
 .match-screen:not(.deep-link-match-skeleton) > .match-stage > .board-stage-frame {
@@ -2375,15 +2386,17 @@ select {
 
 .board-canvas {
   position: relative;
+  flex: 1 1 auto;
   block-size: 100%;
   min-block-size: 0;
+  min-inline-size: 0;
   border-radius: 1.65rem;
   overflow: hidden;
   border: 1px solid var(--line-soft);
   background:
     radial-gradient(circle at 50% 18%, rgba(228, 248, 255, 0.2), transparent 32%),
     linear-gradient(180deg, #7dc3dc 0%, #4f9fbe 46%, #0f638b 100%);
-  box-shadow: var(--shadow-lg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   touch-action: manipulation;
 }
 
@@ -5689,6 +5702,13 @@ select {
 
 .event-list {
   align-content: start;
+  padding-block-end: 1.35rem;
+  padding-inline-start: 0.08rem;
+  scroll-padding-block-end: 1.35rem;
+}
+
+.event-list > :last-child {
+  margin-block-end: 0.14rem;
 }
 
 .player-card-list {
