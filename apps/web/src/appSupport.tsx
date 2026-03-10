@@ -10,10 +10,14 @@ import type { ToastMessage } from "./components/shell/ToastStack";
 import type {
   AdminUserDraftState
 } from "./components/screens/AdminScreen";
-import { createText, resolveText, useI18n } from "./i18n";
+import { getDocumentLocale, translate, useI18n } from "./i18n";
 import { renderResourceLabel, renderResourceMap } from "./ui";
 
 type MatchAction = Extract<ClientMessage, { type: "match.action" }>["action"];
+
+function t(key: string, params?: Record<string, string | number>) {
+  return translate(getDocumentLocale(), key, undefined, undefined, params);
+}
 
 function serializeResourceMap(resources: Partial<Record<Resource, number>>): string {
   return RESOURCES.map((resource) => `${resource}:${resources[resource] ?? 0}`).join(",");
@@ -95,11 +99,11 @@ export function getActionableTradeCount(match: MatchSnapshot): number {
 }
 
 export function StatusSurface(props: { title: string; text: string }) {
-  const { locale } = useI18n();
+  const { translate: tt } = useI18n();
   return (
     <section className="screen-shell status-shell">
       <article className="surface status-surface">
-        <div className="eyebrow">{resolveText(locale, createText("Synchronisation", "Synchronization"))}</div>
+        <div className="eyebrow">{tt("app.status.syncEyebrow")}</div>
         <h1>{props.title}</h1>
         <p className="hero-copy">{props.text}</p>
       </article>
@@ -393,111 +397,124 @@ export function getMatchActionConfirmation(
   switch (action.type) {
     case "place_initial_settlement":
       return {
-        title: text("Start-Siedlung setzen?", "Place initial settlement?"),
-        detail: "Die ausgewählte Position wird als deine Start-Siedlung gesetzt.",
-        confirmLabel: "Siedlung setzen"
+        title: t("match.confirm.initialSettlement.title"),
+        detail: t("match.confirm.initialSettlement.detail"),
+        confirmLabel: t("match.confirm.initialSettlement.confirm")
       };
     case "place_initial_road":
       return {
-        title: "Start-Straße setzen?",
-        detail: "Die ausgewählte Kante wird als deine Start-Straße gesetzt.",
-        confirmLabel: "Straße setzen"
+        title: t("match.confirm.initialRoad.title"),
+        detail: t("match.confirm.initialRoad.detail"),
+        confirmLabel: t("match.confirm.initialRoad.confirm")
       };
     case "build_road":
       return {
-        title: "Straße bauen?",
-        detail: "Die Straße wird sofort gebaut und die Baukosten werden bezahlt.",
-        confirmLabel: "Straße bauen"
+        title: t("match.confirm.buildRoad.title"),
+        detail: t("match.confirm.buildRoad.detail"),
+        confirmLabel: t("match.confirm.buildRoad.confirm")
       };
     case "build_settlement":
       return {
-        title: "Siedlung bauen?",
-        detail: "Die Siedlung wird sofort gebaut und die Baukosten werden bezahlt.",
-        confirmLabel: "Siedlung bauen"
+        title: t("match.confirm.buildSettlement.title"),
+        detail: t("match.confirm.buildSettlement.detail"),
+        confirmLabel: t("match.confirm.buildSettlement.confirm")
       };
     case "build_city":
       return {
-        title: "Stadt bauen?",
-        detail: "Die ausgewählte Siedlung wird zur Stadt ausgebaut und die Baukosten werden bezahlt.",
-        confirmLabel: "Stadt bauen"
+        title: t("match.confirm.buildCity.title"),
+        detail: t("match.confirm.buildCity.detail"),
+        confirmLabel: t("match.confirm.buildCity.confirm")
       };
     case "buy_development_card":
       return {
-        title: "Entwicklungskarte kaufen?",
-        detail: "Die Rohstoffe werden direkt abgezogen und du ziehst eine verdeckte Entwicklungskarte.",
-        confirmLabel: "Karte kaufen"
+        title: t("match.confirm.buyDevelopment.title"),
+        detail: t("match.confirm.buyDevelopment.detail"),
+        confirmLabel: t("match.confirm.buyDevelopment.confirm")
       };
     case "play_knight":
       return {
-        title: "Ritter spielen?",
-        detail: "Der Ritter wird ausgespielt und danach setzt du den Räuber.",
-        confirmLabel: "Ritter spielen"
+        title: t("match.confirm.playKnight.title"),
+        detail: t("match.confirm.playKnight.detail"),
+        confirmLabel: t("match.confirm.playKnight.confirm")
       };
     case "play_road_building":
       return {
-        title: "Straßenbau spielen?",
-        detail: "Die Karte wird aktiviert. Danach setzt du eine oder zwei kostenlose Straßen direkt über das Brett.",
-        confirmLabel: "Straßenbau starten"
+        title: t("match.confirm.playRoadBuilding.title"),
+        detail: t("match.confirm.playRoadBuilding.detail"),
+        confirmLabel: t("match.confirm.playRoadBuilding.confirm")
       };
     case "place_free_road":
       return {
-        title: "Kostenlose Straße setzen?",
-        detail: "Die ausgewählte Kante wird als kostenlose Straße aus dem Straßenbau-Effekt gesetzt.",
-        confirmLabel: "Straße setzen"
+        title: t("match.confirm.placeFreeRoad.title"),
+        detail: t("match.confirm.placeFreeRoad.detail"),
+        confirmLabel: t("match.confirm.placeFreeRoad.confirm")
       };
     case "finish_road_building":
       return {
-        title: "Straßenbau beenden?",
-        detail: "Der offene Straßenbau-Effekt wird beendet. Du kannst in diesem Zug danach normal weiterspielen.",
-        confirmLabel: "Straßenbau beenden"
+        title: t("match.confirm.finishRoadBuilding.title"),
+        detail: t("match.confirm.finishRoadBuilding.detail"),
+        confirmLabel: t("match.confirm.finishRoadBuilding.confirm")
       };
     case "play_year_of_plenty":
       return {
-        title: "Erfindung ausspielen?",
-        detail: `Du nimmst ${renderResourceLabel(action.resources[0])} und ${renderResourceLabel(action.resources[1])} aus der Bank.`,
-        confirmLabel: "Erfindung spielen"
+        title: t("match.confirm.playYearOfPlenty.title"),
+        detail: t("match.confirm.playYearOfPlenty.detail", {
+          first: renderResourceLabel(action.resources[0]),
+          second: renderResourceLabel(action.resources[1])
+        }),
+        confirmLabel: t("match.confirm.playYearOfPlenty.confirm")
       };
     case "play_monopoly":
       return {
-        title: "Monopol ausspielen?",
-        detail: `Alle Mitspieler geben dir ihre ${renderResourceLabel(action.resource)}-Karten.`,
-        confirmLabel: "Monopol spielen"
+        title: t("match.confirm.playMonopoly.title"),
+        detail: t("match.confirm.playMonopoly.detail", {
+          resource: renderResourceLabel(action.resource)
+        }),
+        confirmLabel: t("match.confirm.playMonopoly.confirm")
       };
     case "move_robber": {
       const targetName = action.targetPlayerId
         ? match.players.find((player) => player.id === action.targetPlayerId)?.username
         : null;
       return {
-        title: "Räuber versetzen?",
+        title: t("match.confirm.moveRobber.title"),
         detail: targetName
-          ? `Der Räuber wird auf das gewählte Feld versetzt und ${targetName} wird als Zielspieler verwendet.`
-          : "Der Räuber wird auf das gewählte Feld versetzt.",
-        confirmLabel: "Räuber setzen"
+          ? t("match.confirm.moveRobber.detailWithTarget", { player: targetName })
+          : t("match.confirm.moveRobber.detail"),
+        confirmLabel: t("match.confirm.moveRobber.confirm")
       };
     }
     case "create_trade_offer": {
       const targetName = action.toPlayerId
-        ? match.players.find((player) => player.id === action.toPlayerId)?.username ?? "dem Zielspieler"
-        : "allen Mitspielern";
+        ? match.players.find((player) => player.id === action.toPlayerId)?.username ?? t("match.confirm.trade.targetPlayer")
+        : t("match.confirm.trade.allPlayers");
       return {
-        title: "Handelsangebot senden?",
-        detail: `${renderResourceMap(action.give) || "nichts"} gegen ${renderResourceMap(action.want) || "nichts"} an ${targetName}.`,
-        confirmLabel: "Angebot senden"
+        title: t("match.confirm.trade.title"),
+        detail: t("match.confirm.trade.detail", {
+          give: renderResourceMap(action.give) || t("shared.nothing"),
+          want: renderResourceMap(action.want) || t("shared.nothing"),
+          player: targetName
+        }),
+        confirmLabel: t("match.confirm.trade.confirm")
       };
     }
     case "maritime_trade":
       return {
-        title: "Hafenhandel bestätigen?",
-        detail: `Tausche ${action.giveCount} ${renderResourceLabel(action.give)} gegen ${renderResourceMap(action.receive) || "nichts"}.`,
-        confirmLabel: "Tausch senden"
+        title: t("match.confirm.maritimeTrade.title"),
+        detail: t("match.confirm.maritimeTrade.detail", {
+          count: action.giveCount,
+          resource: renderResourceLabel(action.give),
+          receive: renderResourceMap(action.receive) || t("shared.nothing")
+        }),
+        confirmLabel: t("match.confirm.maritimeTrade.confirm")
       };
     case "discard_resources":
       return null;
     case "end_turn":
       return {
-        title: "Zug beenden?",
-        detail: "Danach kann in diesem Zug nichts mehr gebaut oder gespielt werden.",
-        confirmLabel: "Zug beenden"
+        title: t("match.confirm.endTurn.title"),
+        detail: t("match.confirm.endTurn.detail"),
+        confirmLabel: t("match.confirm.endTurn.confirm")
       };
     default:
       return null;

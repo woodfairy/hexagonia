@@ -15,6 +15,7 @@ import {
 } from "./boardPieceModels";
 import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
+import { getDocumentLocale, translate } from "./i18n";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
 
@@ -1835,7 +1836,7 @@ function createTokenSprite(
     context.font = "700 36px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("RÄUBER", center, numberY);
+    context.fillText(translate(getDocumentLocale(), "board.robberLabel"), center, numberY);
   }
 
   const texture = markSharedResource(new THREE.CanvasTexture(canvas));

@@ -21,6 +21,7 @@ import {
 import { BoardScene, type ArmedBoardSelection, type BoardFocusCue, type InteractionMode } from "../../BoardScene";
 import { getMatchActionConfirmation, getMatchActionKey } from "../../appSupport";
 import { type BoardVisualSettings, TILE_COLORS } from "../../boardVisuals";
+import { getDocumentLocale, translate, useI18n } from "../../i18n";
 import { PortMarkerIcon, ResourceIcon } from "../../resourceIcons";
 import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { renderMatchPlayerText } from "../shared/PlayerText";
@@ -134,20 +135,20 @@ type TradeSelectOption = {
   title?: string;
 };
 
-const MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
-  { id: "actions", label: "Aktionen" },
-  { id: "trade", label: "Handel" },
-  { id: "hand", label: "Hand" },
-  { id: "overview", label: "Events" },
-  { id: "players", label: "Spieler" }
+const MATCH_TABS: Array<{ id: MatchPanelTab; labelKey: string }> = [
+  { id: "actions", labelKey: "match.tab.actions" },
+  { id: "trade", labelKey: "match.tab.trade" },
+  { id: "hand", labelKey: "match.tab.hand" },
+  { id: "overview", labelKey: "match.tab.events" },
+  { id: "players", labelKey: "match.tab.players" }
 ];
 
-const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; label: string }> = [
-  { id: "actions", label: "Aktionen" },
-  { id: "trade", label: "Handel" },
-  { id: "hand", label: "Hand" },
-  { id: "overview", label: "Events" },
-  { id: "profile", label: "Profil" }
+const MOBILE_MATCH_TABS: Array<{ id: MatchPanelTab; labelKey: string }> = [
+  { id: "actions", labelKey: "match.tab.actions" },
+  { id: "trade", labelKey: "match.tab.trade" },
+  { id: "hand", labelKey: "match.tab.hand" },
+  { id: "overview", labelKey: "match.tab.events" },
+  { id: "profile", labelKey: "shared.profile" }
 ];
 
 const MATCH_TAB_ORDER: Record<MatchPanelTab, number> = {
@@ -176,6 +177,10 @@ const BOARD_LEGEND_STORAGE_KEY = "hexagonia:board-legend";
 const BOARD_HUD_STORAGE_KEY = "hexagonia:board-hud";
 const MATCH_ACTIVE_TAB_STORAGE_KEY = "hexagonia:match-active-tab";
 
+function td(key: string, params?: Record<string, string | number>) {
+  return translate(getDocumentLocale(), key, undefined, undefined, params);
+}
+
 function isMatchPanelTab(value: string): value is MatchPanelTab {
   return value === "overview" || value === "actions" || value === "hand" || value === "trade" || value === "players" || value === "profile";
 }
@@ -192,38 +197,38 @@ function readPersistedMatchPanelTab() {
   const storedTab = window.localStorage.getItem(MATCH_ACTIVE_TAB_STORAGE_KEY);
   return storedTab && isMatchPanelTab(storedTab) ? storedTab : getDefaultMatchPanelTab();
 }
-const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
-  { resource: "brick", note: "Lehm für Straßen und Siedlungen." },
-  { resource: "lumber", note: "Holz für Straßen und Siedlungen." },
-  { resource: "ore", note: "Erz für Städte und Entwicklungen." },
-  { resource: "grain", note: "Getreide für Siedlungen, Städte und Entwicklungen." },
-  { resource: "wool", note: "Wolle für Siedlungen und Entwicklungen." },
-  { resource: "desert", note: "Wüste: keine Erträge, hier startet der Räuber." }
+const RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; noteKey: string }> = [
+  { resource: "brick", noteKey: "match.legend.resource.brick" },
+  { resource: "lumber", noteKey: "match.legend.resource.lumber" },
+  { resource: "ore", noteKey: "match.legend.resource.ore" },
+  { resource: "grain", noteKey: "match.legend.resource.grain" },
+  { resource: "wool", noteKey: "match.legend.resource.wool" },
+  { resource: "desert", noteKey: "match.legend.resource.desert" }
 ];
-const HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
-  { type: "generic", note: "3:1 für beliebige Rohstoffe. Es zählt immer deine beste angrenzende Hafenrate." },
-  { type: "brick", note: "2:1 für Lehm, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
-  { type: "lumber", note: "2:1 für Holz, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
-  { type: "ore", note: "2:1 für Erz, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
-  { type: "grain", note: "2:1 für Getreide, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." },
-  { type: "wool", note: "2:1 für Wolle, wenn deine eigene Siedlung oder Stadt direkt am Hafen liegt." }
+const HARBOR_LEGEND: Array<{ type: PortType; noteKey: string }> = [
+  { type: "generic", noteKey: "match.legend.harbor.generic" },
+  { type: "brick", noteKey: "match.legend.harbor.brick" },
+  { type: "lumber", noteKey: "match.legend.harbor.lumber" },
+  { type: "ore", noteKey: "match.legend.harbor.ore" },
+  { type: "grain", noteKey: "match.legend.harbor.grain" },
+  { type: "wool", noteKey: "match.legend.harbor.wool" }
 ];
-const COMPACT_RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; note: string }> = [
-  { resource: "brick", note: "Straßen, Siedlungen" },
-  { resource: "lumber", note: "Straßen, Siedlungen" },
-  { resource: "ore", note: "Städte, Entwicklung" },
-  { resource: "grain", note: "Siedlungen, Städte, Entwicklung" },
-  { resource: "wool", note: "Siedlungen, Entwicklung" },
-  { resource: "desert", note: "Kein Ertrag, Startfeld des Räubers" }
+const COMPACT_RESOURCE_LEGEND: Array<{ resource: Resource | "desert"; noteKey: string }> = [
+  { resource: "brick", noteKey: "match.legend.resourceCompact.brick" },
+  { resource: "lumber", noteKey: "match.legend.resourceCompact.lumber" },
+  { resource: "ore", noteKey: "match.legend.resourceCompact.ore" },
+  { resource: "grain", noteKey: "match.legend.resourceCompact.grain" },
+  { resource: "wool", noteKey: "match.legend.resourceCompact.wool" },
+  { resource: "desert", noteKey: "match.legend.resourceCompact.desert" }
 ];
 
-const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; note: string }> = [
-  { type: "generic", note: "3 gleiche Karten gegen 1 Wahlkarte" },
-  { type: "brick", note: "2 Lehm gegen 1 Wahlkarte" },
-  { type: "lumber", note: "2 Holz gegen 1 Wahlkarte" },
-  { type: "ore", note: "2 Erz gegen 1 Wahlkarte" },
-  { type: "grain", note: "2 Getreide gegen 1 Wahlkarte" },
-  { type: "wool", note: "2 Wolle gegen 1 Wahlkarte" }
+const COMPACT_HARBOR_LEGEND: Array<{ type: PortType; noteKey: string }> = [
+  { type: "generic", noteKey: "match.legend.harborCompact.generic" },
+  { type: "brick", noteKey: "match.legend.harborCompact.brick" },
+  { type: "lumber", noteKey: "match.legend.harborCompact.lumber" },
+  { type: "ore", noteKey: "match.legend.harborCompact.ore" },
+  { type: "grain", noteKey: "match.legend.harborCompact.grain" },
+  { type: "wool", noteKey: "match.legend.harborCompact.wool" }
 ];
 function isDenseLegendViewport(width: number, height: number): boolean {
   return width < 1320 || height < 840;
@@ -362,7 +367,7 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
         className="inline-confirm-cancel"
         disabled={!armed}
         onClick={props.onClear}
-        aria-label="Bestätigung abbrechen"
+        aria-label={td("shared.cancelConfirmation")}
         tabIndex={armed ? 0 : -1}
       >
         <span aria-hidden="true">×</span>
@@ -551,7 +556,7 @@ function TradeSelect(props: {
         <span className="trade-target-select-leading" aria-hidden="true">
           {selectedOption?.icon ?? <span className="trade-target-select-dot" />}
         </span>
-        <span className="trade-target-select-copy">{selectedOption?.label ?? "Wählen"}</span>
+        <span className="trade-target-select-copy">{selectedOption?.label ?? td("shared.select")}</span>
         <span className="trade-target-select-caret" aria-hidden="true" />
       </button>
       {open && menuStyle && typeof document !== "undefined"
@@ -614,10 +619,12 @@ function TradeOfferCard(props: {
   const receiveResources = fromViewerPerspective ? props.trade.want : props.trade.give;
   const offerLabel =
     props.variant === "own"
-      ? "Dein Angebot"
+      ? td("match.trade.offer.yours")
       : proposer
-        ? `Angebot von ${proposer.id === props.currentUserId ? "dir" : proposer.username}`
-        : "Handelsangebot";
+        ? td("match.trade.offer.fromPlayer", {
+            player: proposer.id === props.currentUserId ? td("shared.youDative") : proposer.username
+          })
+        : td("match.trade.offer.default");
 
   return (
     <article className={`trade-offer-card trade-offer-row ${props.focused ? "is-focused" : ""} is-${props.variant}`.trim()}>
@@ -628,11 +635,21 @@ function TradeOfferCard(props: {
           ) : (
             <strong>{offerLabel}</strong>
           )}
-          <span>{target ? `An ${target.id === props.currentUserId ? "dich" : target.username}` : "Offen für alle"}</span>
+          <span>
+            {target
+              ? td("match.trade.target.player", {
+                  player: target.id === props.currentUserId ? td("shared.youAccusative") : target.username
+                })
+              : td("match.trade.target.open")}
+          </span>
         </div>
         <div className="trade-offer-row-meta">
-          <span className="status-pill muted">Zug {props.trade.createdAtTurn}</span>
-          {props.variant === "incoming" ? <span className="status-pill is-warning">Antwort offen</span> : <span className="status-pill">Wartet</span>}
+          <span className="status-pill muted">{td("match.turnLabel", { turn: props.trade.createdAtTurn })}</span>
+          {props.variant === "incoming" ? (
+            <span className="status-pill is-warning">{td("match.trade.offer.replyOpen")}</span>
+          ) : (
+            <span className="status-pill">{td("match.trade.offer.waiting")}</span>
+          )}
         </div>
       </div>
       <div className="trade-offer-row-trade">
@@ -642,22 +659,22 @@ function TradeOfferCard(props: {
         {props.variant === "own" ? (
           <>
             <button type="button" className="secondary-button" onClick={props.onEdit}>
-              Ändern
+              {td("shared.edit")}
             </button>
             <button type="button" className="ghost-button" onClick={props.onWithdraw}>
-              Zurückziehen
+              {td("match.trade.action.withdraw")}
             </button>
           </>
         ) : (
           <>
             <button type="button" className="primary-button" disabled={!props.canAccept} onClick={props.onAccept}>
-              Annehmen
+              {td("match.trade.action.accept")}
             </button>
             <button type="button" className="ghost-button" disabled={!props.canDecline} onClick={props.onDecline}>
-              Ablehnen
+              {td("match.trade.action.decline")}
             </button>
             <button type="button" className="secondary-button" disabled={!props.canCounter} onClick={props.onCounter}>
-              Gegenangebot
+              {td("match.trade.action.counter")}
             </button>
           </>
         )}
@@ -697,6 +714,7 @@ export function MatchScreen(props: {
   setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
   setMonopolyResource: Dispatch<SetStateAction<Resource>>;
 }) {
+  const { translate: t } = useI18n();
   const [activeTab, setActiveTab] = useState<MatchPanelTab>(() => readPersistedMatchPanelTab());
   const [tabTransitionDirection, setTabTransitionDirection] = useState<"forward" | "backward">("forward");
   const [sheetState, setSheetState] = useState<SheetState>(() => {
@@ -767,6 +785,14 @@ export function MatchScreen(props: {
   });
   const [buildActionTooltip, setBuildActionTooltip] = useState<BuildActionTooltipState | null>(null);
   const [armedActionKey, setArmedActionKey] = useState<string | null>(null);
+  const matchTabs = useMemo(
+    () => MATCH_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) })),
+    [t]
+  );
+  const mobileMatchTabs = useMemo(
+    () => MOBILE_MATCH_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) })),
+    [t]
+  );
   const latestDiceEvent = useMemo(
     () => props.pendingDiceEvent ?? getLatestDiceRollEvent(props.match),
     [props.match, props.pendingDiceEvent]
@@ -921,7 +947,7 @@ export function MatchScreen(props: {
       ? createInlineConfirmKey("build-development", buyDevelopmentAction)
       : null;
   const buildActions = [
-    createBuildActionState("road", "Straße", {
+    createBuildActionState("road", t("match.build.road"), {
       cost: BUILD_COSTS.road,
       enabled: isCurrentPlayer && props.match.allowedMoves.roadEdgeIds.length > 0 && canAffordRoad,
       phase: props.match.phase,
@@ -932,7 +958,7 @@ export function MatchScreen(props: {
       resources: props.selfPlayer?.resources,
       onClick: () => props.setInteractionMode(props.interactionMode === "road" ? null : "road")
     }),
-    createBuildActionState("settlement", "Siedlung", {
+    createBuildActionState("settlement", t("match.build.settlement"), {
       cost: BUILD_COSTS.settlement,
       enabled: isCurrentPlayer && props.match.allowedMoves.settlementVertexIds.length > 0 && canAffordSettlement,
       phase: props.match.phase,
@@ -943,7 +969,7 @@ export function MatchScreen(props: {
       resources: props.selfPlayer?.resources,
       onClick: () => props.setInteractionMode(props.interactionMode === "settlement" ? null : "settlement")
     }),
-    createBuildActionState("city", "Stadt", {
+    createBuildActionState("city", t("match.build.city"), {
       cost: BUILD_COSTS.city,
       enabled: isCurrentPlayer && props.match.allowedMoves.cityVertexIds.length > 0 && canAffordCity,
       phase: props.match.phase,
@@ -954,7 +980,7 @@ export function MatchScreen(props: {
       resources: props.selfPlayer?.resources,
       onClick: () => props.setInteractionMode(props.interactionMode === "city" ? null : "city")
     }),
-    createBuildActionState("development", "Entwicklung", {
+    createBuildActionState("development", t("match.build.development"), {
       cost: BUILD_COSTS.development,
       enabled: props.match.allowedMoves.canBuyDevelopmentCard,
       phase: props.match.phase,
@@ -1028,24 +1054,29 @@ export function MatchScreen(props: {
       ? developmentCards.filter((card) => card.playable).length
       : 0;
   const mobileHudSummary = props.selfPlayer
-    ? `${totalVictoryPoints} VP gesamt · ${props.selfPlayer.resourceCount} Karten`
-    : "HUD";
-  const boardDiceLabel = props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "Wurf offen";
+    ? t("match.hud.mobileSummary", {
+        vp: totalVictoryPoints,
+        cards: props.selfPlayer.resourceCount
+      })
+    : t("match.hud.title");
+  const boardDiceLabel = props.match.dice
+    ? `${props.match.dice[0]} + ${props.match.dice[1]}`
+    : t("match.dice.open");
   const displayHeroNotification = useMemo<MatchScreenNotification>(
     () =>
       heroNotification ?? {
         key: `turn-status-${props.match.version}`,
         eventId: `turn-status-${props.match.version}`,
         eventType: "turn_status",
-        label: "Partie",
+        label: t("match.hero.label"),
         title: turnStatus.title,
         detail: turnStatus.detail,
         badges: [
-          { label: `Zug ${props.match.turn}` },
+          { label: t("match.turnLabel", { turn: props.match.turn }) },
           { label: formatPhase(props.match.phase) },
           ...(activePlayer
             ? [{
-                label: activePlayer.id === props.match.you ? "Du" : activePlayer.username,
+                label: activePlayer.id === props.match.you ? t("shared.you") : activePlayer.username,
                 playerId: activePlayer.id,
                 tone: "player" as const
               }]
@@ -1072,16 +1103,16 @@ export function MatchScreen(props: {
     ]
   );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
-  const visibleTabs = isMobileViewport ? MOBILE_MATCH_TABS : MATCH_TABS;
+  const visibleTabs = isMobileViewport ? mobileMatchTabs : matchTabs;
   const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
   const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
   const desktopTabLayout = useMemo(
-    () => createMatchTabLayout(MATCH_TABS, activeTab, DESKTOP_MATCH_TAB_LAYOUT),
-    [activeTab]
+    () => createMatchTabLayout(matchTabs, activeTab, DESKTOP_MATCH_TAB_LAYOUT),
+    [activeTab, matchTabs]
   );
   const mobileTabLayout = useMemo(
-    () => createMatchTabLayout(MOBILE_MATCH_TABS, activeTab, MOBILE_MATCH_TAB_LAYOUT),
-    [activeTab]
+    () => createMatchTabLayout(mobileMatchTabs, activeTab, MOBILE_MATCH_TAB_LAYOUT),
+    [activeTab, mobileMatchTabs]
   );
   const getTabTransitionOrder = (tab: MatchPanelTab) => {
     const visibleIndex = visibleTabs.findIndex((entry) => entry.id === tab);
@@ -1151,7 +1182,7 @@ export function MatchScreen(props: {
             onClear={clearArmedAction}
             onConfirm={() => props.onAction(createMatchActionMessage(action))}
             buttonClassName="secondary-button"
-            content="Ritter spielen"
+            content={t("match.confirm.playKnight.confirm")}
             armedContent={confirmation.confirmLabel}
           />
         );
@@ -1175,7 +1206,7 @@ export function MatchScreen(props: {
             onClear={clearArmedAction}
             onConfirm={() => props.onAction(createMatchActionMessage(action))}
             buttonClassName="secondary-button"
-            content="Straßenbau starten"
+            content={t("match.confirm.playRoadBuilding.confirm")}
             armedContent={confirmation.confirmLabel}
           />
         );
@@ -1224,7 +1255,7 @@ export function MatchScreen(props: {
               onConfirm={() => props.onAction(createMatchActionMessage(yearOfPlentyAction))}
               buttonClassName="secondary-button"
               disabled={!canPlayYearOfPlenty}
-              content="Erfindung spielen"
+              content={t("match.confirm.playYearOfPlenty.confirm")}
               armedContent={yearOfPlentyConfirmation.confirmLabel}
             />
           </div>
@@ -1262,7 +1293,7 @@ export function MatchScreen(props: {
               onClear={clearArmedAction}
               onConfirm={() => props.onAction(createMatchActionMessage(monopolyAction))}
               buttonClassName="secondary-button"
-              content="Monopol spielen"
+              content={t("match.confirm.playMonopoly.confirm")}
               armedContent={monopolyConfirmation.confirmLabel}
             />
           </div>
@@ -1277,15 +1308,17 @@ export function MatchScreen(props: {
     pendingRoadBuilding && isCurrentPlayer ? (
       <article className="mini-card development-card development-card-active">
         <div className="development-card-head">
-          <strong>Straßenbau aktiv</strong>
+          <strong>{t("match.roadBuilding.active")}</strong>
           <span className="status-pill is-warning">
-            {pendingRoadBuilding.remainingRoads === 2 ? "2 Straßen offen" : "1 Straße offen"}
+            {pendingRoadBuilding.remainingRoads === 2
+              ? t("match.roadBuilding.twoOpen")
+              : t("match.roadBuilding.oneOpen")}
           </span>
         </div>
         <span>
           {pendingRoadBuilding.remainingRoads === 2
-            ? "Wähle jetzt die erste kostenlose Straße auf dem Brett."
-            : "Wähle die zweite kostenlose Straße oder beende den Effekt."}
+            ? t("match.roadBuilding.selectFirst")
+            : t("match.roadBuilding.selectSecond")}
         </span>
         <div className="development-card-actions">
           <button
@@ -1296,7 +1329,7 @@ export function MatchScreen(props: {
               props.setSelectedRoadEdges([]);
             }}
           >
-            Straße auf Brett wählen
+            {t("match.roadBuilding.selectOnBoard")}
           </button>
           {pendingRoadBuilding.remainingRoads === 1 ? (
             <InlineConfirmButton
@@ -1307,8 +1340,8 @@ export function MatchScreen(props: {
               onConfirm={() => props.onAction(finishRoadBuildingMessage)}
               buttonClassName="ghost-button"
               disabled={!finishRoadBuildingConfirmKey}
-              content="Mit einer Straße beenden"
-              armedContent={finishRoadBuildingConfirmation?.confirmLabel ?? "Mit einer Straße beenden"}
+              content={t("match.roadBuilding.finishWithOne")}
+              armedContent={finishRoadBuildingConfirmation?.confirmLabel ?? t("match.roadBuilding.finishWithOne")}
             />
           ) : null}
         </div>
@@ -1375,7 +1408,7 @@ export function MatchScreen(props: {
       ? [
             {
               id: "roll",
-              label: "Würfeln",
+              label: t("match.quickAction.roll"),
               className: "primary-button",
               disabled: !props.match.allowedMoves.canRoll,
               confirmKey: null,
@@ -1392,12 +1425,12 @@ export function MatchScreen(props: {
       ? [
           {
              id: "end-turn",
-             label: "Zug beenden",
+             label: t("match.quickAction.endTurn"),
              className: "primary-button",
              disabled: false,
              confirmKey: endTurnConfirmKey,
-             confirmLabel: endTurnConfirmation?.confirmLabel ?? "Zug beenden",
-             armedLabel: "Jetzt beenden",
+             confirmLabel: endTurnConfirmation?.confirmLabel ?? t("match.quickAction.endTurn"),
+             armedLabel: t("match.quickAction.endTurnNow"),
              onClick: () => props.onAction(endTurnMessage)
             }
           ]
@@ -2042,7 +2075,7 @@ export function MatchScreen(props: {
   const resourceLegendList = (
     <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : "is-desktop-grid"}`}>
       {COMPACT_RESOURCE_LEGEND.map((entry) => (
-        <div key={entry.resource} className="board-legend-resource" title={entry.note}>
+        <div key={entry.resource} className="board-legend-resource" title={t(entry.noteKey)}>
           <span
             className="board-legend-resource-swatch"
             style={{ "--legend-resource-color": TILE_COLORS[entry.resource] } as CSSProperties}
@@ -2052,7 +2085,7 @@ export function MatchScreen(props: {
           </span>
           <div className="board-legend-resource-copy">
             <strong>{renderResourceLabel(entry.resource)}</strong>
-            <span>{entry.note}</span>
+            <span>{t(entry.noteKey)}</span>
           </div>
         </div>
       ))}
@@ -2061,13 +2094,17 @@ export function MatchScreen(props: {
   const harborLegendList = (
     <div className={`board-legend-list ${isMobileViewport ? "is-mobile-inline" : "is-desktop-grid"}`}>
       {COMPACT_HARBOR_LEGEND.map((entry) => (
-        <div key={entry.type} className="board-legend-resource board-legend-harbor" title={entry.note}>
+        <div key={entry.type} className="board-legend-resource board-legend-harbor" title={t(entry.noteKey)}>
           <span className="board-legend-resource-swatch board-legend-harbor-swatch" aria-hidden="true">
             <PortMarkerIcon type={entry.type} size={40} className="board-legend-harbor-icon" />
           </span>
           <div className="board-legend-resource-copy">
-            <strong>{entry.type === "generic" ? "3:1-Hafen" : `${renderResourceLabel(entry.type)}-Hafen`}</strong>
-            <span>{entry.note}</span>
+            <strong>
+              {entry.type === "generic"
+                ? t("match.legend.harborLabel.generic")
+                : t("match.legend.harborLabel.resource", { resource: renderResourceLabel(entry.type) })}
+            </strong>
+            <span>{t(entry.noteKey)}</span>
           </div>
         </div>
       ))}
@@ -2077,15 +2114,15 @@ export function MatchScreen(props: {
     <div className="board-legend-notes">
       <div className="board-legend-note">
         <span className="legend-signal is-gold" aria-hidden="true" />
-        <span>Goldene Hinweise markieren das Live-Geschehen und wichtige Ereignisse auf dem Brett.</span>
+        <span>{t("match.legend.hint.gold")}</span>
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-pulse" aria-hidden="true" />
-        <span>Blaue pulsierende Marker zeigen dir, was du gerade anklicken oder bauen kannst.</span>
+        <span>{t("match.legend.hint.pulse")}</span>
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-port" aria-hidden="true">⚓</span>
-        <span>Häfen liegen an der Küste. Es zählt immer die beste Rate deiner angrenzenden eigenen Siedlung oder Stadt.</span>
+        <span>{t("match.legend.hint.port")}</span>
       </div>
     </div>
   );
@@ -2093,77 +2130,82 @@ export function MatchScreen(props: {
     <div className="board-legend-notes">
       <div className="board-legend-note">
         <span className="legend-signal is-gold" aria-hidden="true" />
-        <span>Gold markiert Live-Ereignisse und wichtige Board-Momente.</span>
+        <span>{t("match.legend.hintCompact.gold")}</span>
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-pulse" aria-hidden="true" />
-        <span>Blau zeigt gültige Klicks und aktuelle Bauziele.</span>
+        <span>{t("match.legend.hintCompact.pulse")}</span>
       </div>
       <div className="board-legend-note">
         <span className="legend-signal is-port" aria-hidden="true">&#9875;</span>
-        <span>Am Hafen gilt immer die beste Rate deiner angrenzenden Siedlung oder Stadt.</span>
+        <span>{t("match.legend.hintCompact.port")}</span>
       </div>
     </div>
   );
   const playerTradeSubmitHint = hasOwnTradeOffer
-    ? "Offenes Angebot zuerst ändern oder zurückziehen."
+    ? t("match.trade.submitHint.editOpenOffer")
     : !props.match.allowedMoves.canCreateTradeOffer
-      ? "Spielerhandel ist gerade gesperrt."
+      ? t("match.trade.submitHint.playerTradeLocked")
       : isPlayerTradeCompletelyEmpty
-        ? "Mindestens eine Seite muss Rohstoffe enthalten."
+        ? t("match.trade.submitHint.notEmpty")
         : "";
   const maritimeTradeSubmitHint = !props.match.allowedMoves.canMaritimeTrade
-    ? "Nur im eigenen Aktionszug möglich."
+    ? t("match.trade.submitHint.maritimeOwnTurn")
     : affordableMaritimeGiveResources.length === 0
-      ? "Nicht genug Rohstoffe für einen Hafentausch."
+      ? t("match.trade.submitHint.noMaritimeResources")
       : !selectedMaritimeGiveResource
-        ? "Einsatz wählen."
+        ? t("match.trade.submitHint.selectGive")
         : maritimeReceiveTotal === 0
-          ? "Erhalten verteilen."
+          ? t("match.trade.submitHint.selectReceive")
         : maritimeReceiveTotal < maritimeReceiveCapacity
-          ? `Noch ${maritimeReceiveCapacity - maritimeReceiveTotal} offen.`
+          ? t("match.trade.submitHint.remaining", { count: maritimeReceiveCapacity - maritimeReceiveTotal })
           : "";
   const maritimeActionLabel =
     affordableMaritimeGiveResources.length === 0
-      ? "Hafentausch nicht möglich"
+      ? t("match.trade.maritime.unavailable")
       : selectedMaritimeGiveResource
-        ? `${maritimeRatio}:1 tauschen`
-        : "Tauschen";
+        ? t("match.trade.maritime.exchange", { ratio: maritimeRatio })
+        : t("match.trade.maritime.action");
   const tradeModeControls = (
-    <div className="mini-segmented trade-mode-segmented" role="tablist" aria-label="Handelsmodus">
+    <div className="mini-segmented trade-mode-segmented" role="tablist" aria-label={t("match.trade.mode.aria")}>
       <button type="button" className={tradeMode === "player" ? "is-active" : ""} onClick={() => setTradeMode("player")}>
-        Spieler
+        {t("match.trade.mode.player")}
       </button>
       <button type="button" className={tradeMode === "maritime" ? "is-active" : ""} onClick={() => setTradeMode("maritime")}>
-        Hafen
+        {t("match.trade.mode.maritime")}
       </button>
     </div>
   );
   const playerTradeTargetOptions: TradeSelectOption[] = [
     {
       value: "",
-      label: "Alle Spieler",
-      title: "Offenes Angebot an alle Spieler"
+      label: t("match.trade.target.allPlayers"),
+      title: t("match.trade.target.allPlayers.openOffer")
     },
     ...tradeTargetPlayers.map((player) => ({
       value: player.id,
-      label: player.id === props.match.you ? "Du" : player.username,
+      label: player.id === props.match.you ? t("shared.you") : player.username,
       secondaryLabel: renderPlayerColorLabel(player.color),
       accentClassName: getPlayerAccentClass(player.color),
-      title: `${player.id === props.match.you ? "Du" : player.username} · ${renderPlayerColorLabel(player.color)}`
+      title: t("match.playerBadge.withColor", {
+        player: player.id === props.match.you ? t("shared.you") : player.username,
+        color: renderPlayerColorLabel(player.color)
+      })
     }))
   ];
   const playerTradeTargetButtons = isCurrentPlayer && !tradeComposerContext.lockedTargetPlayerId ? (
     <TradeSelect
       value={props.tradeForm.targetPlayerId}
-      ariaLabel="Zielspieler wählen"
+      ariaLabel={t("match.trade.target.select")}
       className={selectedTradeTargetAccentClass}
       options={playerTradeTargetOptions}
       onChange={(value) => props.setTradeForm((current) => ({ ...current, targetPlayerId: value }))}
     />
   ) : (
     <div className={`trade-target-static ${selectedTradeTargetAccentClass}`.trim()}>
-      <span className="eyebrow">{tradeComposerContext.kind === "counter" ? "Gegenangebot an" : "Ziel"}</span>
+      <span className="eyebrow">
+        {tradeComposerContext.kind === "counter" ? t("match.trade.counterTo") : t("match.trade.target.label")}
+      </span>
       <div className="trade-target-static-body">
         {effectiveTradeTargetPlayer ? (
           <PlayerIdentity
@@ -2173,7 +2215,7 @@ export function MatchScreen(props: {
             isSelf={effectiveTradeTargetPlayer.id === props.match.you}
           />
         ) : (
-          <strong className="trade-target-static-open">Offen</strong>
+          <strong className="trade-target-static-open">{t("match.trade.target.openShort")}</strong>
         )}
       </div>
     </div>
@@ -2184,9 +2226,9 @@ export function MatchScreen(props: {
         <div className="trade-matrix-shell is-player-draft">
           <div className="trade-matrix-head">
             <span aria-hidden="true" />
-            <span>Hand</span>
-              <span>Geben</span>
-              <span>Erhalten</span>
+            <span>{t("match.trade.matrix.hand")}</span>
+              <span>{t("match.trade.matrix.give")}</span>
+              <span>{t("match.trade.matrix.receive")}</span>
           </div>
           <div className="trade-matrix-list">
             {RESOURCES.map((resource) => {
@@ -2208,8 +2250,13 @@ export function MatchScreen(props: {
                     value={giveDrafted}
                     tone="give"
                     incrementDisabled={giveDisabled}
-                    incrementTitle={`${renderResourceLabel(resource)} geben · Hand ${available}`}
-                    decrementTitle={`${renderResourceLabel(resource)} aus Abgabe entfernen`}
+                    incrementTitle={t("match.trade.matrix.incrementGive", {
+                      resource: renderResourceLabel(resource),
+                      count: available
+                    })}
+                    decrementTitle={t("match.trade.matrix.decrementGive", {
+                      resource: renderResourceLabel(resource)
+                    })}
                     onIncrement={() => updateTradeDraft("give", resource, giveDrafted + 1)}
                     onDecrement={() => updateTradeDraft("give", resource, giveDrafted - 1)}
                   />
@@ -2217,8 +2264,12 @@ export function MatchScreen(props: {
                     value={wantDrafted}
                     tone="receive"
                     incrementDisabled={wantDisabled}
-                    incrementTitle={`${renderResourceLabel(resource)} erhalten`}
-                    decrementTitle={`${renderResourceLabel(resource)} aus Wunsch entfernen`}
+                    incrementTitle={t("match.trade.matrix.incrementReceive", {
+                      resource: renderResourceLabel(resource)
+                    })}
+                    decrementTitle={t("match.trade.matrix.decrementReceive", {
+                      resource: renderResourceLabel(resource)
+                    })}
                     onIncrement={() => updateTradeDraft("want", resource, wantDrafted + 1)}
                     onDecrement={() => updateTradeDraft("want", resource, wantDrafted - 1)}
                   />
@@ -2239,11 +2290,11 @@ export function MatchScreen(props: {
           <div className="trade-composer-button-row">
             {tradeComposerContext.kind === "counter" ? (
               <button type="button" className="ghost-button" onClick={resetPlayerTradeComposer}>
-                Neu
+                {t("shared.reset")}
               </button>
             ) : null}
             <button type="button" className="primary-button trade-submit-button" disabled={!canSubmitTradeOffer} onClick={handleSendTradeOffer}>
-              {tradeComposerContext.kind === "counter" ? "Senden" : "Angebot senden"}
+              {tradeComposerContext.kind === "counter" ? t("shared.send") : t("match.trade.action.sendOffer")}
             </button>
           </div>
         </div>
@@ -2257,10 +2308,10 @@ export function MatchScreen(props: {
           <div className="trade-matrix-shell is-maritime-draft">
             <div className="trade-matrix-head is-maritime">
               <span aria-hidden="true" />
-              <span>Hand</span>
-              <span>Rate</span>
-              <span>Geben</span>
-              <span>Erhalten</span>
+              <span>{t("match.trade.matrix.hand")}</span>
+              <span>{t("match.trade.matrix.rate")}</span>
+              <span>{t("match.trade.matrix.give")}</span>
+              <span>{t("match.trade.matrix.receive")}</span>
             </div>
             <div className="trade-matrix-list">
               {RESOURCES.map((resource) => {
@@ -2301,8 +2352,12 @@ export function MatchScreen(props: {
                       value={giveValue}
                       tone="give"
                       incrementDisabled={giveIncrementDisabled}
-                      incrementTitle={`${renderResourceLabel(resource)} als Einsatz wählen`}
-                      decrementTitle={`${renderResourceLabel(resource)} aus Einsatz entfernen`}
+                      incrementTitle={t("match.trade.maritime.selectGive", {
+                        resource: renderResourceLabel(resource)
+                      })}
+                      decrementTitle={t("match.trade.maritime.clearGive", {
+                        resource: renderResourceLabel(resource)
+                      })}
                       onIncrement={() => handleSelectMaritimeGive(resource)}
                       onDecrement={handleClearMaritimeGive}
                     />
@@ -2310,8 +2365,12 @@ export function MatchScreen(props: {
                       value={receiveValue}
                       tone="receive"
                       incrementDisabled={!canUseAsReceive}
-                      incrementTitle={`${renderResourceLabel(resource)} als Ziel wählen`}
-                      decrementTitle={`${renderResourceLabel(resource)} aus Ziel entfernen`}
+                      incrementTitle={t("match.trade.maritime.selectReceive", {
+                        resource: renderResourceLabel(resource)
+                      })}
+                      decrementTitle={t("match.trade.maritime.clearReceive", {
+                        resource: renderResourceLabel(resource)
+                      })}
                       onIncrement={() => handleSelectMaritimeReceive(resource)}
                       onDecrement={() => handleClearMaritimeReceive(resource)}
                     />
@@ -2321,7 +2380,7 @@ export function MatchScreen(props: {
             </div>
           </div>
         ) : (
-          <div className="trade-inline-empty">Für diesen Modus ist aktuell kein passender Rohstoff verfügbar.</div>
+          <div className="trade-inline-empty">{t("match.trade.maritime.empty")}</div>
         )}
       </div>
       <div className="trade-composer-footer">
@@ -2343,8 +2402,8 @@ export function MatchScreen(props: {
   const tradeOwnOffersSection = ownTradeOffers.length ? (
     <section className="dock-section trade-zone">
       <div className="dock-section-head">
-        <h3>{ownTradeOffers.length > 1 ? "Eigene Angebote" : "Dein Angebot"}</h3>
-        <span>{`${ownTradeOffers.length} aktiv`}</span>
+        <h3>{ownTradeOffers.length > 1 ? t("match.trade.ownOffers") : t("match.trade.offer.yours")}</h3>
+        <span>{t("match.trade.activeCount", { count: ownTradeOffers.length })}</span>
       </div>
       <div className="trade-offer-stack">
         {ownTradeOffers.map((trade) => (
@@ -2365,8 +2424,12 @@ export function MatchScreen(props: {
   const tradeIncomingOffersSection = (
     <section className="dock-section trade-zone trade-zone-offers">
       <div className="dock-section-head">
-        <h3>Angebote</h3>
-        <span>{incomingTradeOffers.length ? `${incomingTradeOffers.length} sichtbar` : "Keine Angebote"}</span>
+        <h3>{t("match.trade.offers")}</h3>
+        <span>
+          {incomingTradeOffers.length
+            ? t("match.trade.visibleCount", { count: incomingTradeOffers.length })
+            : t("match.trade.none")}
+        </span>
       </div>
       {incomingTradeOffers.length ? (
         <div className="trade-offer-list">
@@ -2388,7 +2451,7 @@ export function MatchScreen(props: {
           ))}
         </div>
       ) : (
-        <div className="empty-state">Aktuell liegt kein sichtbares Handelsangebot vor.</div>
+        <div className="empty-state">{t("match.trade.noneVisible")}</div>
       )}
     </section>
   );
@@ -2406,17 +2469,17 @@ export function MatchScreen(props: {
         {props.match.phase === "robber_interrupt" && props.match.robberDiscardStatus.length > 0 ? (
           <section className="dock-section robber-discard-surface">
             <div className="dock-section-head">
-              <h3>Räuberphase</h3>
+              <h3>{t("match.robberPhase.title")}</h3>
               <span>
                 {robberDiscardGroups.pending.length > 0
-                  ? `${robberDiscardGroups.pending.length} offen`
-                  : "Alle Abwürfe erledigt"}
+                  ? t("match.robberPhase.openCount", { count: robberDiscardGroups.pending.length })
+                  : t("match.robberPhase.allDone")}
               </span>
             </div>
             <div className="robber-discard-columns">
               <div className="robber-discard-column">
                 <div className="robber-discard-column-head">
-                  <strong>Noch offen</strong>
+                  <strong>{t("match.robberPhase.pending")}</strong>
                   <span>{robberDiscardGroups.pending.length}</span>
                 </div>
                 {robberDiscardGroups.pending.length ? (
@@ -2425,19 +2488,21 @@ export function MatchScreen(props: {
                         <article key={player.id} className={`robber-discard-row player-accent-${player.color}`}>
                           <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
                           <div className="robber-discard-row-meta">
-                            <span className={`status-pill player-tone-pill player-accent-${player.color} is-warning`}>offen</span>
-                            <span>noch {requiredCount} abwerfen</span>
+                            <span className={`status-pill player-tone-pill player-accent-${player.color} is-warning`}>
+                              {t("match.robberPhase.status.open")}
+                            </span>
+                            <span>{t("match.robberPhase.remainingDiscard", { count: requiredCount })}</span>
                           </div>
                         </article>
                       ))}
                   </div>
                 ) : (
-                  <div className="robber-discard-empty">Niemand muss mehr abwerfen.</div>
+                  <div className="robber-discard-empty">{t("match.robberPhase.noPending")}</div>
                 )}
               </div>
               <div className="robber-discard-column">
                 <div className="robber-discard-column-head">
-                  <strong>Bereits abgeworfen</strong>
+                  <strong>{t("match.robberPhase.done")}</strong>
                   <span>{robberDiscardGroups.done.length}</span>
                 </div>
                 {robberDiscardGroups.done.length ? (
@@ -2446,13 +2511,15 @@ export function MatchScreen(props: {
                       <article key={player.id} className={`robber-discard-row player-accent-${player.color}`}>
                         <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
                         <div className="robber-discard-row-meta">
-                          <span className={`status-pill player-tone-pill player-accent-${player.color} is-complete`}>fertig</span>
+                          <span className={`status-pill player-tone-pill player-accent-${player.color} is-complete`}>
+                            {t("shared.done")}
+                          </span>
                         </div>
                       </article>
                     ))}
                   </div>
                 ) : (
-                  <div className="robber-discard-empty">Noch kein Spieler hat den Abwurf abgeschlossen.</div>
+                  <div className="robber-discard-empty">{t("match.robberPhase.noneDone")}</div>
                 )}
               </div>
             </div>
@@ -2462,8 +2529,8 @@ export function MatchScreen(props: {
           <>
             <section className="dock-section">
               <div className="dock-section-head">
-                <h3>Spieler</h3>
-                <span>{props.match.players.length} im Match</span>
+                <h3>{t("match.tab.players")}</h3>
+                <span>{t("match.players.inMatch", { count: props.match.players.length })}</span>
               </div>
               <div className="mobile-player-list">
                 {props.match.players.map((player) => (
@@ -2478,10 +2545,10 @@ export function MatchScreen(props: {
                       isSelf={player.id === props.match.you}
                     />
                     <div className="mobile-player-row-meta">
-                      <span className="player-meta-pill">{player.publicVictoryPoints} VP</span>
-                      <span className="player-meta-pill">{player.resourceCount} Karten</span>
-                      {player.hasLongestRoad ? <span className="player-meta-pill is-award">Längste Straße +2 VP</span> : null}
-                      {player.hasLargestArmy ? <span className="player-meta-pill is-award">Größte Rittermacht +2 VP</span> : null}
+                      <span className="player-meta-pill">{t("match.players.vpCount", { count: player.publicVictoryPoints })}</span>
+                      <span className="player-meta-pill">{t("match.players.cardsCount", { count: player.resourceCount })}</span>
+                      {player.hasLongestRoad ? <span className="player-meta-pill is-award">{t("match.award.longestRoad")}</span> : null}
+                      {player.hasLargestArmy ? <span className="player-meta-pill is-award">{t("match.award.largestArmy")}</span> : null}
                     </div>
                   </article>
                 ))}
@@ -2491,8 +2558,8 @@ export function MatchScreen(props: {
         ) : null}
         <section className="dock-section dock-section-fill">
           <div className="dock-section-head">
-            <h3>Events</h3>
-            <span>{notificationState.historyNotifications.length} Einträge</span>
+            <h3>{t("match.tab.events")}</h3>
+            <span>{t("match.events.entries", { count: notificationState.historyNotifications.length })}</span>
           </div>
           <div className="scroll-list event-list">
             {notificationState.historyNotifications.map((notification) => (
@@ -2509,8 +2576,8 @@ export function MatchScreen(props: {
         {isMobileViewport ? (
           <section className="dock-section">
             <div className="dock-section-head">
-              <h3>Legende</h3>
-              <span>Rohstoffe, Häfen und Hinweise</span>
+              <h3>{t("match.legend.title")}</h3>
+              <span>{t("match.legend.subtitle")}</span>
             </div>
             <div className="mobile-legend-stack">
               {resourceLegendList}
@@ -2526,7 +2593,7 @@ export function MatchScreen(props: {
         <section className="dock-section">
           <div className="action-status-card">
             <div className="action-status-head">
-              <span className="eyebrow">Nächster Schritt</span>
+              <span className="eyebrow">{t("match.nextStep")}</span>
               <span className="action-status-meta">{renderMatchPlayerText(props.match, turnStatus.title)}</span>
             </div>
             <div className="action-status-copy">
@@ -2537,8 +2604,8 @@ export function MatchScreen(props: {
         </section>
         <section className="dock-section">
           <div className="dock-section-head">
-            <h3>Bauen</h3>
-            <span>Kosten und Voraussetzungen</span>
+            <h3>{t("match.build.title")}</h3>
+            <span>{t("match.build.subtitle")}</span>
           </div>
           <div className="build-action-grid">
             {buildActions.map((action) => {
@@ -2653,16 +2720,20 @@ export function MatchScreen(props: {
         {developmentCards.length || pendingRoadBuilding ? (
           <section className="dock-section">
             <div className="dock-section-head">
-              <h3>Entwicklungskarten</h3>
-              <span>{pendingRoadBuilding ? "Straßenbau aktiv" : `${developmentCards.length} in Hand`}</span>
+              <h3>{t("match.hand.developmentCards")}</h3>
+              <span>
+                {pendingRoadBuilding
+                  ? t("match.roadBuilding.active")
+                  : t("match.hand.cardsInHand", { count: developmentCards.length })}
+              </span>
             </div>
             <div className="status-strip development-summary-pills">
-              <span className="status-pill">Spielbar {playableDevelopmentCardCount}</span>
-              <span className="status-pill">Geheime VP {hiddenVictoryPoints}</span>
-              <span className="status-pill">Gesamt VP {totalVictoryPoints}</span>
+              <span className="status-pill">{t("match.hand.playableCount", { count: playableDevelopmentCardCount })}</span>
+              <span className="status-pill">{t("match.hand.hiddenVp", { count: hiddenVictoryPoints })}</span>
+              <span className="status-pill">{t("match.hand.totalVp", { count: totalVictoryPoints })}</span>
             </div>
             <button type="button" className="secondary-button" onClick={openHandPanel}>
-              Zur Hand
+              {t("match.hand.open")}
             </button>
           </section>
         ) : null}
@@ -2672,27 +2743,27 @@ export function MatchScreen(props: {
       <div className="panel-frame hand-frame">
         <section className="dock-section">
           <div className="dock-section-head">
-            <h3>Entwicklungskarten</h3>
-            <span>{developmentCards.length} Karten</span>
+            <h3>{t("match.hand.developmentCards")}</h3>
+            <span>{t("match.hand.cardsCount", { count: developmentCards.length })}</span>
           </div>
           <div className="development-hand-summary">
             <div className="development-hand-summary-head">
-              <span className="eyebrow">Siegpunkte</span>
+              <span className="eyebrow">{t("match.hand.victoryPoints")}</span>
               <span className="development-hand-summary-meta">
-                Entwicklungskarten auf der Hand: {developmentCards.length}
+                {t("match.hand.cardsHeld", { count: developmentCards.length })}
               </span>
             </div>
             <div className="development-hand-summary-grid">
               <article className="development-hand-summary-card">
-                <span>Öffentlich sichtbar</span>
+                <span>{t("match.hand.publicVisible")}</span>
                 <strong>{props.selfPlayer?.publicVictoryPoints ?? 0}</strong>
               </article>
               <article className="development-hand-summary-card">
-                <span>Geheim aus Karten</span>
+                <span>{t("match.hand.hiddenFromCards")}</span>
                 <strong>{hiddenVictoryPoints}</strong>
               </article>
               <article className="development-hand-summary-card is-total">
-                <span>Gesamt</span>
+                <span>{t("shared.total")}</span>
                 <strong>{totalVictoryPoints}</strong>
               </article>
             </div>
@@ -2719,7 +2790,7 @@ export function MatchScreen(props: {
                 );
               })
             ) : !pendingRoadBuildingCard ? (
-              <div className="empty-state">Keine Entwicklungskarten auf der Hand.</div>
+              <div className="empty-state">{t("match.hand.noDevelopmentCards")}</div>
             ) : null}
           </div>
         </section>
@@ -2754,27 +2825,34 @@ export function MatchScreen(props: {
                     </div>
                   </div>
                   <div className="player-card-head-side">
-                    <PlayerColorBadge
-                      color={player.color}
-                      label={player.id === props.match.you ? `Du · ${renderPlayerColorLabel(player.color)}` : renderPlayerColorLabel(player.color)}
-                      compact
-                    />
+                      <PlayerColorBadge
+                        color={player.color}
+                        label={
+                          player.id === props.match.you
+                            ? t("match.playerBadge.withColor", {
+                                player: t("shared.you"),
+                                color: renderPlayerColorLabel(player.color)
+                              })
+                            : renderPlayerColorLabel(player.color)
+                        }
+                        compact
+                      />
                   </div>
                   </div>
                 <div className="player-stat-grid player-stat-grid-compact">
-                  <PlayerStatCard label="VP" value={String(player.publicVictoryPoints)} />
-                  <PlayerStatCard label="Karten" value={String(player.resourceCount)} />
-                  <PlayerStatCard label="Straßen" value={String(player.roadsBuilt)} />
-                  <PlayerStatCard label="Ritter" value={String(player.playedKnightCount)} />
+                  <PlayerStatCard label={t("shared.vpShort")} value={String(player.publicVictoryPoints)} />
+                  <PlayerStatCard label={t("match.players.cards")} value={String(player.resourceCount)} />
+                  <PlayerStatCard label={t("match.players.roads")} value={String(player.roadsBuilt)} />
+                  <PlayerStatCard label={t("match.players.knights")} value={String(player.playedKnightCount)} />
                 </div>
                   <div className="status-strip player-award-strip">
                     {player.id === props.match.currentPlayerId ? (
-                      <span className={`status-pill player-badge player-accent-${player.color}`}>Am Zug</span>
+                      <span className={`status-pill player-badge player-accent-${player.color}`}>{t("match.players.activeTurn")}</span>
                     ) : null}
-                    {player.hasLongestRoad ? <span className="status-pill award-pill is-longest-road">Längste Straße +2 VP</span> : null}
-                    {player.hasLargestArmy ? <span className="status-pill award-pill is-largest-army">Größte Rittermacht +2 VP</span> : null}
+                    {player.hasLongestRoad ? <span className="status-pill award-pill is-longest-road">{t("match.award.longestRoad")}</span> : null}
+                    {player.hasLargestArmy ? <span className="status-pill award-pill is-largest-army">{t("match.award.largestArmy")}</span> : null}
                     {player.id !== props.match.currentPlayerId && !player.hasLargestArmy && !player.hasLongestRoad ? (
-                      <span className="status-pill muted">Keine Auszeichnung</span>
+                      <span className="status-pill muted">{t("match.players.noAward")}</span>
                     ) : null}
                   </div>
               </article>
@@ -2812,7 +2890,7 @@ export function MatchScreen(props: {
                     variant="hero-mobile"
                   />
                   <span className="board-mobile-meta">
-                    <span>Zug {props.match.turn}</span>
+                    <span>{t("match.turnLabel", { turn: props.match.turn })}</span>
                     <span>{formatPhase(props.match.phase)}</span>
                     <span>{boardDiceLabel}</span>
                   </span>
@@ -2820,31 +2898,40 @@ export function MatchScreen(props: {
               </>
             ) : (
               <>
-                <span className="board-chip">Zug {props.match.turn}</span>
+                <span className="board-chip">{t("match.turnLabel", { turn: props.match.turn })}</span>
                 <span className="board-chip">{formatPhase(props.match.phase)}</span>
                 {props.selfPlayer ? (
                   <PlayerColorBadge
                     color={props.selfPlayer.color}
-                    label={`Du · ${props.selfPlayer.username} · ${renderPlayerColorLabel(props.selfPlayer.color)}`}
+                    label={t("match.topbar.self", {
+                      player: props.selfPlayer.username,
+                      color: renderPlayerColorLabel(props.selfPlayer.color)
+                    })}
                     compact
                   />
                 ) : null}
                 {activePlayer ? (
                   <PlayerColorBadge
                     color={activePlayer.color}
-                    label={`Am Zug · ${activePlayer.id === props.match.you ? "Du" : activePlayer.username}`}
+                    label={t("match.topbar.activePlayer", {
+                      player: activePlayer.id === props.match.you ? t("shared.you") : activePlayer.username
+                    })}
                     compact
                   />
                 ) : (
-                  <span className="board-chip">Aktiv: -</span>
+                  <span className="board-chip">{t("match.topbar.activeEmpty")}</span>
                 )}
-                <span className="board-chip">Würfel: {props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : "offen"}</span>
+                <span className="board-chip">
+                  {t("match.topbar.dice", {
+                    value: props.match.dice ? `${props.match.dice[0]} + ${props.match.dice[1]}` : t("match.dice.openShort")
+                  })}
+                </span>
                 <button
                   type="button"
                   className={`board-toggle board-toggle-focus ${autoFocusEnabled ? "is-active" : ""}`}
                   onClick={() => setAutoFocusEnabled((current) => !current)}
                 >
-                  {autoFocusEnabled ? "Auto-Fokus an" : "Auto-Fokus aus"}
+                  {autoFocusEnabled ? t("match.topbar.autoFocusOn") : t("match.topbar.autoFocusOff")}
                 </button>
               </>
             )}
@@ -2870,7 +2957,7 @@ export function MatchScreen(props: {
                 aria-labelledby="board-inline-confirm-title"
               >
                 <div className="board-inline-confirm-copy">
-                  <span className="eyebrow">Bestätigung</span>
+                  <span className="eyebrow">{t("shared.confirmation")}</span>
                   <strong id="board-inline-confirm-title">{props.pendingBoardAction.title}</strong>
                   <span>{renderMatchPlayerText(props.match, props.pendingBoardAction.detail)}</span>
                 </div>
@@ -2886,14 +2973,16 @@ export function MatchScreen(props: {
                         onClick={() => props.onSelectPendingRobberTarget(player.id)}
                       >
                         <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
-                        <span>{pendingBoardTargetPlayerId === player.id ? "Ausgewählt" : "Als Opfer wählen"}</span>
+                        <span>
+                          {pendingBoardTargetPlayerId === player.id ? t("shared.selected") : t("match.robber.selectVictim")}
+                        </span>
                       </button>
                     ))}
                   </div>
                 ) : null}
                 <div className="board-inline-confirm-actions">
                   <button type="button" className="ghost-button" onClick={props.onCancelPendingBoardAction}>
-                    Abbrechen
+                    {t("shared.cancel")}
                   </button>
                   <button
                     type="button"
@@ -2923,7 +3012,7 @@ export function MatchScreen(props: {
                   className={`board-toggle board-hud-toggle ${boardHudOpen ? "is-active" : ""}`}
                   onClick={() => setBoardHudOpen((current) => !current)}
                 >
-                  {boardHudOpen ? "HUD schließen" : mobileHudSummary}
+                  {boardHudOpen ? t("match.hud.close") : mobileHudSummary}
                 </button>
               ) : null}
               {!isMobileViewport || boardHudOpen ? (
@@ -2945,15 +3034,15 @@ export function MatchScreen(props: {
                   </div>
                   <div className="board-hud-row board-hud-stats">
                     <span className="board-hud-pill">
-                      <strong>VP</strong>
+                      <strong>{t("shared.vpShort")}</strong>
                       <span>{totalVictoryPoints}</span>
                     </span>
                     <span className="board-hud-pill">
-                      <strong>Hand</strong>
+                      <strong>{t("match.hud.hand")}</strong>
                       <span>{totalResources(props.selfPlayer?.resources ?? createEmptyResourceMap())}</span>
                     </span>
                     <span className="board-hud-pill">
-                      <strong>Entwicklung</strong>
+                      <strong>{t("match.hud.development")}</strong>
                       <span>{props.selfPlayer?.developmentCardCount ?? 0}</span>
                     </span>
                   </div>
@@ -2968,7 +3057,7 @@ export function MatchScreen(props: {
                   onClick={() => setBoardLegendOpen((current) => !current)}
                   aria-expanded={boardLegendOpen}
                   aria-controls="board-legend-panel"
-                  aria-label={boardLegendOpen ? "Legende schließen" : "Legende öffnen"}
+                    aria-label={boardLegendOpen ? t("match.legend.close") : t("match.legend.open")}
                 >
                   <span className="board-legend-icon-glyph" aria-hidden="true">
                     i
@@ -2977,15 +3066,15 @@ export function MatchScreen(props: {
                 {boardLegendOpen ? (
                   <div id="board-legend-panel" className="board-legend-panel">
                     <div className="board-legend-section">
-                      <span className="eyebrow">Spielfeldfarben</span>
+                      <span className="eyebrow">{t("match.legend.boardColors")}</span>
                       {resourceLegendList}
                     </div>
                     <div className="board-legend-section">
-                      <span className="eyebrow">Häfen</span>
+                      <span className="eyebrow">{t("match.legend.harbors")}</span>
                       {harborLegendList}
                     </div>
                     <div className="board-legend-section">
-                      <span className="eyebrow">Brett-Hinweise</span>
+                      <span className="eyebrow">{t("match.legend.boardHints")}</span>
                       {compactBoardHintLegend}
                     </div>
                   </div>
@@ -3011,7 +3100,7 @@ export function MatchScreen(props: {
               } ${diceDisplay.phase === "settle" ? "is-settling" : ""} ${isMobileViewport ? "is-mobile" : ""}`}
             >
               <div className="board-dice-head">
-                <span className="eyebrow">Wurf</span>
+                <span className="eyebrow">{t("match.dice.title")}</span>
                 <strong>{hasRevealedDiceResult ? diceDisplay.total : "?"}</strong>
               </div>
               <div className="board-dice-row" aria-live="polite">
@@ -3021,9 +3110,12 @@ export function MatchScreen(props: {
               <span className="board-dice-copy">
                 {diceDisplay.actorName
                   ? diceDisplay.phase !== "idle"
-                    ? renderMatchPlayerText(props.match, `${diceDisplay.actorName} würfelt...`)
-                    : renderMatchPlayerText(props.match, `${diceDisplay.actorName} hat ${diceDisplay.total ?? "-"} gewürfelt`)
-                  : "Warte auf den nächsten Wurf."}
+                    ? renderMatchPlayerText(props.match, t("match.dice.rolling", { player: diceDisplay.actorName }))
+                    : renderMatchPlayerText(
+                        props.match,
+                        t("match.dice.rolled", { player: diceDisplay.actorName, total: diceDisplay.total ?? "-" })
+                      )
+                  : t("match.dice.waiting")}
               </span>
             </div>
           </div>
@@ -3031,8 +3123,8 @@ export function MatchScreen(props: {
 
         <aside className="surface match-dock">
           {hasQuickActions ? renderQuickActions(false) : null}
-          <div className="tab-strip center-last-item" style={getTabStripStyle(desktopTabLayout)} role="tablist" aria-label="Match Navigation">
-            {MATCH_TABS.map((tab) => (
+          <div className="tab-strip center-last-item" style={getTabStripStyle(desktopTabLayout)} role="tablist" aria-label={t("match.navigation.desktop")}>
+            {matchTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -3057,7 +3149,7 @@ export function MatchScreen(props: {
           >
             <div className="match-sheet-summary-head">
               {turnStatus.playerId ? <PlayerBadge match={props.match} playerId={turnStatus.playerId} compact /> : null}
-              <span className="match-sheet-summary-meta">{`${formatPhase(props.match.phase)} · Zug ${props.match.turn}`}</span>
+              <span className="match-sheet-summary-meta">{`${formatPhase(props.match.phase)} · ${t("match.turnLabel", { turn: props.match.turn })}`}</span>
             </div>
             <div className="match-sheet-summary-copy">
               <strong>{renderMatchPlayerText(props.match, turnStatus.title)}</strong>
@@ -3075,7 +3167,7 @@ export function MatchScreen(props: {
               className="tab-strip mobile"
               style={getTabStripStyle(mobileTabLayout)}
               role="tablist"
-              aria-label="Mobile Match Navigation"
+              aria-label={t("match.navigation.mobile")}
             >
               {visibleTabs.map((tab) => (
                 <button

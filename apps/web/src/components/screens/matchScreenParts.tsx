@@ -9,6 +9,7 @@ import {
   createEmptyResourceMap,
   RESOURCES
 } from "@hexagonia/shared";
+import { getDocumentLocale, translate } from "../../i18n";
 import { ResourceIcon } from "../../resourceIcons";
 import { getPlayerAccentClass, renderPlayerColorLabel, renderResourceLabel, renderResourceMap } from "../../ui";
 import { PlayerColorBadge } from "../shared/PlayerIdentity";
@@ -22,6 +23,10 @@ import {
 
 let dicePreviewCursor = 0;
 
+function t(key: string, params?: Record<string, string | number>) {
+  return translate(getDocumentLocale(), key, undefined, undefined, params);
+}
+
 export type MatchScreenNotification = Omit<MatchNotification, "eventType"> & {
   eventType: MatchNotification["eventType"] | "dice_pending" | "turn_status";
 };
@@ -33,7 +38,10 @@ export function TradeCompactSummary(props: {
   ariaLabel?: string;
 }) {
   return (
-    <div className={`match-notification-trade-summary ${props.className ?? ""}`.trim()} aria-label={props.ariaLabel ?? "Handelszusammenfassung"}>
+    <div
+      className={`match-notification-trade-summary ${props.className ?? ""}`.trim()}
+      aria-label={props.ariaLabel ?? t("match.trade.summary.aria")}
+    >
       <TradeCompactSummarySide resources={props.give} tone="give" />
       <span className="match-notification-trade-arrow" aria-hidden="true" />
       <TradeCompactSummarySide resources={props.receive} tone="receive" />
@@ -84,7 +92,7 @@ export function TradeResourceCardGrid(props: {
   onChange: (resource: Resource) => void;
 }) {
   return (
-    <div className="trade-resource-card-grid" role="listbox" aria-label="Rohstoff auswählen">
+    <div className="trade-resource-card-grid" role="listbox" aria-label={t("match.trade.resourcePicker.aria")}>
       {props.resources.map(({ resource, count, meta, disabled }) => (
         <button
           key={resource}
@@ -101,7 +109,7 @@ export function TradeResourceCardGrid(props: {
             <strong>{renderResourceLabel(resource)}</strong>
           </div>
           <span className="trade-resource-card-count">{count}</span>
-          <span className="trade-resource-card-meta">{meta ?? "Auf der Hand"}</span>
+          <span className="trade-resource-card-meta">{meta ?? t("match.trade.resourcePicker.onHand")}</span>
         </button>
       ))}
     </div>
@@ -160,7 +168,12 @@ export function TradeQuantityControl(props: {
           </div>
         </div>
       )}
-      <span className="trade-quantity-summary">Aktuell: {props.value}x {renderResourceLabel(props.resource)}</span>
+      <span className="trade-quantity-summary">
+        {t("match.trade.quantity.current", {
+          value: props.value,
+          resource: renderResourceLabel(props.resource)
+        })}
+      </span>
     </div>
   );
 }
@@ -216,20 +229,28 @@ export function TradeBanner(props: {
   const isViewerTradeParty = !trade.toPlayerId || trade.toPlayerId === props.currentUserId;
   const giveResources = fromViewerPerspective ? trade.give : isViewerTradeParty ? trade.want : trade.give;
   const receiveResources = fromViewerPerspective ? trade.want : isViewerTradeParty ? trade.give : trade.want;
-  const targetLabel = trade.toPlayerId ? `An ${getPlayerName(props.match, trade.toPlayerId)}` : "Offen für alle";
+  const targetLabel = trade.toPlayerId
+    ? t("match.trade.target.player", { player: getPlayerName(props.match, trade.toPlayerId) })
+    : t("match.trade.target.open");
   const accentClass = getPlayerAccentClass(getPlayerColor(props.match, trade.fromPlayerId));
-  const title = fromViewerPerspective ? "Dein Handelsangebot" : `Angebot von ${proposerName}`;
-  const detail = fromViewerPerspective ? targetLabel : trade.toPlayerId === props.currentUserId ? "Direkt an dich" : targetLabel;
+  const title = fromViewerPerspective
+    ? t("match.trade.banner.yours")
+    : t("match.trade.banner.fromPlayer", { player: proposerName });
+  const detail = fromViewerPerspective
+    ? targetLabel
+    : trade.toPlayerId === props.currentUserId
+      ? t("match.trade.banner.directToYou")
+      : targetLabel;
 
   return (
     <div className={`trade-banner ${accentClass} ${props.className ?? ""}`.trim()}>
       <div className="trade-banner-head">
         <div className="trade-banner-kicker">
-          <span className="eyebrow">Handel</span>
+          <span className="eyebrow">{t("match.trade.banner.eyebrow")}</span>
           <PlayerBadge match={props.match} playerId={trade.fromPlayerId} compact />
         </div>
         <div className="trade-banner-meta">
-          <span className="status-pill muted">{`Zug ${trade.createdAtTurn}`}</span>
+          <span className="status-pill muted">{t("match.turnLabel", { turn: trade.createdAtTurn })}</span>
           <span className="status-pill trade-banner-target-pill">{renderMatchPlayerText(props.match, targetLabel)}</span>
         </div>
       </div>
@@ -239,12 +260,12 @@ export function TradeBanner(props: {
       </div>
       <div className="trade-banner-summary">
         <article className="trade-banner-flow-side is-give">
-          <span className="eyebrow">{renderMatchPlayerText(props.match, summary[0]?.label ?? "Du gibst")}</span>
+          <span className="eyebrow">{renderMatchPlayerText(props.match, summary[0]?.label ?? t("match.trade.summary.youGive"))}</span>
           <TradeCompactSummarySide resources={giveResources} tone="give" />
         </article>
         <span className="trade-banner-flow-arrow match-notification-trade-arrow" aria-hidden="true" />
         <article className="trade-banner-flow-side is-receive">
-          <span className="eyebrow">{renderMatchPlayerText(props.match, summary[1]?.label ?? "Du erhältst")}</span>
+          <span className="eyebrow">{renderMatchPlayerText(props.match, summary[1]?.label ?? t("match.trade.summary.youReceive"))}</span>
           <TradeCompactSummarySide resources={receiveResources} tone="receive" />
         </article>
       </div>
@@ -265,7 +286,7 @@ export function TradeBanner(props: {
                 })
               }
             >
-              Annehmen
+              {t("match.trade.action.accept")}
             </button>
             <button
               type="button"
@@ -281,11 +302,11 @@ export function TradeBanner(props: {
                 })
               }
             >
-              Ablehnen
+              {t("match.trade.action.decline")}
             </button>
             {props.onOpenTrade ? (
               <button type="button" className="secondary-button is-accent" onClick={props.onOpenTrade}>
-                Zum Handel
+                {t("match.trade.action.open")}
               </button>
             ) : null}
           </>
@@ -304,11 +325,11 @@ export function TradeBanner(props: {
               })
             }
           >
-            Angebot beenden
+            {t("match.trade.action.endOffer")}
           </button>
         ) : props.onOpenTrade ? (
           <button type="button" className="secondary-button is-accent" onClick={props.onOpenTrade}>
-            Zum Handel
+            {t("match.trade.action.open")}
           </button>
         ) : null}
       </div>
@@ -338,9 +359,12 @@ export function PlayerBadge(props: {
 
   const label = props.hideColorLabel
     ? player.id === props.match.you
-      ? "Du"
+      ? t("shared.you")
       : player.username
-    : `${player.id === props.match.you ? "Du" : player.username} - ${renderPlayerColorLabel(player.color)}`;
+    : t("match.playerBadge.withColor", {
+        player: player.id === props.match.you ? t("shared.you") : player.username,
+        color: renderPlayerColorLabel(player.color)
+      });
 
   return (
     <PlayerColorBadge
@@ -431,19 +455,19 @@ function getTradePerspectiveSummary(
   currentUserId: string,
   trade: MatchSnapshot["tradeOffers"][number]
 ): Array<{ label: string; value: string }> {
-  const giveText = renderResourceMap(trade.give) || "nichts";
-  const wantText = renderResourceMap(trade.want) || "nichts";
+  const giveText = renderResourceMap(trade.give) || t("shared.nothing");
+  const wantText = renderResourceMap(trade.want) || t("shared.nothing");
   const proposerName = getPlayerName(match, trade.fromPlayerId);
-  const targetName = trade.toPlayerId ? getPlayerName(match, trade.toPlayerId) : "Die andere Seite";
+  const targetName = trade.toPlayerId ? getPlayerName(match, trade.toPlayerId) : t("match.trade.otherSide");
 
   if (trade.fromPlayerId === currentUserId) {
     return [
       {
-        label: "Du gibst",
+        label: t("match.trade.summary.youGive"),
         value: giveText
       },
       {
-        label: "Du erhältst",
+        label: t("match.trade.summary.youReceive"),
         value: wantText
       }
     ];
@@ -452,11 +476,11 @@ function getTradePerspectiveSummary(
   if (!trade.toPlayerId || trade.toPlayerId === currentUserId) {
     return [
       {
-        label: "Du gibst",
+        label: t("match.trade.summary.youGive"),
         value: wantText
       },
       {
-        label: "Du erhältst",
+        label: t("match.trade.summary.youReceive"),
         value: giveText
       }
     ];
@@ -464,11 +488,11 @@ function getTradePerspectiveSummary(
 
   return [
     {
-      label: `${proposerName} gibt`,
+      label: t("match.trade.summary.playerGives", { player: proposerName }),
       value: giveText
     },
     {
-      label: `${targetName} gibt`,
+      label: t("match.trade.summary.playerGives", { player: targetName }),
       value: wantText
     }
   ];

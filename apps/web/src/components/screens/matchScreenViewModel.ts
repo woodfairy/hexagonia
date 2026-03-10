@@ -7,7 +7,7 @@ import type {
 } from "@hexagonia/shared";
 import { BUILD_COSTS, RESOURCES } from "@hexagonia/shared";
 import type { BoardFocusCue, InteractionMode } from "../../BoardScene";
-import { createText, getDocumentLocale, resolveText } from "../../i18n";
+import { getDocumentLocale, translate } from "../../i18n";
 import { renderResourceLabel } from "../../ui";
 
 export type BuildActionId = "road" | "settlement" | "city" | "development";
@@ -19,8 +19,8 @@ export interface TurnStatus {
   callout?: string;
 }
 
-function text(de: string, en: string): string {
-  return resolveText(getDocumentLocale(), createText(de, en));
+function t(key: string, params?: Record<string, string | number>): string {
+  return translate(getDocumentLocale(), key, undefined, undefined, params);
 }
 
 export function getRobberDiscardGroups(match: MatchSnapshot) {
@@ -46,11 +46,11 @@ export function getRobberDiscardGroups(match: MatchSnapshot) {
 
 export function renderDevelopmentLabel(type: DevelopmentCardView["type"]): string {
   const labels: Record<DevelopmentCardView["type"], string> = {
-    knight: text("Ritter", "Knight"),
-    victory_point: text("Siegpunkt", "Victory point"),
-    road_building: "Straßenbau",
-    year_of_plenty: text("Erfindung", "Year of plenty"),
-    monopoly: text("Monopol", "Monopoly")
+    knight: t("match.development.knight"),
+    victory_point: t("match.development.victoryPoint"),
+    road_building: t("match.development.roadBuilding"),
+    year_of_plenty: t("match.development.yearOfPlenty"),
+    monopoly: t("match.development.monopoly")
   };
 
   return labels[type] ?? type;
@@ -69,24 +69,24 @@ export function describeDevelopmentCardStatus(
 
   if (card.type === "victory_point") {
     return {
-      label: "Passiv",
-      detail: "Zählt automatisch als geheimer Siegpunkt und wird nicht manuell ausgespielt.",
+      label: t("match.development.status.passive"),
+      detail: t("match.development.status.passive.detail"),
       toneClass: "muted"
     };
   }
 
   if (card.boughtOnTurn >= match.turn) {
     return {
-      label: "Ab nächstem Zug",
-      detail: "Diese Karte darf erst ab deinem nächsten eigenen Zug ausgespielt werden.",
+      label: t("match.development.status.nextTurn"),
+      detail: t("match.development.status.nextTurn.detail"),
       toneClass: "is-warning"
     };
   }
 
   if (!isOwnActionWindow) {
     return {
-      label: "Bereit",
-      detail: "Die Karte ist vorbereitet und kann in deinem nächsten aktiven Zug gespielt werden.",
+      label: t("match.development.status.ready"),
+      detail: t("match.development.status.ready.detail"),
       toneClass: "muted"
     };
   }
@@ -94,15 +94,15 @@ export function describeDevelopmentCardStatus(
   if (!card.playable) {
     if (card.blockedReason === "no_road_target") {
       return {
-        label: "Kein Ziel",
-        detail: "Aktuell gibt es keine legale kostenlose Straße für diese Karte.",
+        label: t("match.development.status.noTarget"),
+        detail: t("match.development.status.noTarget.detail"),
         toneClass: "is-warning"
       };
     }
 
     return {
-      label: "Zuglimit erreicht",
-      detail: "In diesem Zug wurde bereits eine Entwicklungskarte ausgespielt.",
+      label: t("match.development.status.turnLimit"),
+      detail: t("match.development.status.turnLimit.detail"),
       toneClass: "is-warning"
     };
   }
@@ -110,32 +110,32 @@ export function describeDevelopmentCardStatus(
   switch (card.type) {
     case "knight":
       return {
-        label: "Spielbar",
-        detail: "Startet sofort die Räuberphase und zählt für die größte Rittermacht.",
+        label: t("match.development.status.playable"),
+        detail: t("match.development.status.playable.knight"),
         toneClass: ""
       };
     case "road_building":
       return {
-        label: "Spielbar",
-        detail: "Erlaubt dir bis zu zwei kostenlose Straßen, vor oder nach dem Würfeln.",
+        label: t("match.development.status.playable"),
+        detail: t("match.development.status.playable.roadBuilding"),
         toneClass: ""
       };
     case "year_of_plenty":
       return {
-        label: "Spielbar",
-        detail: "Nimmt zwei frei gewählte Rohstoffe aus der Bank.",
+        label: t("match.development.status.playable"),
+        detail: t("match.development.status.playable.yearOfPlenty"),
         toneClass: ""
       };
     case "monopoly":
       return {
-        label: "Spielbar",
-        detail: "Zieht eine gewählte Rohstoffart von allen Mitspielern ein.",
+        label: t("match.development.status.playable"),
+        detail: t("match.development.status.playable.monopoly"),
         toneClass: ""
       };
     default:
       return {
-        label: "Spielbar",
-        detail: "Diese Entwicklungskarte kann jetzt ausgespielt werden.",
+        label: t("match.development.status.playable"),
+        detail: t("match.development.status.playable.default"),
         toneClass: ""
       };
   }
@@ -167,17 +167,17 @@ export function createBuildActionState(
   const active = props.activeMode ? props.interactionMode === props.activeMode : false;
   const actionable = props.enabled && props.isCurrentPlayer && isBuildPhase && enoughResources && hasLegalTarget;
 
-  let note = `Kosten: ${renderCostText(props.cost)}`;
+  let note = t("match.build.note.cost", { cost: renderCostText(props.cost) });
   if (!props.isCurrentPlayer) {
-    note = "Nicht dein Zug";
+    note = t("match.build.note.notYourTurn");
   } else if (!isBuildPhase) {
-    note = props.phase === "turn_roll" ? "Erst würfeln" : "Gerade nicht verfügbar";
+    note = props.phase === "turn_roll" ? t("match.build.note.rollFirst") : t("match.build.note.unavailable");
   } else if (!enoughResources) {
-    note = `Fehlt: ${renderMissingCost(missing)}`;
+    note = t("match.build.note.missing", { resources: renderMissingCost(missing) });
   } else if (!hasLegalTarget) {
-    note = id === "development" ? "Zurzeit nicht verfügbar" : "Kein gültiger Bauplatz";
+    note = id === "development" ? t("match.build.note.currentlyUnavailable") : t("match.build.note.noLegalTarget");
   } else if (active) {
-    note = "Bauplatz auf dem Brett wählen";
+    note = t("match.build.note.selectOnBoard");
   }
 
   return {
@@ -216,8 +216,8 @@ export function createOwnActionCue(
     return {
       key: `action-initial-road-${match.version}-${match.allowedMoves.initialRoadEdgeIds.join(",")}`,
       mode: "action",
-      title: "Setze deine Start-Straße",
-      detail: "Alle erlaubten Kanten an deiner Start-Siedlung sind hervorgehoben.",
+      title: t("match.cue.initialRoad.title"),
+      detail: t("match.cue.initialRoad.detail"),
       vertexIds: [],
       edgeIds: match.allowedMoves.initialRoadEdgeIds,
       tileIds: [],
@@ -238,11 +238,14 @@ export function createOwnActionCue(
     return {
       key: `action-road-building-${match.version}-${focusEdgeIds.join(",")}`,
       mode: "action",
-      title: remainingRoads === 2 ? "Wähle die erste freie Straße" : "Wähle die zweite freie Straße",
+      title:
+        remainingRoads === 2
+          ? t("match.cue.roadBuilding.first.title")
+          : t("match.cue.roadBuilding.second.title"),
       detail:
         remainingRoads === 2
-          ? "Alle aktuell erlaubten kostenlosen Straßen für Straßenbau sind markiert."
-          : "Alle legalen Folgeplätze für die zweite kostenlose Straße sind markiert.",
+          ? t("match.cue.roadBuilding.first.detail")
+          : t("match.cue.roadBuilding.second.detail"),
       vertexIds: [],
       edgeIds: focusEdgeIds,
       tileIds: [],
@@ -258,8 +261,8 @@ export function createOwnActionCue(
     return {
       key: `action-road-${match.version}-${match.allowedMoves.roadEdgeIds.join(",")}`,
       mode: "action",
-      title: "Baue eine Straße",
-      detail: "Alle erlaubten Straßenkanten sind auf dem Brett markiert.",
+      title: t("match.cue.road.title"),
+      detail: t("match.cue.road.detail"),
       vertexIds: [],
       edgeIds: match.allowedMoves.roadEdgeIds,
       tileIds: [],
@@ -275,8 +278,8 @@ export function createOwnActionCue(
     return {
       key: `action-settlement-${match.version}-${match.allowedMoves.settlementVertexIds.join(",")}`,
       mode: "action",
-      title: "Baue eine Siedlung",
-      detail: "Alle gültigen Siedlungsplätze sind markiert.",
+      title: t("match.cue.settlement.title"),
+      detail: t("match.cue.settlement.detail"),
       vertexIds: match.allowedMoves.settlementVertexIds,
       edgeIds: [],
       tileIds: [],
@@ -292,8 +295,8 @@ export function createOwnActionCue(
     return {
       key: `action-city-${match.version}-${match.allowedMoves.cityVertexIds.join(",")}`,
       mode: "action",
-      title: "Werte eine Siedlung zur Stadt auf",
-      detail: "Alle ausbaufähigen Siedlungen sind markiert.",
+      title: t("match.cue.city.title"),
+      detail: t("match.cue.city.detail"),
       vertexIds: match.allowedMoves.cityVertexIds,
       edgeIds: [],
       tileIds: [],
@@ -310,8 +313,8 @@ export function createOwnActionCue(
     return {
       key: `action-robber-${match.version}-${tileIds.join(",")}`,
       mode: "action",
-      title: "Bewege den Räuber",
-      detail: "Alle legalen Räuber-Ziele sind markiert.",
+      title: t("match.cue.robber.title"),
+      detail: t("match.cue.robber.detail"),
       vertexIds: [],
       edgeIds: [],
       tileIds,
@@ -336,8 +339,8 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-initial-settlement-${match.version}-${match.allowedMoves.initialSettlementVertexIds.join(",")}`,
       mode: "action",
-      title: "Setze deine Start-Siedlung",
-      detail: "Die Kamera startet auf einem gültigen Startplatz.",
+      title: t("match.camera.initialSettlement.title"),
+      detail: t("match.camera.initialSettlement.detail"),
       vertexIds: match.allowedMoves.initialSettlementVertexIds,
       edgeIds: [],
       tileIds: [],
@@ -356,8 +359,8 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-initial-road-${match.version}-${edgeId}`,
       mode: "action",
-      title: "Setze deine Start-Straße",
-      detail: "Die Kamera startet auf einer gültigen Startkante.",
+      title: t("match.camera.initialRoad.title"),
+      detail: t("match.camera.initialRoad.detail"),
       vertexIds: [],
       edgeIds: [edgeId],
       tileIds: [],
@@ -384,11 +387,14 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-road-building-${match.version}-${edgeIds.join(",")}`,
       mode: "action",
-      title: remainingRoads === 2 ? "Wähle die erste freie Straße" : "Wähle die zweite freie Straße",
+      title:
+        remainingRoads === 2
+          ? t("match.camera.roadBuilding.first.title")
+          : t("match.camera.roadBuilding.second.title"),
       detail:
         remainingRoads === 2
-          ? "Die Kamera hält den relevanten Straßenbau-Bereich im Blick."
-          : "Die Kamera bleibt bei der ausgewählten Straßenbau-Kette.",
+          ? t("match.camera.roadBuilding.first.detail")
+          : t("match.camera.roadBuilding.second.detail"),
       vertexIds: [],
       edgeIds,
       tileIds: [],
@@ -404,8 +410,8 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-road-${match.version}-${match.allowedMoves.roadEdgeIds.join(",")}`,
       mode: "action",
-      title: "Baue eine Straße",
-      detail: "Die Kamera fokussiert den lokalen Straßenbereich.",
+      title: t("match.camera.road.title"),
+      detail: t("match.camera.road.detail"),
       vertexIds: [],
       edgeIds: match.allowedMoves.roadEdgeIds,
       tileIds: [],
@@ -421,8 +427,8 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-settlement-${match.version}-${match.allowedMoves.settlementVertexIds.join(",")}`,
       mode: "action",
-      title: "Baue eine Siedlung",
-      detail: "Die Kamera fokussiert den lokalen Siedlungsbereich.",
+      title: t("match.camera.settlement.title"),
+      detail: t("match.camera.settlement.detail"),
       vertexIds: match.allowedMoves.settlementVertexIds,
       edgeIds: [],
       tileIds: [],
@@ -438,8 +444,8 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-city-${match.version}-${match.allowedMoves.cityVertexIds.join(",")}`,
       mode: "action",
-      title: "Werte eine Siedlung zur Stadt auf",
-      detail: "Die Kamera fokussiert den lokalen Ausbau-Bereich.",
+      title: t("match.camera.city.title"),
+      detail: t("match.camera.city.detail"),
       vertexIds: match.allowedMoves.cityVertexIds,
       edgeIds: [],
       tileIds: [],
@@ -456,8 +462,8 @@ export function createOwnActionCameraCue(
     return {
       key: `camera-robber-${match.version}-${tileIds.join(",")}`,
       mode: "action",
-      title: "Bewege den Räuber",
-      detail: "Die Kamera fokussiert den lokalen Räuber-Bereich.",
+      title: t("match.camera.robber.title"),
+      detail: t("match.camera.robber.detail"),
       vertexIds: [],
       edgeIds: [],
       tileIds,
@@ -484,10 +490,10 @@ export function getLatestDiceRollEvent(
 
 export function getPlayerName(match: MatchSnapshot, playerId?: string): string {
   if (!playerId) {
-    return "Ein Spieler";
+    return t("shared.playerFallback");
   }
 
-  return getPlayerById(match, playerId)?.username ?? "Ein Spieler";
+  return getPlayerById(match, playerId)?.username ?? t("shared.playerFallback");
 }
 
 export function getPlayerById(match: MatchSnapshot, playerId?: string) {
@@ -511,8 +517,8 @@ export function getPlayerPresenceState(
 ) {
   if (player.connected) {
     return {
-      label: "Online",
-      detail: "Im Raum verbunden",
+      label: t("match.presence.online"),
+      detail: t("match.presence.online.detail"),
       toneClass: "is-online",
       indicatorClass: "is-online"
     };
@@ -523,16 +529,18 @@ export function getPlayerPresenceState(
     player.disconnectDeadlineAt > now
   ) {
     return {
-      label: "Getrennt",
-      detail: `Entfernt in ${formatCountdown(player.disconnectDeadlineAt - now)}`,
+      label: t("match.presence.disconnected"),
+      detail: t("match.presence.disconnected.removal", {
+        countdown: formatCountdown(player.disconnectDeadlineAt - now)
+      }),
       toneClass: "is-offline",
       indicatorClass: "is-offline"
     };
   }
 
   return {
-    label: "Getrennt",
-    detail: "Wartet auf Entfernen",
+    label: t("match.presence.disconnected"),
+    detail: t("match.presence.disconnected.waitingRemoval"),
     toneClass: "is-offline",
     indicatorClass: "is-offline"
   };
@@ -544,7 +552,7 @@ export function getTurnStatus(
   selfPlayer: MatchSnapshot["players"][number] | null,
   interactionMode: InteractionMode
 ): TurnStatus {
-  const activePlayerName = activePlayer?.username ?? "Unbekannt";
+  const activePlayerName = activePlayer?.username ?? t("shared.unknown");
   const isCurrentPlayer = match.currentPlayerId === match.you;
   const ownTrade =
     match.tradeOffers.find((offer) =>
@@ -575,10 +583,10 @@ export function getTurnStatus(
   if (match.winnerId) {
     const winner =
       match.players.find((player) => player.id === match.winnerId)?.username ??
-      "Unbekannt";
+      t("shared.unknown");
     return withPlayer(
-      "Partie beendet",
-      `${winner} hat die Partie gewonnen.`,
+      t("match.turnStatus.gameOver.title"),
+      t("match.turnStatus.gameOver.detail", { player: winner }),
       match.winnerId
     );
   }
@@ -586,24 +594,24 @@ export function getTurnStatus(
   if (trade) {
     const proposer =
       match.players.find((player) => player.id === trade.fromPlayerId)?.username ??
-      "Unbekannt";
+      t("shared.unknown");
     if (trade.fromPlayerId === match.you) {
       const target = trade.toPlayerId
         ? match.players.find((player) => player.id === trade.toPlayerId)?.username ??
-          "dem Zielspieler"
-        : "einen Mitspieler";
+          t("match.turnStatus.trade.targetPlayer")
+        : t("match.turnStatus.trade.otherPlayer");
       return withPlayer(
-        "Warte auf Handelsantwort",
+        t("match.turnStatus.trade.waitingReply.title"),
         trade.targetPlayerId
-          ? `${target} entscheidet über dein Angebot.`
-          : "Ein Mitspieler kann dein Angebot annehmen.",
+          ? t("match.turnStatus.trade.waitingReply.targeted", { player: target })
+          : t("match.turnStatus.trade.waitingReply.open"),
         trade.toPlayerId ?? undefined
       );
     }
     if (!trade.toPlayerId || trade.toPlayerId === match.you) {
       return withPlayer(
-        "Antwort von dir",
-        `${proposer} wartet auf deine Entscheidung zum Handel.`,
+        t("match.turnStatus.trade.answerFromYou.title"),
+        t("match.turnStatus.trade.answerFromYou.detail", { player: proposer }),
         selfId
       );
     }
@@ -611,36 +619,39 @@ export function getTurnStatus(
       match.players.find((player) => player.id === trade.toPlayerId)?.username ??
       activePlayerName;
     return withPlayer(
-      `Warte auf ${target}`,
-      `${proposer} hat ein Handelsangebot offen.`,
+      t("match.turnStatus.waitForPlayer.title", { player: target }),
+      t("match.turnStatus.trade.openOffer.detail", { player: proposer }),
       trade.toPlayerId
     );
   }
 
   if (match.allowedMoves.pendingDiscardCount > 0 && match.phase !== "robber_interrupt") {
     return withPlayer(
-      "Aktion von dir",
-      `Lege ${match.allowedMoves.pendingDiscardCount} Karten ab, damit ${activePlayerName} weitermachen kann.`,
+      t("match.turnStatus.yourAction.title"),
+      t("match.turnStatus.pendingDiscard.detail", {
+        count: match.allowedMoves.pendingDiscardCount,
+        player: activePlayerName
+      }),
       selfId
     );
   }
 
   if (match.allowedMoves.initialSettlementVertexIds.length > 0) {
     return isCurrentPlayer
-      ? withPlayer("Aktion von dir", "Setze jetzt deine Start-Siedlung.", selfId)
+      ? withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.initialSettlement.self"), selfId)
       : withPlayer(
-          `Warte auf ${activePlayerName}`,
-          `${activePlayerName} setzt eine Start-Siedlung.`,
+          t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+          t("match.turnStatus.initialSettlement.other", { player: activePlayerName }),
           activePlayer?.id
         );
   }
 
   if (match.allowedMoves.initialRoadEdgeIds.length > 0) {
     return isCurrentPlayer
-      ? withPlayer("Aktion von dir", "Setze jetzt deine angrenzende Start-Straße.", selfId)
+      ? withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.initialRoad.self"), selfId)
       : withPlayer(
-          `Warte auf ${activePlayerName}`,
-          `${activePlayerName} setzt eine Start-Straße.`,
+          t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+          t("match.turnStatus.initialRoad.other", { player: activePlayerName }),
           activePlayer?.id
         );
   }
@@ -651,43 +662,46 @@ export function getTurnStatus(
       const othersPending = pending.filter((entry) => entry.player.id !== selfId);
       const suffix =
         othersPending.length > 0
-          ? ` Danach warten noch ${summarizeRobberPlayers(
-              othersPending.map((entry) => entry.player.username)
-            )}.`
+          ? t("match.turnStatus.robber.pendingOthersSuffix", {
+              players: summarizeRobberPlayers(othersPending.map((entry) => entry.player.username))
+            })
           : "";
       return withPlayer(
-        "Aktion von dir",
-        `Lege ${match.allowedMoves.pendingDiscardCount} Karten ab, damit die Räuberphase weitergehen kann.${suffix}`,
+        t("match.turnStatus.yourAction.title"),
+        t("match.turnStatus.robber.discardSelf", {
+          count: match.allowedMoves.pendingDiscardCount,
+          suffix
+        }),
         selfId
       );
     }
     if (isCurrentPlayer && interactionMode === "robber") {
       return withPlayer(
-        "Setze jetzt den Räuber",
-        "Klicke jetzt ein markiertes Feld an, um den Räuber dorthin zu setzen. Erst danach geht die Räuberphase weiter.",
+        t("match.turnStatus.robber.moveTitle"),
+        t("match.turnStatus.robber.moveDetail"),
         selfId,
-        "Jetzt Feld anklicken"
+        t("match.turnStatus.robber.moveCallout")
       );
     }
     if (pending.length > 0) {
       return withPlayer(
-        "Der Räuber schlägt zu",
-        `${summarizeRobberPlayers(
-          pending.map((entry) => entry.player.username)
-        )} müssen noch Karten abwerfen.`,
+        t("match.turnStatus.robber.strikesTitle"),
+        t("match.turnStatus.robber.pendingOthers", {
+          players: summarizeRobberPlayers(pending.map((entry) => entry.player.username))
+        }),
         pending[0]?.player.id
       );
     }
     if (done.length > 0) {
       return withPlayer(
-        `Warte auf ${activePlayerName}`,
-        "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt.",
+        t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+        t("match.turnStatus.robber.allDiscarded"),
         activePlayer?.id
       );
     }
     return withPlayer(
-      `Warte auf ${activePlayerName}`,
-      `${activePlayerName} schließt die Räuberphase ab.`,
+      t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+      t("match.turnStatus.robber.finishing", { player: activePlayerName }),
       activePlayer?.id
     );
   }
@@ -698,40 +712,40 @@ export function getTurnStatus(
         ? match.pendingDevelopmentEffect.remainingRoads
         : 2;
     return withPlayer(
-      "Aktion von dir",
+      t("match.turnStatus.yourAction.title"),
       remainingRoads === 2
-        ? "Wähle die erste kostenlose Straße."
-        : "Wähle die zweite kostenlose Straße oder beende den Effekt.",
+        ? t("match.turnStatus.roadBuilding.first")
+        : t("match.turnStatus.roadBuilding.second"),
       selfId
     );
   }
 
   if (interactionMode === "road") {
-    return withPlayer("Aktion von dir", "Wähle eine gültige Straßenkante.", selfId);
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.road.select"), selfId);
   }
 
   if (interactionMode === "settlement") {
     return withPlayer(
-      "Aktion von dir",
-      "Wähle einen gültigen Platz für deine Siedlung.",
+      t("match.turnStatus.yourAction.title"),
+      t("match.turnStatus.settlement.select"),
       selfId
     );
   }
 
   if (interactionMode === "city") {
     return withPlayer(
-      "Aktion von dir",
-      "Wähle eine eigene Siedlung für den Ausbau.",
+      t("match.turnStatus.yourAction.title"),
+      t("match.turnStatus.city.select"),
       selfId
     );
   }
 
   if (match.allowedMoves.canRoll) {
     return isCurrentPlayer
-      ? withPlayer("Aktion von dir", "Du musst jetzt würfeln.", selfId)
+      ? withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.roll.self"), selfId)
       : withPlayer(
-          `Warte auf ${activePlayerName}`,
-          `${activePlayerName} startet den Zug mit dem Wurf.`,
+          t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+          t("match.turnStatus.roll.other", { player: activePlayerName }),
           activePlayer?.id
         );
   }
@@ -745,14 +759,14 @@ export function getTurnStatus(
         (match.allowedMoves.cityVertexIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.city)));
     return isCurrentPlayer
       ? withPlayer(
-          "Aktion von dir",
-          "Sonderbauphase: Baue oder kaufe eine Entwicklung. Kein Handel, kein Hafenhandel, keine Entwicklungskarte spielen.",
+          t("match.turnStatus.yourAction.title"),
+          t("match.turnStatus.specialBuild.self"),
           selfId,
-          canBuildOrBuy ? undefined : "Kein legaler Bau oder Kauf moeglich. Du kannst direkt weitergeben."
+          canBuildOrBuy ? undefined : t("match.turnStatus.specialBuild.noMove")
         )
       : withPlayer(
-          `Warte auf ${activePlayerName}`,
-          `${activePlayerName} nutzt gerade die Sonderbauphase.`,
+          t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+          t("match.turnStatus.specialBuild.other", { player: activePlayerName }),
           activePlayer?.id
         );
   }
@@ -760,48 +774,48 @@ export function getTurnStatus(
   if (match.phase === "paired_player_action") {
     return isCurrentPlayer
       ? withPlayer(
-          "Aktion von dir",
-          "Paired Players: Du bist Spieler 2. Bauen, Hafenhandel und Entwicklungskarten sind erlaubt, Handel mit Mitspielern nicht.",
+          t("match.turnStatus.yourAction.title"),
+          t("match.turnStatus.pairedPlayers.self"),
           selfId
         )
       : withPlayer(
-          `Warte auf ${activePlayerName}`,
-          `${activePlayerName} ist gerade als Spieler 2 in Paired Players am Zug.`,
+          t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+          t("match.turnStatus.pairedPlayers.other", { player: activePlayerName }),
           activePlayer?.id
         );
   }
 
   if (isCurrentPlayer && match.phase === "turn_action") {
-    return withPlayer("Aktion von dir", "Baue, handle oder beende deinen Zug.", selfId);
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.turnAction.self"), selfId);
   }
 
   if (match.phase === "turn_action") {
     return withPlayer(
-      `Warte auf ${activePlayerName}`,
-      `${activePlayerName} ist am Zug.`,
+      t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+      t("match.turnStatus.turnAction.other", { player: activePlayerName }),
       activePlayer?.id
     );
   }
 
   if (match.phase === "setup_forward" || match.phase === "setup_reverse") {
     return withPlayer(
-      `Warte auf ${activePlayerName}`,
-      `${activePlayerName} ist im Startaufbau.`,
+      t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+      t("match.turnStatus.setup.other", { player: activePlayerName }),
       activePlayer?.id
     );
   }
 
   if (selfPlayer && !isCurrentPlayer) {
     return withPlayer(
-      `Warte auf ${activePlayerName}`,
-      `${activePlayerName} führt die nächste Aktion aus.`,
+      t("match.turnStatus.waitForPlayer.title", { player: activePlayerName }),
+      t("match.turnStatus.nextAction.other", { player: activePlayerName }),
       activePlayer?.id
     );
   }
 
   return {
-    title: "Warte auf die nächste Aktion",
-    detail: "Sobald ein legaler Schritt möglich ist, wird er hier angezeigt."
+    title: t("match.turnStatus.nextAction.title"),
+    detail: t("match.turnStatus.nextAction.detail")
   };
 }
 
@@ -836,8 +850,8 @@ function describeBuildActionTooltip(
 ): { title: string; lines: string[] } | null {
   if (!props.isCurrentPlayer) {
     return {
-      title: "Nicht dein Zug",
-      lines: ["Bauen ist nur in deinem eigenen Zug möglich."]
+      title: t("match.tooltip.notYourTurn.title"),
+      lines: [t("match.tooltip.notYourTurn.detail")]
     };
   }
 
@@ -848,49 +862,52 @@ function describeBuildActionTooltip(
 
   if (!isBuildPhase) {
     return {
-      title: props.phase === "turn_roll" ? "Erst würfeln" : "Gerade nicht verfügbar",
+      title: props.phase === "turn_roll" ? t("match.tooltip.rollFirst.title") : t("match.tooltip.unavailable.title"),
       lines: [
         props.phase === "turn_roll"
-          ? "Du musst den Zug zuerst mit dem Würfelwurf starten."
-          : "Diese Aktion ist in der aktuellen Phase gesperrt."
+          ? t("match.tooltip.rollFirst.detail")
+          : t("match.tooltip.unavailable.detail")
         ]
     };
   }
 
   if (props.phase === "special_build") {
     return {
-      title: "Sonderbauphase",
+      title: t("match.tooltip.specialBuild.title"),
       lines: [
-        "Hier sind nur Bauen und Entwicklung kaufen erlaubt.",
-        "Handel, Hafenhandel und Entwicklungskarten ausspielen sind gesperrt."
+        t("match.tooltip.specialBuild.detail1"),
+        t("match.tooltip.specialBuild.detail2")
       ]
     };
   }
 
   if (props.missing.length > 0) {
     return {
-      title: "Rohstoffe fehlen",
+      title: t("match.tooltip.missingResources.title"),
       lines: props.missing.map(
-        (entry) => `${entry.count}x ${renderResourceLabel(entry.resource)} fehlt`
+        (entry) => t("match.tooltip.missingResources.entry", {
+          count: entry.count,
+          resource: renderResourceLabel(entry.resource)
+        })
       )
     };
   }
 
   if (!props.hasLegalTarget) {
     return {
-      title: id === "development" ? "Zurzeit nicht verfügbar" : "Kein gültiger Bauplatz",
+      title: id === "development" ? t("match.tooltip.currentlyUnavailable.title") : t("match.tooltip.noLegalTarget.title"),
       lines: [
         id === "development"
-          ? "Im Moment kann keine Entwicklungskarte gekauft werden."
-          : "Auf dem Brett gibt es aktuell kein legales Ziel für diese Aktion."
+          ? t("match.tooltip.currentlyUnavailable.detail")
+          : t("match.tooltip.noLegalTarget.detail")
       ]
     };
   }
 
   if (props.active) {
     return {
-      title: "Bauplatz wählen",
-      lines: ["Wähle jetzt direkt auf dem Brett ein gültiges Ziel."]
+      title: t("match.tooltip.selectTarget.title"),
+      lines: [t("match.tooltip.selectTarget.detail")]
     };
   }
 
@@ -906,16 +923,13 @@ function formatCountdown(ms: number): string {
 
 function summarizeRobberPlayers(names: string[]): string {
   if (names.length === 0) {
-    return "niemand";
-  }
-  if (names.length === 1) {
-    return names[0]!;
-  }
-  if (names.length === 2) {
-    return `${names[0]} und ${names[1]}`;
+    return t("match.robberPlayers.none");
   }
 
-  return `${names.slice(0, -1).join(", ")} und ${names.at(-1)}`;
+  return new Intl.ListFormat(getDocumentLocale(), {
+    style: "long",
+    type: "conjunction"
+  }).format(names);
 }
 
 function renderCostText(cost: Partial<Record<Resource, number>>): string {
