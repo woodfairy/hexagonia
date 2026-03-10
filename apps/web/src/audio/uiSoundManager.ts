@@ -33,7 +33,7 @@ const MUSIC_TRACK_STORAGE_KEY = "hexagonia:music-track";
 const MUSIC_PLAYBACK_STORAGE_KEY = "hexagonia:music-playback";
 const MUSIC_MODE_STORAGE_KEY = "hexagonia:music-mode";
 const MUSIC_VOLUME = 0.68;
-const DEFAULT_LANDING_MUSIC_TRACK_NAME = "Wir bauen eine Welt";
+const DEFAULT_LANDING_MUSIC_TRACK_NAME = "Build it up";
 const DEFAULT_AUTHENTICATED_MUSIC_TRACK_NAME = "Hexagonia";
 const INTERACTIVE_SELECTOR = [
   "[data-ui-sound]",
