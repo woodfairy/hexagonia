@@ -184,14 +184,6 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             <strong>{resolveText(locale, createText("Musikplayer", "Music player"))}</strong>
           </div>
           <label className="profile-music-select-shell">
-            <span>
-              {resolveText(
-                locale,
-                props.musicPlaybackMode === "cycle"
-                  ? createText("Aktueller Song", "Current song")
-                  : createText("Song", "Song")
-              )}
-            </span>
             <PopupSelect
               value={props.selectedMusicTrackId ?? ""}
               onChange={props.onSelectMusicTrack}
