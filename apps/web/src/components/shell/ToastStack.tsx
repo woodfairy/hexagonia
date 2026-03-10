@@ -12,20 +12,23 @@ export function ToastStack(props: {
   onDismiss: (toastId: string) => void;
 }) {
   const { locale } = useI18n();
+  const latestToast = props.toasts.at(-1) ?? null;
+
+  if (!latestToast) {
+    return null;
+  }
 
   return (
     <div className="toast-stack" aria-live="polite" aria-atomic="true">
-      {props.toasts.map((toast) => (
-        <article key={toast.id} className={`toast-card is-${toast.tone}`}>
-          <div className="toast-copy">
-            <strong>{resolveText(locale, toast.title)}</strong>
-            {toast.body ? <span>{resolveText(locale, toast.body)}</span> : null}
-          </div>
-          <button type="button" className="ghost-button toast-close" onClick={() => props.onDismiss(toast.id)}>
-            {resolveText(locale, createText("Schließen", "Close"))}
-          </button>
-        </article>
-      ))}
+      <article key={latestToast.id} className={`toast-card is-${latestToast.tone}`}>
+        <div className="toast-copy">
+          <strong>{resolveText(locale, latestToast.title)}</strong>
+          {latestToast.body ? <span>{resolveText(locale, latestToast.body)}</span> : null}
+        </div>
+        <button type="button" className="ghost-button toast-close" onClick={() => props.onDismiss(latestToast.id)}>
+          {resolveText(locale, createText("Schließen", "Close"))}
+        </button>
+      </article>
     </div>
   );
 }

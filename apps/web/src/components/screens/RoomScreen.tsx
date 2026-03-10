@@ -9,6 +9,7 @@ import {
   type TurnRule,
   resolveRoomGameConfig
 } from "@hexagonia/shared";
+import { uiHapticsManager } from "../../audio/uiHapticsManager";
 import { createText, resolveText, useI18n } from "../../i18n";
 import { renderBoardSizeLabel, renderPlayerColorLabel, renderTurnRuleLabel } from "../../ui";
 import { PlayerColorBadge } from "../shared/PlayerIdentity";
@@ -93,6 +94,7 @@ export function RoomScreen(props: {
     effectiveRulesSummary
   ].join(" / ");
   const settingsExpanded = isOwner || showGameSettings;
+  const triggerSoftHaptic = () => void uiHapticsManager.play("soft");
 
   useEffect(() => {
     setShowGameSettings(isOwner);
@@ -293,7 +295,10 @@ export function RoomScreen(props: {
                       type="button"
                       className={!usesCustomRules ? "is-active" : ""}
                       disabled={!canEditSettings}
-                      onClick={() => props.onRulesPresetChange("standard")}
+                      onClick={() => {
+                        triggerSoftHaptic();
+                        props.onRulesPresetChange("standard");
+                      }}
                     >
                       {text("Standard", "Standard")}
                     </button>
@@ -301,7 +306,10 @@ export function RoomScreen(props: {
                       type="button"
                       className={usesCustomRules ? "is-active" : ""}
                       disabled={!canEditSettings}
-                      onClick={() => props.onRulesPresetChange("custom")}
+                      onClick={() => {
+                        triggerSoftHaptic();
+                        props.onRulesPresetChange("custom");
+                      }}
                     >
                       {text("Benutzerdefiniert", "Custom")}
                     </button>
@@ -332,7 +340,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.boardSize === "standard" ? "is-active" : ""}
                           disabled={!canEditSettings || extendedBoardRequired}
-                          onClick={() => props.onBoardSizeChange("standard")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onBoardSizeChange("standard");
+                          }}
                         >
                           {text("Standard", "Standard")}
                         </button>
@@ -340,7 +351,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.boardSize === "extended" ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onBoardSizeChange("extended")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onBoardSizeChange("extended");
+                          }}
                         >
                           {text("Erweitert", "Extended")}
                         </button>
@@ -372,7 +386,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.setupMode === "official_variable" ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onSetupModeChange("official_variable")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onSetupModeChange("official_variable");
+                          }}
                         >
                           {text("Variabler Aufbau", "Variable setup")}
                         </button>
@@ -380,7 +397,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.setupMode === "beginner" ? "is-active" : ""}
                           disabled={!canEditSettings || !beginnerAvailable}
-                          onClick={() => props.onSetupModeChange("beginner")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onSetupModeChange("beginner");
+                          }}
                         >
                           {text("Anfängeraufbau", "Beginner setup")}
                         </button>
@@ -413,7 +433,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.turnRule === "standard" ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onTurnRuleChange("standard")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onTurnRuleChange("standard");
+                          }}
                         >
                           {text("Standard", "Standard")}
                         </button>
@@ -421,7 +444,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onTurnRuleChange("paired_players")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onTurnRuleChange("paired_players");
+                          }}
                         >
                           {text("Paired Players", "Paired players")}
                         </button>
@@ -429,7 +455,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onTurnRuleChange("special_build_phase")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onTurnRuleChange("special_build_phase");
+                          }}
                         >
                           {text("Sonderbauphase", "Special build phase")}
                         </button>
@@ -450,7 +479,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={usesCustomRolledStart ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onStartingPlayerModeChange("rolled")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onStartingPlayerModeChange("rolled");
+                          }}
                         >
                           {text("Auswürfeln", "Roll")}
                         </button>
@@ -458,7 +490,10 @@ export function RoomScreen(props: {
                           type="button"
                           className={!usesCustomRolledStart ? "is-active" : ""}
                           disabled={!canEditSettings}
-                          onClick={() => props.onStartingPlayerModeChange("manual")}
+                          onClick={() => {
+                            triggerSoftHaptic();
+                            props.onStartingPlayerModeChange("manual");
+                          }}
                         >
                           {text("Manuell", "Manual")}
                         </button>
@@ -482,7 +517,10 @@ export function RoomScreen(props: {
                               type="button"
                               className={props.room.gameConfig.startingPlayer.seatIndex === seat.index ? "is-active" : ""}
                               disabled={!canEditSettings}
-                              onClick={() => props.onStartingSeatChange(seat.index)}
+                              onClick={() => {
+                                triggerSoftHaptic();
+                                props.onStartingSeatChange(seat.index);
+                              }}
                             >
                               {seat.username ?? seatText(seat.index)}
                             </button>

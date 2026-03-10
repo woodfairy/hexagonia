@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { uiHapticsManager } from "../../audio/uiHapticsManager";
 
 export interface PopupSelectOption<Value extends string> {
   value: Value;
@@ -110,6 +111,7 @@ export function PopupSelect<Value extends string>(props: {
           disabled={disabled}
           onClick={() => {
             if (!disabled) {
+              void uiHapticsManager.play("soft");
               setOpen((current) => !current);
             }
           }}
@@ -144,6 +146,7 @@ export function PopupSelect<Value extends string>(props: {
                         return;
                       }
 
+                      void uiHapticsManager.play("soft");
                       props.onChange(entry.value);
                       setOpen(false);
                       triggerRef.current?.focus();
