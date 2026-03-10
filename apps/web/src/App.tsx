@@ -90,8 +90,10 @@ import { getRecaptchaRegisterToken } from "./recaptcha";
 import {
   type AuthMode,
   type ConnectionState,
+  getRoutePath,
   type RouteState,
-  readRoute
+  readRoute,
+  writeRoute
 } from "./ui";
 
 const TEXT = {
@@ -287,7 +289,8 @@ export function App() {
     if (route.kind === "room") {
       return "room" as const;
     }
-      return "lobby" as const;
+
+    return "lobby" as const;
   }, [route.kind, session]);
   const isBootingDeepLink = session === undefined && route.kind !== "home";
   const isGuestLanding = activeScreen === "auth" && !isBootingDeepLink;
@@ -406,9 +409,13 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    const onHashChange = () => setRoute(readRoute());
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+    const syncRoute = () => setRoute(readRoute());
+    window.addEventListener("hashchange", syncRoute);
+    window.addEventListener("popstate", syncRoute);
+    return () => {
+      window.removeEventListener("hashchange", syncRoute);
+      window.removeEventListener("popstate", syncRoute);
+    };
   }, []);
 
   useEffect(() => {
@@ -1047,7 +1054,7 @@ export function App() {
           setSelectedRoadEdges([]);
           navigateTo(
             message.room.status === "closed" && !isSeatedInRoom
-              ? { kind: "home" }
+              ? { kind: "play" }
               : { kind: "room", roomId: message.room.id }
           );
           pushToast(
@@ -1065,7 +1072,7 @@ export function App() {
           setMatch(null);
           setServerMatch(null);
           setPresence([]);
-          navigateTo({ kind: "home" });
+          navigateTo({ kind: "play" });
           pushToast("info", "Raum geschlossen", "Dieser Raum wurde beendet und aus der Liste entfernt.");
           return;
         }
@@ -1143,7 +1150,7 @@ export function App() {
 
     if (route.kind === "admin") {
       if (session.role !== "admin") {
-        navigateTo({ kind: "home" });
+        navigateTo({ kind: "play" }, { replace: true });
         return;
       }
       void loadAdminData(false);
@@ -1160,7 +1167,7 @@ export function App() {
         })
         .catch((routeError: Error) => {
           pushToast("error", "Einladung ungültig", routeError.message);
-          navigateTo({ kind: "home" });
+          navigateTo({ kind: "play" }, { replace: true });
         });
       return;
     }
@@ -1176,7 +1183,7 @@ export function App() {
         })
         .catch((routeError: Error) => {
           pushToast("error", "Raum konnte nicht geladen werden", routeError.message);
-          navigateTo({ kind: "home" });
+          navigateTo({ kind: "play" }, { replace: true });
         });
     }
 
@@ -1484,24 +1491,31 @@ export function App() {
     });
   }, [pushToast, requiredDiscardCount, robberDiscardDraft, selectedDiscardCount, sendCurrent, selfPlayer?.resources]);
 
-  const navigateTo = useCallback((next: RouteState) => {
+  const navigateTo = useCallback((next: RouteState, options?: { replace?: boolean }) => {
+    const currentPath = getRoutePath(readRoute());
+    const nextPath = getRoutePath(next);
+    const hasLegacyHashRoute = window.location.hash.length > 0;
+
     setRoute(next);
-    if (next.kind === "home") {
-      window.location.hash = "";
-    }
-    if (next.kind === "admin") {
-      window.location.hash = "admin";
-    }
-    if (next.kind === "invite") {
-      window.location.hash = `invite/${next.code}`;
-    }
-    if (next.kind === "room") {
-      window.location.hash = `room/${next.roomId}`;
-    }
-    if (next.kind === "match") {
-      window.location.hash = `match/${next.matchId}`;
+    if (nextPath !== currentPath || hasLegacyHashRoute) {
+      writeRoute(next, options?.replace ? "replace" : "push");
     }
   }, []);
+
+  useEffect(() => {
+    if (session === undefined) {
+      return;
+    }
+
+    if (session && route.kind === "home") {
+      navigateTo({ kind: "play" }, { replace: true });
+      return;
+    }
+
+    if (!session && route.kind === "play") {
+      navigateTo({ kind: "home" }, { replace: true });
+    }
+  }, [navigateTo, route.kind, session]);
 
   const handleOpenTrackedRoom = useCallback(
     (roomId: string) => {
@@ -1803,7 +1817,7 @@ export function App() {
       setServerMatch(null);
       setPresence([]);
       await loadMyRooms();
-      navigateTo({ kind: "home" });
+      navigateTo({ kind: "play" });
       pushToast("info", "Raum verlassen", "Du bist zurück in der Zentrale.");
     } catch (leaveError) {
       pushToast("error", "Raum konnte nicht verlassen werden", (leaveError as Error).message);
@@ -1980,7 +1994,7 @@ export function App() {
         setMatch(null);
         setServerMatch(null);
         setPresence([]);
-        navigateTo({ kind: "home" });
+        navigateTo({ kind: "play" });
       }
       await loadAdminData();
       await loadMyRooms();
@@ -2028,7 +2042,8 @@ export function App() {
 
     try {
       const inviteUrl = new URL(window.location.href);
-      inviteUrl.hash = `invite/${room.code}`;
+      inviteUrl.pathname = getRoutePath({ kind: "invite", code: room.code });
+      inviteUrl.hash = "";
       await navigator.clipboard.writeText(inviteUrl.toString());
       pushToast("success", "Einladungslink kopiert", room.code);
     } catch {
@@ -2245,6 +2260,8 @@ export function App() {
             eyebrow={
               route.kind === "match"
                 ? "Laufende Partie"
+                : route.kind === "play"
+                  ? "HEXAGONIA"
                 : route.kind === "admin"
                   ? "Administration"
                   : "Privater Raum"
@@ -2335,7 +2352,7 @@ export function App() {
         title={headerContext.title}
         onLogout={handleLogout}
         onMusicPlaybackModeChange={handleMusicPlaybackModeChange}
-        onNavigateHome={() => navigateTo({ kind: "home" })}
+        onNavigateHome={() => navigateTo({ kind: session ? "play" : "home" })}
         onSelectMusicTrack={handleSelectMusicTrack}
         onBoardVisualSettingsChange={handleBoardVisualSettingsChange}
         onToggleHapticsMuted={handleToggleHapticsMuted}
@@ -2433,7 +2450,7 @@ export function App() {
                 onBoardVisualSettingsChange: handleBoardVisualSettingsChange,
                 onMusicPlaybackModeChange: handleMusicPlaybackModeChange,
                 onLogout: handleLogout,
-                onNavigateHome: () => navigateTo({ kind: "home" }),
+                onNavigateHome: () => navigateTo({ kind: "play" }),
                 onSelectMusicTrack: handleSelectMusicTrack,
                 onToggleHapticsMuted: handleToggleHapticsMuted,
                 onToggleSoundMuted: handleToggleSoundMuted,

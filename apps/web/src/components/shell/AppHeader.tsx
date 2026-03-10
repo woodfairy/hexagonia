@@ -51,13 +51,7 @@ export function AppHeader(props: {
           <img src={hexaLogo} alt="Hexagonia" className="brand-mark-image" />
         </button>
         {!props.compact ? (
-          <div className="brand-copy">
-            <span className="eyebrow">{props.eyebrow}</span>
-            <div className="brand-title-row">
-              <strong>{props.title}</strong>
-              {props.meta ? <span className="brand-meta">{props.meta}</span> : null}
-            </div>
-          </div>
+          <span className="brand-wordmark">HEXAGONIA</span>
         ) : null}
       </div>
 

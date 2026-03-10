@@ -111,13 +111,7 @@ export function AppHeaderSkeleton(props: { eyebrow: string; compact?: boolean })
       <div className="brand-cluster">
         <div className="brand-mark app-skeleton-brand-mark" />
         {!props.compact ? (
-          <div className="brand-copy">
-            <span className="eyebrow">{props.eyebrow}</span>
-            <div className="brand-title-row">
-              <span className="skeleton-shape app-skeleton-title" />
-              <span className="skeleton-shape app-skeleton-meta" />
-            </div>
-          </div>
+          <span className="skeleton-shape app-skeleton-wordmark" />
         ) : null}
       </div>
 
@@ -141,7 +135,7 @@ export function AppHeaderSkeleton(props: { eyebrow: string; compact?: boolean })
 }
 
 export function DeepLinkBootSkeleton(props: {
-  kind: "home" | "room" | "invite" | "match" | "admin";
+  kind: "home" | "play" | "room" | "invite" | "match" | "admin";
 }) {
   if (props.kind === "match") {
     return (
@@ -199,6 +193,68 @@ export function DeepLinkBootSkeleton(props: {
               <span className="skeleton-shape deep-link-line" />
             </div>
           </aside>
+        </div>
+      </section>
+    );
+  }
+
+  if (props.kind === "play") {
+    return (
+      <section className="screen-shell lobby-shell deep-link-boot-shell" aria-busy="true" aria-live="polite">
+        <article className="surface resume-surface deep-link-play-main">
+          <div className="surface-head">
+            <div>
+              <span className="skeleton-shape deep-link-line is-short" />
+              <span className="skeleton-shape deep-link-line is-medium" />
+            </div>
+          </div>
+
+          <div className="resume-list deep-link-play-list">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <article key={index} className="resume-card deep-link-play-card">
+                <div className="resume-card-head">
+                  <div>
+                    <span className="skeleton-shape deep-link-line is-short" />
+                    <span className="skeleton-shape deep-link-line is-medium" />
+                  </div>
+                  <span className={`skeleton-shape deep-link-chip ${index === 0 ? "" : "is-short"}`.trim()} />
+                </div>
+                <div className="resume-card-meta-row">
+                  <span className="skeleton-shape deep-link-chip is-wide" />
+                </div>
+                <div className="resume-card-actions">
+                  <span className="skeleton-shape deep-link-button" />
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
+
+        <div className="lobby-side-grid">
+          <article className="surface action-surface deep-link-play-action">
+            <div className="surface-head">
+              <div>
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-medium" />
+              </div>
+            </div>
+            <span className="skeleton-shape deep-link-line" />
+            <span className="skeleton-shape deep-link-button" />
+          </article>
+
+          <article className="surface action-surface deep-link-play-action">
+            <div className="surface-head">
+              <div>
+                <span className="skeleton-shape deep-link-line is-short" />
+                <span className="skeleton-shape deep-link-line is-medium" />
+              </div>
+            </div>
+            <div className="code-join-row deep-link-play-join-row">
+              <span className="skeleton-shape deep-link-input" />
+              <span className="skeleton-shape deep-link-button is-compact" />
+            </div>
+            <span className="skeleton-shape deep-link-line is-medium" />
+          </article>
         </div>
       </section>
     );

@@ -13,18 +13,28 @@ export type AuthMode = "login" | "register";
 export type ConnectionState = "offline" | "connecting" | "online";
 export type RouteState =
   | { kind: "home" }
+  | { kind: "play" }
   | { kind: "admin" }
   | { kind: "invite"; code: string }
   | { kind: "room"; roomId: string }
   | { kind: "match"; matchId: string };
 
-export function readRoute(): RouteState {
-  const hash = window.location.hash.replace(/^#/, "");
-  if (!hash) {
+function getRouteSegments(value: string, separator: RegExp): string[] {
+  return value
+    .split(separator)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function parseRouteSegments(segments: string[]): RouteState | null {
+  const [kind, id] = segments;
+  if (!kind) {
     return { kind: "home" };
   }
 
-  const [kind, id] = hash.split("/");
+  if (kind === "play" && segments.length === 1) {
+    return { kind: "play" };
+  }
   if (kind === "admin") {
     return { kind: "admin" };
   }
@@ -37,7 +47,54 @@ export function readRoute(): RouteState {
   if (kind === "match" && id) {
     return { kind: "match", matchId: id };
   }
-  return { kind: "home" };
+
+  return null;
+}
+
+export function readRoute(): RouteState {
+  const pathSegments = getRouteSegments(window.location.pathname, /\//);
+  const pathRoute = parseRouteSegments(pathSegments);
+  if (pathSegments.length > 0 && pathRoute) {
+    return pathRoute;
+  }
+
+  const hashRoute = parseRouteSegments(getRouteSegments(window.location.hash.replace(/^#/, ""), /\//));
+  return hashRoute ?? pathRoute ?? { kind: "home" };
+}
+
+export function getRoutePath(route: RouteState): string {
+  switch (route.kind) {
+    case "home":
+      return "/";
+    case "play":
+      return "/play";
+    case "admin":
+      return "/admin";
+    case "invite":
+      return `/invite/${route.code}`;
+    case "room":
+      return `/room/${route.roomId}`;
+    case "match":
+      return `/match/${route.matchId}`;
+    default: {
+      const exhaustiveCheck: never = route;
+      return exhaustiveCheck;
+    }
+  }
+}
+
+export function writeRoute(route: RouteState, mode: "push" | "replace" = "push") {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.pathname = getRoutePath(route);
+  nextUrl.hash = "";
+  const historyUrl = `${nextUrl.pathname}${nextUrl.search}`;
+
+  if (mode === "replace") {
+    window.history.replaceState(null, "", historyUrl);
+    return;
+  }
+
+  window.history.pushState(null, "", historyUrl);
 }
 
 export function renderConnectionLabel(session: AuthUser | null | undefined, connectionState: ConnectionState): string {

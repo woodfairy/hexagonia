@@ -677,6 +677,7 @@ function normalizeRoom(row: StoredRoomRow): RoomDetails {
   const seats = normalizeSeats(
     typeof row.seats === "string" ? (JSON.parse(row.seats) as SeatState[]) : row.seats
   );
+  const ownerUserId = normalizeOwnerUserId(row.ownerUserId, seats);
   const parsedGameConfig =
     typeof row.gameConfig === "string" ? JSON.parse(row.gameConfig) : row.gameConfig;
   const hasExplicitRulesPreset = hasStoredRulesPreset(parsedGameConfig);
@@ -701,7 +702,7 @@ function normalizeRoom(row: StoredRoomRow): RoomDetails {
   return {
     id: row.id,
     code: row.code,
-    ownerUserId: row.ownerUserId,
+    ownerUserId,
     gameConfig,
     status: row.status,
     matchId: row.matchId,
@@ -753,6 +754,7 @@ function normalizeRoomBeforeSave(room: RoomDetails): RoomDetails {
 
   return {
     ...room,
+    ownerUserId: normalizeOwnerUserId(room.ownerUserId, seats),
     seats,
     gameConfig: sanitizeRoomGameConfig(room.gameConfig, seats)
   };
@@ -776,6 +778,14 @@ function normalizeSeats(seats: SeatState[]): SeatState[] {
           ready: false
         };
   });
+}
+
+function normalizeOwnerUserId(ownerUserId: string, seats: SeatState[]): string {
+  if (seats.some((seat) => seat.userId === ownerUserId)) {
+    return ownerUserId;
+  }
+
+  return seats.find((seat) => !!seat.userId)?.userId ?? ownerUserId;
 }
 
 function hasStoredRulesPreset(value: unknown): boolean {
