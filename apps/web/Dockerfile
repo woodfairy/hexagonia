@@ -18,11 +18,16 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM deps AS builder
 COPY full/ ./
 RUN pnpm build:web
+RUN pnpm build:web:profiling
 
 FROM nginx:1.27-alpine AS runner
 COPY --from=builder /app/apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/web/dist-profiling /usr/share/nginx/html-profiling
 COPY --from=builder /app/apps/web/docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
+COPY --from=builder /app/apps/web/docker/start-web.sh /usr/local/bin/start-web.sh
 RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
+RUN chmod +x /usr/local/bin/start-web.sh
 EXPOSE 4173
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/usr/local/bin/start-web.sh"]
+CMD ["standard"]

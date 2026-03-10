@@ -44,6 +44,8 @@ Typical startup:
 
 The web client uses same-origin `/api` and `/ws` endpoints by default. In Docker, the published web image serves the built app via Nginx on port `4173` and proxies API and WebSocket traffic internally to the server container, which avoids browser CORS issues behind HTTPS reverse proxies.
 
+The web image contains both the normal production build and a React profiling build. If you want `docker compose` to start the profiling bundle instead of the standard bundle, set the web service command to `["profiling"]`.
+
 ## Scope
 
 The current implementation establishes the full architecture and a functional base-game core:

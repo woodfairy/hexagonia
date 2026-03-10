@@ -84,30 +84,42 @@ function browserThemePlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), browserThemePlugin()],
-  resolve: {
-    alias: {
-      "@hexagonia/shared": fileURLToPath(new URL("../../packages/shared/src/index.ts", import.meta.url))
-    }
-  },
-  server: {
-    host: "0.0.0.0",
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: "http://localhost:3000",
-        changeOrigin: true
-      },
-      "/ws": {
-        target: "ws://localhost:3000",
-        ws: true,
-        changeOrigin: true
+export default defineConfig(({ mode }) => {
+  const isProfilingBuild = mode === "profiling";
+
+  return {
+    plugins: [react(), browserThemePlugin()],
+    resolve: {
+      alias: {
+        "@hexagonia/shared": fileURLToPath(new URL("../../packages/shared/src/index.ts", import.meta.url)),
+        ...(isProfilingBuild
+          ? {
+              "react-dom/client": "react-dom/profiling"
+            }
+          : {})
       }
+    },
+    build: {
+      outDir: isProfilingBuild ? "dist-profiling" : "dist"
+    },
+    server: {
+      host: "0.0.0.0",
+      port: 5173,
+      proxy: {
+        "/api": {
+          target: "http://localhost:3000",
+          changeOrigin: true
+        },
+        "/ws": {
+          target: "ws://localhost:3000",
+          ws: true,
+          changeOrigin: true
+        }
+      }
+    },
+    preview: {
+      host: "0.0.0.0",
+      port: 4173
     }
-  },
-  preview: {
-    host: "0.0.0.0",
-    port: 4173
-  }
+  };
 });

@@ -38,3 +38,5 @@ services:
       RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY:-}
     ports:
       - "4173:4173"
+    # Optional fuer React Profiler:
+    # command: ["profiling"]

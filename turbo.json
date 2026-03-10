@@ -3,7 +3,11 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", "dist-profiling/**"]
+    },
+    "build:profiling": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist-profiling/**"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],

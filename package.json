@@ -11,6 +11,7 @@
     "dev:web": "turbo run dev --filter=@hexagonia/web",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=@hexagonia/web",
+    "build:web:profiling": "turbo run build:profiling --filter=@hexagonia/web",
     "build:server": "turbo run build --filter=@hexagonia/server",
     "build:libs": "turbo run build --filter=@hexagonia/shared --filter=@hexagonia/rules",
     "typecheck": "turbo run typecheck",
