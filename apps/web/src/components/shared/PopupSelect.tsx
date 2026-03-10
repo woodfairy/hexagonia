@@ -102,6 +102,7 @@ export function PopupSelect<Value extends string>(props: {
         <button
           ref={triggerRef}
           type="button"
+          data-popup-select-trigger="true"
           className={`locale-select-trigger locale-select-trigger-${props.variant} ${open ? "is-open" : ""}`.trim()}
           aria-label={props.ariaLabel}
           aria-haspopup="listbox"
@@ -121,6 +122,7 @@ export function PopupSelect<Value extends string>(props: {
         ? createPortal(
             <div
               ref={menuRef}
+              data-popup-select-portal="true"
               className={`locale-select-menu locale-select-menu-${props.variant}`}
               style={menuStyle}
               role="listbox"

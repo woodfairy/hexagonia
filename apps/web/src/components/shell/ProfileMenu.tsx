@@ -158,15 +158,19 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           <div className="profile-music-copy">
             <strong>{resolveText(locale, createText("Sprache", "Language"))}</strong>
           </div>
-          <LocaleSelect
-            value={activeLocale}
-            ariaLabel={resolveText(locale, createText("Sprache", "Language"))}
-            variant="profile"
-            onChange={(nextLocale) => {
-              props.onLocaleChange(nextLocale);
-              playSoftMenuHaptic();
-            }}
-          />
+          <label className="profile-music-select-shell">
+            <span>{resolveText(locale, createText("Sprache", "Language"))}</span>
+            <LocaleSelect
+              value={activeLocale}
+              ariaLabel={resolveText(locale, createText("Sprache", "Language"))}
+              variant="profile"
+              className="profile-popup-select-shell"
+              onChange={(nextLocale) => {
+                props.onLocaleChange(nextLocale);
+                playSoftMenuHaptic();
+              }}
+            />
+          </label>
         </div>
 
         <div className="profile-music-panel">
@@ -435,7 +439,16 @@ export function ProfileMenu(props: ProfileMenuProps) {
     }
 
     const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (target instanceof Element && target.closest("[data-popup-select-portal='true']")) {
+        return;
+      }
+
+      if (rootRef.current && !rootRef.current.contains(target)) {
         setOpen(false);
       }
     };
