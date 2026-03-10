@@ -1,6 +1,6 @@
 import type { GameState } from "@hexagonia/rules";
 import { Database } from "./db.js";
-import type { RoomDetails } from "@hexagonia/shared";
+import type { RoomDetails, SeatState } from "@hexagonia/shared";
 
 export interface RoomLifecycleRealtimeBridge {
   broadcastRoom(room: RoomDetails): Promise<void>;
@@ -44,6 +44,7 @@ export class RoomLifecycleService {
     seat.userId = null;
     seat.username = null;
     seat.ready = false;
+    room.seats = compactOccupiedSeats(room.seats);
 
     if (room.ownerUserId === userId) {
       room.ownerUserId = room.seats.find((entry) => entry.userId)?.userId ?? room.ownerUserId;
@@ -86,6 +87,8 @@ export class RoomLifecycleService {
       seat.ready = false;
     }
 
+    room.seats = compactOccupiedSeats(room.seats);
+
     if (room.ownerUserId === userId) {
       room.ownerUserId = room.seats.find((entry) => entry.userId)?.userId ?? room.ownerUserId;
     }
@@ -110,4 +113,28 @@ export class RoomLifecycleService {
 
 function hasOccupiedSeats(room: RoomDetails): boolean {
   return room.seats.some((seat) => !!seat.userId);
+}
+
+function compactOccupiedSeats(seats: SeatState[]): SeatState[] {
+  const orderedSeats = [...seats].sort((left, right) => left.index - right.index);
+  const occupiedSeats = orderedSeats.filter((seat) => !!seat.userId);
+
+  return orderedSeats.map((seat, index) => {
+    const occupant = occupiedSeats[index];
+    if (!occupant) {
+      return {
+        ...seat,
+        userId: null,
+        username: null,
+        ready: false
+      };
+    }
+
+    return {
+      ...seat,
+      userId: occupant.userId,
+      username: occupant.username,
+      ready: occupant.ready
+    };
+  });
 }

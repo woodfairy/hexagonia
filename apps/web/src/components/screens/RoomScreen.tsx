@@ -9,7 +9,7 @@ import {
   TurnRule,
   resolveRoomGameConfig
 } from "@hexagonia/shared";
-import { PlayerColorBadge } from "../shared/PlayerIdentity";
+import { PlayerColorBadge, PlayerIdentity } from "../shared/PlayerIdentity";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import { renderBoardSizeLabel, renderPlayerColorLabel, renderTurnRuleLabel } from "../../ui";
 
@@ -39,6 +39,7 @@ export function RoomScreen(props: {
   const seatedPlayers = props.room.seats.filter((seat) => seat.userId);
   const readyPlayers = seatedPlayers.filter((seat) => seat.ready).length;
   const isOwner = props.room.ownerUserId === props.session.id;
+  const hostSeat = props.room.seats.find((seat) => seat.userId === props.room.ownerUserId) ?? null;
   const hasFreeSeat = props.room.seats.some((seat) => !seat.userId);
   const canJoinRoom = !currentSeat && props.room.status === "open" && hasFreeSeat;
   const joinUnavailableLabel =
@@ -112,6 +113,24 @@ export function RoomScreen(props: {
             </div>
           </div>
 
+          <div className={`room-host-banner ${hostSeat ? `player-accent-${hostSeat.color}` : ""}`.trim()}>
+            <div className="room-host-banner-copy">
+              <span className="eyebrow">Host</span>
+              {hostSeat ? (
+                <PlayerIdentity
+                  username={hostSeat.username ?? "Unbekannt"}
+                  color={hostSeat.color}
+                  compact
+                  isSelf={hostSeat.userId === props.session.id}
+                  meta={hostSeat.userId === props.session.id ? "Du leitest diese Lobby" : "Leitet diese Lobby"}
+                />
+              ) : (
+                <strong>Host wird neu bestimmt</strong>
+              )}
+            </div>
+            <span className="status-pill room-host-pill">{isOwner ? "Du bist Host" : "Lobby-Host"}</span>
+          </div>
+
           <div className="room-meta-strip">
             <span className="status-pill">{seatedPlayers.length}/6 besetzt</span>
             <span
@@ -138,6 +157,7 @@ export function RoomScreen(props: {
               const online = seat.userId ? props.presence.includes(seat.userId) : false;
               const occupied = !!seat.userId;
               const mine = seat.userId === props.session.id;
+              const isHost = seat.userId === props.room.ownerUserId;
               const canKick = isOwner && props.room.status === "open" && occupied && !mine && !!seat.userId;
               const isStartingSeat =
                 !usesRolledStart &&
@@ -153,11 +173,12 @@ export function RoomScreen(props: {
                   key={seat.index}
                   className={`seat-card player-surface player-accent-${seat.color} ${
                     mine ? "is-mine" : ""
-                  } ${occupied ? "is-occupied" : "is-open"}`}
+                  } ${occupied ? "is-occupied" : "is-open"} ${isHost ? "is-host" : ""}`}
                 >
                   <div className="seat-card-head">
                     <div className="seat-card-title-block">
                       <strong className="seat-card-title">{seatTitle}</strong>
+                      {isHost ? <span className="status-pill room-host-pill">Host</span> : null}
                       {mine ? <span className="status-pill muted">Du</span> : null}
                     </div>
                     <div className="seat-status-meta">
