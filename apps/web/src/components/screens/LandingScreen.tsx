@@ -5,6 +5,7 @@ import { HarborIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
 import { LocaleSelect } from "../shared/LocaleSelect";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
+import { PopupSelect } from "../shared/PopupSelect";
 import type { AuthMode } from "../../ui";
 import hexaLogo from "../../../../../assets/img/hexa.png";
 
@@ -161,9 +162,7 @@ export function LandingScreen(props: {
   const { locale, setLocale } = useI18n();
   const text = (de: string, en: string) => resolveText(locale, createText(de, en));
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const trackMenuRef = useRef<HTMLDivElement | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [trackMenuOpen, setTrackMenuOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -232,31 +231,6 @@ export function LandingScreen(props: {
     return () => observer.disconnect();
   }, [locale, prefersReducedMotion, props.authMode, props.inviteCode]);
 
-  useEffect(() => {
-    if (!trackMenuOpen) {
-      return;
-    }
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (trackMenuRef.current && !trackMenuRef.current.contains(event.target as Node)) {
-        setTrackMenuOpen(false);
-      }
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setTrackMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [trackMenuOpen]);
-
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
     const node = section?.querySelector(".landing-auth-panel") ?? section;
@@ -302,6 +276,12 @@ export function LandingScreen(props: {
   const hasMusicTracks = props.musicTracks.length > 0;
   const selectedTrack = props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
   const landingModeLabel = props.musicPlaybackMode === "cycle" ? text("Playlist", "Playlist") : text("Loop", "Loop");
+  const musicTrackOptions = props.musicTracks.length
+    ? props.musicTracks.map((track) => ({
+        value: track.id,
+        label: track.name
+      }))
+    : [{ value: "", label: text("Keine Songs gefunden", "No songs found"), disabled: true }];
 
   return (
     <div ref={rootRef} className="guest-root landing-root">
@@ -330,39 +310,15 @@ export function LandingScreen(props: {
               <strong>{text("Musik", "Music")}</strong>
             </div>
             <div className="landing-music-controls">
-              <div className="landing-music-track-shell" ref={trackMenuRef}>
-                <button
-                  type="button"
-                  className={`landing-music-select-button ${trackMenuOpen ? "is-open" : ""}`}
-                  aria-expanded={trackMenuOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setTrackMenuOpen((current) => !current)}
+              <div className="landing-music-track-shell">
+                <PopupSelect
+                  value={selectedTrack?.id ?? ""}
+                  options={musicTrackOptions}
+                  onChange={props.onSelectMusicTrack}
+                  ariaLabel={text("Song wählen", "Choose track")}
+                  variant="landing"
                   disabled={!hasMusicTracks}
-                >
-                  <span className="landing-music-track-label">{selectedTrack?.name ?? text("Keine Songs gefunden", "No songs found")}</span>
-                  <span className="landing-music-select-caret" aria-hidden="true">
-                    v
-                  </span>
-                </button>
-                {trackMenuOpen ? (
-                  <div className="landing-music-menu" role="menu" aria-label={text("Song wählen", "Choose track")}>
-                    {props.musicTracks.map((track) => (
-                      <button
-                        key={track.id}
-                        type="button"
-                        className={`landing-music-menu-item ${track.id === selectedTrack?.id ? "is-active" : ""}`}
-                        role="menuitemradio"
-                        aria-checked={track.id === selectedTrack?.id}
-                        onClick={() => {
-                          props.onSelectMusicTrack(track.id);
-                          setTrackMenuOpen(false);
-                        }}
-                      >
-                        {track.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                />
               </div>
               <button
                 type="button"
