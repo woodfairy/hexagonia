@@ -780,7 +780,13 @@ function BoardSceneComponent(props: BoardSceneProps) {
       pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, cameraNode);
       const intersections = raycaster.intersectObjects(interactiveRef.current, false);
-      return resolveInteractiveObject(intersections[0]?.object ?? null);
+      for (const intersection of intersections) {
+        const interactiveObject = resolveInteractiveObject(intersection.object);
+        if (interactiveObject) {
+          return interactiveObject;
+        }
+      }
+      return null;
     };
 
     const getInteractiveObjectAtPointer = () => {
