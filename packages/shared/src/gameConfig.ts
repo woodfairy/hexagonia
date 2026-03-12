@@ -1,3 +1,19 @@
+import {
+  getScenarioCatalogEntry,
+  getScenarioAllowedLayoutModes,
+  getScenarioDefaultLayoutMode,
+  getScenarioDefaultTurnRule,
+  isLayoutMode,
+  isRulesFamily,
+  isScenarioId,
+  isScenarioRulesetId,
+  resolveScenarioIdForPlayerCount,
+  type LayoutMode,
+  type RulesFamily,
+  type ScenarioId,
+  type ScenarioRulesetId
+} from "./scenarios.js";
+
 export const SETUP_MODES = ["official_variable", "beginner"] as const;
 export const STARTING_PLAYER_MODES = ["rolled", "manual"] as const;
 export const EXPANSION_IDS = ["seafarers"] as const;
@@ -17,7 +33,20 @@ export interface StartingPlayerConfig {
   seatIndex: number;
 }
 
+export type ScenarioOptionValue = string | number | boolean | null;
+
+export interface ScenarioOptions {
+  victoryPointsToWin?: number;
+  newWorldScenarioSetupEnabled?: boolean;
+  [key: string]: ScenarioOptionValue | undefined;
+}
+
 export interface GameConfig {
+  rulesFamily: RulesFamily;
+  scenarioId: ScenarioId;
+  scenarioRulesetId: ScenarioRulesetId;
+  layoutMode: LayoutMode;
+  scenarioOptions: ScenarioOptions;
   boardSize: BoardSize;
   setupMode: SetupMode;
   turnRule: TurnRule;
@@ -26,6 +55,11 @@ export interface GameConfig {
 }
 
 export interface GameConfigPatch {
+  rulesFamily?: RulesFamily;
+  scenarioId?: ScenarioId;
+  scenarioRulesetId?: ScenarioRulesetId;
+  layoutMode?: LayoutMode;
+  scenarioOptions?: Partial<ScenarioOptions>;
   boardSize?: BoardSize;
   setupMode?: SetupMode;
   turnRule?: TurnRule;
@@ -47,8 +81,19 @@ type RoomGameConfigSeat = {
 };
 
 export const CURRENT_OFFICIAL_TURN_RULE: TurnRule = "standard";
+export const CURRENT_OFFICIAL_SCENARIO_RULESET_ID: ScenarioRulesetId = "current_2025";
+export const DEFAULT_BASE_SCENARIO_ID: ScenarioId = "base.standard";
+export const DEFAULT_SEAFARERS_SCENARIO_ID: ScenarioId = "seafarers.heading_for_new_shores";
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
+  rulesFamily: "base",
+  scenarioId: DEFAULT_BASE_SCENARIO_ID,
+  scenarioRulesetId: CURRENT_OFFICIAL_SCENARIO_RULESET_ID,
+  layoutMode: "official_variable",
+  scenarioOptions: {
+    victoryPointsToWin: getScenarioCatalogEntry(DEFAULT_BASE_SCENARIO_ID).defaultVictoryPointsToWin,
+    newWorldScenarioSetupEnabled: false
+  },
   boardSize: "standard",
   setupMode: "official_variable",
   turnRule: "standard",
@@ -92,6 +137,10 @@ function clampSeatIndex(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
+function clampVictoryPointsToWin(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 3 ? value : fallback;
+}
+
 function normalizeEnabledExpansions(value: unknown): ExpansionId[] {
   if (!Array.isArray(value)) {
     return [];
@@ -100,12 +149,121 @@ function normalizeEnabledExpansions(value: unknown): ExpansionId[] {
   return [...new Set(value.filter(isExpansionId))];
 }
 
+function normalizeScenarioOptions(
+  value: unknown,
+  fallbackVictoryPointsToWin: number
+): ScenarioOptions {
+  const base: ScenarioOptions = {
+    victoryPointsToWin: fallbackVictoryPointsToWin,
+    newWorldScenarioSetupEnabled: false
+  };
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return base;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const next: ScenarioOptions = { ...base };
+  for (const [key, entry] of Object.entries(candidate)) {
+    if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean" || entry === null) {
+      next[key] = entry;
+    }
+  }
+
+  next.victoryPointsToWin = clampVictoryPointsToWin(
+    candidate.victoryPointsToWin,
+    fallbackVictoryPointsToWin
+  );
+  next.newWorldScenarioSetupEnabled =
+    typeof candidate.newWorldScenarioSetupEnabled === "boolean"
+      ? candidate.newWorldScenarioSetupEnabled
+      : false;
+
+  return next;
+}
+
+function toSeatContext(seatsOrPlayerCount: RoomGameConfigSeat[] | number): RoomGameConfigSeat[] {
+  if (typeof seatsOrPlayerCount === "number") {
+    const occupiedSeatCount = Math.max(0, Math.trunc(seatsOrPlayerCount));
+    return Array.from({ length: occupiedSeatCount }, (_, index) => ({
+      index,
+      userId: `occupied-${index}`
+    }));
+  }
+
+  return seatsOrPlayerCount.map((seat) => ({
+    index: seat.index,
+    userId: seat.userId
+  }));
+}
+
+function resolveDefaultScenarioId(
+  rulesFamily: RulesFamily,
+  enabledExpansions: ExpansionId[]
+): ScenarioId {
+  if (rulesFamily === "seafarers" || enabledExpansions.includes("seafarers")) {
+    return DEFAULT_SEAFARERS_SCENARIO_ID;
+  }
+
+  return DEFAULT_BASE_SCENARIO_ID;
+}
+
+function ensureScenarioFamilyCompatibility(
+  rulesFamily: RulesFamily,
+  scenarioId: ScenarioId,
+  enabledExpansions: ExpansionId[]
+): ScenarioId {
+  const scenario = getScenarioCatalogEntry(scenarioId);
+  if (scenario.rulesFamily === rulesFamily) {
+    return scenarioId;
+  }
+
+  return resolveDefaultScenarioId(rulesFamily, enabledExpansions);
+}
+
+function resolveEffectiveRulesFamily(
+  value: unknown,
+  enabledExpansions: ExpansionId[]
+): RulesFamily {
+  if (isRulesFamily(value)) {
+    return value;
+  }
+
+  return enabledExpansions.includes("seafarers") ? "seafarers" : DEFAULT_GAME_CONFIG.rulesFamily;
+}
+
+function resolveEffectiveLayoutMode(
+  input: {
+    layoutMode?: unknown;
+    setupMode?: unknown;
+  },
+  scenarioId: ScenarioId
+): LayoutMode {
+  const scenario = getScenarioCatalogEntry(scenarioId);
+  if (isLayoutMode(input.layoutMode)) {
+    return scenario.fixedLayoutOnly && input.layoutMode === "official_variable"
+      ? scenario.defaultLayoutMode
+      : input.layoutMode;
+  }
+
+  if (input.setupMode === "official_variable") {
+    return scenario.fixedLayoutOnly ? scenario.defaultLayoutMode : "official_variable";
+  }
+
+  return scenario.defaultLayoutMode;
+}
+
 export function normalizeGameConfig(value: unknown): GameConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return createGameConfig();
   }
 
   const candidate = value as {
+    rulesFamily?: unknown;
+    scenarioId?: unknown;
+    scenarioRulesetId?: unknown;
+    layoutMode?: unknown;
+    scenarioOptions?: unknown;
     boardSize?: unknown;
     setupMode?: unknown;
     turnRule?: unknown;
@@ -116,7 +274,30 @@ export function normalizeGameConfig(value: unknown): GameConfig {
     enabledExpansions?: unknown;
   };
 
+  const enabledExpansions = normalizeEnabledExpansions(candidate.enabledExpansions);
+  const rulesFamily = resolveEffectiveRulesFamily(candidate.rulesFamily, enabledExpansions);
+  const requestedScenarioId = isScenarioId(candidate.scenarioId)
+    ? candidate.scenarioId
+    : resolveDefaultScenarioId(rulesFamily, enabledExpansions);
+  const scenarioId = ensureScenarioFamilyCompatibility(
+    rulesFamily,
+    requestedScenarioId,
+    enabledExpansions
+  );
+  const scenario = getScenarioCatalogEntry(scenarioId);
+  const layoutMode = resolveEffectiveLayoutMode(candidate, scenarioId);
+
   return {
+    rulesFamily,
+    scenarioId,
+    scenarioRulesetId: isScenarioRulesetId(candidate.scenarioRulesetId)
+      ? candidate.scenarioRulesetId
+      : scenario.rulesetId,
+    layoutMode,
+    scenarioOptions: normalizeScenarioOptions(
+      candidate.scenarioOptions,
+      scenario.defaultVictoryPointsToWin
+    ),
     boardSize: isBoardSize(candidate.boardSize)
       ? candidate.boardSize
       : DEFAULT_GAME_CONFIG.boardSize,
@@ -135,7 +316,10 @@ export function normalizeGameConfig(value: unknown): GameConfig {
         DEFAULT_GAME_CONFIG.startingPlayer.seatIndex
       )
     },
-    enabledExpansions: normalizeEnabledExpansions(candidate.enabledExpansions)
+    enabledExpansions:
+      enabledExpansions.length > 0
+        ? enabledExpansions
+        : [...scenario.enabledExpansions]
   };
 }
 
@@ -166,6 +350,10 @@ export function mergeGameConfig(base: GameConfig, patch: Partial<GameConfigPatch
   return normalizeGameConfig({
     ...base,
     ...patch,
+    scenarioOptions: {
+      ...base.scenarioOptions,
+      ...(patch.scenarioOptions ?? {})
+    },
     startingPlayer: {
       ...base.startingPlayer,
       ...(patch.startingPlayer ?? {})
@@ -181,6 +369,10 @@ export function mergeRoomGameConfig(
   return normalizeRoomGameConfig({
     ...base,
     ...patch,
+    scenarioOptions: {
+      ...base.scenarioOptions,
+      ...(patch.scenarioOptions ?? {})
+    },
     startingPlayer: {
       ...base.startingPlayer,
       ...(patch.startingPlayer ?? {})
@@ -189,19 +381,20 @@ export function mergeRoomGameConfig(
   });
 }
 
-function toSeatContext(seatsOrPlayerCount: RoomGameConfigSeat[] | number): RoomGameConfigSeat[] {
-  if (typeof seatsOrPlayerCount === "number") {
-    const occupiedSeatCount = Math.max(0, Math.trunc(seatsOrPlayerCount));
-    return Array.from({ length: occupiedSeatCount }, (_, index) => ({
-      index,
-      userId: `occupied-${index}`
-    }));
-  }
+export function getScenarioVictoryPointsToWin(gameConfig: GameConfig): number {
+  return clampVictoryPointsToWin(
+    gameConfig.scenarioOptions.victoryPointsToWin,
+    getScenarioCatalogEntry(gameConfig.scenarioId).defaultVictoryPointsToWin
+  );
+}
 
-  return seatsOrPlayerCount.map((seat) => ({
-    index: seat.index,
-    userId: seat.userId
-  }));
+export function isNewWorldScenarioSetupEnabled(
+  gameConfig: Pick<GameConfig, "scenarioId" | "scenarioOptions">
+): boolean {
+  return (
+    gameConfig.scenarioId === "seafarers.new_world" &&
+    gameConfig.scenarioOptions.newWorldScenarioSetupEnabled === true
+  );
 }
 
 export function sanitizeRoomGameConfig(
@@ -211,6 +404,12 @@ export function sanitizeRoomGameConfig(
   const seatContext = toSeatContext(seatsOrPlayerCount);
   const normalized = normalizeRoomGameConfig(roomGameConfig);
   const occupiedSeats = seatContext.filter((seat) => !!seat.userId);
+  const playerCount = occupiedSeats.length || seatContext.length || 0;
+  const scenarioId = resolveScenarioIdForPlayerCount(normalized.scenarioId, Math.max(playerCount, 3));
+  const scenario = getScenarioCatalogEntry(scenarioId);
+  const effectivePlayerCount = Math.max(playerCount, 3);
+  const allowedLayoutModes = getScenarioAllowedLayoutModes(scenarioId, effectivePlayerCount);
+  const defaultLayoutMode = getScenarioDefaultLayoutMode(scenarioId, effectivePlayerCount);
   const startingSeatStillOccupied = occupiedSeats.some(
     (seat) => seat.index === normalized.startingPlayer.seatIndex
   );
@@ -218,16 +417,40 @@ export function sanitizeRoomGameConfig(
     ? normalized.startingPlayer.seatIndex
     : (occupiedSeats[0]?.index ?? normalized.startingPlayer.seatIndex);
   const boardSize: BoardSize =
-    occupiedSeats.length >= 5 ? "extended" : normalized.boardSize;
+    scenario.rulesFamily === "base"
+      ? occupiedSeats.length >= 5
+        ? "extended"
+        : normalized.boardSize
+      : occupiedSeats.length >= 5
+        ? "extended"
+        : scenario.defaultBoardSize;
   const setupMode =
-    boardSize === "extended" && normalized.setupMode === "beginner"
-      ? "official_variable"
-      : normalized.setupMode;
+    scenario.rulesFamily === "base"
+      ? boardSize === "extended" && normalized.setupMode === "beginner"
+        ? "official_variable"
+        : normalized.setupMode
+      : "official_variable";
+  const layoutMode = allowedLayoutModes.includes(normalized.layoutMode)
+    ? normalized.layoutMode
+    : defaultLayoutMode;
 
   return {
     ...normalized,
+    rulesFamily: scenario.rulesFamily,
+    scenarioId,
+    scenarioRulesetId: scenario.rulesetId,
+    layoutMode,
+    scenarioOptions: normalizeScenarioOptions(
+      normalized.scenarioOptions,
+      scenario.defaultVictoryPointsToWin
+    ),
     boardSize,
     setupMode,
+    turnRule:
+      scenario.rulesFamily === "seafarers"
+        ? getScenarioDefaultTurnRule(scenarioId, effectivePlayerCount)
+        : normalized.turnRule,
+    enabledExpansions: [...scenario.enabledExpansions],
     startingPlayer: {
       ...normalized.startingPlayer,
       seatIndex: nextStartingSeatIndex
@@ -236,20 +459,48 @@ export function sanitizeRoomGameConfig(
 }
 
 export function resolveOfficialGameConfig(
-  seatsOrPlayerCount: RoomGameConfigSeat[] | number
+  seatsOrPlayerCount: RoomGameConfigSeat[] | number,
+  roomGameConfig?: Partial<RoomGameConfig>
 ): GameConfig {
   const seatContext = toSeatContext(seatsOrPlayerCount);
   const occupiedSeats = seatContext.filter((seat) => !!seat.userId);
+  const playerCount = occupiedSeats.length || seatContext.length || 0;
+  const requestedScenarioId =
+    roomGameConfig && isScenarioId(roomGameConfig.scenarioId)
+      ? roomGameConfig.scenarioId
+      : DEFAULT_BASE_SCENARIO_ID;
+  const effectivePlayerCount = Math.max(playerCount, 3);
+  const scenarioId = resolveScenarioIdForPlayerCount(requestedScenarioId, effectivePlayerCount);
+  const scenario = getScenarioCatalogEntry(scenarioId);
+  const boardSize: BoardSize =
+    scenario.rulesFamily === "base"
+      ? occupiedSeats.length >= 5
+        ? "extended"
+        : "standard"
+      : occupiedSeats.length >= 5
+        ? "extended"
+        : scenario.defaultBoardSize;
 
   return normalizeGameConfig({
-    boardSize: occupiedSeats.length >= 5 ? "extended" : "standard",
+    rulesFamily: scenario.rulesFamily,
+    scenarioId,
+    scenarioRulesetId: scenario.rulesetId,
+    layoutMode: getScenarioDefaultLayoutMode(scenarioId, effectivePlayerCount),
+    scenarioOptions: {
+      victoryPointsToWin: scenario.defaultVictoryPointsToWin,
+      newWorldScenarioSetupEnabled: false
+    },
+    boardSize,
     setupMode: "official_variable",
-    turnRule: CURRENT_OFFICIAL_TURN_RULE,
+    turnRule:
+      scenario.rulesFamily === "seafarers"
+        ? getScenarioDefaultTurnRule(scenarioId, effectivePlayerCount)
+        : CURRENT_OFFICIAL_TURN_RULE,
     startingPlayer: {
       mode: "rolled",
       seatIndex: occupiedSeats[0]?.index ?? 0
     },
-    enabledExpansions: []
+    enabledExpansions: [...scenario.enabledExpansions]
   });
 }
 
@@ -260,7 +511,7 @@ export function resolveRoomGameConfig(
   const sanitizedRoomGameConfig = sanitizeRoomGameConfig(roomGameConfig, seatsOrPlayerCount);
 
   if (sanitizedRoomGameConfig.rulesPreset === "standard") {
-    return resolveOfficialGameConfig(seatsOrPlayerCount);
+    return resolveOfficialGameConfig(seatsOrPlayerCount, sanitizedRoomGameConfig);
   }
 
   return normalizeGameConfig(sanitizedRoomGameConfig);
@@ -277,7 +528,7 @@ export function isOfficialRoomGameConfig(
     },
     seatsOrPlayerCount
   );
-  const officialConfig = resolveOfficialGameConfig(seatsOrPlayerCount);
+  const officialConfig = resolveOfficialGameConfig(seatsOrPlayerCount, roomGameConfig);
 
   return JSON.stringify(effectiveConfig) === JSON.stringify(officialConfig);
 }
@@ -297,6 +548,7 @@ export function resolveGameConfigFromLegacy(input: {
   return normalizeGameConfig({
     boardSize: input.boardSize,
     setupMode: input.setupMode,
+    layoutMode: input.setupMode === "official_variable" ? "official_variable" : undefined,
     turnRule: input.turnRule,
     startingPlayer: {
       mode: input.startingPlayerMode,
@@ -321,6 +573,7 @@ export function resolveRoomGameConfigFromLegacy(input: {
   return normalizeRoomGameConfig({
     boardSize: input.boardSize,
     setupMode: input.setupMode,
+    layoutMode: input.setupMode === "official_variable" ? "official_variable" : undefined,
     turnRule: input.turnRule,
     startingPlayer: {
       mode: input.startingPlayerMode,

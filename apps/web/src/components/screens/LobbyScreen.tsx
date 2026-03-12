@@ -1,5 +1,5 @@
 import type { AuthUser, RoomDetails } from "@hexagonia/shared";
-import { createText, resolveText, useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
 import { renderPlayerColorLabel } from "../../ui";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
 import { PlayerColorBadge } from "../shared/PlayerIdentity";
@@ -16,17 +16,17 @@ export function LobbyScreen(props: {
   onOpenRoom: (roomId: string) => void;
   onResumeMatch: (matchId: string) => void;
 }) {
-  const { locale } = useI18n();
-  const text = (de: string, en: string, params?: Record<string, string | number>) =>
-    resolveText(locale, createText(de, en, params));
+  const { locale, translate } = useI18n();
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate(key, undefined, undefined, params);
 
   return (
     <section className="screen-shell lobby-shell">
       <article className="surface resume-surface">
         <div className="surface-head">
           <div>
-            <div className="eyebrow">{resolveText(locale, createText("Fortsetzen", "Resume"))}</div>
-            <h2>{resolveText(locale, createText("Deine Räume und Partien", "Your rooms and matches"))}</h2>
+            <div className="eyebrow">{t("lobby.resume.eyebrow")}</div>
+            <h2>{t("lobby.resume.title")}</h2>
           </div>
         </div>
 
@@ -37,29 +37,27 @@ export function LobbyScreen(props: {
               const mySeat = room.seats.find((seat) => seat.userId === props.session.id);
               const canResumeMatch = room.status === "in_match" && !!room.matchId;
               const meta = [
-                resolveText(locale, room.status === "in_match" ? createText("Laufende Partie", "Live match") : createText("Raum offen", "Room open")),
-                text("{count}/6 Spieler", "{count}/6 players", { count: occupiedSeats }),
-                mySeat
-                  ? text("Du auf Platz {seat}", "You at seat {seat}", { seat: mySeat.index + 1 })
-                  : resolveText(locale, createText("Teilnahme gespeichert", "Participation saved"))
-              ].join(" - ");
+                room.status === "in_match" ? t("lobby.room.status.liveMatch") : t("lobby.room.status.openRoom"),
+                t("lobby.room.players", { count: occupiedSeats }),
+                mySeat ? t("lobby.room.yourSeat", { seat: mySeat.index + 1 }) : t("lobby.room.saved")
+              ].join(" / ");
 
               return (
                 <article key={room.id} className="resume-card">
                   <div className="resume-card-head">
                     <div>
-                      <strong>{`Code ${room.code}`}</strong>
+                      <strong>{t("lobby.room.code", { code: room.code })}</strong>
                       <span>{meta}</span>
                     </div>
                     <span className={`status-pill ${canResumeMatch ? "is-warning" : ""}`}>
-                      {resolveText(locale, canResumeMatch ? createText("Live", "Live") : createText("Bereit", "Ready"))}
+                      {canResumeMatch ? t("lobby.room.badge.live") : t("lobby.room.badge.ready")}
                     </span>
                   </div>
                   {mySeat ? (
                     <div className="resume-card-meta-row">
                       <PlayerColorBadge
                         color={mySeat.color}
-                        label={text("Deine Farbe: {color}", "Your color: {color}", {
+                        label={t("lobby.room.color", {
                           color: renderPlayerColorLabel(locale, mySeat.color)
                         })}
                         compact
@@ -74,14 +72,14 @@ export function LobbyScreen(props: {
                         canResumeMatch && room.matchId ? props.onResumeMatch(room.matchId) : props.onOpenRoom(room.id)
                       }
                     >
-                      {resolveText(locale, canResumeMatch ? createText("Partie fortsetzen", "Resume match") : createText("Raum öffnen", "Open room"))}
+                      {canResumeMatch ? t("lobby.room.action.resumeMatch") : t("lobby.room.action.openRoom")}
                     </button>
                   </div>
                 </article>
               );
             })
           ) : (
-            <div className="empty-state">{resolveText(locale, createText("Noch keine offenen Räume oder laufenden Partien in deiner Liste.", "No open rooms or running matches in your list yet."))}</div>
+            <div className="empty-state">{t("lobby.empty")}</div>
           )}
         </div>
       </article>
@@ -90,11 +88,11 @@ export function LobbyScreen(props: {
         <article className="surface action-surface">
           <div className="surface-head">
             <div>
-              <div className="eyebrow">{resolveText(locale, createText("Schnellstart", "Quick start"))}</div>
-              <h2>{resolveText(locale, createText("Neuen Raum eröffnen", "Open a new room"))}</h2>
+              <div className="eyebrow">{t("lobby.create.eyebrow")}</div>
+              <h2>{t("lobby.create.title")}</h2>
             </div>
           </div>
-          <p>{resolveText(locale, createText("Erstelle direkt einen privaten Raum und starte als Host auf Platz 1.", "Create a private room instantly and start as host in seat 1."))}</p>
+          <p>{t("lobby.create.detail")}</p>
           <button
             className="primary-button large-button"
             type="button"
@@ -103,8 +101,8 @@ export function LobbyScreen(props: {
           >
             <LoadingButtonContent
               loading={props.createRoomPending}
-              idleLabel={resolveText(locale, createText("Privaten Raum erstellen", "Create private room"))}
-              loadingLabel={resolveText(locale, createText("Raum wird erstellt...", "Creating room..."))}
+              idleLabel={t("lobby.create.action")}
+              loadingLabel={t("lobby.create.loading")}
             />
           </button>
         </article>
@@ -112,26 +110,26 @@ export function LobbyScreen(props: {
         <article className="surface action-surface">
           <div className="surface-head">
             <div>
-              <div className="eyebrow">{resolveText(locale, createText("Direkter Beitritt", "Direct join"))}</div>
-              <h2>{resolveText(locale, createText("Per Code eintreten", "Join by code"))}</h2>
+              <div className="eyebrow">{t("lobby.join.eyebrow")}</div>
+              <h2>{t("lobby.join.title")}</h2>
             </div>
           </div>
           <div className="code-join-row">
             <input
               maxLength={6}
-              placeholder={resolveText(locale, createText("RAUMCODE", "ROOM CODE"))}
+              placeholder={t("lobby.join.placeholder")}
               value={props.joinCode}
               onChange={(event) => props.onJoinCodeChange(event.target.value.toUpperCase())}
             />
             <button className="primary-button" type="button" onClick={props.onJoinByCode} disabled={props.joinByCodePending}>
               <LoadingButtonContent
                 loading={props.joinByCodePending}
-                idleLabel={resolveText(locale, createText("Beitreten", "Join"))}
-                loadingLabel={resolveText(locale, createText("Beitritt läuft...", "Joining..."))}
+                idleLabel={t("lobby.join.action")}
+                loadingLabel={t("lobby.join.loading")}
               />
             </button>
           </div>
-          <span className="muted-copy">{resolveText(locale, createText("Code eingeben und direkt in den Raum springen.", "Enter a code and jump straight into the room."))}</span>
+          <span className="muted-copy">{t("lobby.join.detail")}</span>
         </article>
       </div>
     </section>

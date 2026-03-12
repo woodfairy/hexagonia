@@ -28,13 +28,17 @@ export function getMatchActionKey(action: MatchAction): string {
     case "place_initial_settlement":
       return `place_initial_settlement:${action.vertexId}`;
     case "place_initial_road":
-      return `place_initial_road:${action.edgeId}`;
+      return `place_initial_road:${action.edgeId}:${action.routeType ?? ""}`;
     case "discard_resources":
       return `discard_resources:${serializeResourceMap(action.resources)}`;
     case "roll_dice":
       return "roll_dice";
     case "build_road":
       return `build_road:${action.edgeId}`;
+    case "build_ship":
+      return `build_ship:${action.edgeId}`;
+    case "move_ship":
+      return `move_ship:${action.fromEdgeId}:${action.toEdgeId}`;
     case "build_settlement":
       return `build_settlement:${action.vertexId}`;
     case "build_city":
@@ -46,7 +50,7 @@ export function getMatchActionKey(action: MatchAction): string {
     case "play_road_building":
       return "play_road_building";
     case "place_free_road":
-      return `place_free_road:${action.edgeId}`;
+      return `place_free_road:${action.edgeId}:${action.routeType ?? ""}`;
     case "finish_road_building":
       return "finish_road_building";
     case "play_year_of_plenty":
@@ -55,6 +59,34 @@ export function getMatchActionKey(action: MatchAction): string {
       return `play_monopoly:${action.resource}`;
     case "move_robber":
       return `move_robber:${action.tileId}:${action.targetPlayerId ?? ""}`;
+    case "move_pirate":
+      return `move_pirate:${action.tileId}:${action.targetPlayerId ?? ""}:${action.stealType ?? ""}`;
+    case "steal_on_seven":
+      return `steal_on_seven:${action.targetPlayerId}`;
+    case "choose_gold_resource":
+      return `choose_gold_resource:${action.resources.join(",")}`;
+    case "scenario_setup_place_tile":
+      return `scenario_setup_place_tile:${action.tileId}:${action.terrain}`;
+    case "scenario_setup_clear_tile":
+      return `scenario_setup_clear_tile:${action.tileId}`;
+    case "scenario_setup_place_token":
+      return `scenario_setup_place_token:${action.tileId}:${action.token}`;
+    case "scenario_setup_clear_token":
+      return `scenario_setup_clear_token:${action.tileId}`;
+    case "scenario_setup_place_port":
+      return `scenario_setup_place_port:${action.edgeId}:${action.portType}`;
+    case "scenario_setup_clear_port":
+      return `scenario_setup_clear_port:${action.edgeId}`;
+    case "scenario_setup_set_ready":
+      return `scenario_setup_set_ready:${action.ready ? 1 : 0}`;
+    case "place_port_token":
+      return `place_port_token:${action.vertexId}:${action.portType}`;
+    case "claim_wonder":
+      return `claim_wonder:${action.vertexId}`;
+    case "build_wonder_level":
+      return `build_wonder_level:${action.vertexId}`;
+    case "attack_fortress":
+      return `attack_fortress:${action.vertexId}`;
     case "create_trade_offer":
       return `create_trade_offer:${action.toPlayerId ?? ""}:${serializeResourceMap(action.give)}:${serializeResourceMap(action.want)}`;
     case "accept_trade_offer":
@@ -404,14 +436,32 @@ export function getMatchActionConfirmation(
     case "place_initial_road":
       return {
         title: t("match.confirm.initialRoad.title"),
-        detail: t("match.confirm.initialRoad.detail"),
-        confirmLabel: t("match.confirm.initialRoad.confirm")
+        detail:
+          action.routeType === "ship"
+            ? t("match.confirm.initialShip.detail")
+            : t("match.confirm.initialRoad.detail"),
+        confirmLabel:
+          action.routeType === "ship"
+            ? t("match.confirm.initialShip.confirm")
+            : t("match.confirm.initialRoad.confirm")
       };
     case "build_road":
       return {
         title: t("match.confirm.buildRoad.title"),
         detail: t("match.confirm.buildRoad.detail"),
         confirmLabel: t("match.confirm.buildRoad.confirm")
+      };
+    case "build_ship":
+      return {
+        title: t("match.confirm.buildShip.title"),
+        detail: t("match.confirm.buildShip.detail"),
+        confirmLabel: t("match.confirm.buildShip.confirm")
+      };
+    case "move_ship":
+      return {
+        title: t("match.confirm.moveShip.title"),
+        detail: t("match.confirm.moveShip.detail"),
+        confirmLabel: t("match.confirm.moveShip.confirm")
       };
     case "build_settlement":
       return {
@@ -445,9 +495,18 @@ export function getMatchActionConfirmation(
       };
     case "place_free_road":
       return {
-        title: t("match.confirm.placeFreeRoad.title"),
-        detail: t("match.confirm.placeFreeRoad.detail"),
-        confirmLabel: t("match.confirm.placeFreeRoad.confirm")
+        title:
+          action.routeType === "ship"
+            ? t("match.confirm.placeFreeShip.title")
+            : t("match.confirm.placeFreeRoad.title"),
+        detail:
+          action.routeType === "ship"
+            ? t("match.confirm.placeFreeShip.detail")
+            : t("match.confirm.placeFreeRoad.detail"),
+        confirmLabel:
+          action.routeType === "ship"
+            ? t("match.confirm.placeFreeShip.confirm")
+            : t("match.confirm.placeFreeRoad.confirm")
       };
     case "finish_road_building":
       return {
@@ -484,6 +543,77 @@ export function getMatchActionConfirmation(
         confirmLabel: t("match.confirm.moveRobber.confirm")
       };
     }
+    case "move_pirate": {
+      const targetName = action.targetPlayerId
+        ? match.players.find((player) => player.id === action.targetPlayerId)?.username
+        : null;
+      const stealTypeLabel =
+        action.stealType === "cloth"
+          ? t("match.pirateSteal.cloth")
+          : action.stealType === "resource"
+            ? t("match.pirateSteal.resource")
+            : null;
+      return {
+        title: t("match.confirm.movePirate.title"),
+        detail:
+          targetName && stealTypeLabel
+            ? t("match.confirm.movePirate.detailWithTargetAndStealType", {
+                player: targetName,
+                stealType: stealTypeLabel
+              })
+            : targetName
+              ? t("match.confirm.movePirate.detailWithTarget", { player: targetName })
+              : t("match.confirm.movePirate.detail"),
+        confirmLabel: t("match.confirm.movePirate.confirm")
+      };
+    }
+    case "steal_on_seven":
+      return null;
+    case "choose_gold_resource":
+      return {
+        title: t("match.confirm.chooseGold.title"),
+        detail: t("match.confirm.chooseGold.detail", {
+          resources: renderResourceMap(
+            RESOURCES.reduce<Record<Resource, number>>((result, resource) => {
+              result[resource] = action.resources.filter((entry) => entry === resource).length;
+              return result;
+            }, {} as Record<Resource, number>)
+          )
+        }),
+        confirmLabel: t("match.confirm.chooseGold.confirm")
+      };
+    case "scenario_setup_place_tile":
+    case "scenario_setup_clear_tile":
+    case "scenario_setup_place_token":
+    case "scenario_setup_clear_token":
+    case "scenario_setup_place_port":
+    case "scenario_setup_clear_port":
+    case "scenario_setup_set_ready":
+      return null;
+    case "place_port_token":
+      return {
+        title: t("match.confirm.placePort.title"),
+        detail: t("match.confirm.placePort.detail"),
+        confirmLabel: t("match.confirm.placePort.confirm")
+      };
+    case "claim_wonder":
+      return {
+        title: t("match.confirm.claimWonder.title"),
+        detail: t("match.confirm.claimWonder.detail"),
+        confirmLabel: t("match.confirm.claimWonder.confirm")
+      };
+    case "build_wonder_level":
+      return {
+        title: t("match.confirm.buildWonderLevel.title"),
+        detail: t("match.confirm.buildWonderLevel.detail"),
+        confirmLabel: t("match.confirm.buildWonderLevel.confirm")
+      };
+    case "attack_fortress":
+      return {
+        title: t("match.confirm.attackFortress.title"),
+        detail: t("match.confirm.attackFortress.detail"),
+        confirmLabel: t("match.confirm.attackFortress.confirm")
+      };
     case "create_trade_offer": {
       const targetName = action.toPlayerId
         ? match.players.find((player) => player.id === action.toPlayerId)?.username ?? t("match.confirm.trade.targetPlayer")
@@ -511,6 +641,13 @@ export function getMatchActionConfirmation(
     case "discard_resources":
       return null;
     case "end_turn":
+      if (match.allowedMoves.fortressVertexIds.length > 0) {
+        return {
+          title: t("match.confirm.endTurn.attackFortress.title"),
+          detail: t("match.confirm.endTurn.attackFortress.detail"),
+          confirmLabel: t("match.confirm.endTurn.attackFortress.confirm")
+        };
+      }
       return {
         title: t("match.confirm.endTurn.title"),
         detail: t("match.confirm.endTurn.detail"),

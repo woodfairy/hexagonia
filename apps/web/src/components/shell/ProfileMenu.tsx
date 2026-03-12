@@ -1,16 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { AuthUser, Locale } from "@hexagonia/shared";
+import type { AuthUser, ErrorParams, Locale } from "@hexagonia/shared";
 import { uiHapticsManager } from "../../audio/uiHapticsManager";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
 import type { BoardVisualSettings } from "../../boardVisuals";
 import { LocaleSelect } from "../shared/LocaleSelect";
 import { PopupSelect } from "../shared/PopupSelect";
-import {
-  createText,
-  normalizeLocale,
-  resolveText,
-  useI18n
-} from "../../i18n";
+import { normalizeLocale, useI18n } from "../../i18n";
 import type { ConnectionState } from "../../ui";
 import { renderConnectionLabel, toInitials } from "../../ui";
 
@@ -43,20 +38,21 @@ export interface ProfileMenuProps {
 type ToggleableBoardVisualSetting = "props" | "textures" | "terrainRelief" | "resourceIcons";
 
 export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; onRequestClose?: () => void }) {
-  const { locale } = useI18n();
+  const { locale, translate: t } = useI18n();
+  const text = (key: string, params?: ErrorParams) => t(key, undefined, undefined, params);
   const activeLocale = normalizeLocale(props.session.locale);
   const selectedMusicTrack =
     props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
   const pieceStyleOptions: ReadonlyArray<{ value: BoardVisualSettings["pieceStyle"]; label: string }> = [
-    { value: "modern", label: resolveText(locale, createText("Modern", "Modern")) },
-    { value: "detailed", label: resolveText(locale, createText("Detailliert", "Detailed")) }
+    { value: "modern", label: text("profile.board.pieceStyle.modern") },
+    { value: "detailed", label: text("profile.board.pieceStyle.detailed") }
   ];
   const musicTrackOptions = props.musicTracks.length
     ? props.musicTracks.map((track) => ({
         value: track.id,
         label: track.name
       }))
-    : [{ value: "", label: resolveText(locale, createText("Keine Songs gefunden", "No songs found")) }];
+    : [{ value: "", label: text("profile.music.noTracksFound") }];
   const playSoftMenuHaptic = () => void uiHapticsManager.play("soft");
 
   const toggleBoardVisualSetting = (setting: ToggleableBoardVisualSetting) => {
@@ -98,20 +94,20 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
   };
 
   const musicControlTitle = props.musicPaused
-    ? resolveText(locale, createText("Loop starten", "Start loop"))
+    ? text("profile.music.startLoop")
     : props.musicPlaybackMode === "cycle"
-      ? resolveText(locale, createText("Musik pausieren", "Pause music"))
-      : resolveText(locale, createText("Playlist starten", "Start playlist"));
+      ? text("profile.music.pause")
+      : text("profile.music.startPlaylist");
   const musicControlDescription = props.musicPaused
-    ? selectedMusicTrack?.name ?? resolveText(locale, createText("Keine Songs verfügbar", "No songs available"))
+    ? selectedMusicTrack?.name ?? text("profile.music.noneAvailable")
     : selectedMusicTrack
-      ? resolveText(locale, createText("Gerade: {track}", "Now playing: {track}", { track: selectedMusicTrack.name }))
-      : resolveText(locale, createText("Keine Songs verfügbar", "No songs available"));
+      ? text("profile.music.nowPlaying", { track: selectedMusicTrack.name })
+      : text("profile.music.noneAvailable");
   const musicControlStatus = props.musicPaused
-    ? resolveText(locale, createText("Pausiert", "Paused"))
+    ? text("profile.music.status.paused")
     : props.musicPlaybackMode === "cycle"
-      ? resolveText(locale, createText("Playlist", "Playlist"))
-      : resolveText(locale, createText("Loop", "Loop"));
+      ? text("shared.playlist")
+      : text("shared.loop");
 
   const toggleSoundMuted = () => {
     props.onToggleSoundMuted();
@@ -140,19 +136,14 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
     <div
       className={`profile-dropdown ${props.inline ? "profile-dropdown-inline" : ""}`.trim()}
       role={props.inline ? "region" : "menu"}
-      aria-label={props.inline ? resolveText(locale, createText("Profil", "Profile")) : undefined}
+      aria-label={props.inline ? text("shared.profile") : undefined}
     >
       <div className="profile-dropdown-head">
         <span className="profile-avatar is-large">{toInitials(props.session.username)}</span>
         <div className="profile-dropdown-copy">
           <strong>{props.session.username}</strong>
           <span>
-            {resolveText(
-              locale,
-              props.session.role === "admin"
-                ? createText("Administrator", "Administrator")
-                : createText("Spielkonto", "Player account")
-            )}
+            {text(props.session.role === "admin" ? "profile.role.admin" : "profile.role.playerAccount")}
           </span>
           <span className={`profile-status is-${props.connectionState}`}>
             {renderConnectionLabel(locale, props.session, props.connectionState)}
@@ -163,12 +154,12 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
       <div className="profile-dropdown-actions">
         <div className="profile-music-panel">
           <div className="profile-music-copy">
-            <strong>{resolveText(locale, createText("Sprache", "Language"))}</strong>
+            <strong>{text("shared.language")}</strong>
           </div>
           <label className="profile-music-select-shell">
             <LocaleSelect
               value={activeLocale}
-              ariaLabel={resolveText(locale, createText("Sprache", "Language"))}
+              ariaLabel={text("shared.language")}
               variant="landing"
               className="profile-popup-select-shell"
               onChange={(nextLocale) => {
@@ -181,13 +172,13 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
 
         <div className="profile-music-panel">
           <div className="profile-music-copy">
-            <strong>{resolveText(locale, createText("Musikplayer", "Music player"))}</strong>
+            <strong>{text("profile.music.title")}</strong>
           </div>
           <label className="profile-music-select-shell">
             <PopupSelect
               value={props.selectedMusicTrackId ?? ""}
               onChange={props.onSelectMusicTrack}
-              ariaLabel={resolveText(locale, createText("Song auswählen", "Choose song"))}
+              ariaLabel={text("profile.music.chooseSong")}
               variant="landing"
               className="profile-popup-select-shell"
               options={musicTrackOptions}
@@ -216,19 +207,12 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           onClick={toggleSoundMuted}
         >
           <span className="menu-toggle-copy">
-            <strong>{resolveText(locale, createText("UI-Sounds", "UI sounds"))}</strong>
+            <strong>{text("profile.sound.title")}</strong>
             <span>
-              {resolveText(
-                locale,
-                props.soundMuted
-                  ? createText("Stumm geschaltet", "Muted")
-                  : createText("Aktiv und bereit", "Active and ready")
-              )}
+              {text(props.soundMuted ? "profile.sound.muted" : "profile.sound.active")}
             </span>
           </span>
-          <span className={`status-pill ${props.soundMuted ? "muted" : ""}`}>
-            {resolveText(locale, props.soundMuted ? createText("Aus", "Off") : createText("An", "On"))}
-          </span>
+          <span className={`status-pill ${props.soundMuted ? "muted" : ""}`}>{text(props.soundMuted ? "shared.off" : "shared.on")}</span>
         </button>
 
         <button
@@ -241,41 +225,31 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           disabled={!props.hapticsSupported}
         >
           <span className="menu-toggle-copy">
-            <strong>{resolveText(locale, createText("Haptik", "Haptics"))}</strong>
+            <strong>{text("profile.haptics.title")}</strong>
             <span>
               {!props.hapticsSupported
-                ? resolveText(locale, createText("Auf diesem Gerät nicht verfügbar", "Not available on this device"))
+                ? text("profile.haptics.unsupported")
                 : props.hapticsMuted
-                  ? resolveText(locale, createText("Deaktiviert", "Disabled"))
-                  : resolveText(locale, createText("Aktiv für relevantes Feedback", "Active for relevant feedback"))}
+                  ? text("profile.haptics.disabled")
+                  : text("profile.haptics.active")}
             </span>
           </span>
           <span className={`status-pill ${!props.hapticsSupported || props.hapticsMuted ? "muted" : ""}`}>
-            {!props.hapticsSupported
-              ? resolveText(locale, createText("Nicht verfügbar", "Unavailable"))
-              : resolveText(locale, props.hapticsMuted ? createText("Aus", "Off") : createText("An", "On"))}
+            {!props.hapticsSupported ? text("shared.unavailable") : text(props.hapticsMuted ? "shared.off" : "shared.on")}
           </span>
         </button>
 
         <div className="profile-board-panel">
           <div className="profile-music-copy">
-            <strong>{resolveText(locale, createText("Feldstil", "Board style"))}</strong>
-            <span>
-              {resolveText(
-                locale,
-                createText(
-                  "Wähle, welche Elemente auf dem Spielfeld angezeigt werden.",
-                  "Choose which elements are shown on the board."
-                )
-              )}
-            </span>
+            <strong>{text("profile.board.title")}</strong>
+            <span>{text("profile.board.description")}</span>
           </div>
           <label className="profile-music-select-shell">
-            <span>{resolveText(locale, createText("Figurenstil", "Piece style"))}</span>
+            <span>{text("profile.board.pieceStyle.label")}</span>
             <PopupSelect
               value={props.boardVisualSettings.pieceStyle}
               onChange={setBoardPieceStyle}
-              ariaLabel={resolveText(locale, createText("Figurenstil", "Piece style"))}
+              ariaLabel={text("profile.board.pieceStyle.label")}
               variant="landing"
               className="profile-popup-select-shell"
               options={pieceStyleOptions}
@@ -284,7 +258,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
           <div
             className="profile-board-toggle-grid"
             role="group"
-            aria-label={resolveText(locale, createText("Feldstil", "Board style"))}
+            aria-label={text("profile.board.title")}
           >
             <button
               type="button"
@@ -293,20 +267,10 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               onClick={() => toggleBoardVisualSetting("props")}
             >
               <span className="menu-toggle-copy">
-                <strong>{resolveText(locale, createText("Props", "Props"))}</strong>
-                <span>
-                  {resolveText(
-                    locale,
-                    createText(
-                      "Schafe, Kakteen, Scheunen, Ziegelstapel und andere Feldobjekte.",
-                      "Sheep, cacti, barns, brick stacks, and other field props."
-                    )
-                  )}
-                </span>
+                <strong>{text("profile.board.props.title")}</strong>
+                <span>{text("profile.board.props.description")}</span>
               </span>
-              <span className={`status-pill ${props.boardVisualSettings.props ? "" : "muted"}`}>
-                {resolveText(locale, props.boardVisualSettings.props ? createText("An", "On") : createText("Aus", "Off"))}
-              </span>
+              <span className={`status-pill ${props.boardVisualSettings.props ? "" : "muted"}`}>{text(props.boardVisualSettings.props ? "shared.on" : "shared.off")}</span>
             </button>
             <button
               type="button"
@@ -315,20 +279,10 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               onClick={() => toggleBoardVisualSetting("textures")}
             >
               <span className="menu-toggle-copy">
-                <strong>{resolveText(locale, createText("Texturen", "Textures"))}</strong>
-                <span>
-                  {resolveText(
-                    locale,
-                    createText(
-                      "Detaillierte Boden- und Oberflächenstrukturen auf den Feldern.",
-                      "Detailed ground and surface textures on the tiles."
-                    )
-                  )}
-                </span>
+                <strong>{text("profile.board.textures.title")}</strong>
+                <span>{text("profile.board.textures.description")}</span>
               </span>
-              <span className={`status-pill ${props.boardVisualSettings.textures ? "" : "muted"}`}>
-                {resolveText(locale, props.boardVisualSettings.textures ? createText("An", "On") : createText("Aus", "Off"))}
-              </span>
+              <span className={`status-pill ${props.boardVisualSettings.textures ? "" : "muted"}`}>{text(props.boardVisualSettings.textures ? "shared.on" : "shared.off")}</span>
             </button>
             <button
               type="button"
@@ -337,23 +291,10 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               onClick={() => toggleBoardVisualSetting("terrainRelief")}
             >
               <span className="menu-toggle-copy">
-                <strong>{resolveText(locale, createText("3D-Terrain", "3D terrain"))}</strong>
-                <span>
-                  {resolveText(
-                    locale,
-                    createText(
-                      "Berge, Bäume, Dünen und andere Höhenformen kommen oben drauf.",
-                      "Mountains, trees, dunes, and other terrain relief are layered on top."
-                    )
-                  )}
-                </span>
+                <strong>{text("profile.board.terrainRelief.title")}</strong>
+                <span>{text("profile.board.terrainRelief.description")}</span>
               </span>
-              <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>
-                {resolveText(
-                  locale,
-                  props.boardVisualSettings.terrainRelief ? createText("An", "On") : createText("Aus", "Off")
-                )}
-              </span>
+              <span className={`status-pill ${props.boardVisualSettings.terrainRelief ? "" : "muted"}`}>{text(props.boardVisualSettings.terrainRelief ? "shared.on" : "shared.off")}</span>
             </button>
             <button
               type="button"
@@ -362,23 +303,10 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               onClick={() => toggleBoardVisualSetting("resourceIcons")}
             >
               <span className="menu-toggle-copy">
-                <strong>{resolveText(locale, createText("Ressourcen-Icons", "Resource icons"))}</strong>
-                <span>
-                  {resolveText(
-                    locale,
-                    createText(
-                      "Zeigt die Ressourcensymbole direkt auf den Feldmarkern an.",
-                      "Shows resource icons directly on the tile markers."
-                    )
-                  )}
-                </span>
+                <strong>{text("profile.board.resourceIcons.title")}</strong>
+                <span>{text("profile.board.resourceIcons.description")}</span>
               </span>
-              <span className={`status-pill ${props.boardVisualSettings.resourceIcons ? "" : "muted"}`}>
-                {resolveText(
-                  locale,
-                  props.boardVisualSettings.resourceIcons ? createText("An", "On") : createText("Aus", "Off")
-                )}
-              </span>
+              <span className={`status-pill ${props.boardVisualSettings.resourceIcons ? "" : "muted"}`}>{text(props.boardVisualSettings.resourceIcons ? "shared.on" : "shared.off")}</span>
             </button>
           </div>
         </div>
@@ -391,7 +319,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             props.onNavigateHome();
           }}
         >
-          {resolveText(locale, createText("Zur Zentrale", "Back to hub"))}
+          {text("profile.actions.backToHub")}
         </button>
 
         {props.session.role === "admin" && props.onNavigateAdmin ? (
@@ -403,7 +331,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               props.onNavigateAdmin?.();
             }}
           >
-            {resolveText(locale, createText("Admin-Konsole", "Admin console"))}
+            {text("profile.actions.adminConsole")}
           </button>
         ) : null}
 
@@ -416,12 +344,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               void props.onCopyRoomCode?.();
             }}
           >
-            {resolveText(
-              locale,
-              createText("Raumcode {roomCode} kopieren", "Copy room code {roomCode}", {
-                roomCode: props.roomCode
-              })
-            )}
+            {text("profile.actions.copyRoomCode", { roomCode: props.roomCode })}
           </button>
         ) : null}
 
@@ -434,7 +357,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
               void props.onCopyInviteLink?.();
             }}
           >
-            {resolveText(locale, createText("Einladungslink kopieren", "Copy invite link"))}
+            {text("profile.actions.copyInviteLink")}
           </button>
         ) : null}
 
@@ -446,7 +369,7 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
             void props.onLogout();
           }}
         >
-          {resolveText(locale, createText("Abmelden", "Sign out"))}
+          {text("profile.actions.signOut")}
         </button>
       </div>
     </div>
@@ -454,7 +377,8 @@ export function ProfileMenuPanel(props: ProfileMenuProps & { inline?: boolean; o
 }
 
 export function ProfileMenu(props: ProfileMenuProps) {
-  const { locale } = useI18n();
+  const { translate: t } = useI18n();
+  const text = (key: string) => t(key);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const hasOpenStateChangedRef = useRef(false);
@@ -515,14 +439,7 @@ export function ProfileMenu(props: ProfileMenuProps) {
         <span className="profile-avatar">{toInitials(props.session.username)}</span>
         <span className="profile-trigger-copy">
           <strong>{props.session.username}</strong>
-          <span>
-            {resolveText(
-              locale,
-              props.session.role === "admin"
-                ? createText("Administrator", "Administrator")
-                : createText("Spielkonto", "Player account")
-            )}
-          </span>
+          <span>{text(props.session.role === "admin" ? "profile.role.admin" : "profile.role.playerAccount")}</span>
         </span>
       </button>
 

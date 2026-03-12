@@ -30,7 +30,7 @@ export function AdminScreen(props: {
   onDeleteMatch: (matchId: string) => void;
   onOpenRoom: (roomId: string) => void;
 }) {
-  const { locale, formatDate, formatText } = useI18n();
+  const { locale, formatDate, formatText, translate: t } = useI18n();
   const text = (de: string, en: string, params?: Record<string, string | number>) =>
     formatText(createText(de, en, params));
 
@@ -149,8 +149,8 @@ export function AdminScreen(props: {
                       {room.status === "in_match"
                         ? text("Laufende Partie", "Live match")
                         : room.status === "open"
-                          ? text("Offen", "Open")
-                          : text("Geschlossen", "Closed")}{" "}
+                          ? t("room.status.open")
+                          : t("room.status.running")}{" "}
                       -{" "}
                       {text("{count}/6 Spieler", "{count}/6 players", {
                         count: room.seats.filter((seat) => seat.userId).length

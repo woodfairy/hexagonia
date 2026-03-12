@@ -10,7 +10,7 @@ import type { BoardFocusCue, InteractionMode } from "../../BoardScene";
 import { getDocumentLocale, translate } from "../../i18n";
 import { renderResourceLabel } from "../../ui";
 
-export type BuildActionId = "road" | "settlement" | "city" | "development";
+export type BuildActionId = "road" | "ship" | "settlement" | "city" | "development";
 
 export interface TurnStatus {
   title: string;
@@ -204,6 +204,52 @@ export function createOwnActionCue(
   interactionMode: InteractionMode,
   _selectedRoadEdges: string[]
 ): BoardFocusCue | null {
+  if (match.phase === "scenario_setup" && match.scenarioSetup) {
+    if (interactionMode === "scenario_setup_tile") {
+      const tileIds =
+        match.scenarioSetup.stage === "tiles"
+          ? match.scenarioSetup.placeableTileIds
+          : match.scenarioSetup.stage === "tokens"
+            ? match.scenarioSetup.tokenTileIds
+            : [];
+      if (!tileIds.length) {
+        return null;
+      }
+      return {
+        key: `scenario-setup-tiles-${match.version}-${match.scenarioSetup.stage}-${tileIds.join(",")}`,
+        mode: "action",
+        title:
+          match.scenarioSetup.stage === "tiles"
+            ? t("match.scenarioSetup.cue.tiles.title")
+            : t("match.scenarioSetup.cue.tokens.title"),
+        detail:
+          match.scenarioSetup.stage === "tiles"
+            ? t("match.scenarioSetup.cue.tiles.detail")
+            : t("match.scenarioSetup.cue.tokens.detail"),
+        vertexIds: [],
+        edgeIds: [],
+        tileIds,
+        scale: "medium"
+      };
+    }
+
+    if (interactionMode === "scenario_setup_port") {
+      if (!match.scenarioSetup.portEdgeIds.length) {
+        return null;
+      }
+      return {
+        key: `scenario-setup-ports-${match.version}-${match.scenarioSetup.portEdgeIds.join(",")}`,
+        mode: "action",
+        title: t("match.scenarioSetup.cue.ports.title"),
+        detail: t("match.scenarioSetup.cue.ports.detail"),
+        vertexIds: [],
+        edgeIds: match.scenarioSetup.portEdgeIds,
+        tileIds: [],
+        scale: "wide"
+      };
+    }
+  }
+
   if (match.currentPlayerId !== match.you) {
     return null;
   }
@@ -270,6 +316,50 @@ export function createOwnActionCue(
     };
   }
 
+  if (interactionMode === "ship") {
+    if (!match.allowedMoves.shipEdgeIds.length) {
+      return null;
+    }
+
+    return {
+      key: `action-ship-${match.version}-${match.allowedMoves.shipEdgeIds.join(",")}`,
+      mode: "action",
+      title: t("match.cue.ship.title"),
+      detail: t("match.cue.ship.detail"),
+      vertexIds: [],
+      edgeIds: match.allowedMoves.shipEdgeIds,
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
+  if (interactionMode === "move_ship") {
+    const edgeIds =
+      _selectedRoadEdges.length > 0
+        ? match.allowedMoves.shipEdgeIds
+        : match.allowedMoves.movableShipEdgeIds;
+    if (!edgeIds.length) {
+      return null;
+    }
+
+    return {
+      key: `action-move-ship-${match.version}-${edgeIds.join(",")}`,
+      mode: "action",
+      title:
+        _selectedRoadEdges.length > 0
+          ? t("match.cue.moveShip.targetTitle")
+          : t("match.cue.moveShip.sourceTitle"),
+      detail:
+        _selectedRoadEdges.length > 0
+          ? t("match.cue.moveShip.targetDetail")
+          : t("match.cue.moveShip.sourceDetail"),
+      vertexIds: [],
+      edgeIds,
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
   if (interactionMode === "settlement") {
     if (!match.allowedMoves.settlementVertexIds.length) {
       return null;
@@ -319,6 +409,81 @@ export function createOwnActionCue(
       edgeIds: [],
       tileIds,
       scale: "wide"
+    };
+  }
+
+  if (interactionMode === "pirate") {
+    const tileIds = match.allowedMoves.pirateMoveOptions.map((option) => option.tileId);
+    if (!tileIds.length) {
+      return null;
+    }
+
+    return {
+      key: `action-pirate-${match.version}-${tileIds.join(",")}`,
+      mode: "action",
+      title: t("match.cue.pirate.title"),
+      detail: t("match.cue.pirate.detail"),
+      vertexIds: [],
+      edgeIds: [],
+      tileIds,
+      scale: "wide"
+    };
+  }
+
+  if (interactionMode === "place_port") {
+    if (!match.allowedMoves.placeablePortVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `action-place-port-${match.version}-${match.allowedMoves.placeablePortVertexIds.join(",")}`,
+      mode: "action",
+      title: t("match.cue.placePort.title"),
+      detail: t("match.cue.placePort.detail"),
+      vertexIds: match.allowedMoves.placeablePortVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (interactionMode === "claim_wonder" || interactionMode === "build_wonder") {
+    if (!match.allowedMoves.wonderVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `action-wonder-${interactionMode}-${match.version}-${match.allowedMoves.wonderVertexIds.join(",")}`,
+      mode: "action",
+      title:
+        interactionMode === "claim_wonder"
+          ? t("match.cue.claimWonder.title")
+          : t("match.cue.buildWonder.title"),
+      detail:
+        interactionMode === "claim_wonder"
+          ? t("match.cue.claimWonder.detail")
+          : t("match.cue.buildWonder.detail"),
+      vertexIds: match.allowedMoves.wonderVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (interactionMode === "attack_fortress") {
+    if (!match.allowedMoves.fortressVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `action-fortress-${match.version}-${match.allowedMoves.fortressVertexIds.join(",")}`,
+      mode: "action",
+      title: t("match.cue.attackFortress.title"),
+      detail: t("match.cue.attackFortress.detail"),
+      vertexIds: match.allowedMoves.fortressVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
     };
   }
 
@@ -411,6 +576,50 @@ export function createOwnActionCameraCue(
     };
   }
 
+  if (interactionMode === "ship") {
+    if (!match.allowedMoves.shipEdgeIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-ship-${match.version}-${match.allowedMoves.shipEdgeIds.join(",")}`,
+      mode: "action",
+      title: t("match.camera.ship.title"),
+      detail: t("match.camera.ship.detail"),
+      vertexIds: [],
+      edgeIds: match.allowedMoves.shipEdgeIds,
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
+  if (interactionMode === "move_ship") {
+    const edgeIds =
+      selectedRoadEdges.length > 0
+        ? match.allowedMoves.shipEdgeIds
+        : match.allowedMoves.movableShipEdgeIds;
+    if (!edgeIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-move-ship-${match.version}-${edgeIds.join(",")}`,
+      mode: "action",
+      title:
+        selectedRoadEdges.length > 0
+          ? t("match.camera.moveShip.target.title")
+          : t("match.camera.moveShip.source.title"),
+      detail:
+        selectedRoadEdges.length > 0
+          ? t("match.camera.moveShip.target.detail")
+          : t("match.camera.moveShip.source.detail"),
+      vertexIds: [],
+      edgeIds,
+      tileIds: [],
+      scale: "medium"
+    };
+  }
+
   if (interactionMode === "settlement") {
     if (!match.allowedMoves.settlementVertexIds.length) {
       return null;
@@ -461,6 +670,82 @@ export function createOwnActionCameraCue(
       tileIds,
       scale: "wide",
       cameraFit: "board"
+    };
+  }
+
+  if (interactionMode === "pirate") {
+    const tileIds = match.allowedMoves.pirateMoveOptions.map((option) => option.tileId);
+    if (!tileIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-pirate-${match.version}-${tileIds.join(",")}`,
+      mode: "action",
+      title: t("match.camera.pirate.title"),
+      detail: t("match.camera.pirate.detail"),
+      vertexIds: [],
+      edgeIds: [],
+      tileIds,
+      scale: "wide",
+      cameraFit: "board"
+    };
+  }
+
+  if (interactionMode === "place_port") {
+    if (!match.allowedMoves.placeablePortVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-place-port-${match.version}-${match.allowedMoves.placeablePortVertexIds.join(",")}`,
+      mode: "action",
+      title: t("match.camera.placePort.title"),
+      detail: t("match.camera.placePort.detail"),
+      vertexIds: match.allowedMoves.placeablePortVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (interactionMode === "claim_wonder" || interactionMode === "build_wonder") {
+    if (!match.allowedMoves.wonderVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-wonder-${interactionMode}-${match.version}-${match.allowedMoves.wonderVertexIds.join(",")}`,
+      mode: "action",
+      title:
+        interactionMode === "claim_wonder"
+          ? t("match.camera.claimWonder.title")
+          : t("match.camera.buildWonder.title"),
+      detail:
+        interactionMode === "claim_wonder"
+          ? t("match.camera.claimWonder.detail")
+          : t("match.camera.buildWonder.detail"),
+      vertexIds: match.allowedMoves.wonderVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
+    };
+  }
+
+  if (interactionMode === "attack_fortress") {
+    if (!match.allowedMoves.fortressVertexIds.length) {
+      return null;
+    }
+
+    return {
+      key: `camera-fortress-${match.version}-${match.allowedMoves.fortressVertexIds.join(",")}`,
+      mode: "action",
+      title: t("match.camera.attackFortress.title"),
+      detail: t("match.camera.attackFortress.detail"),
+      vertexIds: match.allowedMoves.fortressVertexIds,
+      edgeIds: [],
+      tileIds: [],
+      scale: "tight"
     };
   }
 
@@ -613,6 +898,32 @@ export function getTurnStatus(
     );
   }
 
+  if (match.phase === "scenario_setup" && match.scenarioSetup) {
+    const playerCount = match.scenarioSetup.players.filter((player) => player.ready).length;
+    const detailKey =
+      match.scenarioSetup.stage === "tiles"
+        ? "match.turnStatus.scenarioSetup.tiles"
+        : match.scenarioSetup.stage === "tokens"
+          ? "match.turnStatus.scenarioSetup.tokens"
+          : match.scenarioSetup.stage === "ports"
+            ? "match.turnStatus.scenarioSetup.ports"
+            : match.scenarioSetup.canEdit
+              ? "match.turnStatus.scenarioSetup.ready"
+              : "match.turnStatus.scenarioSetup.readyLocked";
+
+    return withPlayer(
+      t("match.turnStatus.scenarioSetup.title"),
+      t(detailKey, {
+        count: playerCount,
+        total: match.scenarioSetup.players.length
+      }),
+      selfId,
+      match.scenarioSetup.validationErrorCode
+        ? t("match.turnStatus.scenarioSetup.validation")
+        : undefined
+    );
+  }
+
   if (trade) {
     const proposer =
       match.players.find((player) => player.id === trade.fromPlayerId)?.username ??
@@ -676,6 +987,31 @@ export function getTurnStatus(
           t("match.turnStatus.initialRoad.other", { player: activePlayerName }),
           activePlayer?.id
         );
+  }
+
+  if (match.allowedMoves.goldResourceChoiceCount > 0) {
+    if (match.allowedMoves.goldResourceChoiceSource === "pirate_fleet_reward") {
+      return withPlayer(
+        t("match.turnStatus.pirateReward.title"),
+        t("match.turnStatus.pirateReward.detail"),
+        selfId
+      );
+    }
+
+    return withPlayer(
+      t("match.turnStatus.goldChoice.title"),
+      t("match.turnStatus.goldChoice.detail", { count: match.allowedMoves.goldResourceChoiceCount }),
+      selfId
+    );
+  }
+
+  if (match.allowedMoves.pirateStealTargetPlayerIds.length > 0) {
+    return withPlayer(
+      t("match.turnStatus.pirateSeven.title"),
+      t("match.turnStatus.pirateSeven.detail"),
+      selfId,
+      t("match.turnStatus.pirateSeven.callout")
+    );
   }
 
   if (match.phase === "robber_interrupt") {
@@ -746,6 +1082,18 @@ export function getTurnStatus(
     return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.road.select"), selfId);
   }
 
+  if (interactionMode === "ship") {
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.ship.select"), selfId);
+  }
+
+  if (interactionMode === "move_ship") {
+    return withPlayer(
+      t("match.turnStatus.yourAction.title"),
+      t("match.turnStatus.ship.move"),
+      selfId
+    );
+  }
+
   if (interactionMode === "settlement") {
     return withPlayer(
       t("match.turnStatus.yourAction.title"),
@@ -759,6 +1107,40 @@ export function getTurnStatus(
       t("match.turnStatus.yourAction.title"),
       t("match.turnStatus.city.select"),
       selfId
+    );
+  }
+
+  if (interactionMode === "pirate") {
+    return withPlayer(
+      t("match.turnStatus.pirate.moveTitle"),
+      t("match.turnStatus.pirate.moveDetail"),
+      selfId,
+      t("match.turnStatus.pirate.moveCallout")
+    );
+  }
+
+  if (interactionMode === "place_port") {
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.placePort.select"), selfId);
+  }
+
+  if (interactionMode === "claim_wonder") {
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.claimWonder.select"), selfId);
+  }
+
+  if (interactionMode === "build_wonder") {
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.buildWonder.select"), selfId);
+  }
+
+  if (interactionMode === "attack_fortress") {
+    return withPlayer(t("match.turnStatus.yourAction.title"), t("match.turnStatus.attackFortress.select"), selfId);
+  }
+
+  if (isCurrentPlayer && match.allowedMoves.fortressVertexIds.length > 0) {
+    return withPlayer(
+      t("match.turnStatus.yourAction.title"),
+      t("match.turnStatus.attackFortress.endTurn"),
+      selfId,
+      t("match.turnStatus.attackFortress.callout")
     );
   }
 
@@ -777,6 +1159,7 @@ export function getTurnStatus(
       !!selfPlayer &&
       (match.allowedMoves.canBuyDevelopmentCard ||
         (match.allowedMoves.roadEdgeIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.road)) ||
+        (match.allowedMoves.shipEdgeIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.ship)) ||
         (match.allowedMoves.settlementVertexIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.settlement)) ||
         (match.allowedMoves.cityVertexIds.length > 0 && canAffordCost(selfPlayer.resources, BUILD_COSTS.city)));
     return isCurrentPlayer

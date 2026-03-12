@@ -20,7 +20,22 @@ import { getDocumentLocale, translate } from "./i18n";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
 
-export type InteractionMode = "road" | "settlement" | "city" | "robber" | "road_building" | null;
+export type InteractionMode =
+  | "road"
+  | "ship"
+  | "move_ship"
+  | "settlement"
+  | "city"
+  | "place_port"
+  | "claim_wonder"
+  | "build_wonder"
+  | "attack_fortress"
+  | "robber"
+  | "pirate"
+  | "road_building"
+  | "scenario_setup_tile"
+  | "scenario_setup_port"
+  | null;
 export interface BoardFocusBadge {
   label: string;
   playerId?: string;
@@ -121,6 +136,39 @@ const tileSandMaterial = markSharedResource(
     metalness: 0.01,
     emissive: new THREE.Color("#c6aa62"),
     emissiveIntensity: 0.08
+  })
+);
+const seaTileOverlayMaterial = markSharedResource(
+  new THREE.MeshStandardMaterial({
+    color: "#2c8bc0",
+    roughness: 0.26,
+    metalness: 0.12,
+    transparent: true,
+    opacity: 0.94,
+    emissive: new THREE.Color("#8cd9ff"),
+    emissiveIntensity: 0.2
+  })
+);
+const fogTileOverlayMaterial = markSharedResource(
+  new THREE.MeshStandardMaterial({
+    color: "#d6dde3",
+    roughness: 0.92,
+    metalness: 0.03,
+    transparent: true,
+    opacity: 0.96,
+    emissive: new THREE.Color("#eef4f7"),
+    emissiveIntensity: 0.08
+  })
+);
+const goldTileOverlayMaterial = markSharedResource(
+  new THREE.MeshStandardMaterial({
+    color: "#e3b341",
+    roughness: 0.34,
+    metalness: 0.42,
+    transparent: true,
+    opacity: 0.94,
+    emissive: new THREE.Color("#ffd76a"),
+    emissiveIntensity: 0.18
   })
 );
 const vertexInteractiveProxyGeometry = markSharedResource(new THREE.CylinderGeometry(0.66, 0.72, 1.4, 12));
@@ -282,18 +330,20 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
   const tileKey = board.tiles
     .map(
       (tile) =>
-        `${tile.id}:${tile.resource}:${tile.token ?? "x"}:${tile.x.toFixed(3)}:${tile.y.toFixed(3)}:${tile.vertexIds.join(",")}`
+        `${tile.id}:${tile.resource}:${tile.kind ?? ""}:${tile.terrain ?? ""}:${tile.hidden ? 1 : 0}:${tile.discovered ? 1 : 0}:${tile.token ?? "x"}:${tile.x.toFixed(3)}:${tile.y.toFixed(3)}:${tile.vertexIds.join(",")}`
     )
     .join("|");
   const vertexKey = board.vertices.map((vertex) => `${vertex.id}:${vertex.x.toFixed(3)}:${vertex.y.toFixed(3)}`).join("|");
   const edgeKey = board.edges.map((edge) => `${edge.id}:${edge.vertexIds.join(",")}:${edge.tileIds.join(",")}`).join("|");
   const portKey = board.ports.map((port) => `${port.id}:${port.type}:${port.edgeId}`).join("|");
+  const siteKey = JSON.stringify(board.sites ?? []);
+  const scenarioMarkerKey = JSON.stringify(board.scenarioMarkers ?? []);
   const structureKey = visualSettings.terrainRelief
     ? [
-        board.edges.map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}`).join("|"),
+        board.edges.map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}:${edge.routeType ?? ""}:${edge.blockedByPirate ? 1 : 0}`).join("|"),
         board.vertices
           .map((vertex) =>
-            `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}`
+            `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}:${vertex.site?.type ?? ""}:${vertex.site?.ownerId ?? ""}:${vertex.site?.progress ?? 0}`
           )
           .join("|")
       ].join("~")
@@ -303,6 +353,8 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
     vertexKey,
     edgeKey,
     portKey,
+    siteKey,
+    scenarioMarkerKey,
     structureKey,
     visualSettings.textures,
     visualSettings.props,
@@ -319,11 +371,18 @@ function createDynamicBoardKey(
   armedSelection: ArmedBoardSelection | null | undefined,
   focusCue: BoardFocusCue | null
 ): string {
-  const robberKey = snapshot.board.tiles.map((tile) => `${tile.id}:${tile.robber ? 1 : 0}`).join("|");
-  const edgeKey = snapshot.board.edges.map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}`).join("|");
+  const tileStateKey = snapshot.board.tiles
+    .map(
+      (tile) =>
+        `${tile.id}:${tile.robber ? 1 : 0}:${tile.occupant ?? ""}:${tile.hidden ? 1 : 0}:${tile.discovered ? 1 : 0}:${tile.kind ?? ""}:${tile.terrain ?? ""}`
+    )
+    .join("|");
+  const edgeKey = snapshot.board.edges
+    .map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}:${edge.routeType ?? ""}:${edge.blockedByPirate ? 1 : 0}`)
+    .join("|");
   const vertexKey = snapshot.board.vertices
     .map((vertex) =>
-      `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}`
+      `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}:${vertex.site?.type ?? ""}:${vertex.site?.ownerId ?? ""}:${vertex.site?.progress ?? 0}`
     )
     .join("|");
   const allowedMoves = snapshot.allowedMoves;
@@ -333,10 +392,17 @@ function createDynamicBoardKey(
     allowedMoves.cityVertexIds.join(","),
     allowedMoves.initialRoadEdgeIds.join(","),
     allowedMoves.roadEdgeIds.join(","),
-    allowedMoves.robberMoveOptions.map((option) => option.tileId).join(",")
+    allowedMoves.shipEdgeIds.join(","),
+    allowedMoves.movableShipEdgeIds.join(","),
+    allowedMoves.robberMoveOptions.map((option) => option.tileId).join(","),
+    allowedMoves.pirateMoveOptions.map((option) => option.tileId).join(","),
+    snapshot.scenarioSetup?.stage ?? "",
+    snapshot.scenarioSetup?.placeableTileIds.join(",") ?? "",
+    snapshot.scenarioSetup?.tokenTileIds.join(",") ?? "",
+    snapshot.scenarioSetup?.portEdgeIds.join(",") ?? ""
   ].join("~");
   return [
-    robberKey,
+    tileStateKey,
     edgeKey,
     vertexKey,
     moveKey,
@@ -1150,11 +1216,17 @@ function BoardSceneComponent(props: BoardSceneProps) {
       group.add(outline);
 
       if (tile.token !== null) {
-        const tokenSprite = createTokenSprite(tile.resource, tile.token, false, props.visualSettings.resourceIcons);
+        const tokenSprite = createTokenSprite(tile.resource, tile.token, null, props.visualSettings.resourceIcons);
         tokenSprite.position.set(tile.x, (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.72, tile.y);
-        tokenSprite.visible = !tile.robber;
+        tokenSprite.visible = !tile.robber && !tile.hidden && tile.occupant !== "pirate";
         staticTokenSpritesRef.current.set(tile.id, tokenSprite);
         group.add(tokenSprite);
+      }
+
+      const tileOverlay = createTileStateOverlay(tile, verticesById);
+      if (tileOverlay) {
+        tileOverlay.position.set(tile.x, (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.26, tile.y);
+        group.add(tileOverlay);
       }
     }
     terrainSurfaceByTileRef.current = terrainSurfaceByTile;
@@ -1207,8 +1279,9 @@ function BoardSceneComponent(props: BoardSceneProps) {
 
     dynamicInteractiveRef.current = [];
     pulseObjectsRef.current = [];
-    for (const tokenSprite of staticTokenSpritesRef.current.values()) {
-      tokenSprite.visible = true;
+    for (const [tileId, tokenSprite] of staticTokenSpritesRef.current.entries()) {
+      const tile = tilesByIdRef.current.get(tileId);
+      tokenSprite.visible = !!tile && !tile.robber && !tile.hidden && tile.occupant !== "pirate";
     }
 
     if (dynamicBoardLayerRef.current) {
@@ -1231,6 +1304,12 @@ function BoardSceneComponent(props: BoardSceneProps) {
           ? props.snapshot.allowedMoves.settlementVertexIds
           : props.interactionMode === "city"
             ? props.snapshot.allowedMoves.cityVertexIds
+            : props.interactionMode === "place_port"
+              ? props.snapshot.allowedMoves.placeablePortVertexIds
+              : props.interactionMode === "claim_wonder" || props.interactionMode === "build_wonder"
+                ? props.snapshot.allowedMoves.wonderVertexIds
+                : props.interactionMode === "attack_fortress"
+                  ? props.snapshot.allowedMoves.fortressVertexIds
             : []
     );
     const legalEdges = new Set(
@@ -1238,32 +1317,68 @@ function BoardSceneComponent(props: BoardSceneProps) {
         ? props.snapshot.allowedMoves.initialRoadEdgeIds
         : props.interactionMode === "road"
           ? props.snapshot.allowedMoves.roadEdgeIds
+          : props.interactionMode === "ship"
+            ? props.snapshot.allowedMoves.shipEdgeIds
+            : props.interactionMode === "move_ship"
+              ? (
+                  props.selectedRoadEdges.length > 0
+                    ? props.snapshot.allowedMoves.shipEdgeIds.filter(
+                        (edgeId) => edgeId !== props.selectedRoadEdges[0]
+                      )
+                    : props.snapshot.allowedMoves.movableShipEdgeIds
+                )
           : props.interactionMode === "road_building"
             ? props.snapshot.allowedMoves.freeRoadEdgeIds
-          : []
+            : props.interactionMode === "scenario_setup_port"
+              ? props.snapshot.scenarioSetup?.portEdgeIds ?? []
+            : []
     );
     const selectedRoadEdges = new Set(props.selectedRoadEdges);
+    const scenarioSetupTileIds = new Set(
+      props.interactionMode === "scenario_setup_tile"
+        ? props.snapshot.scenarioSetup?.stage === "tiles"
+          ? props.snapshot.scenarioSetup.placeableTileIds
+          : props.snapshot.scenarioSetup?.stage === "tokens"
+            ? props.snapshot.scenarioSetup.tokenTileIds
+            : []
+        : []
+    );
     const robberTileIds = new Set(
       props.interactionMode === "robber"
         ? props.snapshot.allowedMoves.robberMoveOptions.map((option) => option.tileId)
+        : []
+    );
+    const pirateTileIds = new Set(
+      props.interactionMode === "pirate"
+        ? props.snapshot.allowedMoves.pirateMoveOptions.map((option) => option.tileId)
         : []
     );
 
     for (const tile of props.snapshot.board.tiles) {
       const tileHeight = sampleTileTerrainHeight(terrainSurfaceByTile, tile, tile.x, tile.y);
       const armed = props.armedSelection?.kind === "tile" && props.armedSelection.id === tile.id;
-      if (tile.robber) {
+      if (tile.robber || tile.occupant === "pirate") {
         const baseTokenSprite = staticTokenSpritesRef.current.get(tile.id);
         if (baseTokenSprite) {
           baseTokenSprite.visible = false;
         }
 
-        const robberSprite = createTokenSprite(tile.resource, tile.token, true, props.visualSettings.resourceIcons);
+        const robberSprite = createTokenSprite(
+          tile.resource,
+          tile.token,
+          tile.occupant === "pirate" ? "pirate" : "robber",
+          props.visualSettings.resourceIcons
+        );
         robberSprite.position.set(tile.x, tileHeight + 0.72, tile.y);
         group.add(robberSprite);
       }
 
-      if (!robberTileIds.has(tile.id) && !armed) {
+      if (
+        !scenarioSetupTileIds.has(tile.id) &&
+        !robberTileIds.has(tile.id) &&
+        !pirateTileIds.has(tile.id) &&
+        !armed
+      ) {
         continue;
       }
 
@@ -1271,7 +1386,7 @@ function BoardSceneComponent(props: BoardSceneProps) {
       marker.position.set(tile.x, tileHeight + 0.52, tile.y);
       registerPulseVisual(marker, pulseObjectsRef.current, armed ? "strong" : "soft", armed ? 1.14 : 1.08);
       group.add(marker);
-      if (robberTileIds.has(tile.id)) {
+      if (scenarioSetupTileIds.has(tile.id) || robberTileIds.has(tile.id) || pirateTileIds.has(tile.id)) {
         const proxy = createTileInteractiveProxy(tile, verticesById);
         proxy.position.set(tile.x, tileHeight + 0.56, tile.y);
         attachInteractiveMeta(proxy, "tile", tile.id, armed ? 1.12 : 1.06, marker, marker);
@@ -1298,11 +1413,21 @@ function BoardSceneComponent(props: BoardSceneProps) {
       }
 
       const emphasized = selected || armed;
+      const routeColor =
+        edge.routeType === "warship"
+          ? "#334155"
+          : edge.routeType === "ship"
+            ? "#4e8bb8"
+            : colorToHex(edge.color ?? "red");
       const road = edge.ownerId
-        ? createRoadPiece(length, colorToHex(edge.color ?? "red"), emphasized, props.visualSettings.pieceStyle)
+        ? createRoadPiece(length, routeColor, emphasized, props.visualSettings.pieceStyle)
         : createRoadGuide(length, emphasized, props.visualSettings.pieceStyle);
       const edgeHeight = sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById);
-      const roadHeight = edge.ownerId ? edgeHeight + BUILT_ROAD_ELEVATION : edgeHeight + GUIDE_ROAD_ELEVATION;
+      const routeElevation =
+        edge.routeType === "ship" || edge.routeType === "warship"
+          ? BUILT_ROAD_ELEVATION + 0.18
+          : BUILT_ROAD_ELEVATION;
+      const roadHeight = edge.ownerId ? edgeHeight + routeElevation : edgeHeight + GUIDE_ROAD_ELEVATION;
       const roadObject = new THREE.Group();
       roadObject.position.set(centerX, roadHeight, centerZ);
       roadObject.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx, 0, dz).normalize());
@@ -1338,17 +1463,18 @@ function BoardSceneComponent(props: BoardSceneProps) {
       const active = legalVertices.has(vertex.id);
       const armed = props.armedSelection?.kind === "vertex" && props.armedSelection.id === vertex.id;
       const building = vertex.building;
-      if (!building && !active && !armed) {
+      const renderStandaloneBuilding = !!building && vertex.site?.type !== "fortress";
+      if (!renderStandaloneBuilding && !active && !armed) {
         continue;
       }
 
       const vertexHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
 
-      const mesh = building
+      const mesh = renderStandaloneBuilding && building
         ? createBuildingMesh(building.type, building.color, props.visualSettings.pieceStyle)
         : createVertexMarker();
-      mesh.position.set(vertex.x, vertexHeight + (building ? 0.02 : 0.08), vertex.y);
-      if (building) {
+      mesh.position.set(vertex.x, vertexHeight + (renderStandaloneBuilding ? 0.02 : 0.08), vertex.y);
+      if (renderStandaloneBuilding) {
         mesh.traverse((object) => {
           if (object instanceof THREE.Mesh) {
             object.castShadow = true;
@@ -1382,6 +1508,64 @@ function BoardSceneComponent(props: BoardSceneProps) {
         registerPulseVisual(marker, pulseObjectsRef.current, "strong", 1.16);
         group.add(marker);
       }
+    }
+
+    for (const site of props.snapshot.board.sites ?? []) {
+      const vertex = verticesById.get(site.vertexId);
+      if (!vertex) {
+        continue;
+      }
+
+      const vertexHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
+      const active = legalVertices.has(site.vertexId);
+      const siteObject = createBoardSiteObject(site, active);
+      siteObject.position.set(vertex.x, vertexHeight + 0.12, vertex.y);
+      group.add(siteObject);
+
+      if (site.type === "village" && site.numberToken !== null) {
+        const badge = createTileBadgeSprite(String(site.numberToken));
+        badge.position.set(vertex.x, vertexHeight + 0.96, vertex.y);
+        group.add(badge);
+      }
+    }
+
+    for (const marker of props.snapshot.board.scenarioMarkers ?? []) {
+      if (marker.claimedByPlayerId) {
+        continue;
+      }
+
+      const markerObject = createScenarioMarkerObject(marker);
+      if (!markerObject) {
+        continue;
+      }
+
+      if ("edgeId" in marker) {
+        const edge = props.snapshot.board.edges.find((entry) => entry.id === marker.edgeId);
+        if (!edge) {
+          continue;
+        }
+        const [leftId, rightId] = edge.vertexIds;
+        const left = verticesById.get(leftId);
+        const right = verticesById.get(rightId);
+        if (!left || !right) {
+          continue;
+        }
+        const centerX = (left.x + right.x) / 2;
+        const centerZ = (left.y + right.y) / 2;
+        const edgeHeight = sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById);
+        markerObject.position.set(centerX, edgeHeight + 0.72, centerZ);
+      } else if ("vertexId" in marker) {
+        const vertex = verticesById.get(marker.vertexId);
+        if (!vertex) {
+          continue;
+        }
+        const vertexHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
+        markerObject.position.set(vertex.x, vertexHeight + 0.84, vertex.y);
+      } else {
+        continue;
+      }
+
+      group.add(markerObject);
     }
 
     if (props.focusCue) {
@@ -1885,10 +2069,11 @@ function createVertexMarker(): THREE.Mesh {
 function createTokenSprite(
   resource: Resource | "desert",
   token: number | null,
-  robber: boolean,
+  occupant: "robber" | "pirate" | null,
   showResourceIcon: boolean
 ): THREE.Sprite {
-  const materialKey = `${resource}:${token ?? "x"}:${robber ? 1 : 0}:${showResourceIcon ? 1 : 0}`;
+  const specialToken = occupant !== null;
+  const materialKey = `${resource}:${token ?? "x"}:${occupant ?? "none"}:${showResourceIcon ? 1 : 0}`;
   const cachedMaterial = tokenSpriteMaterialCache.get(materialKey);
   if (cachedMaterial) {
     const sprite = new THREE.Sprite(cachedMaterial);
@@ -1904,23 +2089,24 @@ function createTokenSprite(
   canvas.width = spriteResolution;
   canvas.height = spriteResolution;
   const context = canvas.getContext("2d")!;
-  const resourceBadgeFill = robber ? "#0f1a24" : "#162633";
-  const resourceBadgeStroke = robber ? "#f3cf83" : "rgba(240, 226, 190, 0.34)";
-  const resourceIconColor = robber ? "#f3cf83" : getResourceIconColor(resource);
-  const hasPipRow = token !== null && !robber;
+  const specialAccent = occupant === "pirate" ? "#9bdcff" : "#f3cf83";
+  const resourceBadgeFill = specialToken ? "#0f1a24" : "#162633";
+  const resourceBadgeStroke = specialToken ? specialAccent : "rgba(240, 226, 190, 0.34)";
+  const resourceIconColor = specialToken ? specialAccent : getResourceIconColor(resource);
+  const hasPipRow = token !== null && !specialToken;
   const highlightedToken = token === 6 || token === 8;
-  const numberColor = robber ? "#f3cf83" : highlightedToken ? "#b83e2f" : "#203240";
+  const numberColor = specialToken ? specialAccent : highlightedToken ? "#b83e2f" : "#203240";
   const numberY = token === null ? 156 : showResourceIcon ? 150 : 138;
   const pipY = showResourceIcon ? 199 : 187;
   const numberFontSize = showResourceIcon ? 88 : 96;
 
-  context.fillStyle = robber ? "#17212b" : "#f4edd8";
+  context.fillStyle = specialToken ? "#17212b" : "#f4edd8";
   context.beginPath();
   context.arc(center, center, 90, 0, Math.PI * 2);
   context.fill();
 
   context.lineWidth = 10.5;
-  context.strokeStyle = robber ? "#f3cf83" : "#6b4a1b";
+  context.strokeStyle = specialToken ? specialAccent : "#6b4a1b";
   context.stroke();
 
   if (showResourceIcon) {
@@ -1950,11 +2136,18 @@ function createTokenSprite(
       drawTokenPipRow(context, token, center, pipY, numberColor);
     }
   } else {
-    context.fillStyle = "#f3cf83";
+    context.fillStyle = specialAccent;
     context.font = "700 36px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(translate(getDocumentLocale(), "board.robberLabel"), center, numberY);
+    context.fillText(
+      translate(
+        getDocumentLocale(),
+        occupant === "pirate" ? "board.pirateLabel" : "board.robberLabel"
+      ),
+      center,
+      numberY
+    );
   }
 
   const texture = markSharedResource(new THREE.CanvasTexture(canvas));
@@ -2043,6 +2236,302 @@ function createTileSandUnderlay(
   const sand = markTileShadowReceiver(new THREE.Mesh(getTileSandGeometry(tile, verticesById), tileSandMaterial));
   sand.position.y = TILE_SAND_UNDERLAY_Y;
   return sand;
+}
+
+function createTileStateOverlay(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Object3D | null {
+  if (tile.hidden) {
+    return createFogTileOverlay(tile, verticesById);
+  }
+  if (tile.kind === "sea" || tile.terrain === "sea") {
+    return createSurfaceTileOverlay(tile, verticesById, seaTileOverlayMaterial, 0.04);
+  }
+  if (tile.terrain === "gold") {
+    return createGoldTileOverlay(tile, verticesById);
+  }
+  return null;
+}
+
+function createSurfaceTileOverlay(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
+  material: THREE.MeshStandardMaterial,
+  offsetY: number
+): THREE.Mesh {
+  const geometry = new THREE.ShapeGeometry(createTileShape(tile, verticesById, TILE_OVERLAY_RENDER_SCALE));
+  geometry.rotateX(-Math.PI / 2);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.y = offsetY;
+  mesh.receiveShadow = false;
+  mesh.castShadow = false;
+  return mesh;
+}
+
+function createFogTileOverlay(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Group {
+  const group = new THREE.Group();
+  const shell = createSurfaceTileOverlay(tile, verticesById, fogTileOverlayMaterial, 0.08);
+  group.add(shell);
+
+  const badge = createTileBadgeSprite("?");
+  badge.position.set(0, 1.2, 0);
+  group.add(badge);
+  return group;
+}
+
+function createGoldTileOverlay(
+  tile: MatchSnapshot["board"]["tiles"][number],
+  verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
+): THREE.Group {
+  const group = new THREE.Group();
+  const shell = createSurfaceTileOverlay(tile, verticesById, goldTileOverlayMaterial, 0.05);
+  group.add(shell);
+
+  const gem = new THREE.Mesh(
+    new THREE.OctahedronGeometry(getTileAverageRadius(tile, verticesById) * 0.2, 0),
+    new THREE.MeshStandardMaterial({
+      color: "#fff4bf",
+      roughness: 0.22,
+      metalness: 0.3,
+      emissive: new THREE.Color("#f4c447"),
+      emissiveIntensity: 0.2
+    })
+  );
+  gem.position.set(0, 0.72, 0);
+  gem.rotation.set(0.24, Math.PI / 4, 0.16);
+  gem.castShadow = false;
+  gem.receiveShadow = false;
+  group.add(gem);
+  return group;
+}
+
+function createTileBadgeSprite(label: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 192;
+  const context = canvas.getContext("2d")!;
+  const center = canvas.width / 2;
+
+  context.fillStyle = "rgba(20, 31, 40, 0.8)";
+  context.beginPath();
+  context.arc(center, center, 56, 0, Math.PI * 2);
+  context.fill();
+  context.lineWidth = 8;
+  context.strokeStyle = "rgba(255, 255, 255, 0.78)";
+  context.stroke();
+  context.fillStyle = "#f9fdff";
+  context.font = "700 78px 'Segoe UI Variable', 'Trebuchet MS', sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(label, center, center + 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(3.2, 3.2, 1);
+  sprite.center.set(0.5, 0.5);
+  sprite.renderOrder = 13;
+  return sprite;
+}
+
+function createBoardSiteObject(
+  site: NonNullable<MatchSnapshot["board"]["sites"]>[number],
+  active: boolean
+): THREE.Object3D {
+  switch (site.type) {
+    case "village": {
+      const village = createFarmsteadFeature(0.9, active, site.clothSupply > 0 ? "barn" : "scarecrow");
+      if (site.clothSupply > 0) {
+        const clothBadge = createTileBadgeSprite(String(site.clothSupply));
+        clothBadge.position.set(0, 1.18, 0);
+        clothBadge.scale.set(1.7, 1.7, 1);
+        village.add(clothBadge);
+      }
+      return village;
+    }
+    case "fortress":
+      return createFortressSiteMesh(site, active);
+    case "wonder":
+      return createWonderSiteMesh(site, active);
+    case "landing":
+      return createLandingSiteMesh(active);
+    default:
+      return createVertexMarker();
+  }
+}
+
+function createFortressSiteMesh(
+  site: Extract<NonNullable<MatchSnapshot["board"]["sites"]>[number], { type: "fortress" }>,
+  active: boolean
+): THREE.Group {
+  const group = new THREE.Group();
+  const wallColor = site.color
+    ? colorToHex(site.color)
+    : site.fortressColor
+      ? colorToHex(site.fortressColor)
+      : "#64748b";
+  const wallMaterial = new THREE.MeshStandardMaterial({
+    color: wallColor,
+    roughness: 0.82,
+    metalness: 0.04,
+    emissive: new THREE.Color(active ? "#f8d79c" : "#1f2937"),
+    emissiveIntensity: active ? 0.08 : 0.02
+  });
+  const stoneMaterial = new THREE.MeshStandardMaterial({
+    color: "#d7dce5",
+    roughness: 0.92,
+    metalness: 0.01
+  });
+
+  const base = markTileShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.64, 0.12, 6), stoneMaterial));
+  base.position.y = 0.06;
+  const keep = markTileShadow(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.34, 0.4), wallMaterial));
+  keep.position.set(0, 0.24, 0);
+  group.add(base, keep);
+
+  const towerOffsets = [
+    [-0.24, -0.18],
+    [0.24, -0.18],
+    [-0.24, 0.18],
+    [0.24, 0.18]
+  ] as const;
+  for (const [x, z] of towerOffsets) {
+    const tower = markTileShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.42, 8), wallMaterial));
+    tower.position.set(x, 0.26, z);
+    group.add(tower);
+  }
+
+  if (site.pirateLairCount > 0) {
+    const badge = createTileBadgeSprite(String(site.pirateLairCount));
+    badge.position.set(0, 0.96, 0);
+    badge.scale.set(1.9, 1.9, 1);
+    group.add(badge);
+  }
+
+  return group;
+}
+
+function createWonderSiteMesh(
+  site: Extract<NonNullable<MatchSnapshot["board"]["sites"]>[number], { type: "wonder" }>,
+  active: boolean
+): THREE.Group {
+  const group = new THREE.Group();
+  const accentColor = site.color ? colorToHex(site.color) : "#c58d2b";
+  const baseMaterial = new THREE.MeshStandardMaterial({
+    color: "#e8dcc4",
+    roughness: 0.88,
+    metalness: 0.02
+  });
+  const accentMaterial = new THREE.MeshStandardMaterial({
+    color: accentColor,
+    roughness: 0.74,
+    metalness: 0.08,
+    emissive: new THREE.Color(active ? "#fff1bd" : "#43311c"),
+    emissiveIntensity: active ? 0.08 : 0.02
+  });
+
+  const plinth = markTileShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.46, 0.12, 6), baseMaterial));
+  plinth.position.y = 0.06;
+  const column = markTileShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.5, 8), accentMaterial));
+  column.position.y = 0.34;
+  const crown = markTileShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), accentMaterial));
+  crown.position.y = 0.72;
+  group.add(plinth, column, crown);
+
+  if ((site.progress ?? 0) > 0) {
+    const badge = createTileBadgeSprite(String(site.progress));
+    badge.position.set(0, 1.02, 0);
+    badge.scale.set(1.9, 1.9, 1);
+    group.add(badge);
+  }
+
+  return group;
+}
+
+function createLandingSiteMesh(active: boolean): THREE.Group {
+  const group = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({
+    color: "#8b5a34",
+    roughness: 0.86,
+    metalness: 0.02,
+    emissive: new THREE.Color(active ? "#ffd8a1" : "#2b1c12"),
+    emissiveIntensity: active ? 0.06 : 0.01
+  });
+  const waterMaterial = new THREE.MeshStandardMaterial({
+    color: "#4b7fa8",
+    roughness: 0.38,
+    metalness: 0.08
+  });
+
+  const deck = markTileShadow(new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.2), woodMaterial));
+  deck.position.y = 0.08;
+  group.add(deck);
+
+  const railLeft = markTileShadow(new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.02, 0.02), woodMaterial));
+  railLeft.position.set(0, 0.16, -0.11);
+  const railRight = markTileShadow(new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.02, 0.02), woodMaterial));
+  railRight.position.set(0, 0.16, 0.11);
+  const water = markTileShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.012, 8), waterMaterial));
+  water.position.set(0, 0.01, 0);
+  group.add(railLeft, railRight, water);
+  return group;
+}
+
+function createScenarioMarkerObject(
+  marker: NonNullable<MatchSnapshot["board"]["scenarioMarkers"]>[number]
+): THREE.Object3D | null {
+  const group = new THREE.Group();
+  const pedestalMaterial = new THREE.MeshStandardMaterial({
+    color: "#d8dee8",
+    roughness: 0.9,
+    metalness: 0.01
+  });
+  const pedestal = markTileShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.16, 8), pedestalMaterial));
+  pedestal.position.y = 0.08;
+  group.add(pedestal);
+
+  const harborType = getScenarioMarkerHarborType(marker);
+  if (harborType) {
+    const sprite = createPortSprite(harborType);
+    sprite.position.set(0, 0.54, 0);
+    sprite.scale.set(1.65, 1.65, 1);
+    group.add(sprite);
+    return group;
+  }
+
+  const badgeLabel =
+    marker.type === "forgotten_tribe_development"
+      ? "?"
+      : marker.type === "wonder_block"
+        ? marker.marker === "!" ? "!" : "X"
+        : marker.type === "island_reward"
+          ? String(marker.rewardPoints)
+          : "1";
+  const badge = createTileBadgeSprite(badgeLabel);
+  badge.position.set(0, 0.56, 0);
+  badge.scale.set(1.65, 1.65, 1);
+  group.add(badge);
+  return group;
+}
+
+function getScenarioMarkerHarborType(
+  marker: NonNullable<MatchSnapshot["board"]["scenarioMarkers"]>[number]
+): PortType | null {
+  return marker.type === "forgotten_tribe_port" ? marker.portType : null;
 }
 
 function getSharedModernTileShell(
@@ -2303,7 +2792,7 @@ function appendTileDecorations(
     tileGroup.add(terrainSurface.object);
   }
 
-  if (options.includeProps) {
+  if (options.includeProps && tileSupportsFancyProps(tile)) {
     const propGroup = createLandingFancyTileProps(tile.resource);
     applyMatchTilePropPlacement(propGroup, tile, verticesById);
     propGroup.position.y = (terrainSurface?.centerHeight ?? TILE_HEIGHT) + 0.02;
@@ -2314,6 +2803,10 @@ function appendTileDecorations(
     });
     tileGroup.add(propGroup);
   }
+}
+
+function tileSupportsFancyProps(tile: BoardTile): boolean {
+  return tile.hidden !== true && tile.terrain !== "sea" && tile.terrain !== "gold";
 }
 
 function applyMatchTilePropPlacement(root: THREE.Object3D, tile: BoardTile, verticesById: BoardVerticesById): void {

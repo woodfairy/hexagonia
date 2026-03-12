@@ -1,17 +1,13 @@
 import type { ReactNode } from "react";
-import type { Locale, MatchSnapshot, Resource, ResourceMap } from "@hexagonia/shared";
+import type { ErrorParams, MatchSnapshot, Resource, ResourceMap } from "@hexagonia/shared";
 import { RESOURCES } from "@hexagonia/shared";
-import { createText, resolveText, useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
 import { ResourceIcon } from "../../resourceIcons";
 import { getPlayerAccentClass, renderResourceLabel } from "../../ui";
 import { PlayerIdentity } from "../shared/PlayerIdentity";
 import { PlayerMention } from "../shared/PlayerText";
 
-type TranslationParams = Parameters<typeof createText>[2];
-
-function resolveDialogText(locale: Locale, de: string, en: string, params?: TranslationParams): string {
-  return resolveText(locale, createText(de, en, params));
-}
+type DialogText = (key: string, params?: ErrorParams) => string;
 
 function getRobberDiscardGroups(
   players: MatchSnapshot["players"],
@@ -29,57 +25,46 @@ function getRobberDiscardGroups(
 }
 
 function getRobberWaitDialogCopy(
-  locale: Locale,
+  text: DialogText,
   currentPlayer: MatchSnapshot["players"][number] | null,
   pendingPlayers: ReturnType<typeof getRobberDiscardGroups>["pending"]
 ): { title: string; statusLabel: string; detail: ReactNode } {
-  const text = (de: string, en: string, params?: TranslationParams) => resolveDialogText(locale, de, en, params);
-
   if (pendingPlayers.length > 0) {
     return {
-      title: text("Der Räuber schlägt zu", "The robber strikes"),
+      title: text("match.robberPhase.wait.strikesTitle"),
       statusLabel:
         pendingPlayers.length === 1
-          ? text("1 Abwurf offen", "1 discard pending")
-          : text("{count} Abwürfe offen", "{count} discards pending", { count: pendingPlayers.length }),
+          ? text("match.robberPhase.wait.singlePending")
+          : text("match.robberPhase.wait.multiPending", { count: pendingPlayers.length }),
       detail: currentPlayer ? (
         <>
-          {text(
-            "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen. Danach setzt ",
-            "Before the robber is moved, affected players must discard cards now. Afterwards "
-          )}
+          {text("match.robberPhase.wait.beforeMove")}
           <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention>
-          {text(" den Räuber.", " moves the robber.")}
+          {text("match.robberPhase.wait.afterMove")}
         </>
       ) : (
-        text(
-          "Bevor der Räuber versetzt wird, müssen betroffene Spieler jetzt Karten abwerfen.",
-          "Before the robber is moved, affected players must discard cards now."
-        )
+        text("match.robberPhase.wait.beforeMoveOnly")
       )
     };
   }
 
   if (currentPlayer) {
     return {
-      title: text("Räuber wird versetzt", "Robber is moving"),
-      statusLabel: text("Räuberzug aktiv", "Robber action active"),
+      title: text("match.robberPhase.moveTitle"),
+      statusLabel: text("match.robberPhase.moveStatus"),
       detail: (
         <>
           <PlayerMention color={currentPlayer.color}>{currentPlayer.username}</PlayerMention>
-          {text(" versetzt jetzt den Räuber.", " is now moving the robber.")}
+          {text("match.robberPhase.moveDetail")}
         </>
       )
     };
   }
 
   return {
-    title: text("Räuber wird versetzt", "Robber is moving"),
-    statusLabel: text("Räuberzug aktiv", "Robber action active"),
-    detail: text(
-      "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt.",
-      "All discards are complete. The robber is now being moved."
-    )
+    title: text("match.robberPhase.moveTitle"),
+    statusLabel: text("match.robberPhase.moveStatus"),
+    detail: text("match.robberPhase.wait.readyToMove")
   };
 }
 
@@ -90,8 +75,8 @@ export function ConfirmActionDialog(props: {
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveDialogText(locale, de, en);
+  const { translate: t } = useI18n();
+  const text = (key: string, params?: ErrorParams) => t(key, undefined, undefined, params);
 
   return (
     <div className="confirm-overlay" role="presentation" onClick={props.onCancel}>
@@ -103,13 +88,13 @@ export function ConfirmActionDialog(props: {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="confirm-copy">
-          <span className="eyebrow">{text("Bestätigung", "Confirmation")}</span>
+          <span className="eyebrow">{text("shared.confirmation")}</span>
           <h2 id="confirm-action-title">{props.title}</h2>
           <p>{props.detail}</p>
         </div>
         <div className="confirm-actions">
           <button type="button" className="ghost-button" onClick={props.onCancel}>
-            {text("Abbrechen", "Cancel")}
+            {text("shared.cancel")}
           </button>
           <button type="button" className="primary-button" onClick={props.onConfirm}>
             {props.confirmLabel}
@@ -126,8 +111,8 @@ export function RobberTargetDialog(props: {
   onCancel: () => void;
   onSelect: (targetPlayerId: string) => void;
 }) {
-  const { locale } = useI18n();
-  const text = (de: string, en: string) => resolveDialogText(locale, de, en);
+  const { translate: t } = useI18n();
+  const text = (key: string, params?: ErrorParams) => t(key, undefined, undefined, params);
   const targets = props.targetPlayerIds.flatMap((targetPlayerId) => {
     const player = props.players.find((entry) => entry.id === targetPlayerId);
     return player ? [player] : [];
@@ -143,14 +128,9 @@ export function RobberTargetDialog(props: {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="confirm-copy robber-target-copy">
-          <span className="eyebrow">{text("Räuberphase", "Robber phase")}</span>
-          <h2 id="robber-target-title">{text("Von wem stehlen?", "Steal from whom?")}</h2>
-          <p>
-            {text(
-              "Auf diesem Feld kommen mehrere Spieler infrage. Wähle das Opfer aus, bevor der Räuber bestätigt wird.",
-              "More than one player can be targeted on this tile. Choose the victim before confirming the robber."
-            )}
-          </p>
+          <span className="eyebrow">{text("match.robberPhase.title")}</span>
+          <h2 id="robber-target-title">{text("match.robberPhase.target.title")}</h2>
+          <p>{text("match.robberPhase.target.detail")}</p>
         </div>
         <div className="robber-target-options">
           {targets.map((player) => (
@@ -162,14 +142,14 @@ export function RobberTargetDialog(props: {
             >
               <PlayerIdentity color={player.color} username={player.username} />
               <span className="robber-target-meta">
-                {player.connected ? text("Online", "Online") : text("Getrennt", "Disconnected")}
+                {player.connected ? text("connection.online") : text("connection.disconnected")}
               </span>
             </button>
           ))}
         </div>
         <div className="confirm-actions robber-target-actions">
           <button type="button" className="ghost-button" onClick={props.onCancel}>
-            {text("Abbrechen", "Cancel")}
+            {text("shared.cancel")}
           </button>
         </div>
       </div>
@@ -192,8 +172,8 @@ export function RobberDiscardDialog(props: {
   onMinimize: () => void;
   onExpand: () => void;
 }) {
-  const { locale } = useI18n();
-  const text = (de: string, en: string, params?: TranslationParams) => resolveDialogText(locale, de, en, params);
+  const { locale, translate: t } = useI18n();
+  const text = (key: string, params?: ErrorParams) => t(key, undefined, undefined, params);
   const ownedTotal = RESOURCES.reduce((total, resource) => total + (props.ownedResources?.[resource] ?? 0), 0);
   const { pending: pendingPlayers, completed: completedPlayers } = getRobberDiscardGroups(
     props.players,
@@ -204,22 +184,22 @@ export function RobberDiscardDialog(props: {
     return (
       <aside className="robber-discard-mini surface" role="dialog" aria-modal="false" aria-labelledby="robber-discard-mini-title">
         <div className="robber-discard-mini-copy">
-          <span className="eyebrow">{text("Räuberphase", "Robber phase")}</span>
+          <span className="eyebrow">{text("match.robberPhase.title")}</span>
           <strong id="robber-discard-mini-title">
             {props.remainingCount > 0
-              ? text("Noch {count} Karten offen", "{count} cards remaining", { count: props.remainingCount })
-              : text("Auswahl vollständig", "Selection complete")}
+              ? text("match.robberPhase.cardsRemaining", { count: props.remainingCount })
+              : text("match.robberPhase.selectionComplete")}
           </strong>
           <span>
             {pendingPlayers.length > 0
-              ? text("{count} Spieler warten noch auf den Abwurf.", "{count} players are still waiting to discard.", {
-                  count: pendingPlayers.length
-                })
-              : text("Alle Abwürfe sind erledigt.", "All discards are complete.")}
+              ? pendingPlayers.length === 1
+                ? text("match.robberPhase.onePlayerPending")
+                : text("match.robberPhase.manyPlayersPending", { count: pendingPlayers.length })
+              : text("match.robberPhase.nonePendingLong")}
           </span>
         </div>
         <button type="button" className="primary-button" onClick={props.onExpand}>
-          {text("Auswahl fortsetzen", "Continue selection")}
+          {text("match.robberPhase.continueSelection")}
         </button>
       </aside>
     );
@@ -229,37 +209,31 @@ export function RobberDiscardDialog(props: {
     <div className="confirm-overlay robber-discard-overlay" role="presentation">
       <div className="confirm-dialog discard-dialog surface" role="dialog" aria-modal="true" aria-labelledby="discard-dialog-title">
         <div className="confirm-copy discard-copy">
-          <span className="eyebrow">{text("Räuberphase", "Robber phase")}</span>
-          <h2 id="discard-dialog-title">{text("Karten abwerfen", "Discard cards")}</h2>
-          <p>
-            {text(
-              "Du hast mehr als sieben Karten. Wähle genau {count} Karten aus, die du an die Bank abgibst, damit die Partie weitergehen kann.",
-              "You have more than seven cards. Choose exactly {count} cards to return to the bank so the match can continue.",
-              { count: props.requiredCount }
-            )}
-          </p>
+          <span className="eyebrow">{text("match.robberPhase.title")}</span>
+          <h2 id="discard-dialog-title">{text("match.robberPhase.discardTitle")}</h2>
+          <p>{text("match.robberPhase.discardDetail", { count: props.requiredCount })}</p>
           <p className="discard-owned-total">
-            {text("Aktuell auf deiner Hand: {count} Karten", "Currently in your hand: {count} cards", { count: ownedTotal })}
+            {text("match.robberPhase.handCount", { count: ownedTotal })}
           </p>
         </div>
 
         <div className="discard-summary">
-          <span className="status-pill">{text("Auf der Hand: {count}", "In hand: {count}", { count: ownedTotal })}</span>
-          <span className="status-pill">{text("{count} ausgewählt", "{count} selected", { count: props.selectedCount })}</span>
+          <span className="status-pill">{text("match.robberPhase.inHand", { count: ownedTotal })}</span>
+          <span className="status-pill">{text("match.robberPhase.selectedCount", { count: props.selectedCount })}</span>
           <span className={`status-pill ${props.remainingCount === 0 ? "" : "is-warning"}`}>
             {props.remainingCount === 0
-              ? text("Auswahl vollständig", "Selection complete")
-              : text("Noch {count} offen", "{count} remaining", { count: props.remainingCount })}
+              ? text("match.robberPhase.selectionComplete")
+              : text("match.robberPhase.cardsRemaining", { count: props.remainingCount })}
           </span>
           <button type="button" className="ghost-button discard-minimize-button" onClick={props.onMinimize}>
-            {text("Verkleinern", "Minimize")}
+            {text("match.robberPhase.minimize")}
           </button>
         </div>
 
         <div className="discard-status-grid">
           <section className="discard-status-card">
             <div className="discard-status-head">
-              <strong>{text("Noch offen", "Still pending")}</strong>
+              <strong>{text("match.robberPhase.pendingPlayers")}</strong>
               <span>{pendingPlayers.length}</span>
             </div>
             {pendingPlayers.length ? (
@@ -268,20 +242,20 @@ export function RobberDiscardDialog(props: {
                   <article key={player.id} className="discard-status-player">
                     <PlayerIdentity username={player.username} color={player.color} compact />
                     <div className="discard-status-player-meta">
-                      <span className="status-pill is-warning">{text("offen", "pending")}</span>
-                      <span>{text("noch {count} abwerfen", "{count} left to discard", { count: requiredCount })}</span>
+                      <span className="status-pill is-warning">{t("match.robberPhase.status.open")}</span>
+                      <span>{text("match.robberPhase.wait.remaining", { count: requiredCount })}</span>
                     </div>
                   </article>
                 ))}
               </div>
             ) : (
-              <div className="discard-status-empty">{text("Niemand wartet mehr auf einen Abwurf.", "Nobody is still waiting to discard.")}</div>
+              <div className="discard-status-empty">{text("match.robberPhase.nonePendingLong")}</div>
             )}
           </section>
 
           <section className="discard-status-card">
             <div className="discard-status-head">
-              <strong>{text("Bereits abgeworfen", "Already discarded")}</strong>
+              <strong>{text("match.robberPhase.completed")}</strong>
               <span>{completedPlayers.length}</span>
             </div>
             {completedPlayers.length ? (
@@ -290,15 +264,13 @@ export function RobberDiscardDialog(props: {
                   <article key={player.id} className="discard-status-player">
                     <PlayerIdentity username={player.username} color={player.color} compact />
                     <div className="discard-status-player-meta">
-                      <span className="status-pill">{text("fertig", "done")}</span>
+                      <span className="status-pill">{text("match.robberPhase.status.done")}</span>
                     </div>
                   </article>
                 ))}
               </div>
             ) : (
-              <div className="discard-status-empty">
-                {text("Bisher hat noch niemand seinen Abwurf abgeschlossen.", "Nobody has completed their discard yet.")}
-              </div>
+              <div className="discard-status-empty">{text("match.robberPhase.noneCompleted")}</div>
             )}
           </section>
         </div>
@@ -315,7 +287,7 @@ export function RobberDiscardDialog(props: {
                   </span>
                   <div className="discard-resource-copy">
                     <strong>{renderResourceLabel(locale, resource)}</strong>
-                    <span>{text("{count} auf der Hand", "{count} in hand", { count: owned })}</span>
+                    <span>{text("match.robberPhase.resourceInHand", { count: owned })}</span>
                   </div>
                 </div>
                 <div className="discard-stepper">
@@ -324,7 +296,7 @@ export function RobberDiscardDialog(props: {
                   </button>
                   <div
                     className="discard-stepper-count"
-                    aria-label={text("{count} {resource} ausgewählt", "{count} {resource} selected", {
+                    aria-label={text("match.robberPhase.selectedResourceAria", {
                       count: selected,
                       resource: renderResourceLabel(locale, resource)
                     })}
@@ -348,15 +320,15 @@ export function RobberDiscardDialog(props: {
         <div className="confirm-actions discard-actions">
           <div className={`discard-helper ${props.remainingCount === 0 ? "" : "is-warning"}`}>
             {props.remainingCount === 0
-              ? text("Die Auswahl ist vollständig. Du kannst jetzt abwerfen.", "The selection is complete. You can discard now.")
-              : text("Wähle noch {count} Karten aus.", "Choose {count} more cards.", { count: props.remainingCount })}
+              ? text("match.robberPhase.helper.complete")
+              : text("match.robberPhase.helper.remaining", { count: props.remainingCount })}
           </div>
           <div className="discard-actions-buttons">
             <button type="button" className="ghost-button" onClick={props.onMinimize}>
-              {text("Spielfeld ansehen", "View board")}
+              {text("match.robberPhase.viewBoard")}
             </button>
             <button type="button" className="primary-button" onClick={props.onConfirm} disabled={!props.canConfirm}>
-              {text("Karten abwerfen", "Discard cards")}
+              {text("match.robberPhase.discardAction")}
             </button>
           </div>
         </div>
@@ -370,20 +342,20 @@ export function RobberWaitDialog(props: {
   currentPlayer: MatchSnapshot["players"][number] | null;
   robberDiscardStatus: MatchSnapshot["robberDiscardStatus"];
 }) {
-  const { locale } = useI18n();
-  const text = (de: string, en: string, params?: TranslationParams) => resolveDialogText(locale, de, en, params);
+  const { translate: t } = useI18n();
+  const text = (key: string, params?: ErrorParams) => t(key, undefined, undefined, params);
   const { pending: pendingPlayers, completed: completedPlayers } = getRobberDiscardGroups(
     props.players,
     props.robberDiscardStatus
   );
-  const copy = getRobberWaitDialogCopy(locale, props.currentPlayer, pendingPlayers);
+  const copy = getRobberWaitDialogCopy(text, props.currentPlayer, pendingPlayers);
   const trackedDiscardCount = pendingPlayers.length + completedPlayers.length;
 
   return (
     <div className="confirm-overlay robber-wait-overlay" role="presentation">
       <div className="confirm-dialog robber-wait-dialog surface" role="dialog" aria-modal="true" aria-labelledby="robber-wait-title">
         <div className="confirm-copy discard-copy robber-wait-copy">
-          <span className="eyebrow">{text("Räuberphase", "Robber phase")}</span>
+          <span className="eyebrow">{text("match.robberPhase.title")}</span>
           <div className="robber-wait-hero">
             <span className="robber-wait-signal" aria-hidden="true" />
             <div className="robber-wait-hero-copy">
@@ -394,23 +366,21 @@ export function RobberWaitDialog(props: {
           <p>{copy.detail}</p>
         </div>
 
-        <section className="robber-wait-status" aria-label={text("Abwurfstatus", "Discard status")}>
+        <section className="robber-wait-status" aria-label={text("match.robberPhase.discardStatus")}>
           <div className="robber-wait-status-head">
             <div>
-              <strong>{text("Abwürfe im Hintergrund", "Discards in progress")}</strong>
+              <strong>{text("match.robberPhase.backgroundDiscards")}</strong>
               <span>
                 {pendingPlayers.length > 0
                   ? pendingPlayers.length === 1
-                    ? text("1 Spieler wartet noch", "1 player is still waiting")
-                    : text("{count} Spieler warten noch", "{count} players are still waiting", {
-                        count: pendingPlayers.length
-                      })
-                  : text("Alle Abwürfe sind erledigt", "All discards are complete")}
+                    ? text("match.robberPhase.onePlayerWaiting")
+                    : text("match.robberPhase.manyPlayersWaiting", { count: pendingPlayers.length })
+                  : text("match.robberPhase.nonePending")}
               </span>
             </div>
             {trackedDiscardCount > 0 ? (
               <span className="status-pill muted">
-                {completedPlayers.length}/{trackedDiscardCount} {text("fertig", "done")}
+                {completedPlayers.length}/{trackedDiscardCount} {text("match.robberPhase.status.done")}
               </span>
             ) : null}
           </div>
@@ -420,8 +390,8 @@ export function RobberWaitDialog(props: {
               <article key={player.id} className={`robber-wait-row is-pending player-accent-${player.color}`}>
                 <PlayerIdentity username={player.username} color={player.color} compact />
                 <div className="robber-wait-row-meta">
-                  <span className="status-pill is-warning">{text("offen", "pending")}</span>
-                  <span>{text("noch {count} abwerfen", "{count} left to discard", { count: requiredCount })}</span>
+                  <span className="status-pill is-warning">{t("match.robberPhase.status.open")}</span>
+                  <span>{text("match.robberPhase.wait.remaining", { count: requiredCount })}</span>
                 </div>
               </article>
             ))}
@@ -429,7 +399,7 @@ export function RobberWaitDialog(props: {
               <article key={player.id} className={`robber-wait-row is-complete player-accent-${player.color}`}>
                 <PlayerIdentity username={player.username} color={player.color} compact />
                 <div className="robber-wait-row-meta">
-                  <span className="status-pill">{text("fertig", "done")}</span>
+                  <span className="status-pill">{text("match.robberPhase.status.done")}</span>
                 </div>
               </article>
             ))}

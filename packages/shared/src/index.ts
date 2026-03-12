@@ -1,5 +1,6 @@
 export * from "./game.js";
 export * from "./gameConfig.js";
+export * from "./scenarios.js";
 export * from "./events.js";
 export * from "./errors.js";
 export * from "./locale.js";

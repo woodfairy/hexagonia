@@ -13,7 +13,11 @@ import {
 import {
   DEFAULT_LOCALE,
   BOARD_SIZES,
+  LAYOUT_MODES,
   RULES_PRESETS,
+  RULES_FAMILIES,
+  SCENARIO_IDS,
+  SCENARIO_RULESET_IDS,
   TURN_RULES,
   mergeGameConfig,
   mergeRoomGameConfig,
@@ -89,6 +93,16 @@ const readySchema = z.object({
 const roomSettingsSchema = z
   .object({
     rulesPreset: z.enum(RULES_PRESETS).optional(),
+    rulesFamily: z.enum(RULES_FAMILIES).optional(),
+    scenarioId: z.enum(SCENARIO_IDS).optional(),
+    scenarioRulesetId: z.enum(SCENARIO_RULESET_IDS).optional(),
+    layoutMode: z.enum(LAYOUT_MODES).optional(),
+    scenarioOptions: z
+      .object({
+        victoryPointsToWin: z.number().int().min(3).max(30).optional()
+      })
+      .passthrough()
+      .optional(),
     boardSize: z.enum(BOARD_SIZES).optional(),
     setupMode: z.enum(["official_variable", "beginner"]).optional(),
     turnRule: z.enum(TURN_RULES).optional(),
@@ -103,6 +117,11 @@ const roomSettingsSchema = z
   .refine(
     (body) =>
       body.rulesPreset !== undefined ||
+      body.rulesFamily !== undefined ||
+      body.scenarioId !== undefined ||
+      body.scenarioRulesetId !== undefined ||
+      body.layoutMode !== undefined ||
+      body.scenarioOptions !== undefined ||
       body.boardSize !== undefined ||
       body.setupMode !== undefined ||
       body.turnRule !== undefined ||
@@ -1041,6 +1060,11 @@ function resolveManualStartingSeatIndex(room: RoomDetails, gameConfig: GameConfi
 function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>): RoomGameConfigPatch {
   return {
     ...(body.rulesPreset !== undefined ? { rulesPreset: body.rulesPreset } : {}),
+    ...(body.rulesFamily !== undefined ? { rulesFamily: body.rulesFamily } : {}),
+    ...(body.scenarioId !== undefined ? { scenarioId: body.scenarioId } : {}),
+    ...(body.scenarioRulesetId !== undefined ? { scenarioRulesetId: body.scenarioRulesetId } : {}),
+    ...(body.layoutMode !== undefined ? { layoutMode: body.layoutMode } : {}),
+    ...(body.scenarioOptions !== undefined ? { scenarioOptions: body.scenarioOptions } : {}),
     ...(body.boardSize !== undefined ? { boardSize: body.boardSize } : {}),
     ...(body.setupMode !== undefined ? { setupMode: body.setupMode } : {}),
     ...(body.turnRule !== undefined ? { turnRule: body.turnRule } : {}),

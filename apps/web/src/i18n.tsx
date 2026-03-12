@@ -167,88 +167,122 @@ export function getLocaleName(value: Locale): LocalizedText {
   return createCatalogText(`language.${code}`, label, label);
 }
 
+const CONNECTION_LABELS: Record<"offline" | "connecting" | "online", LocalizedText> = {
+  offline: createCatalogText("connection.offline", "connection.offline"),
+  connecting: createCatalogText("connection.connecting", "connection.connecting"),
+  online: createCatalogText("connection.live", "connection.live")
+};
+
+const EVENT_LABELS: Record<MatchEventType, LocalizedText> = {
+  starting_player_rolled: createCatalogText("event.startingPlayerRolled", "event.startingPlayerRolled"),
+  match_started: createCatalogText("event.matchStarted", "event.matchStarted"),
+  initial_settlement_placed: createCatalogText("event.initialSettlementPlaced", "event.initialSettlementPlaced"),
+  initial_road_placed: createCatalogText("event.initialRoadPlaced", "event.initialRoadPlaced"),
+  dice_rolled: createCatalogText("event.diceRolled", "event.diceRolled"),
+  resources_distributed: createCatalogText("event.resourcesDistributed", "event.resourcesDistributed"),
+  resources_discarded: createCatalogText("event.resourcesDiscarded", "event.resourcesDiscarded"),
+  initial_resources_granted: createCatalogText("event.initialResourcesGranted", "event.initialResourcesGranted"),
+  road_built: createCatalogText("event.roadBuilt", "event.roadBuilt"),
+  ship_built: createCatalogText("event.shipBuilt", "event.shipBuilt"),
+  ship_moved: createCatalogText("event.shipMoved", "event.shipMoved"),
+  settlement_built: createCatalogText("event.settlementBuilt", "event.settlementBuilt"),
+  city_built: createCatalogText("event.cityBuilt", "event.cityBuilt"),
+  development_card_bought: createCatalogText("event.developmentCardBought", "event.developmentCardBought"),
+  development_card_played: createCatalogText("event.developmentCardPlayed", "event.developmentCardPlayed"),
+  robber_moved: createCatalogText("event.robberMoved", "event.robberMoved"),
+  pirate_moved: createCatalogText("event.pirateMoved", "event.pirateMoved"),
+  pirate_fleet_moved: createCatalogText("event.pirateFleetMoved", "event.pirateFleetMoved"),
+  pirate_fleet_attacked: createCatalogText("event.pirateFleetAttacked", "event.pirateFleetAttacked"),
+  pirate_seven_stolen: createCatalogText("event.pirateSevenStolen", "event.pirateSevenStolen"),
+  gold_resource_chosen: createCatalogText("event.goldResourceChosen", "event.goldResourceChosen"),
+  scenario_setup_completed: createCatalogText("event.scenarioSetupCompleted", "event.scenarioSetupCompleted"),
+  harbor_token_placed: createCatalogText("event.harborTokenPlaced", "event.harborTokenPlaced"),
+  scenario_reward_claimed: createCatalogText("event.scenarioRewardClaimed", "event.scenarioRewardClaimed"),
+  wonder_claimed: createCatalogText("event.wonderClaimed", "event.wonderClaimed"),
+  wonder_level_built: createCatalogText("event.wonderLevelBuilt", "event.wonderLevelBuilt"),
+  fortress_attacked: createCatalogText("event.fortressAttacked", "event.fortressAttacked"),
+  warship_converted: createCatalogText("event.warshipConverted", "event.warshipConverted"),
+  longest_road_awarded: createCatalogText("event.longestRoadAwarded", "event.longestRoadAwarded"),
+  longest_road_lost: createCatalogText("event.longestRoadLost", "event.longestRoadLost"),
+  largest_army_awarded: createCatalogText("event.largestArmyAwarded", "event.largestArmyAwarded"),
+  largest_army_lost: createCatalogText("event.largestArmyLost", "event.largestArmyLost"),
+  trade_offered: createCatalogText("event.tradeOffered", "event.tradeOffered"),
+  trade_declined: createCatalogText("event.tradeDeclined", "event.tradeDeclined"),
+  trade_cancelled: createCatalogText("event.tradeCancelled", "event.tradeCancelled"),
+  trade_completed: createCatalogText("event.tradeCompleted", "event.tradeCompleted"),
+  maritime_trade: createCatalogText("event.maritimeTrade", "event.maritimeTrade"),
+  special_build_started: createCatalogText("event.specialBuildStarted", "event.specialBuildStarted"),
+  paired_player_started: createCatalogText("event.pairedPlayerStarted", "event.pairedPlayerStarted"),
+  beginner_setup_applied: createCatalogText("event.beginnerSetupApplied", "event.beginnerSetupApplied"),
+  game_won: createCatalogText("event.gameWon", "event.gameWon"),
+  turn_ended: createCatalogText("event.turnEnded", "event.turnEnded")
+};
+
+const PHASE_LABELS: Record<MatchPhase, LocalizedText> = {
+  room: createCatalogText("phase.room", "phase.room"),
+  scenario_setup: createCatalogText("phase.scenarioSetup", "phase.scenarioSetup"),
+  setup_forward: createCatalogText("phase.setupForward", "phase.setupForward"),
+  setup_reverse: createCatalogText("phase.setupReverse", "phase.setupReverse"),
+  turn_roll: createCatalogText("phase.turnRoll", "phase.turnRoll"),
+  turn_action: createCatalogText("phase.turnAction", "phase.turnAction"),
+  special_build: createCatalogText("phase.specialBuild", "phase.specialBuild"),
+  paired_player_action: createCatalogText("phase.pairedPlayers", "phase.pairedPlayers"),
+  robber_interrupt: createCatalogText("phase.robber", "phase.robber"),
+  game_over: createCatalogText("phase.gameOver", "phase.gameOver")
+};
+
+const RESOURCE_LABELS: Record<string, LocalizedText> = {
+  brick: createCatalogText("resource.brick", "resource.brick"),
+  lumber: createCatalogText("resource.lumber", "resource.lumber"),
+  ore: createCatalogText("resource.ore", "resource.ore"),
+  grain: createCatalogText("resource.grain", "resource.grain"),
+  wool: createCatalogText("resource.wool", "resource.wool"),
+  desert: createCatalogText("resource.desert", "resource.desert"),
+  gold: createCatalogText("resource.gold", "resource.gold"),
+  sea: createCatalogText("resource.sea", "resource.sea")
+};
+
+const PLAYER_COLOR_LABELS: Record<PlayerColor, LocalizedText> = {
+  red: createCatalogText("color.red", "color.red"),
+  blue: createCatalogText("color.blue", "color.blue"),
+  white: createCatalogText("color.white", "color.white"),
+  orange: createCatalogText("color.orange", "color.orange"),
+  green: createCatalogText("color.green", "color.green"),
+  purple: createCatalogText("color.purple", "color.purple")
+};
+
+const BOARD_SIZE_LABELS: Record<BoardSize, LocalizedText> = {
+  standard: createCatalogText("boardSize.standard", "boardSize.standard"),
+  extended: createCatalogText("boardSize.extended", "boardSize.extended")
+};
+
+const TURN_RULE_LABELS: Record<TurnRule, LocalizedText> = {
+  standard: createCatalogText("turnRule.standard", "turnRule.standard"),
+  paired_players: createCatalogText("turnRule.pairedPlayers", "turnRule.pairedPlayers"),
+  special_build_phase: createCatalogText("turnRule.specialBuildPhase", "turnRule.specialBuildPhase")
+};
+
 export function renderConnectionLabel(
   locale: Locale,
   sessionActive: boolean,
   connectionState: "offline" | "connecting" | "online"
 ): string {
   if (!sessionActive) {
-    return resolveText(locale, createText("Offline", "Offline"));
+    return resolveText(locale, CONNECTION_LABELS.offline);
   }
-
-  if (connectionState === "online") {
-    return resolveText(locale, createText("Live", "Live"));
-  }
-
-  if (connectionState === "connecting") {
-    return resolveText(locale, createText("Verbindet...", "Connecting..."));
-  }
-
-  return resolveText(locale, createText("Offline", "Offline"));
+  return resolveText(locale, CONNECTION_LABELS[connectionState]);
 }
 
 export function renderEventLabel(locale: Locale, type: MatchEventType): string {
-  const labels: Record<MatchEventType, LocalizedText> = {
-    starting_player_rolled: createText("Startspieler ausgewürfelt.", "Starting player rolled."),
-    match_started: createText("Partie gestartet.", "Match started."),
-    initial_settlement_placed: createText("Start-Siedlung gesetzt.", "Initial settlement placed."),
-    initial_road_placed: createText("Start-Straße gesetzt.", "Initial road placed."),
-    dice_rolled: createText("Würfel geworfen.", "Dice rolled."),
-    resources_distributed: createText("Rohstoffe verteilt.", "Resources distributed."),
-    resources_discarded: createText("Rohstoffe abgeworfen.", "Resources discarded."),
-    initial_resources_granted: createText("Start-Rohstoffe erhalten.", "Initial resources granted."),
-    road_built: createText("Straße gebaut.", "Road built."),
-    settlement_built: createText("Siedlung gebaut.", "Settlement built."),
-    city_built: createText("Stadt gebaut.", "City built."),
-    development_card_bought: createText("Entwicklung gekauft.", "Development card bought."),
-    development_card_played: createText("Entwicklung gespielt.", "Development card played."),
-    robber_moved: createText("Räuber versetzt.", "Robber moved."),
-    longest_road_awarded: createText("Längste Straße erhalten.", "Longest road awarded."),
-    longest_road_lost: createText("Längste Straße verloren.", "Longest road lost."),
-    largest_army_awarded: createText("Größte Rittermacht erhalten.", "Largest army awarded."),
-    largest_army_lost: createText("Größte Rittermacht verloren.", "Largest army lost."),
-    trade_offered: createText("Handelsangebot gesendet.", "Trade offer sent."),
-    trade_declined: createText("Handelsangebot abgelehnt.", "Trade offer declined."),
-    trade_cancelled: createText("Handelsangebot zurückgezogen.", "Trade offer withdrawn."),
-    trade_completed: createText("Handel abgeschlossen.", "Trade completed."),
-    maritime_trade: createText("Hafenhandel ausgeführt.", "Maritime trade completed."),
-    special_build_started: createText("Sonderbauphase gestartet.", "Special build phase started."),
-    paired_player_started: createText("Paired-Players-Phase gestartet.", "Paired players phase started."),
-    beginner_setup_applied: createText("Anfängeraufbau gesetzt.", "Beginner setup applied."),
-    game_won: createText("Partie gewonnen.", "Match won."),
-    turn_ended: createText("Zug beendet.", "Turn ended.")
-  };
-
-  return resolveText(locale, labels[type] ?? createText("Spielstatus aktualisiert.", "Game state updated."));
+  return resolveText(locale, EVENT_LABELS[type] ?? createCatalogText("event.gameStateUpdated", "event.gameStateUpdated"));
 }
 
 export function formatPhase(locale: Locale, phase: MatchPhase): string {
-  const labels: Record<MatchPhase, LocalizedText> = {
-    room: createText("Raum", "Room"),
-    setup_forward: createText("Startaufbau vorwärts", "Initial setup forward"),
-    setup_reverse: createText("Startaufbau rückwärts", "Initial setup reverse"),
-    turn_roll: createText("Würfeln", "Roll dice"),
-    turn_action: createText("Aktionsphase", "Action phase"),
-    special_build: createText("Sonderbauphase", "Special build phase"),
-    paired_player_action: createText("Paired Players", "Paired players"),
-    robber_interrupt: createText("Räuber", "Robber"),
-    game_over: createText("Spiel beendet", "Game over")
-  };
-
-  return resolveText(locale, labels[phase]);
+  return resolveText(locale, PHASE_LABELS[phase]);
 }
 
 export function renderResourceLabel(locale: Locale, resource: Resource | "desert" | string): string {
-  const labels: Record<string, LocalizedText> = {
-    brick: createText("Lehm", "Brick"),
-    lumber: createText("Holz", "Lumber"),
-    ore: createText("Erz", "Ore"),
-    grain: createText("Getreide", "Grain"),
-    wool: createText("Wolle", "Wool"),
-    desert: createText("Wüste", "Desert")
-  };
-
-  return labels[resource] ? resolveText(locale, labels[resource]) : resource;
+  return RESOURCE_LABELS[resource] ? resolveText(locale, RESOURCE_LABELS[resource]) : resource;
 }
 
 export function renderResourceMap(locale: Locale, resourceMap: ResourceMap): string {
@@ -264,35 +298,15 @@ export function renderResourceMap(locale: Locale, resourceMap: ResourceMap): str
 }
 
 export function renderPlayerColorLabel(locale: Locale, color: PlayerColor): string {
-  const labels: Record<PlayerColor, LocalizedText> = {
-    red: createText("Rot", "Red"),
-    blue: createText("Blau", "Blue"),
-    white: createText("Weiß", "White"),
-    orange: createText("Orange", "Orange"),
-    green: createText("Grün", "Green"),
-    purple: createText("Lila", "Purple")
-  };
-
-  return resolveText(locale, labels[color]);
+  return resolveText(locale, PLAYER_COLOR_LABELS[color]);
 }
 
 export function renderBoardSizeLabel(locale: Locale, boardSize: BoardSize): string {
-  const labels: Record<BoardSize, LocalizedText> = {
-    standard: createText("Standard", "Standard"),
-    extended: createText("Erweitert", "Extended")
-  };
-
-  return resolveText(locale, labels[boardSize]);
+  return resolveText(locale, BOARD_SIZE_LABELS[boardSize]);
 }
 
 export function renderTurnRuleLabel(locale: Locale, turnRule: TurnRule): string {
-  const labels: Record<TurnRule, LocalizedText> = {
-    standard: createText("Standard", "Standard"),
-    paired_players: createText("Paired Players", "Paired players"),
-    special_build_phase: createText("Sonderbauphase", "Special build phase")
-  };
-
-  return resolveText(locale, labels[turnRule]);
+  return resolveText(locale, TURN_RULE_LABELS[turnRule]);
 }
 
 function interpolate(template: string, params?: ErrorParams): string {
@@ -497,6 +511,38 @@ export function localizeError(errorCode: string, errorParams?: ErrorParams): Loc
       return createText("Wähle den Spieler aus, von dem gestohlen werden soll.", "Choose the player to steal from.");
     case "game.robber_target_invalid":
       return createText("Von diesem Spieler kann hier nicht gestohlen werden.", "You cannot steal from that player here.");
+    case "game.ships_unavailable":
+      return createCatalogText("error.game.shipsUnavailable", "error.game.shipsUnavailable");
+    case "game.ship_must_connect":
+      return createCatalogText("error.game.shipMustConnect", "error.game.shipMustConnect");
+    case "game.ship_not_movable":
+      return createCatalogText("error.game.shipNotMovable", "error.game.shipNotMovable");
+    case "game.pirate_must_move":
+      return createCatalogText("error.game.pirateMustMove", "error.game.pirateMustMove");
+    case "game.pirate_target_required":
+      return createCatalogText("error.game.pirateTargetRequired", "error.game.pirateTargetRequired");
+    case "game.pirate_target_invalid":
+      return createCatalogText("error.game.pirateTargetInvalid", "error.game.pirateTargetInvalid");
+    case "game.pirate_steal_type_required":
+      return createCatalogText("error.game.pirateStealTypeRequired", "error.game.pirateStealTypeRequired");
+    case "game.gold_selection_pending":
+      return createCatalogText("error.game.goldSelectionPending", "error.game.goldSelectionPending");
+    case "game.gold_selection_not_pending":
+      return createCatalogText("error.game.goldSelectionNotPending", "error.game.goldSelectionNotPending");
+    case "game.gold_selection_invalid":
+      return createCatalogText("error.game.goldSelectionInvalid", "error.game.goldSelectionInvalid");
+    case "game.route_type_invalid":
+      return createCatalogText("error.game.routeTypeInvalid", "error.game.routeTypeInvalid");
+    case "game.route_type_required":
+      return createCatalogText("error.game.routeTypeRequired", "error.game.routeTypeRequired");
+    case "game.scenario_action_unavailable":
+      return createCatalogText("error.game.scenarioActionUnavailable", "error.game.scenarioActionUnavailable");
+    case "game.wonder_not_available":
+      return createCatalogText("error.game.wonderNotAvailable", "error.game.wonderNotAvailable");
+    case "game.wonder_not_owned":
+      return createCatalogText("error.game.wonderNotOwned", "error.game.wonderNotOwned");
+    case "game.fortress_not_available":
+      return createCatalogText("error.game.fortressNotAvailable", "error.game.fortressNotAvailable");
     case "trade.empty":
       return createText("Ein Handel darf nicht komplett leer sein.", "A trade may not be completely empty.");
     case "trade.resources_unavailable":
@@ -553,6 +599,20 @@ export function localizeError(errorCode: string, errorParams?: ErrorParams): Loc
       return createText("Dieser Zug gehört einem anderen Spieler.", "This turn belongs to another player.");
     case "game.action_phase_not_allowed":
       return createText("Diese Aktion ist in der aktuellen Spielphase nicht erlaubt.", "This action is not allowed in the current game phase.");
+    case "game.scenario_setup_pool_empty":
+      return createCatalogText("error.game.scenarioSetupPoolEmpty", "error.game.scenarioSetupPoolEmpty");
+    case "game.scenario_setup_not_ready":
+      return createCatalogText("error.game.scenarioSetupNotReady", "error.game.scenarioSetupNotReady");
+    case "game.scenario_setup_tiles_remaining":
+      return createCatalogText("game.scenario_setup_tiles_remaining", "game.scenario_setup_tiles_remaining");
+    case "game.scenario_setup_tokens_remaining":
+      return createCatalogText("game.scenario_setup_tokens_remaining", "game.scenario_setup_tokens_remaining");
+    case "game.scenario_setup_ports_remaining":
+      return createCatalogText("game.scenario_setup_ports_remaining", "game.scenario_setup_ports_remaining");
+    case "game.scenario_setup_red_numbers_adjacent":
+      return createCatalogText("game.scenario_setup_red_numbers_adjacent", "game.scenario_setup_red_numbers_adjacent");
+    case "game.scenario_setup_gold_red_number":
+      return createCatalogText("game.scenario_setup_gold_red_number", "game.scenario_setup_gold_red_number");
     case "game.unknown_player":
       return createText("Unbekannter Spieler.", "Unknown player.");
     case "game.unknown_tile":

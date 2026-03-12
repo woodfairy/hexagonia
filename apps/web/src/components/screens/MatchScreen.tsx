@@ -6,9 +6,12 @@ import type {
   ClientMessage,
   DevelopmentCardView,
   MatchSnapshot,
+  PirateStealType,
   PortType,
+  RouteBuildType,
   Resource,
   ResourceMap,
+  TileTerrain,
   RoomDetails
 } from "@hexagonia/shared";
 import {
@@ -80,7 +83,14 @@ export interface PendingBoardActionState {
   message: Extract<ClientMessage, { type: "match.action" }>;
   selection: ArmedBoardSelection;
   targetPlayerIds: string[];
+  pirateStealTypes?: PirateStealType[];
   afterConfirm?: () => void;
+}
+
+export interface PendingRouteChoiceState {
+  kind: "initial" | "free";
+  edgeId: string;
+  routeTypes: RouteBuildType[];
 }
 
 type MatchProfileMenuProps = ComponentProps<typeof ProfileMenu>;
@@ -148,11 +158,20 @@ export interface MatchScreenProps {
   maritimeForm: MaritimeFormState;
   yearOfPlenty: [Resource, Resource];
   monopolyResource: Resource;
+  goldChoice: Resource[];
+  pendingRouteChoice: PendingRouteChoiceState | null;
+  selectedPortTokenType: PortType | null;
+  selectedScenarioSetupTerrain: TileTerrain | null;
+  selectedScenarioSetupToken: number | null;
+  selectedScenarioSetupPortType: PortType | null;
   pendingBoardAction: PendingBoardActionState | null;
   onAction: (message: ClientMessage) => void;
+  onChooseRouteType: (routeType: RouteBuildType) => void;
+  onCancelRouteChoice: () => void;
   onConfirmPendingBoardAction: () => void;
   onCancelPendingBoardAction: () => void;
   onSelectPendingRobberTarget: (targetPlayerId: string) => void;
+  onSelectPendingPirateStealType: (stealType: PirateStealType) => void;
   onRollDice: () => void;
   onOfferTrade: () => void;
   onVertexSelect: (vertexId: string) => void;
@@ -164,6 +183,11 @@ export interface MatchScreenProps {
   setMaritimeForm: Dispatch<SetStateAction<MaritimeFormState>>;
   setYearOfPlenty: Dispatch<SetStateAction<[Resource, Resource]>>;
   setMonopolyResource: Dispatch<SetStateAction<Resource>>;
+  setGoldChoice: Dispatch<SetStateAction<Resource[]>>;
+  setSelectedPortTokenType: Dispatch<SetStateAction<PortType | null>>;
+  setSelectedScenarioSetupTerrain: Dispatch<SetStateAction<TileTerrain | null>>;
+  setSelectedScenarioSetupToken: Dispatch<SetStateAction<number | null>>;
+  setSelectedScenarioSetupPortType: Dispatch<SetStateAction<PortType | null>>;
 }
 
 const MATCH_TABS: Array<{ id: MatchPanelTab; labelKey: string }> = [
@@ -391,7 +415,8 @@ function arePendingBoardActionsEqual(
     left.key === right.key &&
     left.selection.kind === right.selection.kind &&
     left.selection.id === right.selection.id &&
-    areStringArraysEqual(left.targetPlayerIds, right.targetPlayerIds)
+    areStringArraysEqual(left.targetPlayerIds, right.targetPlayerIds) &&
+    areStringArraysEqual(left.pirateStealTypes ?? [], right.pirateStealTypes ?? [])
   );
 }
 
@@ -422,9 +447,13 @@ function areMatchScreenPropsEqual(left: MatchScreenProps, right: MatchScreenProp
     left.tradeForm === right.tradeForm &&
     left.maritimeForm === right.maritimeForm &&
     left.monopolyResource === right.monopolyResource &&
+    areStringArraysEqual(left.goldChoice, right.goldChoice) &&
     left.yearOfPlenty[0] === right.yearOfPlenty[0] &&
     left.yearOfPlenty[1] === right.yearOfPlenty[1] &&
     areStringArraysEqual(left.selectedRoadEdges, right.selectedRoadEdges) &&
+    left.selectedScenarioSetupTerrain === right.selectedScenarioSetupTerrain &&
+    left.selectedScenarioSetupToken === right.selectedScenarioSetupToken &&
+    left.selectedScenarioSetupPortType === right.selectedScenarioSetupPortType &&
     arePendingBoardActionsEqual(left.pendingBoardAction, right.pendingBoardAction) &&
     areBoardVisualSettingsEqual(left.boardVisualSettings, right.boardVisualSettings) &&
     areProfileMenuPropsEqual(left.profileMenuProps, right.profileMenuProps)
@@ -802,6 +831,7 @@ const PlayersPanel = memo(function PlayersPanel(props: { match: MatchSnapshot })
   const { translate } = useI18n();
   const t = (key: string, params?: Record<string, string | number>) =>
     translate(key, undefined, undefined, params);
+  const showSeafarersPlayerStats = props.match.gameConfig.rulesFamily === "seafarers";
   const hasDisconnectCountdown = props.match.players.some(
     (player) => !player.connected && typeof player.disconnectDeadlineAt === "number"
   );
@@ -868,6 +898,20 @@ const PlayersPanel = memo(function PlayersPanel(props: { match: MatchSnapshot })
                 <PlayerStatCard label={t("match.players.roads")} value={String(player.roadsBuilt)} />
                 <PlayerStatCard label={t("match.players.knights")} value={String(player.playedKnightCount)} />
               </div>
+              {showSeafarersPlayerStats ? (
+                <div className="player-stat-grid player-stat-grid-compact">
+                  <PlayerStatCard label={t("match.players.routes")} value={String(player.routeLength ?? 0)} />
+                  <PlayerStatCard label={t("match.players.ships")} value={String((player.shipsBuilt ?? 0) + (player.warshipsBuilt ?? 0))} />
+                  <PlayerStatCard label={t("match.players.specialVp")} value={String(player.specialVictoryPoints ?? 0)} />
+                  <PlayerStatCard label={t("match.players.wonders")} value={String(player.wonderProgress ?? 0)} />
+                </div>
+              ) : null}
+              {showSeafarersPlayerStats ? (
+                <div className="status-strip player-award-strip">
+                  <span className="status-pill muted">{t("match.players.clothCount", { count: player.clothCount ?? 0 })}</span>
+                  <span className="status-pill muted">{t("match.players.harborTokens", { count: player.harborTokenCount ?? 0 })}</span>
+                </div>
+              ) : null}
               <div className="status-strip player-award-strip">
                 {player.id === props.match.currentPlayerId ? (
                   <span className={`status-pill player-badge player-accent-${player.color}`}>{t("match.players.activeTurn")}</span>
@@ -1095,6 +1139,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
   const selectedMaritimeGiveMaxCount =
     selectedMaritimeGiveResource && maritimeRatio > 0 ? Math.floor(selectedMaritimeGiveAvailable / maritimeRatio) * maritimeRatio : 0;
   const maritimeReceiveCapacity = maritimeRatio > 0 ? Math.floor(props.maritimeForm.giveCount / maritimeRatio) : 0;
+  const scenarioSetup = props.match.scenarioSetup;
   const tradeGiveTotal = totalResources(props.tradeForm.give);
   const tradeWantTotal = totalResources(props.tradeForm.want);
   const selectedTradeTargetPlayer =
@@ -1113,8 +1158,29 @@ function MatchScreenComponent(props: MatchScreenProps) {
   const turnStatus = getTurnStatus(props.match, activePlayer, props.selfPlayer, props.interactionMode);
   const robberDiscardGroups = useMemo(() => getRobberDiscardGroups(props.match), [props.match]);
   const canAffordRoad = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.road);
+  const canAffordShip = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.ship);
   const canAffordSettlement = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.settlement);
   const canAffordCity = canAffordCost(props.selfPlayer?.resources, BUILD_COSTS.city);
+  const availableHarborTokens = props.selfPlayer?.harborTokens ?? [];
+  const claimableWonderVertexIds = props.match.allowedMoves.wonderVertexIds.filter((vertexId) => {
+    const site = props.match.board.sites?.find((entry) => entry.type === "wonder" && entry.vertexId === vertexId);
+    return !site?.ownerId;
+  });
+  const buildableWonderVertexIds = props.match.allowedMoves.wonderVertexIds.filter((vertexId) => {
+    const site = props.match.board.sites?.find((entry) => entry.type === "wonder" && entry.vertexId === vertexId);
+    return site?.ownerId === props.match.you;
+  });
+  const canPlacePort =
+    isCurrentPlayer &&
+    props.match.allowedMoves.placeablePortVertexIds.length > 0 &&
+    availableHarborTokens.length > 0;
+  const canClaimWonder = isCurrentPlayer && claimableWonderVertexIds.length > 0;
+  const canBuildWonder = isCurrentPlayer && buildableWonderVertexIds.length > 0;
+  const canAttackFortress = isCurrentPlayer && props.match.allowedMoves.fortressVertexIds.length > 0;
+  const renderPortTokenLabel = (type: PortType) =>
+    type === "generic"
+      ? t("match.legend.harborLabel.generic")
+      : t("match.legend.harborLabel.resource", { resource: renderResourceLabel(type) });
   const buyDevelopmentAction: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "buy_development_card" };
   const buyDevelopmentMessage = createMatchActionMessage(buyDevelopmentAction);
   const buyDevelopmentConfirmation = getMatchActionConfirmation(props.match, buyDevelopmentAction);
@@ -1133,6 +1199,17 @@ function MatchScreenComponent(props: MatchScreenProps) {
       legalTargetCount: props.match.allowedMoves.roadEdgeIds.length,
       resources: props.selfPlayer?.resources,
       onClick: () => props.setInteractionMode(props.interactionMode === "road" ? null : "road")
+    }),
+    createBuildActionState("ship", t("match.build.ship"), {
+      cost: BUILD_COSTS.ship,
+      enabled: isCurrentPlayer && props.match.allowedMoves.shipEdgeIds.length > 0 && canAffordShip,
+      phase: props.match.phase,
+      isCurrentPlayer,
+      interactionMode: props.interactionMode,
+      activeMode: "ship",
+      legalTargetCount: props.match.allowedMoves.shipEdgeIds.length,
+      resources: props.selfPlayer?.resources,
+      onClick: () => props.setInteractionMode(props.interactionMode === "ship" ? null : "ship")
     }),
     createBuildActionState("settlement", t("match.build.settlement"), {
       cost: BUILD_COSTS.settlement,
@@ -1189,6 +1266,36 @@ function MatchScreenComponent(props: MatchScreenProps) {
   const totalVictoryPoints = props.selfPlayer?.totalVictoryPoints ?? props.selfPlayer?.publicVictoryPoints ?? 0;
   const pendingRoadBuilding =
     props.match.pendingDevelopmentEffect?.type === "road_building" ? props.match.pendingDevelopmentEffect : null;
+  const canMoveShip = isCurrentPlayer && props.match.allowedMoves.movableShipEdgeIds.length > 0;
+  const canMoveRobber =
+    isCurrentPlayer &&
+    props.match.phase === "robber_interrupt" &&
+    props.match.allowedMoves.pendingDiscardCount === 0 &&
+    props.match.allowedMoves.robberMoveOptions.length > 0;
+  const canMovePirate =
+    isCurrentPlayer &&
+    props.match.phase === "robber_interrupt" &&
+    props.match.allowedMoves.pendingDiscardCount === 0 &&
+    props.match.allowedMoves.pirateMoveOptions.length > 0;
+  const goldChoiceSource = props.match.allowedMoves.goldResourceChoiceSource;
+  const goldChoiceTitle =
+    goldChoiceSource === "pirate_fleet_reward"
+      ? t("match.pirateRewardChoice.title")
+      : t("match.goldChoice.title");
+  const goldChoiceConfirmLabel =
+    goldChoiceSource === "pirate_fleet_reward"
+      ? t("match.pirateRewardChoice.confirm")
+      : t("match.goldChoice.confirm");
+  const scenarioSetupValidationLabel = scenarioSetup?.validationErrorCode
+    ? t(scenarioSetup.validationErrorCode)
+    : null;
+  const scenarioSetupLockedLabel =
+    scenarioSetup && !scenarioSetup.canEdit ? t("match.scenarioSetup.locked") : null;
+  const scenarioSetupReadyCount = scenarioSetup?.players.filter((player) => player.ready).length ?? 0;
+  const eligiblePirateSevenTargets = props.match.allowedMoves.pirateStealTargetPlayerIds.flatMap((targetPlayerId) => {
+    const player = props.match.players.find((entry) => entry.id === targetPlayerId);
+    return player ? [player] : [];
+  });
   const endTurnAction: Extract<ClientMessage, { type: "match.action" }>["action"] = { type: "end_turn" };
   const endTurnMessage = createMatchActionMessage(endTurnAction);
   const endTurnConfirmation = getMatchActionConfirmation(props.match, endTurnAction);
@@ -1527,8 +1634,14 @@ function MatchScreenComponent(props: MatchScreenProps) {
       </article>
     ) : null;
   const pendingBoardTargetPlayerId =
-    !!props.pendingBoardAction && props.pendingBoardAction.message.action.type === "move_robber"
+    !!props.pendingBoardAction &&
+    (props.pendingBoardAction.message.action.type === "move_robber" ||
+      props.pendingBoardAction.message.action.type === "move_pirate")
       ? props.pendingBoardAction.message.action.targetPlayerId ?? null
+      : null;
+  const pendingPirateStealType =
+    props.pendingBoardAction?.message.action.type === "move_pirate"
+      ? props.pendingBoardAction.message.action.stealType ?? null
       : null;
   const pendingBoardTargetPlayers = props.pendingBoardAction
     ? props.pendingBoardAction.targetPlayerIds.flatMap((targetPlayerId) => {
@@ -1541,9 +1654,16 @@ function MatchScreenComponent(props: MatchScreenProps) {
     : null;
   const pendingBoardActionNeedsTarget =
     !!props.pendingBoardAction &&
-    props.pendingBoardAction.message.action.type === "move_robber" &&
+    (props.pendingBoardAction.message.action.type === "move_robber" ||
+      props.pendingBoardAction.message.action.type === "move_pirate") &&
     props.pendingBoardAction.targetPlayerIds.length > 1;
-  const canConfirmPendingBoardAction = !!props.pendingBoardAction && (!pendingBoardActionNeedsTarget || !!pendingBoardTargetPlayerId);
+  const pendingBoardActionNeedsStealType =
+    props.pendingBoardAction?.message.action.type === "move_pirate" &&
+    (props.pendingBoardAction.pirateStealTypes?.length ?? 0) > 1;
+  const canConfirmPendingBoardAction =
+    !!props.pendingBoardAction &&
+    (!pendingBoardActionNeedsTarget || !!pendingBoardTargetPlayerId) &&
+    (!pendingBoardActionNeedsStealType || !!pendingPirateStealType);
   const renderTabLabel = (tab: { id: MatchPanelTab; label: string }) => {
     const alertCount = tab.id === "trade" ? incomingTradeCount : 0;
     return (
@@ -1581,6 +1701,24 @@ function MatchScreenComponent(props: MatchScreenProps) {
             <path d="M18.5 5v14" />
           </svg>
         );
+      case "robber":
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="7" r="3.1" />
+            <path d="M6.5 20c1.1-4 3.1-6 5.5-6s4.4 2 5.5 6" />
+            <path d="M9 11.5h6" />
+          </svg>
+        );
+      case "pirate":
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7.5 7.5c1.5-1.7 3-2.5 4.5-2.5s3 .8 4.5 2.5" />
+            <path d="M6.5 10.5c1.6 1 3.4 1.5 5.5 1.5s3.9-.5 5.5-1.5" />
+            <path d="M8.2 19c.6-3.1 1.9-4.7 3.8-4.7s3.2 1.6 3.8 4.7" />
+            <path d="M10.2 8.9h0" />
+            <path d="M13.8 8.9h0" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -1602,6 +1740,34 @@ function MatchScreenComponent(props: MatchScreenProps) {
               }
             }
           ]
+      : []),
+    ...(canMoveRobber
+      ? [
+          {
+            id: "robber",
+            label: t("match.quickAction.moveRobber"),
+            className: props.interactionMode === "robber" ? "primary-button" : "secondary-button",
+            disabled: false,
+            confirmKey: null,
+            confirmLabel: null,
+            armedLabel: null,
+            onClick: () => props.setInteractionMode(props.interactionMode === "robber" ? null : "robber")
+          }
+        ]
+      : []),
+    ...(canMovePirate
+      ? [
+          {
+            id: "pirate",
+            label: t("match.quickAction.movePirate"),
+            className: props.interactionMode === "pirate" ? "primary-button" : "secondary-button",
+            disabled: false,
+            confirmKey: null,
+            confirmLabel: null,
+            armedLabel: null,
+            onClick: () => props.setInteractionMode(props.interactionMode === "pirate" ? null : "pirate")
+          }
+        ]
       : []),
     ...(props.match.allowedMoves.canEndTurn
       ? [
@@ -1690,6 +1856,64 @@ function MatchScreenComponent(props: MatchScreenProps) {
       setArmedActionKey(null);
     }
   }, [armedActionKey, visibleInlineConfirmKeys]);
+
+  useEffect(() => {
+    if (props.goldChoice.length <= props.match.allowedMoves.goldResourceChoiceCount) {
+      return;
+    }
+
+    props.setGoldChoice((current) => current.slice(0, props.match.allowedMoves.goldResourceChoiceCount));
+  }, [props.goldChoice.length, props.match.allowedMoves.goldResourceChoiceCount, props.setGoldChoice]);
+
+  useEffect(() => {
+    if (!scenarioSetup) {
+      if (props.selectedScenarioSetupTerrain !== null) {
+        props.setSelectedScenarioSetupTerrain(null);
+      }
+      if (props.selectedScenarioSetupToken !== null) {
+        props.setSelectedScenarioSetupToken(null);
+      }
+      if (props.selectedScenarioSetupPortType !== null) {
+        props.setSelectedScenarioSetupPortType(null);
+      }
+      return;
+    }
+
+    if (
+      props.selectedScenarioSetupTerrain &&
+      !scenarioSetup.tilePool.some((entry) => entry.terrain === props.selectedScenarioSetupTerrain)
+    ) {
+      props.setSelectedScenarioSetupTerrain(scenarioSetup.tilePool[0]?.terrain ?? null);
+    } else if (!props.selectedScenarioSetupTerrain && scenarioSetup.tilePool.length > 0) {
+      props.setSelectedScenarioSetupTerrain(scenarioSetup.tilePool[0]?.terrain ?? null);
+    }
+
+    if (
+      props.selectedScenarioSetupToken !== null &&
+      !scenarioSetup.tokenPool.some((entry) => entry.token === props.selectedScenarioSetupToken)
+    ) {
+      props.setSelectedScenarioSetupToken(scenarioSetup.tokenPool[0]?.token ?? null);
+    } else if (props.selectedScenarioSetupToken === null && scenarioSetup.tokenPool.length > 0) {
+      props.setSelectedScenarioSetupToken(scenarioSetup.tokenPool[0]?.token ?? null);
+    }
+
+    if (
+      props.selectedScenarioSetupPortType !== null &&
+      !scenarioSetup.portPool.some((entry) => entry.portType === props.selectedScenarioSetupPortType)
+    ) {
+      props.setSelectedScenarioSetupPortType(scenarioSetup.portPool[0]?.portType ?? null);
+    } else if (props.selectedScenarioSetupPortType === null && scenarioSetup.portPool.length > 0) {
+      props.setSelectedScenarioSetupPortType(scenarioSetup.portPool[0]?.portType ?? null);
+    }
+  }, [
+    props.selectedScenarioSetupPortType,
+    props.selectedScenarioSetupTerrain,
+    props.selectedScenarioSetupToken,
+    props.setSelectedScenarioSetupPortType,
+    props.setSelectedScenarioSetupTerrain,
+    props.setSelectedScenarioSetupToken,
+    scenarioSetup
+  ]);
 
   useEffect(() => {
     setArmedActionKey(null);
@@ -2185,6 +2409,45 @@ function MatchScreenComponent(props: MatchScreenProps) {
       giveCount: 0,
       receive: createEmptyResourceMap()
     });
+  };
+  const handleToggleGoldResource = (resource: Resource) => {
+    props.setGoldChoice((current) => {
+      const next = [...current];
+      if (next.length < props.match.allowedMoves.goldResourceChoiceCount) {
+        next.push(resource);
+        return next;
+      }
+
+      const lastIndex = next.lastIndexOf(resource);
+      if (lastIndex >= 0) {
+        next.splice(lastIndex, 1);
+        return next;
+      }
+
+      next[next.length - 1] = resource;
+      return next;
+    });
+  };
+  const handleSubmitGoldChoice = () => {
+    if (props.goldChoice.length !== props.match.allowedMoves.goldResourceChoiceCount) {
+      return;
+    }
+
+    props.onAction(
+      createMatchActionMessage({
+        type: "choose_gold_resource",
+        resources: [...props.goldChoice]
+      })
+    );
+    props.setGoldChoice([]);
+  };
+  const handleStealOnSeven = (targetPlayerId: string) => {
+    props.onAction(
+      createMatchActionMessage({
+        type: "steal_on_seven",
+        targetPlayerId
+      })
+    );
   };
   const handleWithdrawTradeOffer = (tradeId: string) => {
     props.onAction(
@@ -2768,11 +3031,337 @@ function MatchScreenComponent(props: MatchScreenProps) {
             {turnStatus.callout ? <span className="status-pill is-warning">{turnStatus.callout}</span> : null}
           </div>
         </section>
+        {scenarioSetup ? (
+          <section className="dock-section">
+            <div className="dock-section-head">
+              <h3>{t("match.scenarioSetup.title")}</h3>
+              <span>
+                {scenarioSetup.stage === "tiles"
+                  ? t("match.scenarioSetup.stage.tiles")
+                  : scenarioSetup.stage === "tokens"
+                    ? t("match.scenarioSetup.stage.tokens")
+                    : scenarioSetup.stage === "ports"
+                      ? t("match.scenarioSetup.stage.ports")
+                      : t("match.scenarioSetup.stage.ready")}
+              </span>
+            </div>
+            <div className="status-strip player-award-strip">
+              <span className="status-pill muted">
+                {t("match.scenarioSetup.readyCount", {
+                  count: scenarioSetupReadyCount,
+                  total: scenarioSetup.players.length
+                })}
+              </span>
+              {scenarioSetupValidationLabel ? (
+                <span className="status-pill is-warning">{scenarioSetupValidationLabel}</span>
+              ) : null}
+              {scenarioSetupLockedLabel ? (
+                <span className="status-pill muted">{scenarioSetupLockedLabel}</span>
+              ) : null}
+            </div>
+            {scenarioSetup.stage === "tiles" ? (
+              <div className="build-action-grid">
+                <button
+                  type="button"
+                  className={`build-action-card ${props.selectedScenarioSetupTerrain === null ? "is-active" : "is-ready"}`.trim()}
+                  disabled={!scenarioSetup.canEdit}
+                  onClick={() => props.setSelectedScenarioSetupTerrain(null)}
+                >
+                  <span className="build-action-head">
+                    <strong>{t("shared.clear")}</strong>
+                    <span>{t("match.scenarioSetup.clearTile")}</span>
+                  </span>
+                </button>
+                {scenarioSetup.tilePool.map((entry) => (
+                  <button
+                    key={`scenario-setup-tile-${entry.terrain}`}
+                    type="button"
+                    className={`build-action-card ${props.selectedScenarioSetupTerrain === entry.terrain ? "is-active" : "is-ready"}`.trim()}
+                    disabled={!scenarioSetup.canEdit}
+                    onClick={() => props.setSelectedScenarioSetupTerrain(entry.terrain)}
+                  >
+                    <span className="build-action-head">
+                      <strong>{renderResourceLabel(entry.terrain)}</strong>
+                      <span>{t("match.scenarioSetup.remaining", { count: entry.remaining })}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {scenarioSetup.stage === "tokens" ? (
+              <div className="build-action-grid">
+                <button
+                  type="button"
+                  className={`build-action-card ${props.selectedScenarioSetupToken === null ? "is-active" : "is-ready"}`.trim()}
+                  disabled={!scenarioSetup.canEdit}
+                  onClick={() => props.setSelectedScenarioSetupToken(null)}
+                >
+                  <span className="build-action-head">
+                    <strong>{t("shared.clear")}</strong>
+                    <span>{t("match.scenarioSetup.clearToken")}</span>
+                  </span>
+                </button>
+                {scenarioSetup.tokenPool.map((entry) => (
+                  <button
+                    key={`scenario-setup-token-${entry.token}`}
+                    type="button"
+                    className={`build-action-card ${props.selectedScenarioSetupToken === entry.token ? "is-active" : "is-ready"}`.trim()}
+                    disabled={!scenarioSetup.canEdit}
+                    onClick={() => props.setSelectedScenarioSetupToken(entry.token)}
+                  >
+                    <span className="build-action-head">
+                      <strong>{entry.token}</strong>
+                      <span>{t("match.scenarioSetup.remaining", { count: entry.remaining })}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {scenarioSetup.stage === "ports" ? (
+              <div className="build-action-grid">
+                <button
+                  type="button"
+                  className={`build-action-card ${props.selectedScenarioSetupPortType === null ? "is-active" : "is-ready"}`.trim()}
+                  disabled={!scenarioSetup.canEdit}
+                  onClick={() => props.setSelectedScenarioSetupPortType(null)}
+                >
+                  <span className="build-action-head">
+                    <strong>{t("shared.clear")}</strong>
+                    <span>{t("match.scenarioSetup.clearPort")}</span>
+                  </span>
+                </button>
+                {scenarioSetup.portPool.map((entry, index) => (
+                  <button
+                    key={`scenario-setup-port-${entry.portType}-${index}`}
+                    type="button"
+                    className={`build-action-card ${props.selectedScenarioSetupPortType === entry.portType ? "is-active" : "is-ready"}`.trim()}
+                    disabled={!scenarioSetup.canEdit}
+                    onClick={() => props.setSelectedScenarioSetupPortType(entry.portType)}
+                  >
+                    <span className="build-action-head">
+                      <strong>{renderPortTokenLabel(entry.portType)}</strong>
+                      <span>{t("match.scenarioSetup.remaining", { count: entry.remaining })}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="status-strip player-award-strip">
+              {scenarioSetup.players.map((player) => {
+                const scenarioPlayer =
+                  props.match.players.find((entry) => entry.id === player.playerId) ?? null;
+                return (
+                  <span
+                    key={`scenario-setup-ready-${player.playerId}`}
+                    className={`status-pill ${player.ready ? "" : "muted"} ${scenarioPlayer ? getPlayerAccentClass(scenarioPlayer.color) : ""}`.trim()}
+                  >
+                    {scenarioPlayer?.username ?? player.playerId}
+                  </span>
+                );
+              })}
+            </div>
+            {scenarioSetup.stage === "ready" ? (
+              <div className="dock-section-actions">
+                <button
+                  type="button"
+                  className={scenarioSetup.isReady ? "secondary-button" : "primary-button"}
+                  onClick={() =>
+                    props.onAction({
+                      type: "match.action",
+                      matchId: props.match.matchId,
+                      action: {
+                        type: "scenario_setup_set_ready",
+                        ready: !scenarioSetup.isReady
+                      }
+                    })
+                  }
+                >
+                  {scenarioSetup.isReady ? t("match.scenarioSetup.notReady") : t("match.scenarioSetup.ready")}
+                </button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        {props.match.allowedMoves.goldResourceChoiceCount > 0 ? (
+          <section className="dock-section">
+            <div className="dock-section-head">
+              <h3>{goldChoiceTitle}</h3>
+              <span>
+                {t("match.goldChoice.counter", {
+                  selected: props.goldChoice.length,
+                  total: props.match.allowedMoves.goldResourceChoiceCount
+                })}
+              </span>
+            </div>
+            <div className="build-action-grid">
+              {RESOURCES.map((resource) => {
+                const count = props.goldChoice.filter((entry) => entry === resource).length;
+                return (
+                  <button
+                    key={`gold-choice-${resource}`}
+                    type="button"
+                    className={`build-action-card ${count > 0 ? "is-active" : "is-ready"}`.trim()}
+                    onClick={() => handleToggleGoldResource(resource)}
+                  >
+                    <span className="build-action-head">
+                      <strong>{renderResourceLabel(resource)}</strong>
+                      <span>{count > 0 ? t("match.goldChoice.selectedCount", { count }) : t("match.goldChoice.pick")}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dock-section-actions">
+              <button
+                type="button"
+                className="primary-button"
+                disabled={props.goldChoice.length !== props.match.allowedMoves.goldResourceChoiceCount}
+                onClick={handleSubmitGoldChoice}
+              >
+                {goldChoiceConfirmLabel}
+              </button>
+            </div>
+          </section>
+        ) : null}
+        {eligiblePirateSevenTargets.length > 0 ? (
+          <section className="dock-section">
+            <div className="dock-section-head">
+              <h3>{t("match.pirateIslandsSeven.title")}</h3>
+              <span>{t("match.pirateIslandsSeven.detail")}</span>
+            </div>
+            <div className="build-action-grid">
+              {eligiblePirateSevenTargets.map((player) => (
+                <button
+                  key={`pirate-seven-target-${player.id}`}
+                  type="button"
+                  className="build-action-card is-ready"
+                  onClick={() => handleStealOnSeven(player.id)}
+                >
+                  <span className="build-action-head">
+                    <strong>{player.username}</strong>
+                    <span>{t("match.pirateIslandsSeven.cards", { count: player.resourceCount })}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        {props.pendingRouteChoice ? (
+          <section className="dock-section">
+            <div className="dock-section-head">
+              <h3>
+                {props.pendingRouteChoice.kind === "initial"
+                  ? t("match.routeChoice.initial.title")
+                  : t("match.routeChoice.free.title")}
+              </h3>
+              <span>
+                {props.pendingRouteChoice.kind === "initial"
+                  ? t("match.routeChoice.initial.detail")
+                  : t("match.routeChoice.free.detail")}
+              </span>
+            </div>
+            <div className="build-action-grid">
+              {props.pendingRouteChoice.routeTypes.map((routeType) => (
+                <button
+                  key={`route-choice-${routeType}`}
+                  type="button"
+                  className="build-action-card is-ready"
+                  onClick={() => props.onChooseRouteType(routeType)}
+                >
+                  <span className="build-action-head">
+                    <strong>{routeType === "ship" ? t("match.build.ship") : t("match.build.road")}</strong>
+                    <span>
+                      {routeType === "ship"
+                        ? t("match.routeChoice.option.ship")
+                        : t("match.routeChoice.option.road")}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="dock-section-actions">
+              <button type="button" className="secondary-button" onClick={props.onCancelRouteChoice}>
+                {t("shared.cancel")}
+              </button>
+            </div>
+          </section>
+        ) : null}
         <section className="dock-section">
           <div className="dock-section-head">
             <h3>{t("match.build.title")}</h3>
             <span>{t("match.build.subtitle")}</span>
           </div>
+          {canMoveShip ? (
+            <div className="dock-section-actions">
+              <button
+                type="button"
+                className={`secondary-button ${props.interactionMode === "move_ship" ? "is-accent" : ""}`.trim()}
+                onClick={() => {
+                  props.setSelectedRoadEdges([]);
+                  props.setInteractionMode(props.interactionMode === "move_ship" ? null : "move_ship");
+                }}
+              >
+                {t("match.build.moveShip")}
+              </button>
+            </div>
+          ) : null}
+          {canPlacePort || canClaimWonder || canBuildWonder || canAttackFortress ? (
+            <div className="dock-section-actions">
+              {canPlacePort ? (
+                <button
+                  type="button"
+                  className={`secondary-button ${props.interactionMode === "place_port" ? "is-accent" : ""}`.trim()}
+                  onClick={() => props.setInteractionMode(props.interactionMode === "place_port" ? null : "place_port")}
+                >
+                  {t("match.build.placePort")}
+                </button>
+              ) : null}
+              {canClaimWonder ? (
+                <button
+                  type="button"
+                  className={`secondary-button ${props.interactionMode === "claim_wonder" ? "is-accent" : ""}`.trim()}
+                  onClick={() => props.setInteractionMode(props.interactionMode === "claim_wonder" ? null : "claim_wonder")}
+                >
+                  {t("match.build.claimWonder")}
+                </button>
+              ) : null}
+              {canBuildWonder ? (
+                <button
+                  type="button"
+                  className={`secondary-button ${props.interactionMode === "build_wonder" ? "is-accent" : ""}`.trim()}
+                  onClick={() => props.setInteractionMode(props.interactionMode === "build_wonder" ? null : "build_wonder")}
+                >
+                  {t("match.build.buildWonder")}
+                </button>
+              ) : null}
+              {canAttackFortress ? (
+                <button
+                  type="button"
+                  className={`secondary-button ${props.interactionMode === "attack_fortress" ? "is-accent" : ""}`.trim()}
+                  onClick={() => props.setInteractionMode(props.interactionMode === "attack_fortress" ? null : "attack_fortress")}
+                >
+                  {t("match.build.attackFortress")}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {props.interactionMode === "place_port" && availableHarborTokens.length > 0 ? (
+            <div className="build-action-grid">
+              {availableHarborTokens.map((portType, index) => (
+                <button
+                  key={`harbor-token-${portType}-${index}`}
+                  type="button"
+                  className={`build-action-card ${props.selectedPortTokenType === portType ? "is-active" : "is-ready"}`.trim()}
+                  onClick={() => props.setSelectedPortTokenType(portType)}
+                >
+                  <span className="build-action-head">
+                    <strong>{renderPortTokenLabel(portType)}</strong>
+                    <span>{t("match.build.placePortSelect")}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="build-action-grid">
             {buildActions.map((action) => {
               const className = `build-action-card ${action.active ? "is-active" : action.disabled ? "is-disabled" : "is-ready"}`;
@@ -3078,6 +3667,31 @@ function MatchScreenComponent(props: MatchScreenProps) {
                         <PlayerIdentity username={player.username} color={player.color} compact isSelf={player.id === props.match.you} />
                         <span>
                           {pendingBoardTargetPlayerId === player.id ? t("shared.selected") : t("match.robber.selectVictim")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {pendingBoardActionNeedsStealType ? (
+                  <div className="board-inline-confirm-targets">
+                    {(props.pendingBoardAction?.pirateStealTypes ?? []).map((stealType) => (
+                      <button
+                        key={stealType}
+                        type="button"
+                        className={`board-inline-confirm-target ${
+                          pendingPirateStealType === stealType ? "is-active" : ""
+                        }`.trim()}
+                        onClick={() => props.onSelectPendingPirateStealType(stealType)}
+                      >
+                        <strong>
+                          {stealType === "cloth"
+                            ? t("match.pirateSteal.cloth")
+                            : t("match.pirateSteal.resource")}
+                        </strong>
+                        <span>
+                          {pendingPirateStealType === stealType
+                            ? t("shared.selected")
+                            : t("match.pirateSteal.select")}
                         </span>
                       </button>
                     ))}

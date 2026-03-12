@@ -9,7 +9,7 @@
     "@hexagonia/shared": "workspace:*"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.json",
+    "build": "tsc -b tsconfig.json && node ../../scripts/copy-json-assets.mjs src/seafarersOfficialScenarioData.json dist/seafarersOfficialScenarioData.json",
     "typecheck": "tsc -b tsconfig.json --pretty false",
     "test": "pnpm run test:unit && pnpm run test:regression",
     "test:unit": "echo \"No unit tests in rules\"",

@@ -1,31 +1,54 @@
 import type {
+  BoardSiteView,
   BoardSize,
   EdgeView,
   GameConfig,
+  LayoutMode,
   PortType,
   PortView,
+  RulesFamily,
+  ScenarioId,
+  ScenarioMarkerView,
   Resource,
   TileView,
   VertexView
 } from "@hexagonia/shared";
 import { SeededRandom } from "./random.js";
+import {
+  applySeafarersTileContents,
+  createSeafarersScenarioFeatures,
+  finalizeSeafarersBoard,
+  getSeafarersBoardLayout
+} from "./seafarersBoard.js";
 
 export interface GeneratedBoard {
   tiles: TileView[];
   vertices: VertexView[];
   edges: EdgeView[];
   ports: PortView[];
+  sites?: BoardSiteView[];
+  scenarioMarkers?: ScenarioMarkerView[];
 }
 
 export interface BoardGenerationInput {
+  rulesFamily: RulesFamily;
+  scenarioId: ScenarioId;
+  layoutMode: LayoutMode;
+  playerCount: number;
   boardSize: GameConfig["boardSize"];
   setupMode: GameConfig["setupMode"];
   enabledExpansions: GameConfig["enabledExpansions"];
 }
 
-interface LayoutTile {
+export interface BoardLayoutTile {
   q: number;
   r: number;
+}
+
+export interface PortPlacementRef {
+  tileCoord: string;
+  side: number;
+  type?: PortType;
 }
 
 interface TileContent {
@@ -33,17 +56,28 @@ interface TileContent {
   token: number | null;
 }
 
-interface BoardLayout {
+export interface BoardGeometryLayout {
   boardSize: BoardSize;
-  tiles: LayoutTile[];
+  tiles: BoardLayoutTile[];
+  portDistribution: PortType[];
+  portSlotEdgeIndices?: number[];
+  explicitPortPlacements?: PortPlacementRef[];
+  beginnerPortDistribution?: PortType[];
+}
+
+interface BaseBoardLayout extends BoardGeometryLayout {
+  contentMode: "base";
   resources: Array<Resource | "desert">;
   variableNumberTokens: number[];
   variablePlacementOrder: string[];
-  portDistribution: PortType[];
-  portSlotEdgeIndices: number[];
   beginnerLayout?: TileContent[];
-  beginnerPortDistribution?: PortType[];
 }
+
+export interface ScenarioBoardLayout extends BoardGeometryLayout {
+  contentMode: "scenario";
+}
+
+type BoardLayout = BaseBoardLayout | ScenarioBoardLayout;
 
 interface MutableVertex extends Omit<VertexView, "building" | "portType"> {
   portType: PortType | null;
@@ -60,10 +94,11 @@ const COUNTERCLOCKWISE_RING_DIRECTIONS = [
   { q: 0, r: -1 }
 ] as const;
 
-const STANDARD_TILES: LayoutTile[] = createStandardCoords();
-const EXTENDED_TILES: LayoutTile[] = createExtendedCoords();
+const STANDARD_TILES: BoardLayoutTile[] = createStandardCoords();
+const EXTENDED_TILES: BoardLayoutTile[] = createExtendedCoords();
 
-const STANDARD_LAYOUT: BoardLayout = {
+const STANDARD_LAYOUT: BaseBoardLayout = {
+  contentMode: "base",
   boardSize: "standard",
   tiles: STANDARD_TILES,
   resources: [
@@ -135,7 +170,8 @@ const STANDARD_LAYOUT: BoardLayout = {
   ]
 };
 
-const EXTENDED_LAYOUT: BoardLayout = {
+const EXTENDED_LAYOUT: BaseBoardLayout = {
+  contentMode: "base",
   boardSize: "extended",
   tiles: EXTENDED_TILES,
   resources: [
@@ -222,7 +258,7 @@ const EXTENDED_LAYOUT: BoardLayout = {
   portSlotEdgeIndices: [1, 4, 8, 11, 15, 18, 21, 25, 28, 32, 35]
 };
 
-const LAYOUTS: Record<BoardSize, BoardLayout> = {
+const LAYOUTS: Record<BoardSize, BaseBoardLayout> = {
   standard: STANDARD_LAYOUT,
   extended: EXTENDED_LAYOUT
 };
@@ -241,20 +277,31 @@ const CORNER_OFFSETS = [
   [Math.cos((3 * Math.PI) / 2), Math.sin((3 * Math.PI) / 2)]
 ] as const;
 
-export function createBoardGenerationInput(gameConfig: GameConfig): BoardGenerationInput {
+export function createBoardGenerationInput(
+  gameConfig: GameConfig,
+  playerCount = 4
+): BoardGenerationInput {
   return {
+    rulesFamily: gameConfig.rulesFamily,
+    scenarioId: gameConfig.scenarioId,
+    layoutMode: gameConfig.layoutMode,
+    playerCount,
     boardSize: gameConfig.boardSize,
     setupMode: gameConfig.setupMode,
     enabledExpansions: [...gameConfig.enabledExpansions]
   };
 }
 
-export function generateBaseBoard(seed: string, gameConfig: GameConfig): GeneratedBoard {
-  return generateBoard(seed, createBoardGenerationInput(gameConfig));
+export function generateBaseBoard(
+  seed: string,
+  gameConfig: GameConfig,
+  playerCount = 4
+): GeneratedBoard {
+  return generateBoard(seed, createBoardGenerationInput(gameConfig, playerCount));
 }
 
 function generateBoard(seed: string, boardInput: BoardGenerationInput): GeneratedBoard {
-  const layout = getBoardLayout(boardInput.boardSize);
+  const layout = resolveBoardLayout(boardInput);
   const rng = new SeededRandom(seed);
   const vertexByKey = new Map<string, MutableVertex>();
   const edgeByKey = new Map<string, MutableEdge>();
@@ -319,8 +366,13 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
       x: round4(cx * X_SCALE),
       y: round4(cy * Y_SCALE),
       resource: "desert",
+      kind: "land",
+      terrain: "desert",
       token: null,
       robber: false,
+      occupant: null,
+      hidden: false,
+      discovered: true,
       vertexIds,
       edgeIds
     });
@@ -342,9 +394,22 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
     }
   }
 
-  applyTileContents(layout, boardInput, rng, tiles);
+  if (layout.contentMode === "scenario") {
+    applySeafarersTileContents(
+      {
+        boardSize: boardInput.boardSize,
+        scenarioId: boardInput.scenarioId,
+        layoutMode: boardInput.layoutMode,
+        playerCount: boardInput.playerCount
+      },
+      rng,
+      tiles
+    );
+  } else {
+    applyTileContents(layout, boardInput, rng, tiles);
+  }
 
-  const ports = assignPorts(layout, rng, edges, verticesById, boardInput.setupMode);
+  const ports = assignPorts(layout, rng, edges, verticesById, boardInput.setupMode, boardInput.layoutMode);
   const portByVertexId = new Map<string, PortType>();
   for (const port of ports) {
     for (const vertexId of port.vertexIds) {
@@ -359,7 +424,10 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
       edgeIds: vertex.edgeIds.sort(sortId),
       adjacentVertexIds: vertex.adjacentVertexIds.sort(sortId),
       building: null,
-      portType: portByVertexId.get(vertex.id) ?? null
+      portType: portByVertexId.get(vertex.id) ?? null,
+      site: null,
+      islandId: "island-1",
+      coastal: (portByVertexId.get(vertex.id) ?? null) !== null
     }))
     .sort((left, right) => sortId(left.id, right.id));
 
@@ -368,24 +436,65 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
       ...edge,
       tileIds: edge.tileIds.sort(sortId),
       ownerId: null,
-      color: null
+      color: null,
+      routeType: null,
+      routeZone: "land",
+      roadAllowed: true,
+      shipAllowed: false,
+      movable: false,
+      blockedByPirate: false,
+      placedOnTurn: null
     }))
     .sort((left, right) => sortId(left.id, right.id));
+
+  let sites: BoardSiteView[] = [];
+  let scenarioMarkers: ScenarioMarkerView[] = [];
+  if (boardInput.rulesFamily === "seafarers") {
+    finalizeSeafarersBoard(tiles, vertices, finalizedEdges);
+    const features = createSeafarersScenarioFeatures(
+      {
+        scenarioId: boardInput.scenarioId,
+        boardSize: boardInput.boardSize,
+        layoutMode: boardInput.layoutMode,
+        playerCount: boardInput.playerCount
+      },
+      tiles,
+      vertices,
+      finalizedEdges
+    );
+    sites = features.sites;
+    scenarioMarkers = features.scenarioMarkers;
+  }
 
   return {
     tiles,
     vertices,
     edges: finalizedEdges,
-    ports
+    ports,
+    sites,
+    scenarioMarkers
   };
 }
 
-function getBoardLayout(boardSize: BoardSize): BoardLayout {
+export function getBaseBoardLayout(boardSize: BoardSize): BaseBoardLayout {
   return LAYOUTS[boardSize]!;
 }
 
+function resolveBoardLayout(boardInput: BoardGenerationInput): BoardLayout {
+  if (boardInput.rulesFamily === "seafarers") {
+    return getSeafarersBoardLayout({
+      boardSize: boardInput.boardSize,
+      scenarioId: boardInput.scenarioId,
+      layoutMode: boardInput.layoutMode,
+      playerCount: boardInput.playerCount
+    });
+  }
+
+  return getBaseBoardLayout(boardInput.boardSize);
+}
+
 function applyTileContents(
-  layout: BoardLayout,
+  layout: BaseBoardLayout,
   boardInput: BoardGenerationInput,
   rng: SeededRandom,
   tiles: TileView[]
@@ -398,6 +507,7 @@ function applyTileContents(
     tiles.forEach((tile, index) => {
       const content = layout.beginnerLayout![index]!;
       tile.resource = content.resource;
+      tile.terrain = content.resource;
       tile.token = content.token;
       tile.robber = content.resource === "desert";
     });
@@ -409,6 +519,7 @@ function applyTileContents(
   tiles.forEach((tile, index) => {
     const resource = assignedResources[index]!;
     tile.resource = resource;
+    tile.terrain = resource;
     tile.token = null;
     tile.robber = resource === "desert";
     tileByCoord.set(toCoordKey(tile.q, tile.r), tile);
@@ -438,8 +549,13 @@ function assignPorts(
   rng: SeededRandom,
   edges: MutableEdge[],
   verticesById: Map<string, MutableVertex>,
-  setupMode: GameConfig["setupMode"]
+  setupMode: GameConfig["setupMode"],
+  layoutMode: LayoutMode
 ): PortView[] {
+  if (layout.explicitPortPlacements && layout.explicitPortPlacements.length > 0) {
+    return assignExplicitPorts(layout, rng, edges, verticesById, setupMode, layoutMode);
+  }
+
   const boundaryEdges = edges
     .filter((edge) => edge.tileIds.length === 1)
     .sort((left, right) => {
@@ -450,11 +566,18 @@ function assignPorts(
       return leftAngle - rightAngle;
     });
   const portTypes =
-    setupMode === "beginner" && layout.beginnerPortDistribution
-      ? layout.beginnerPortDistribution
-      : rng.shuffle(layout.portDistribution);
+    layout.contentMode === "base"
+      ? setupMode === "beginner" && layout.beginnerPortDistribution
+        ? layout.beginnerPortDistribution
+        : rng.shuffle(layout.portDistribution)
+      : layoutMode === "official_variable"
+        ? rng.shuffle(layout.portDistribution)
+        : [...layout.portDistribution];
+  const portSlotEdgeIndices =
+    layout.portSlotEdgeIndices ??
+    createDistributedPortSlotEdgeIndices(boundaryEdges.length, portTypes.length);
 
-  return layout.portSlotEdgeIndices
+  return portSlotEdgeIndices
     .map((edgeIndex, portIndex) => {
       const edge = boundaryEdges[edgeIndex]!;
       return {
@@ -467,8 +590,116 @@ function assignPorts(
     .sort((left, right) => sortId(left.id, right.id));
 }
 
-function createStandardCoords(): LayoutTile[] {
-  const coords: LayoutTile[] = [];
+function assignExplicitPorts(
+  layout: BoardLayout,
+  rng: SeededRandom,
+  edges: MutableEdge[],
+  verticesById: Map<string, MutableVertex>,
+  setupMode: GameConfig["setupMode"],
+  layoutMode: LayoutMode
+): PortView[] {
+  const portPlacements = layout.explicitPortPlacements;
+  if (!portPlacements || portPlacements.length === 0) {
+    return [];
+  }
+
+  const edgesById = new Map(edges.map((edge) => [edge.id, edge]));
+  const tilesByCoord = new Map(
+    layout.tiles.map((tile, index) => [toCoordKey(tile.q, tile.r), { id: `tile-${index}`, tile }] as const)
+  );
+
+  const portTypes =
+    layout.contentMode === "base"
+      ? setupMode === "beginner" && layout.beginnerPortDistribution
+        ? layout.beginnerPortDistribution
+        : rng.shuffle(layout.portDistribution)
+      : layoutMode === "official_variable"
+        ? rng.shuffle(layout.portDistribution)
+        : portPlacements.map((placement, index) => placement.type ?? layout.portDistribution[index]!);
+
+  return portPlacements
+    .map((placement, portIndex) => {
+      const tileEntry = tilesByCoord.get(placement.tileCoord);
+      if (!tileEntry) {
+        throw new Error(`Missing tile ${placement.tileCoord} for explicit port placement.`);
+      }
+      const edgeId = resolveTileEdgeId(edgesById, verticesById, tileEntry.id, tileEntry.tile, placement.side);
+      const edge = edgesById.get(edgeId);
+      if (!edge) {
+        throw new Error(`Missing edge ${edgeId} for explicit port placement.`);
+      }
+      return {
+        id: `port-${portIndex}`,
+        edgeId: edge.id,
+        vertexIds: [edge.vertexIds[0], edge.vertexIds[1]] as [string, string],
+        type: portTypes[portIndex]!
+      };
+    })
+    .sort((left, right) => sortId(left.id, right.id));
+}
+
+function resolveTileEdgeId(
+  edgesById: Map<string, MutableEdge>,
+  verticesById: Map<string, MutableVertex>,
+  tileId: string,
+  tile: BoardLayoutTile,
+  side: number
+): string {
+  const matchingEdges = [...edgesById.values()].filter((edge) => edge.tileIds.includes(tileId));
+  const [centerX, centerY] = axialToWorld(tile.q, tile.r);
+  const leftCorner = CORNER_OFFSETS[side];
+  const rightCorner = CORNER_OFFSETS[(side + 1) % CORNER_OFFSETS.length];
+  if (!leftCorner || !rightCorner) {
+    throw new Error(`Invalid tile side ${side}.`);
+  }
+  const expectedX = round4((centerX + ((leftCorner[0] + rightCorner[0]) / 2) * HEX_RADIUS) * X_SCALE);
+  const expectedY = round4((centerY + ((leftCorner[1] + rightCorner[1]) / 2) * HEX_RADIUS) * Y_SCALE);
+  const edgeId =
+    matchingEdges
+      .map((edge) => ({
+        edge,
+        distance:
+          Math.abs(edgeCenter(edge, verticesById)[0] - expectedX) +
+          Math.abs(edgeCenter(edge, verticesById)[1] - expectedY)
+      }))
+      .sort((left, right) => left.distance - right.distance || sortId(left.edge.id, right.edge.id))[0]?.edge.id ??
+    null;
+  if (!edgeId) {
+    throw new Error(`Missing side ${side} for tile ${tileId}.`);
+  }
+  return edgeId;
+}
+
+function createDistributedPortSlotEdgeIndices(
+  boundaryEdgeCount: number,
+  portCount: number
+): number[] {
+  if (portCount === 0) {
+    return [];
+  }
+  if (portCount > boundaryEdgeCount) {
+    throw new Error("Port count exceeds available boundary edges.");
+  }
+
+  const step = boundaryEdgeCount / portCount;
+  const offset = Math.floor(step / 2);
+  const usedIndices = new Set<number>();
+  const indices: number[] = [];
+
+  for (let portIndex = 0; portIndex < portCount; portIndex += 1) {
+    let edgeIndex = Math.floor(portIndex * step + offset) % boundaryEdgeCount;
+    while (usedIndices.has(edgeIndex)) {
+      edgeIndex = (edgeIndex + 1) % boundaryEdgeCount;
+    }
+    usedIndices.add(edgeIndex);
+    indices.push(edgeIndex);
+  }
+
+  return indices;
+}
+
+function createStandardCoords(): BoardLayoutTile[] {
+  const coords: BoardLayoutTile[] = [];
   for (let q = -2; q <= 2; q += 1) {
     for (let r = -2; r <= 2; r += 1) {
       const s = -q - r;
@@ -486,7 +717,7 @@ function createStandardCoords(): LayoutTile[] {
   });
 }
 
-function createExtendedCoords(): LayoutTile[] {
+function createExtendedCoords(): BoardLayoutTile[] {
   const rows = [
     { r: -3, qStart: 0, qEnd: 2 },
     { r: -2, qStart: -1, qEnd: 2 },
@@ -498,7 +729,7 @@ function createExtendedCoords(): LayoutTile[] {
   ] as const;
 
   return rows.flatMap(({ r, qStart, qEnd }) => {
-    const row: LayoutTile[] = [];
+    const row: BoardLayoutTile[] = [];
     for (let q = qStart; q <= qEnd; q += 1) {
       row.push({ q, r });
     }
@@ -512,8 +743,8 @@ function createStandardVariablePlacementOrder(): string[] {
   return [...outerRing, ...innerRing, toCoordKey(0, 0)];
 }
 
-function createCounterclockwiseRing(radius: number): LayoutTile[] {
-  const coords: LayoutTile[] = [];
+function createCounterclockwiseRing(radius: number): BoardLayoutTile[] {
+  const coords: BoardLayoutTile[] = [];
   let q = radius;
   let r = -radius;
 

@@ -1,0 +1,253 @@
+{
+  "base.standard": {
+    "id": "base.standard",
+    "rulesFamily": "base",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.base.standard.title",
+    "summaryKey": "scenario.base.standard.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_variable",
+    "defaultVictoryPointsToWin": 10,
+    "fixedLayoutOnly": false,
+    "enabledExpansions": [],
+    "scenarioGroup": "base"
+  },
+  "seafarers.heading_for_new_shores": {
+    "id": "seafarers.heading_for_new_shores",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.headingForNewShores.title",
+    "summaryKey": "scenario.seafarers.headingForNewShores.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 14,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"],
+      "5": ["official_variable"],
+      "6": ["official_variable"]
+    },
+    "playerCountDefaultLayoutModes": {
+      "5": "official_variable",
+      "6": "official_variable"
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.four_islands": {
+    "id": "seafarers.four_islands",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.fourIslands.title",
+    "summaryKey": "scenario.seafarers.fourIslands.summary",
+    "playerCounts": [3, 4],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 13,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"]
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.six_islands": {
+    "id": "seafarers.six_islands",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.sixIslands.title",
+    "summaryKey": "scenario.seafarers.sixIslands.summary",
+    "playerCounts": [5, 6],
+    "defaultBoardSize": "extended",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 13,
+    "fixedLayoutOnly": true,
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.fog_islands": {
+    "id": "seafarers.fog_islands",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.fogIslands.title",
+    "summaryKey": "scenario.seafarers.fogIslands.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 12,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"],
+      "5": ["official_fixed"],
+      "6": ["official_fixed"]
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.through_the_desert": {
+    "id": "seafarers.through_the_desert",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.throughTheDesert.title",
+    "summaryKey": "scenario.seafarers.throughTheDesert.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 14,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"],
+      "5": ["official_fixed"],
+      "6": ["official_fixed"]
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.forgotten_tribe": {
+    "id": "seafarers.forgotten_tribe",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.forgottenTribe.title",
+    "summaryKey": "scenario.seafarers.forgottenTribe.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 13,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"],
+      "5": ["official_fixed"],
+      "6": ["official_fixed"]
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.cloth_for_catan": {
+    "id": "seafarers.cloth_for_catan",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.clothForCatan.title",
+    "summaryKey": "scenario.seafarers.clothForCatan.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 14,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"],
+      "5": ["official_fixed"],
+      "6": ["official_fixed"]
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.pirate_islands": {
+    "id": "seafarers.pirate_islands",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.pirateIslands.title",
+    "summaryKey": "scenario.seafarers.pirateIslands.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 10,
+    "fixedLayoutOnly": true,
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.wonders_of_catan": {
+    "id": "seafarers.wonders_of_catan",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.wondersOfCatan.title",
+    "summaryKey": "scenario.seafarers.wondersOfCatan.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_fixed",
+    "defaultVictoryPointsToWin": 10,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_fixed", "official_variable"],
+      "4": ["official_fixed", "official_variable"],
+      "5": ["official_fixed"],
+      "6": ["official_fixed"]
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  },
+  "seafarers.new_world": {
+    "id": "seafarers.new_world",
+    "rulesFamily": "seafarers",
+    "rulesetId": "current_2025",
+    "titleKey": "scenario.seafarers.newWorld.title",
+    "summaryKey": "scenario.seafarers.newWorld.summary",
+    "playerCounts": [3, 4, 5, 6],
+    "defaultBoardSize": "standard",
+    "defaultTurnRule": "standard",
+    "defaultLayoutMode": "official_variable",
+    "defaultVictoryPointsToWin": 12,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "3": ["official_variable"],
+      "4": ["official_variable"],
+      "5": ["official_variable"],
+      "6": ["official_variable"]
+    },
+    "playerCountTurnRules": {
+      "5": "paired_players",
+      "6": "paired_players"
+    },
+    "enabledExpansions": ["seafarers"],
+    "scenarioGroup": "official_seafarers"
+  }
+}

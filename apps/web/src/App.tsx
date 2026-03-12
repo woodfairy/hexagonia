@@ -5,15 +5,22 @@ import type {
   AuthUser,
   BoardSize,
   ClientMessage,
+  LayoutMode,
   Locale,
   MatchSnapshot,
+  PirateStealType,
+  PortType,
+  RouteBuildType,
   Resource,
   ResourceMap,
   RoomDetails,
+  RulesFamily,
   RulesPreset,
+  ScenarioId,
   SetupMode,
   StartingPlayerMode,
   ServerMessage,
+  TileTerrain,
   TurnRule,
   UserRole
 } from "@hexagonia/shared";
@@ -84,11 +91,13 @@ import {
 import {
   type MaritimeFormState,
   type PendingBoardActionState,
+  type PendingRouteChoiceState,
   type TradeFormState
 } from "./components/screens/MatchScreen";
 import { getLatestDiceRollEvent } from "./components/screens/matchScreenViewModel";
 import { PlayerMention } from "./components/shared/PlayerText";
 import {
+  createCatalogText,
   createText,
   getInitialGuestLocale,
   I18nProvider,
@@ -96,6 +105,7 @@ import {
   normalizeLocale,
   persistStoredLocale,
   resolveText,
+  translate,
   type LocalizedText
 } from "./i18n";
 import { getRecaptchaRegisterToken } from "./recaptcha";
@@ -107,11 +117,6 @@ import {
   readRoute,
   writeRoute
 } from "./ui";
-
-const TEXT = {
-  title: createText("Hexagonia", "Hexagonia"),
-  subtitle: createText("Mit Freunden spielen, handeln und direkt loslegen", "Play, trade, and jump in with friends")
-} as const;
 
 const loadAdminScreen = () => import("./components/screens/AdminScreen");
 const loadRoomScreen = () => import("./components/screens/RoomScreen");
@@ -288,6 +293,12 @@ export function App() {
   });
   const [yearOfPlenty, setYearOfPlenty] = useState<[Resource, Resource]>(["brick", "grain"]);
   const [monopolyResource, setMonopolyResource] = useState<Resource>("ore");
+  const [goldChoice, setGoldChoice] = useState<Resource[]>([]);
+  const [pendingRouteChoice, setPendingRouteChoice] = useState<PendingRouteChoiceState | null>(null);
+  const [selectedPortTokenType, setSelectedPortTokenType] = useState<PortType | null>(null);
+  const [selectedScenarioSetupTerrain, setSelectedScenarioSetupTerrain] = useState<TileTerrain | null>(null);
+  const [selectedScenarioSetupToken, setSelectedScenarioSetupToken] = useState<number | null>(null);
+  const [selectedScenarioSetupPortType, setSelectedScenarioSetupPortType] = useState<PortType | null>(null);
   const [route, setRoute] = useState<RouteState>(readRoute());
   const [pendingBoardAction, setPendingBoardAction] = useState<PendingBoardActionState | null>(null);
   const [robberDiscardDraft, setRobberDiscardDraft] = useState<ResourceMap>(() => createEmptyResourceMap());
@@ -384,56 +395,53 @@ export function App() {
   const headerContext = useMemo(() => {
     if (!session) {
       return {
-        eyebrow: resolveText(locale, createText("Mit Freunden spielen", "Play with friends")),
-        title: resolveText(locale, TEXT.title),
-        meta: resolveText(locale, TEXT.subtitle)
+        eyebrow: translate(locale, "app.header.landing.eyebrow"),
+        title: translate(locale, "app.title"),
+        meta: translate(locale, "app.subtitle")
       };
     }
 
     if (activeScreen === "lobby") {
       return {
-        eyebrow: resolveText(locale, createText("Spielzentrale", "Game hub")),
-        title: resolveText(locale, createText("Willkommen, {username}", "Welcome, {username}", { username: session.username })),
-        meta: resolveText(locale, createText("Raum erstellen oder mit einem Code beitreten", "Create a room or join with a code"))
+        eyebrow: translate(locale, "app.header.lobby.eyebrow"),
+        title: translate(locale, "app.header.lobby.title", undefined, { username: session.username }),
+        meta: translate(locale, "app.header.lobby.meta")
       };
     }
 
     if (activeScreen === "admin") {
       return {
-        eyebrow: resolveText(locale, createText("Administration", "Administration")),
-        title: resolveText(locale, createText("Admin-Konsole", "Admin console")),
-        meta: resolveText(locale, createText("Konten, Räume und laufende Partien zentral verwalten", "Manage accounts, rooms, and live matches centrally"))
+        eyebrow: translate(locale, "app.header.admin.eyebrow"),
+        title: translate(locale, "app.header.admin.title"),
+        meta: translate(locale, "app.header.admin.meta")
       };
     }
 
     if (activeScreen === "room") {
       return {
-        eyebrow: resolveText(locale, createText("Privater Raum", "Private room")),
+        eyebrow: translate(locale, "app.header.room.eyebrow"),
         title: room
-          ? resolveText(locale, createText("Raumlobby", "Room lobby"))
-          : resolveText(locale, createText("Raum wird geladen", "Loading room")),
+          ? translate(locale, "app.header.room.title")
+          : translate(locale, "app.header.room.loading"),
         meta: room
-          ? resolveText(
-              locale,
-              createText("Code {code} · {count}/6 Spieler", "Code {code} · {count}/6 players", {
-                code: room.code,
-                count: room.seats.filter((seat) => seat.userId).length
-              })
-            )
-          : resolveText(locale, createText("Synchronisation läuft", "Sync in progress"))
+          ? translate(locale, "app.header.room.meta", undefined, {
+              code: room.code,
+              count: room.seats.filter((seat) => seat.userId).length
+            })
+          : translate(locale, "app.header.room.sync")
       };
     }
 
     return {
-      eyebrow: resolveText(locale, createText("Laufende Partie", "Live match")),
+      eyebrow: translate(locale, "app.header.match.eyebrow"),
       title: match
-        ? resolveText(locale, createText("Zug {turn}", "Turn {turn}", { turn: match.turn }))
-        : resolveText(locale, createText("Partie wird geladen", "Loading match")),
+        ? translate(locale, "app.header.match.title", undefined, { turn: match.turn })
+        : translate(locale, "app.header.match.loading"),
       meta: match
-        ? resolveText(locale, createText("Am Zug: {player}", "Current turn: {player}", {
+        ? translate(locale, "app.header.match.meta", undefined, {
             player: match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"
-          }))
-        : resolveText(locale, createText("Verbindung läuft", "Connection active"))
+          })
+        : translate(locale, "app.header.match.connection")
     };
   }, [activeScreen, locale, match, room, session]);
 
@@ -783,7 +791,9 @@ export function App() {
               }
             : null;
         case "place_initial_road":
-          return match.allowedMoves.initialRoadEdgeIds.includes(current.selection.id)
+          return match.allowedMoves.initialRoadEdgeIds.includes(current.selection.id) &&
+            (!current.message.action.routeType ||
+              getRouteTypesForEdge(match, "initial", current.selection.id).includes(current.message.action.routeType))
             ? {
                 ...current,
                 message: {
@@ -794,6 +804,27 @@ export function App() {
             : null;
         case "build_road":
           return interactionMode === "road" && match.allowedMoves.roadEdgeIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "build_ship":
+          return interactionMode === "ship" && match.allowedMoves.shipEdgeIds.includes(current.selection.id)
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  matchId: match.matchId
+                }
+              }
+            : null;
+        case "move_ship":
+          return interactionMode === "move_ship" &&
+            match.allowedMoves.shipEdgeIds.includes(current.selection.id)
             ? {
                 ...current,
                 message: {
@@ -823,7 +854,10 @@ export function App() {
               }
             : null;
         case "place_free_road":
-          return interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(current.selection.id)
+          return interactionMode === "road_building" &&
+            match.allowedMoves.freeRoadEdgeIds.includes(current.selection.id) &&
+            (!current.message.action.routeType ||
+              getRouteTypesForEdge(match, "free", current.selection.id).includes(current.message.action.routeType))
             ? {
                 ...current,
                 message: {
@@ -865,14 +899,53 @@ export function App() {
               matchId: match.matchId,
               action
             },
-            targetPlayerIds: option.targetPlayerIds
+            targetPlayerIds: option.targetPlayerIds,
+            pirateStealTypes: []
+          };
+        }
+        case "move_pirate": {
+          if (interactionMode !== "pirate") {
+            return null;
+          }
+
+          const option = match.allowedMoves.pirateMoveOptions.find((entry) => entry.tileId === current.selection.id);
+          if (!option) {
+            return null;
+          }
+
+          const targetPlayerId =
+            current.message.action.targetPlayerId && option.targetPlayerIds.includes(current.message.action.targetPlayerId)
+              ? current.message.action.targetPlayerId
+              : undefined;
+          const action = buildPirateMoveAction(
+            match,
+            current.selection.id,
+            targetPlayerId,
+            current.message.action.stealType
+          );
+          const confirmation = getMatchActionConfirmation(match, action);
+          if (!confirmation) {
+            return null;
+          }
+
+          return {
+            ...current,
+            ...confirmation,
+            key: getMatchActionKey(action),
+            message: {
+              ...current.message,
+              matchId: match.matchId,
+              action
+            },
+            targetPlayerIds: option.targetPlayerIds,
+            pirateStealTypes: getPendingPirateStealTypes(match, action)
           };
         }
         default:
           return null;
       }
     });
-  }, [interactionMode, match]);
+  }, [getRouteTypesForEdge, interactionMode, match]);
 
   useEffect(() => {
     const dialogOpen = !!pendingBoardAction;
@@ -1367,12 +1440,18 @@ export function App() {
   useEffect(() => {
     if (!match) {
       setPendingBoardAction(null);
+      setPendingRouteChoice(null);
+      setSelectedPortTokenType(null);
       setInteractionMode(null);
       setSelectedRoadEdges([]);
+      setGoldChoice([]);
       return;
     }
 
-    if (match.allowedMoves.robberMoveOptions.length > 0) {
+    const hasRobberMoves = match.allowedMoves.robberMoveOptions.length > 0;
+    const hasPirateMoves = match.allowedMoves.pirateMoveOptions.length > 0;
+
+    if (hasRobberMoves || hasPirateMoves) {
       if (robberUiDeferredByDiceAnimation) {
         if (interactionMode !== null) {
           setInteractionMode(null);
@@ -1381,11 +1460,18 @@ export function App() {
         return;
       }
 
-      setInteractionMode("robber");
+      if (interactionMode === "robber" && hasRobberMoves) {
+        return;
+      }
+      if (interactionMode === "pirate" && hasPirateMoves) {
+        return;
+      }
+
+      setInteractionMode(hasRobberMoves ? "robber" : "pirate");
       return;
     }
 
-    if (interactionMode === "robber") {
+    if (interactionMode === "robber" || interactionMode === "pirate") {
       setInteractionMode(null);
       setSelectedRoadEdges([]);
       return;
@@ -1401,17 +1487,51 @@ export function App() {
       return;
     }
 
+    if (match.phase === "scenario_setup") {
+      const nextInteractionMode =
+        match.scenarioSetup?.canEdit !== false && match.scenarioSetup?.stage === "ports"
+          ? "scenario_setup_port"
+          : match.scenarioSetup?.canEdit !== false &&
+              (match.scenarioSetup?.stage === "tiles" || match.scenarioSetup?.stage === "tokens")
+            ? "scenario_setup_tile"
+            : null;
+      if (interactionMode !== nextInteractionMode) {
+        setInteractionMode(nextInteractionMode);
+      }
+      if (selectedRoadEdges.length > 0) {
+        setSelectedRoadEdges([]);
+      }
+      return;
+    }
+
     const selfPlayer = match.players.find((player) => player.id === match.you);
     const selfResources = selfPlayer?.resources;
+    const availablePortTokens = selfPlayer?.harborTokens ?? [];
     const canBuildRoad = !!selfResources && hasResources(selfResources, BUILD_COSTS.road);
+    const canBuildShip = !!selfResources && hasResources(selfResources, BUILD_COSTS.ship);
     const canBuildSettlement = !!selfResources && hasResources(selfResources, BUILD_COSTS.settlement);
     const canBuildCity = !!selfResources && hasResources(selfResources, BUILD_COSTS.city);
+    const claimableWonderVertexIds = getClaimableWonderVertexIds(match);
+    const buildableWonderVertexIds = getBuildableWonderVertexIds(match);
 
     if (
       (interactionMode === "road" && (!canBuildRoad || !match.allowedMoves.roadEdgeIds.length)) ||
+      (interactionMode === "ship" && (!canBuildShip || !match.allowedMoves.shipEdgeIds.length)) ||
+      (interactionMode === "move_ship" &&
+        (!match.allowedMoves.movableShipEdgeIds.length ||
+          (selectedRoadEdges.length === 0
+            ? !match.allowedMoves.movableShipEdgeIds.length
+            : !match.allowedMoves.shipEdgeIds.length))) ||
       (interactionMode === "settlement" &&
         (!canBuildSettlement || !match.allowedMoves.settlementVertexIds.length)) ||
-      (interactionMode === "city" && (!canBuildCity || !match.allowedMoves.cityVertexIds.length))
+      (interactionMode === "city" && (!canBuildCity || !match.allowedMoves.cityVertexIds.length)) ||
+      (interactionMode === "place_port" &&
+        (!match.allowedMoves.placeablePortVertexIds.length || availablePortTokens.length === 0)) ||
+      (interactionMode === "claim_wonder" && !claimableWonderVertexIds.length) ||
+      (interactionMode === "build_wonder" && !buildableWonderVertexIds.length) ||
+      (interactionMode === "attack_fortress" && !match.allowedMoves.fortressVertexIds.length) ||
+      interactionMode === "scenario_setup_tile" ||
+      interactionMode === "scenario_setup_port"
     ) {
       setInteractionMode(null);
       setSelectedRoadEdges([]);
@@ -1422,7 +1542,33 @@ export function App() {
       setInteractionMode(null);
       setSelectedRoadEdges([]);
     }
-  }, [interactionMode, match, robberUiDeferredByDiceAnimation, selectedRoadEdges.length]);
+    if (pendingRouteChoice) {
+      const routeTypes = getRouteTypesForEdge(match, pendingRouteChoice.kind, pendingRouteChoice.edgeId);
+      const stillValid = pendingRouteChoice.routeTypes.some((routeType) => routeTypes.includes(routeType));
+      if (!stillValid) {
+        setPendingRouteChoice(null);
+      }
+    }
+    if (selectedPortTokenType && !availablePortTokens.includes(selectedPortTokenType)) {
+      setSelectedPortTokenType(null);
+    } else if (!selectedPortTokenType && availablePortTokens.length === 1) {
+      setSelectedPortTokenType(availablePortTokens[0] ?? null);
+    }
+    if (match.allowedMoves.goldResourceChoiceCount === 0 && goldChoice.length > 0) {
+      setGoldChoice([]);
+    }
+  }, [
+    getBuildableWonderVertexIds,
+    getClaimableWonderVertexIds,
+    getRouteTypesForEdge,
+    goldChoice.length,
+    interactionMode,
+    match,
+    pendingRouteChoice,
+    robberUiDeferredByDiceAnimation,
+    selectedPortTokenType,
+    selectedRoadEdges.length
+  ]);
 
   const subscribeRoom = useCallback((roomId: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -1504,9 +1650,17 @@ export function App() {
     }
 
     if (
-      pendingBoardAction.message.action.type === "move_robber" &&
+      (pendingBoardAction.message.action.type === "move_robber" ||
+        pendingBoardAction.message.action.type === "move_pirate") &&
       pendingBoardAction.targetPlayerIds.length > 1 &&
       !pendingBoardAction.message.action.targetPlayerId
+    ) {
+      return;
+    }
+    if (
+      pendingBoardAction.message.action.type === "move_pirate" &&
+      (pendingBoardAction.pirateStealTypes?.length ?? 0) > 1 &&
+      !pendingBoardAction.message.action.stealType
     ) {
       return;
     }
@@ -1526,6 +1680,7 @@ export function App() {
       options?: {
         afterConfirm?: () => void;
         targetPlayerIds?: string[];
+        pirateStealTypes?: PirateStealType[];
       }
     ) => {
       const currentMatch = matchRef.current;
@@ -1546,11 +1701,15 @@ export function App() {
         currentPendingBoardAction.selection.id === selection.id &&
         currentPendingBoardAction.key === nextKey;
       const requiresTargetSelection =
-        message.action.type === "move_robber" &&
+        (message.action.type === "move_robber" || message.action.type === "move_pirate") &&
         (options?.targetPlayerIds?.length ?? 0) > 1 &&
         !message.action.targetPlayerId;
+      const requiresStealSelection =
+        message.action.type === "move_pirate" &&
+        (options?.pirateStealTypes?.length ?? 0) > 1 &&
+        !message.action.stealType;
 
-      if (sameSelection && !requiresTargetSelection) {
+      if (sameSelection && !requiresTargetSelection && !requiresStealSelection) {
         setPendingBoardAction(null);
         dispatchMatchAction(message, options?.afterConfirm);
         return;
@@ -1561,11 +1720,146 @@ export function App() {
         message,
         selection,
         targetPlayerIds: options?.targetPlayerIds ?? [],
+        pirateStealTypes: options?.pirateStealTypes ?? [],
         ...(options?.afterConfirm ? { afterConfirm: options.afterConfirm } : {})
       });
     },
     [dispatchMatchAction, pendingBoardAction]
   );
+
+  function getRouteTypesForEdge(
+    currentMatch: MatchSnapshot,
+    kind: PendingRouteChoiceState["kind"],
+    edgeId: string
+  ): RouteBuildType[] {
+    const options =
+      kind === "initial"
+        ? currentMatch.allowedMoves.initialRouteOptions
+        : currentMatch.allowedMoves.freeRouteOptions;
+    return [...new Set(options.filter((option) => option.edgeId === edgeId).map((option) => option.routeType))];
+  }
+
+  const armRoutePlacement = useCallback(
+    (
+      currentMatch: MatchSnapshot,
+      kind: PendingRouteChoiceState["kind"],
+      edgeId: string,
+      routeType: RouteBuildType
+    ) => {
+      const action: Extract<ClientMessage, { type: "match.action" }>["action"] =
+        kind === "initial"
+          ? {
+              type: "place_initial_road",
+              edgeId,
+              routeType
+            }
+          : {
+              type: "place_free_road",
+              edgeId,
+              routeType
+            };
+
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: currentMatch.matchId,
+          action
+        },
+        { kind: "edge", id: edgeId }
+      );
+    },
+    [armBoardAction]
+  );
+
+  const handleChooseRouteType = useCallback(
+    (routeType: RouteBuildType) => {
+      const currentMatch = matchRef.current;
+      const currentChoice = pendingRouteChoice;
+      if (!currentMatch || !currentChoice || !currentChoice.routeTypes.includes(routeType)) {
+        return;
+      }
+
+      setPendingRouteChoice(null);
+      armRoutePlacement(currentMatch, currentChoice.kind, currentChoice.edgeId, routeType);
+    },
+    [armRoutePlacement, pendingRouteChoice]
+  );
+
+  const handleCancelRouteChoice = useCallback(() => {
+    setPendingRouteChoice(null);
+  }, []);
+
+  function getClaimableWonderVertexIds(currentMatch: MatchSnapshot): string[] {
+    return currentMatch.allowedMoves.wonderVertexIds.filter((vertexId) => {
+      const site = currentMatch.board.sites?.find(
+        (entry) => entry.type === "wonder" && entry.vertexId === vertexId
+      );
+      return !site?.ownerId;
+    });
+  }
+
+  function getBuildableWonderVertexIds(currentMatch: MatchSnapshot): string[] {
+    return currentMatch.allowedMoves.wonderVertexIds.filter((vertexId) => {
+      const site = currentMatch.board.sites?.find(
+        (entry) => entry.type === "wonder" && entry.vertexId === vertexId
+      );
+      return site?.ownerId === currentMatch.you;
+    });
+  }
+
+  function getPirateStealTypesForTarget(
+    currentMatch: MatchSnapshot,
+    targetPlayerId: string
+  ): PirateStealType[] {
+    const targetPlayer = currentMatch.players.find((player) => player.id === targetPlayerId);
+    if (!targetPlayer) {
+      return [];
+    }
+
+    const types: PirateStealType[] = [];
+    if ((targetPlayer.resourceCount ?? 0) > 0) {
+      types.push("resource");
+    }
+    if ((targetPlayer.clothCount ?? 0) > 0) {
+      types.push("cloth");
+    }
+    return types;
+  }
+
+  function buildPirateMoveAction(
+    currentMatch: MatchSnapshot,
+    tileId: string,
+    targetPlayerId?: string,
+    preferredStealType?: PirateStealType
+  ): Extract<ClientMessage, { type: "match.action" }>["action"] {
+    const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
+      type: "move_pirate",
+      tileId,
+      ...(targetPlayerId ? { targetPlayerId } : {})
+    };
+
+    if (!targetPlayerId) {
+      return action;
+    }
+
+    const stealTypes = getPirateStealTypesForTarget(currentMatch, targetPlayerId);
+    if (preferredStealType && stealTypes.includes(preferredStealType)) {
+      action.stealType = preferredStealType;
+    } else if (stealTypes.length === 1) {
+      action.stealType = stealTypes[0];
+    }
+    return action;
+  }
+
+  function getPendingPirateStealTypes(
+    currentMatch: MatchSnapshot,
+    action: Extract<ClientMessage, { type: "match.action" }>["action"]
+  ): PirateStealType[] {
+    if (action.type !== "move_pirate" || !action.targetPlayerId) {
+      return [];
+    }
+    return getPirateStealTypesForTarget(currentMatch, action.targetPlayerId);
+  }
 
   const handleSelectPendingRobberTarget = useCallback((targetPlayerId: string) => {
     const currentMatch = matchRef.current;
@@ -1574,14 +1868,67 @@ export function App() {
     }
 
     setPendingBoardAction((current) => {
-      if (!current || current.message.action.type !== "move_robber") {
+      if (
+        !current ||
+        (current.message.action.type !== "move_robber" &&
+          current.message.action.type !== "move_pirate")
+      ) {
+        return current;
+      }
+
+      const action: Extract<ClientMessage, { type: "match.action" }>["action"] =
+        current.message.action.type === "move_pirate"
+          ? buildPirateMoveAction(
+              currentMatch,
+              current.selection.id,
+              targetPlayerId,
+              current.message.action.targetPlayerId === targetPlayerId
+                ? current.message.action.stealType
+                : undefined
+            )
+          : {
+              type: "move_robber",
+              tileId: current.selection.id,
+              targetPlayerId
+            };
+      if (!getMatchActionConfirmation(currentMatch, action)) {
+        return null;
+      }
+
+      return {
+        ...current,
+        key: getMatchActionKey(action),
+        pirateStealTypes:
+          action.type === "move_pirate" ? getPendingPirateStealTypes(currentMatch, action) : [],
+        message: {
+          ...current.message,
+          matchId: currentMatch.matchId,
+          action
+        }
+      };
+    });
+  }, []);
+
+  const handleSelectPendingPirateStealType = useCallback((stealType: PirateStealType) => {
+    const currentMatch = matchRef.current;
+    if (!currentMatch) {
+      return;
+    }
+
+    setPendingBoardAction((current) => {
+      if (
+        !current ||
+        current.message.action.type !== "move_pirate" ||
+        !current.message.action.targetPlayerId
+      ) {
         return current;
       }
 
       const action: Extract<ClientMessage, { type: "match.action" }>["action"] = {
-        type: "move_robber",
+        type: "move_pirate",
         tileId: current.selection.id,
-        targetPlayerId
+        targetPlayerId: current.message.action.targetPlayerId,
+        stealType
       };
       if (!getMatchActionConfirmation(currentMatch, action)) {
         return null;
@@ -1643,10 +1990,11 @@ export function App() {
     if (selectedDiscardCount !== requiredDiscardCount) {
       pushToast(
         "error",
-        createText("Noch nicht vollständig", "Not complete yet"),
-        createText(
-          "Du musst genau {count} Karten auswählen.",
-          "You must select exactly {count} cards.",
+        createCatalogText("app.robberDiscard.incompleteTitle", "app.robberDiscard.incompleteTitle"),
+        createCatalogText(
+          "app.robberDiscard.incompleteDetail",
+          "app.robberDiscard.incompleteDetail",
+          undefined,
           { count: requiredDiscardCount }
         )
       );
@@ -1942,7 +2290,7 @@ export function App() {
     } catch (readyError) {
       pushToast(
         "error",
-        createText("Ready-Status fehlgeschlagen", "Ready state failed"),
+        translate(locale, "room.errors.readyChange"),
         describeClientError(readyError)
       );
     } finally {
@@ -1951,7 +2299,7 @@ export function App() {
   };
 
   const handleRoomSetupModeChange = async (setupMode: SetupMode) => {
-    if (!room || room.gameConfig.setupMode === setupMode) {
+    if (!room || room.gameConfig.setupMode === setupMode || room.gameConfig.rulesFamily === "seafarers") {
       return;
     }
 
@@ -1962,7 +2310,7 @@ export function App() {
     } catch (settingsError) {
       pushToast(
         "error",
-        createText("Aufbau konnte nicht geändert werden", "Setup could not be changed"),
+        translate(locale, "room.errors.setupModeChange"),
         describeClientError(settingsError)
       );
     }
@@ -1980,7 +2328,105 @@ export function App() {
     } catch (settingsError) {
       pushToast(
         "error",
-        createText("Regelprofil konnte nicht geändert werden", "Rules preset could not be changed"),
+        translate(locale, "room.errors.rulesPresetChange"),
+        describeClientError(settingsError)
+      );
+    }
+  };
+
+  const handleRoomRulesFamilyChange = async (rulesFamily: RulesFamily) => {
+    if (!room || room.gameConfig.rulesFamily === rulesFamily) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { rulesFamily });
+      setRoom(nextRoom);
+      await loadMyRooms();
+    } catch (settingsError) {
+      pushToast(
+        "error",
+        translate(locale, "room.errors.rulesFamilyChange"),
+        describeClientError(settingsError)
+      );
+    }
+  };
+
+  const handleRoomScenarioChange = async (scenarioId: ScenarioId) => {
+    if (!room || room.gameConfig.scenarioId === scenarioId) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { scenarioId });
+      setRoom(nextRoom);
+      await loadMyRooms();
+    } catch (settingsError) {
+      pushToast(
+        "error",
+        translate(locale, "room.errors.scenarioChange"),
+        describeClientError(settingsError)
+      );
+    }
+  };
+
+  const handleRoomLayoutModeChange = async (layoutMode: LayoutMode) => {
+    if (!room || room.gameConfig.layoutMode === layoutMode) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, { layoutMode });
+      setRoom(nextRoom);
+      await loadMyRooms();
+    } catch (settingsError) {
+      pushToast(
+        "error",
+        translate(locale, "room.errors.layoutModeChange"),
+        describeClientError(settingsError)
+      );
+    }
+  };
+
+  const handleRoomVictoryPointsToWinChange = async (victoryPointsToWin: number) => {
+    if (!room || room.gameConfig.scenarioOptions.victoryPointsToWin === victoryPointsToWin) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, {
+        scenarioOptions: {
+          victoryPointsToWin
+        }
+      });
+      setRoom(nextRoom);
+      await loadMyRooms();
+    } catch (settingsError) {
+      pushToast(
+        "error",
+        translate(locale, "room.errors.victoryPointsChange"),
+        describeClientError(settingsError)
+      );
+    }
+  };
+
+  const handleRoomNewWorldScenarioSetupChange = async (newWorldScenarioSetupEnabled: boolean) => {
+    if (!room || room.gameConfig.scenarioOptions.newWorldScenarioSetupEnabled === newWorldScenarioSetupEnabled) {
+      return;
+    }
+
+    try {
+      const nextRoom = await updateRoomSettings(room.id, {
+        scenarioOptions: {
+          newWorldScenarioSetupEnabled
+        }
+      });
+      setRoom(nextRoom);
+      await loadMyRooms();
+    } catch (settingsError) {
+      pushToast(
+        "error",
+        translate(locale, "room.errors.newWorldScenarioSetupChange"),
         describeClientError(settingsError)
       );
     }
@@ -1998,14 +2444,14 @@ export function App() {
     } catch (settingsError) {
       pushToast(
         "error",
-        createText("Spielfeld konnte nicht geändert werden", "Board size could not be changed"),
+        translate(locale, "room.errors.boardSizeChange"),
         describeClientError(settingsError)
       );
     }
   };
 
   const handleRoomTurnRuleChange = async (turnRule: TurnRule) => {
-    if (!room || room.gameConfig.turnRule === turnRule) {
+    if (!room || room.gameConfig.turnRule === turnRule || room.gameConfig.rulesFamily === "seafarers") {
       return;
     }
 
@@ -2016,7 +2462,7 @@ export function App() {
     } catch (settingsError) {
       pushToast(
         "error",
-        createText("Zugregel konnte nicht geändert werden", "Turn rule could not be changed"),
+        translate(locale, "room.errors.turnRuleChange"),
         describeClientError(settingsError)
       );
     }
@@ -2038,7 +2484,7 @@ export function App() {
     } catch (settingsError) {
       pushToast(
         "error",
-        createText("Startmodus konnte nicht geändert werden", "Starting mode could not be changed"),
+        translate(locale, "room.errors.startingModeChange"),
         describeClientError(settingsError)
       );
     }
@@ -2064,7 +2510,7 @@ export function App() {
     } catch (settingsError) {
       pushToast(
         "error",
-        createText("Startspieler konnte nicht geändert werden", "Starting player could not be changed"),
+        translate(locale, "room.errors.startingSeatChange"),
         describeClientError(settingsError)
       );
     }
@@ -2086,13 +2532,13 @@ export function App() {
       navigateTo({ kind: "play" });
       pushToast(
         "info",
-        createText("Raum verlassen", "Leave room"),
-        createText("Du bist zurück in der Zentrale.", "You are back in the hub.")
+        translate(locale, "room.leave.title"),
+        translate(locale, "room.leave.detail")
       );
     } catch (leaveError) {
       pushToast(
         "error",
-        createText("Raum konnte nicht verlassen werden", "Room could not be left"),
+        translate(locale, "room.errors.leaveRoom"),
         describeClientError(leaveError)
       );
     } finally {
@@ -2413,6 +2859,9 @@ export function App() {
 
     const selfPlayer = match.players.find((player) => player.id === match.you);
     const selfResources = selfPlayer?.resources;
+    const availablePortTokens = selfPlayer?.harborTokens ?? [];
+    const claimableWonderVertexIds = getClaimableWonderVertexIds(match);
+    const buildableWonderVertexIds = getBuildableWonderVertexIds(match);
 
     if (match.allowedMoves.initialSettlementVertexIds.includes(vertexId)) {
       playUiFeedback({ haptic: "nudge" });
@@ -2471,10 +2920,111 @@ export function App() {
         { afterConfirm: () => setInteractionMode(null) }
       );
     }
+
+    if (
+      interactionMode === "place_port" &&
+      match.allowedMoves.placeablePortVertexIds.includes(vertexId)
+    ) {
+      const portType = selectedPortTokenType ?? availablePortTokens[0] ?? null;
+      if (!portType) {
+        return;
+      }
+
+      playUiFeedback({ haptic: "nudge" });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "place_port_token",
+            vertexId,
+            portType
+          }
+        },
+        { kind: "vertex", id: vertexId },
+        { afterConfirm: () => setInteractionMode(null) }
+      );
+      return;
+    }
+
+    if (interactionMode === "claim_wonder" && claimableWonderVertexIds.includes(vertexId)) {
+      playUiFeedback({ haptic: "nudge" });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "claim_wonder",
+            vertexId
+          }
+        },
+        { kind: "vertex", id: vertexId },
+        { afterConfirm: () => setInteractionMode(null) }
+      );
+      return;
+    }
+
+    if (interactionMode === "build_wonder" && buildableWonderVertexIds.includes(vertexId)) {
+      playUiFeedback({ haptic: "nudge" });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "build_wonder_level",
+            vertexId
+          }
+        },
+        { kind: "vertex", id: vertexId },
+        { afterConfirm: () => setInteractionMode(null) }
+      );
+      return;
+    }
+
+    if (interactionMode === "attack_fortress" && match.allowedMoves.fortressVertexIds.includes(vertexId)) {
+      playUiFeedback({ haptic: "nudge" });
+      armBoardAction(
+        {
+          type: "match.action",
+          matchId: match.matchId,
+          action: {
+            type: "attack_fortress",
+            vertexId
+          }
+        },
+        { kind: "vertex", id: vertexId },
+        { afterConfirm: () => setInteractionMode(null) }
+      );
+    }
   };
 
   const handleEdgeSelect = (edgeId: string) => {
     if (!match) {
+      return;
+    }
+
+    if (
+      match.phase === "scenario_setup" &&
+      match.scenarioSetup?.stage === "ports" &&
+      match.scenarioSetup.canEdit &&
+      match.scenarioSetup.portEdgeIds.includes(edgeId)
+    ) {
+      playUiFeedback({ haptic: "nudge" });
+      handleMatchAction({
+        type: "match.action",
+        matchId: match.matchId,
+        action:
+          selectedScenarioSetupPortType === null
+            ? {
+                type: "scenario_setup_clear_port",
+                edgeId
+              }
+            : {
+                type: "scenario_setup_place_port",
+                edgeId,
+                portType: selectedScenarioSetupPortType
+              }
+      });
       return;
     }
 
@@ -2483,17 +3033,16 @@ export function App() {
 
     if (match.allowedMoves.initialRoadEdgeIds.includes(edgeId)) {
       playUiFeedback({ haptic: "nudge" });
-      armBoardAction(
-        {
-          type: "match.action",
-          matchId: match.matchId,
-          action: {
-            type: "place_initial_road",
-            edgeId
-          }
-        },
-        { kind: "edge", id: edgeId }
-      );
+      const routeTypes = getRouteTypesForEdge(match, "initial", edgeId);
+      if (routeTypes.length > 1) {
+        setPendingRouteChoice({
+          kind: "initial",
+          edgeId,
+          routeTypes
+        });
+      } else if (routeTypes[0]) {
+        armRoutePlacement(match, "initial", edgeId, routeTypes[0]);
+      }
       return;
     }
 
@@ -2518,28 +3067,145 @@ export function App() {
       );
     }
 
-    if (interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(edgeId)) {
+    if (
+      interactionMode === "ship" &&
+      !!selfResources &&
+      hasResources(selfResources, BUILD_COSTS.ship) &&
+      match.allowedMoves.shipEdgeIds.includes(edgeId)
+    ) {
       playUiFeedback({ haptic: "nudge" });
       armBoardAction(
         {
           type: "match.action",
           matchId: match.matchId,
           action: {
-            type: "place_free_road",
+            type: "build_ship",
             edgeId
           }
         },
-        { kind: "edge", id: edgeId }
+        { kind: "edge", id: edgeId },
+        { afterConfirm: () => setInteractionMode(null) }
       );
+      return;
+    }
+
+    if (interactionMode === "move_ship") {
+      const sourceEdgeId = selectedRoadEdges[0] ?? null;
+      if (!sourceEdgeId) {
+        if (match.allowedMoves.movableShipEdgeIds.includes(edgeId)) {
+          playUiFeedback({ haptic: "nudge" });
+          setSelectedRoadEdges([edgeId]);
+        }
+        return;
+      }
+
+      if (sourceEdgeId === edgeId) {
+        setSelectedRoadEdges([]);
+        return;
+      }
+
+      if (match.allowedMoves.shipEdgeIds.includes(edgeId)) {
+        playUiFeedback({ haptic: "nudge" });
+        armBoardAction(
+          {
+            type: "match.action",
+            matchId: match.matchId,
+            action: {
+              type: "move_ship",
+              fromEdgeId: sourceEdgeId,
+              toEdgeId: edgeId
+            }
+          },
+          { kind: "edge", id: edgeId },
+          {
+            afterConfirm: () => {
+              setInteractionMode(null);
+              setSelectedRoadEdges([]);
+            }
+          }
+        );
+      }
+      return;
+    }
+
+    if (interactionMode === "road_building" && match.allowedMoves.freeRoadEdgeIds.includes(edgeId)) {
+      playUiFeedback({ haptic: "nudge" });
+      const routeTypes = getRouteTypesForEdge(match, "free", edgeId);
+      if (routeTypes.length > 1) {
+        setPendingRouteChoice({
+          kind: "free",
+          edgeId,
+          routeTypes
+        });
+      } else if (routeTypes[0]) {
+        armRoutePlacement(match, "free", edgeId, routeTypes[0]);
+      }
     }
   };
 
   const handleTileSelect = (tileId: string) => {
-    if (!match || interactionMode !== "robber") {
+    if (!match) {
       return;
     }
 
-    const option = match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === tileId);
+    if (match.phase === "scenario_setup" && match.scenarioSetup) {
+      if (
+        match.scenarioSetup.canEdit &&
+        match.scenarioSetup.stage === "tiles" &&
+        match.scenarioSetup.placeableTileIds.includes(tileId)
+      ) {
+        playUiFeedback({ haptic: "nudge" });
+        handleMatchAction({
+          type: "match.action",
+          matchId: match.matchId,
+          action:
+            selectedScenarioSetupTerrain === null
+              ? {
+                  type: "scenario_setup_clear_tile",
+                  tileId
+                }
+              : {
+                  type: "scenario_setup_place_tile",
+                  tileId,
+                  terrain: selectedScenarioSetupTerrain
+                }
+        });
+        return;
+      }
+
+      if (
+        match.scenarioSetup.canEdit &&
+        match.scenarioSetup.stage === "tokens" &&
+        match.scenarioSetup.tokenTileIds.includes(tileId)
+      ) {
+        playUiFeedback({ haptic: "nudge" });
+        handleMatchAction({
+          type: "match.action",
+          matchId: match.matchId,
+          action:
+            selectedScenarioSetupToken === null
+              ? {
+                  type: "scenario_setup_clear_token",
+                  tileId
+                }
+              : {
+                  type: "scenario_setup_place_token",
+                  tileId,
+                  token: selectedScenarioSetupToken
+                }
+        });
+      }
+      return;
+    }
+
+    if (interactionMode !== "robber" && interactionMode !== "pirate") {
+      return;
+    }
+
+    const option =
+      interactionMode === "pirate"
+        ? match.allowedMoves.pirateMoveOptions.find((entry) => entry.tileId === tileId)
+        : match.allowedMoves.robberMoveOptions.find((entry) => entry.tileId === tileId);
     if (!option) {
       return;
     }
@@ -2548,16 +3214,27 @@ export function App() {
       {
         type: "match.action",
         matchId: match.matchId,
-        action: {
-          type: "move_robber",
-          tileId,
-          ...(option.targetPlayerIds.length === 1 ? { targetPlayerId: option.targetPlayerIds[0] } : {})
-        }
+        action:
+          interactionMode === "pirate"
+            ? buildPirateMoveAction(
+                match,
+                tileId,
+                option.targetPlayerIds.length === 1 ? option.targetPlayerIds[0] : undefined
+              )
+            : {
+                type: "move_robber",
+                tileId,
+                ...(option.targetPlayerIds.length === 1 ? { targetPlayerId: option.targetPlayerIds[0] } : {})
+              }
       },
       { kind: "tile", id: tileId },
       {
         afterConfirm: () => setInteractionMode(null),
-        targetPlayerIds: option.targetPlayerIds
+        targetPlayerIds: option.targetPlayerIds,
+        pirateStealTypes:
+          interactionMode === "pirate" && option.targetPlayerIds.length === 1
+            ? getPirateStealTypesForTarget(match, option.targetPlayerIds[0]!)
+            : []
       }
     );
   };
@@ -2706,37 +3383,34 @@ export function App() {
     : null;
 
   const displayEyebrow = !session
-    ? resolveText(locale, createText("Mit Freunden spielen", "Play with friends"))
+    ? translate(locale, "app.header.landing.eyebrow")
     : activeScreen === "lobby"
       ? "HEXAGONIA"
       : headerContext.eyebrow;
   const currentMatchPlayer = match?.players.find((player) => player.id === match.currentPlayerId) ?? null;
   const displayMeta =
     !session
-      ? resolveText(locale, TEXT.subtitle)
+      ? translate(locale, "app.subtitle")
       : activeScreen === "lobby"
         ? ""
         : activeScreen === "room" && room
-          ? resolveText(
-              locale,
-              createText("Code {code} - {count}/6 Spieler", "Code {code} - {count}/6 players", {
-                code: room.code,
-                count: room.seats.filter((seat) => seat.userId).length
-              })
-            )
+          ? translate(locale, "app.header.room.meta", undefined, {
+              code: room.code,
+              count: room.seats.filter((seat) => seat.userId).length
+            })
           : activeScreen === "match" && match
             ? currentMatchPlayer
               ? (
                   <>
-                    {resolveText(locale, createText("Am Zug:", "Current turn:"))}{" "}
+                    {translate(locale, "app.header.match.prefix")}{" "}
                     <PlayerMention color={currentMatchPlayer.color}>
                       {currentMatchPlayer.id === match.you
-                        ? resolveText(locale, createText("Du", "You"))
+                        ? translate(locale, "app.shared.you")
                         : currentMatchPlayer.username}
                     </PlayerMention>
                   </>
                 )
-              : resolveText(locale, createText("Am Zug: -", "Current turn: -"))
+              : translate(locale, "app.header.match.unknown")
             : headerContext.meta;
 
   return (
@@ -2824,14 +3498,19 @@ export function App() {
                 onJoinRoom={handleJoinRoom}
                 onBoardSizeChange={handleRoomBoardSizeChange}
                 onKickUser={handleKickRoomUser}
+                onLayoutModeChange={handleRoomLayoutModeChange}
                 onLeave={handleLeaveRoom}
                 onReady={handleReadyToggle}
+                onRulesFamilyChange={handleRoomRulesFamilyChange}
                 onSetupModeChange={handleRoomSetupModeChange}
                 onRulesPresetChange={handleRoomRulesPresetChange}
+                onScenarioChange={handleRoomScenarioChange}
+                onNewWorldScenarioSetupChange={handleRoomNewWorldScenarioSetupChange}
                 onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
                 onStartingSeatChange={handleRoomStartingSeatChange}
                 onStart={handleStartRoom}
                 onTurnRuleChange={handleRoomTurnRuleChange}
+                onVictoryPointsToWinChange={handleRoomVictoryPointsToWinChange}
               />
             </Suspense>
           ) : (
@@ -2849,25 +3528,39 @@ export function App() {
                 match={match}
                 pendingDiceEvent={pendingDiceRevealEvent}
                 diceRevealPending={robberUiDeferredByDiceAnimation}
+                goldChoice={goldChoice}
                 monopolyResource={monopolyResource}
+                pendingRouteChoice={pendingRouteChoice}
                 profileMenuProps={matchProfileMenuProps!}
                 room={room}
+                selectedPortTokenType={selectedPortTokenType}
                 selfPlayer={selfPlayer}
                 selectedRoadEdges={selectedRoadEdges}
+                setGoldChoice={setGoldChoice}
                 setInteractionMode={setInteractionMode}
                 setMaritimeForm={setMaritimeForm}
                 setMonopolyResource={setMonopolyResource}
+                setSelectedPortTokenType={setSelectedPortTokenType}
+                setSelectedScenarioSetupPortType={setSelectedScenarioSetupPortType}
+                setSelectedScenarioSetupTerrain={setSelectedScenarioSetupTerrain}
+                setSelectedScenarioSetupToken={setSelectedScenarioSetupToken}
                 setSelectedRoadEdges={setSelectedRoadEdges}
                 setTradeForm={setTradeForm}
                 setYearOfPlenty={setYearOfPlenty}
+                selectedScenarioSetupPortType={selectedScenarioSetupPortType}
+                selectedScenarioSetupTerrain={selectedScenarioSetupTerrain}
+                selectedScenarioSetupToken={selectedScenarioSetupToken}
                 tradeForm={tradeForm}
                 yearOfPlenty={yearOfPlenty}
                 onAction={handleMatchAction}
+                onCancelRouteChoice={handleCancelRouteChoice}
+                onChooseRouteType={handleChooseRouteType}
                 onCancelPendingBoardAction={handleCancelPendingBoardAction}
                 onConfirmPendingBoardAction={handleConfirmPendingBoardAction}
                 onRollDice={handleRollDiceHaptic}
                 onEdgeSelect={handleEdgeSelect}
                 onOfferTrade={sendTradeOffer}
+                onSelectPendingPirateStealType={handleSelectPendingPirateStealType}
                 onSelectPendingRobberTarget={handleSelectPendingRobberTarget}
                 onTileSelect={handleTileSelect}
                 onVertexSelect={handleVertexSelect}
@@ -2904,6 +3597,8 @@ export function App() {
         requiredDiscardCount === 0 &&
         robberDiscardStatus.length > 0 &&
         match.allowedMoves.robberMoveOptions.length === 0 &&
+        match.allowedMoves.pirateMoveOptions.length === 0 &&
+        match.allowedMoves.pirateStealTargetPlayerIds.length === 0 &&
         !pendingBoardAction ? (
           <RobberWaitDialog
             currentPlayer={match.players.find((player) => player.id === match.currentPlayerId) ?? null}

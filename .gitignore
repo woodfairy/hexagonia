@@ -11,3 +11,7 @@ coverage/
 apps/server/uploads/
 postgres-data/
 AGENTS.md
+tmp/
+.codex/
+.codex_tmp/
+.coddex-tmp/

@@ -1,19 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type AuthUser,
   type BoardSize,
+  getScenarioCatalogEntry,
+  getScenarioAllowedLayoutModes,
+  getScenarioVictoryPointsToWin,
+  isNewWorldScenarioSetupEnabled,
+  isScenarioFixedLayoutOnly,
+  listScenarioCatalogEntries,
+  type LayoutMode,
   type RoomDetails,
+  type RulesFamily,
   type RulesPreset,
+  type ScenarioId,
   type SetupMode,
   type StartingPlayerMode,
   type TurnRule,
   resolveRoomGameConfig
 } from "@hexagonia/shared";
 import { uiHapticsManager } from "../../audio/uiHapticsManager";
-import { createText, resolveText, useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
 import { renderBoardSizeLabel, renderPlayerColorLabel, renderTurnRuleLabel } from "../../ui";
 import { PlayerColorBadge } from "../shared/PlayerIdentity";
 import { LoadingButtonContent } from "../shared/LoadingButtonContent";
+import { PopupSelect, type PopupSelectOption } from "../shared/PopupSelect";
 
 export function RoomScreen(props: {
   room: RoomDetails;
@@ -27,7 +37,12 @@ export function RoomScreen(props: {
   onBoardSizeChange: (boardSize: BoardSize) => void;
   onKickUser: (userId: string) => void;
   onRulesPresetChange: (rulesPreset: RulesPreset) => void;
+  onRulesFamilyChange: (rulesFamily: RulesFamily) => void;
+  onScenarioChange: (scenarioId: ScenarioId) => void;
   onSetupModeChange: (setupMode: SetupMode) => void;
+  onLayoutModeChange: (layoutMode: LayoutMode) => void;
+  onVictoryPointsToWinChange: (victoryPointsToWin: number) => void;
+  onNewWorldScenarioSetupChange: (newWorldScenarioSetupEnabled: boolean) => void;
   onStartingPlayerModeChange: (startingPlayerMode: StartingPlayerMode) => void;
   onStartingSeatChange: (startingSeatIndex: number) => void;
   onReady: (ready: boolean) => void;
@@ -37,11 +52,11 @@ export function RoomScreen(props: {
   onCopyCode: () => void;
   onCopyInviteLink: () => void;
 }) {
-  const { locale } = useI18n();
-  const text = (de: string, en: string, params?: Record<string, string | number>) =>
-    resolveText(locale, createText(de, en, params));
-  const seatText = (index: number) => text("Platz {count}", "Seat {count}", { count: index + 1 });
-  const playerText = (index: number) => text("Spieler {count}", "Player {count}", { count: index + 1 });
+  const { locale, translate } = useI18n();
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate(key, undefined, undefined, params);
+  const seatText = (index: number) => t("room.seat.label", { count: index + 1 });
+  const playerText = (index: number) => t("room.seat.player", { count: index + 1 });
 
   const currentSeat = props.room.seats.find((seat) => seat.userId === props.session.id) ?? null;
   const seatedPlayers = props.room.seats.filter((seat) => seat.userId);
@@ -51,10 +66,10 @@ export function RoomScreen(props: {
   const canJoinRoom = !currentSeat && props.room.status === "open" && hasFreeSeat;
   const joinUnavailableLabel =
     props.room.status !== "open"
-      ? text("Partie läuft bereits", "Match already running")
+      ? t("room.join.matchRunning")
       : hasFreeSeat
-        ? text("Nicht verfügbar", "Unavailable")
-        : text("Raum ist voll", "Room is full");
+        ? t("room.join.unavailable")
+        : t("room.join.full");
   const canStart =
     isOwner &&
     seatedPlayers.length >= 3 &&
@@ -63,37 +78,114 @@ export function RoomScreen(props: {
   const canEditSettings = isOwner && props.room.status === "open";
   const extendedBoardRequired = seatedPlayers.length >= 5;
   const effectiveGameConfig = resolveRoomGameConfig(props.room.gameConfig, props.room.seats);
+  const effectiveScenario = getScenarioCatalogEntry(effectiveGameConfig.scenarioId);
   const usesCustomRules = props.room.gameConfig.rulesPreset === "custom";
-  const beginnerAvailable = props.room.gameConfig.boardSize === "standard";
+  const beginnerAvailable = effectiveGameConfig.boardSize === "standard";
   const effectiveStartingSeat =
     props.room.seats.find(
       (seat) => seat.index === effectiveGameConfig.startingPlayer.seatIndex && seat.userId
     ) ?? null;
-  const customStartingSeat =
-    props.room.seats.find(
-      (seat) => seat.index === props.room.gameConfig.startingPlayer.seatIndex && seat.userId
-    ) ?? null;
   const usesRolledStart = effectiveGameConfig.startingPlayer.mode === "rolled";
-  const usesCustomRolledStart = props.room.gameConfig.startingPlayer.mode === "rolled";
+  const newWorldScenarioSetupEnabled = isNewWorldScenarioSetupEnabled(effectiveGameConfig);
   const [showGameSettings, setShowGameSettings] = useState(isOwner);
   const setupModeLabel =
     effectiveGameConfig.setupMode === "beginner"
-      ? text("Anfängeraufbau", "Beginner setup")
-      : text("Variabler Aufbau", "Variable setup");
+      ? t("room.setup.beginner")
+      : t("room.setup.variable");
+  const newWorldSetupLabel = newWorldScenarioSetupEnabled
+    ? t("room.newWorldSetup.editor")
+    : t("room.newWorldSetup.official");
   const startingPlayerLabel = usesRolledStart
-    ? text("Start per Würfel", "Start by roll")
-    : effectiveStartingSeat?.username ?? `${text("Start:", "Start:")} ${seatText(effectiveGameConfig.startingPlayer.seatIndex)}`;
+    ? t("room.startingPlayer.rollSummary")
+    : effectiveStartingSeat?.username ?? t("room.startingPlayer.fallback", {
+        seat: seatText(effectiveGameConfig.startingPlayer.seatIndex)
+      });
   const effectiveRulesSummary = [
-    renderBoardSizeLabel(locale, effectiveGameConfig.boardSize),
-    setupModeLabel,
+    effectiveGameConfig.rulesFamily === "seafarers"
+      ? effectiveGameConfig.layoutMode === "official_variable"
+        ? t("room.layoutMode.variable")
+        : t("room.layoutMode.fixed")
+      : renderBoardSizeLabel(locale, effectiveGameConfig.boardSize),
+    effectiveGameConfig.scenarioId === "seafarers.new_world" ? newWorldSetupLabel : setupModeLabel,
     renderTurnRuleLabel(locale, effectiveGameConfig.turnRule),
     startingPlayerLabel
   ].join(" / ");
   const settingsSummary = [
-    usesCustomRules ? text("Benutzerdefiniert", "Custom") : text("Standardregeln", "Standard rules"),
+    usesCustomRules ? t("room.rules.custom") : t("room.rules.standardRules"),
     effectiveRulesSummary
   ].join(" / ");
   const settingsExpanded = isOwner || showGameSettings;
+  const scenarioPlayerCount = Math.max(seatedPlayers.length, 3);
+  const turnRuleLocked = effectiveGameConfig.rulesFamily === "seafarers";
+  const scenarioEntries = useMemo(
+    () =>
+      listScenarioCatalogEntries(effectiveGameConfig.rulesFamily).filter((entry) =>
+        entry.playerCounts.includes(scenarioPlayerCount)
+      ),
+    [effectiveGameConfig.rulesFamily, scenarioPlayerCount]
+  );
+  const rulesFamilyOptions = useMemo<PopupSelectOption<RulesFamily>[]>(
+    () => [
+      {
+        value: "base",
+        label: t("room.rulesFamily.base.label"),
+        meta: t("room.rulesFamily.base.detail")
+      },
+      {
+        value: "seafarers",
+        label: t("room.rulesFamily.seafarers.label"),
+        meta: t("room.rulesFamily.seafarers.detail")
+      }
+    ],
+    [t]
+  );
+  const scenarioOptions = useMemo<PopupSelectOption<ScenarioId>[]>(
+    () =>
+      scenarioEntries.map((entry) => ({
+        value: entry.id,
+        label: t(entry.titleKey),
+        meta: t(entry.summaryKey)
+      })),
+    [scenarioEntries, t]
+  );
+  const allowedLayoutModes = useMemo(
+    () => getScenarioAllowedLayoutModes(effectiveScenario.id, scenarioPlayerCount),
+    [effectiveScenario.id, scenarioPlayerCount]
+  );
+  const fixedLayoutOnly = useMemo(
+    () => isScenarioFixedLayoutOnly(effectiveScenario.id, scenarioPlayerCount),
+    [effectiveScenario.id, scenarioPlayerCount]
+  );
+  const layoutModeOptions = useMemo<PopupSelectOption<LayoutMode>[]>(
+    () => [
+      {
+        value: "official_fixed",
+        label: t("room.layoutMode.fixed"),
+        meta: fixedLayoutOnly
+          ? t("room.layoutMode.fixedOnly")
+          : t("room.layoutMode.variableAllowed")
+      },
+      {
+        value: "official_variable",
+        label: t("room.layoutMode.variable"),
+        meta: t("room.layoutMode.variableAllowed"),
+        disabled: !allowedLayoutModes.includes("official_variable")
+      }
+    ],
+    [allowedLayoutModes, fixedLayoutOnly, t]
+  );
+  const victoryPointOptions = useMemo<PopupSelectOption<`${number}`>[]>(
+    () =>
+      Array.from({ length: 11 }, (_, index) => index + 8).map((count) => ({
+        value: `${count}`,
+        label: t("room.victoryPoints.option", { count }),
+        meta:
+          count === effectiveScenario.defaultVictoryPointsToWin
+            ? t("room.victoryPoints.official")
+            : undefined
+      })),
+    [effectiveScenario.defaultVictoryPointsToWin, t]
+  );
   const triggerSoftHaptic = () => void uiHapticsManager.play("soft");
 
   useEffect(() => {
@@ -106,37 +198,54 @@ export function RoomScreen(props: {
         <article className="surface room-hero">
           <div className="surface-head room-surface-head">
             <div className="room-title-stack">
-              <div className="eyebrow">{text("Raumlobby", "Room lobby")}</div>
+              <div className="eyebrow">{t("room.hero.eyebrow")}</div>
               <div className="room-code-row">
                 <h1>{props.room.code}</h1>
-                <span className="status-pill">{props.room.status === "open" ? text("Offen", "Open") : text("Laufend", "Running")}</span>
+                <span className="status-pill">
+                  {props.room.status === "open" ? t("room.status.open") : t("room.status.running")}
+                </span>
               </div>
-              <p className="muted-copy room-subline">{text("Private Einladung für bis zu sechs Spieler.", "Private invite for up to six players.")}</p>
+              <p className="muted-copy room-subline">
+                {t("room.hero.detail")}
+              </p>
             </div>
             <div className="room-share-actions">
               <button type="button" className="ghost-button" onClick={props.onCopyInviteLink}>
-                {text("Link kopieren", "Copy link")}
+                {t("room.hero.copyLink")}
               </button>
               <button type="button" className="ghost-button" onClick={props.onCopyCode}>
-                {text("Code kopieren", "Copy code")}
+                {t("room.hero.copyCode")}
               </button>
             </div>
           </div>
 
           <div className="room-meta-strip">
-            <span className="status-pill">{text("{count}/6 besetzt", "{count}/6 occupied", { count: seatedPlayers.length })}</span>
-            <span className={`status-pill ${readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"}`}>
-              {text("{count} bereit", "{count} ready", { count: readyPlayers })}
+            <span className="status-pill">
+              {t("room.hero.occupied", { count: seatedPlayers.length })}
+            </span>
+            <span
+              className={`status-pill ${readyPlayers === seatedPlayers.length && seatedPlayers.length >= 3 ? "" : "muted"}`}
+            >
+              {t("room.hero.ready", { count: readyPlayers })}
             </span>
             <span className="status-pill">
-              {effectiveGameConfig.boardSize === "extended" ? text("Erweitertes Brett", "Extended board") : text("Standardbrett", "Standard board")}
+              {t(effectiveScenario.titleKey)}
+            </span>
+            <span className="status-pill">
+              {effectiveGameConfig.rulesFamily === "seafarers"
+                ? effectiveGameConfig.layoutMode === "official_variable"
+                  ? t("room.layoutMode.variable")
+                  : t("room.layoutMode.fixed")
+                : effectiveGameConfig.boardSize === "extended"
+                  ? t("room.hero.board.extended")
+                  : t("room.hero.board.standard")}
             </span>
             <span className="status-pill">
               {usesRolledStart
-                ? text("Start wird ausgewürfelt", "Starting player is rolled")
+                ? t("room.hero.start.rolled")
                 : isOwner
-                  ? text("Du legst Start fest", "You set the start")
-                  : text("Host legt Start fest", "Host sets the start")}
+                  ? t("room.hero.start.self")
+                  : t("room.hero.start.host")}
             </span>
           </div>
 
@@ -151,14 +260,20 @@ export function RoomScreen(props: {
                 !usesRolledStart &&
                 effectiveGameConfig.startingPlayer.seatIndex === seat.index &&
                 occupied;
-              const stateLabel = seat.ready ? text("Bereit", "Ready") : occupied ? text("Wartet", "Waiting") : text("Frei", "Open");
-              const seatTitle = occupied ? seat.username ?? playerText(seat.index) : text("Freier Platz", "Open seat");
+              const stateLabel = seat.ready
+                ? t("room.seat.ready")
+                : occupied
+                  ? t("room.seat.waiting")
+                  : t("room.seat.open");
+              const seatTitle = occupied
+                ? seat.username ?? playerText(seat.index)
+                : t("room.seat.openTitle");
               const indicatorClass = occupied ? (online ? "is-online" : "is-offline") : "is-empty";
               const presenceLabel = occupied
                 ? online
-                  ? text("Online im Raum", "Online in room")
-                  : text("Nicht verbunden", "Disconnected")
-                : text("Wartet auf Spieler", "Waiting for player");
+                  ? t("room.seat.online")
+                  : t("room.seat.offline")
+                : t("room.seat.waitingPlayer");
 
               return (
                 <article
@@ -170,27 +285,27 @@ export function RoomScreen(props: {
                   <div className="seat-card-head">
                     <div className="seat-card-title-block">
                       <strong className="seat-card-title">{seatTitle}</strong>
-                      {isHost ? <span className="status-pill room-host-pill">{text("Host", "Host")}</span> : null}
-                      {mine ? <span className="status-pill muted">{text("Du", "You")}</span> : null}
+                      {isHost ? <span className="status-pill room-host-pill">{t("room.seat.host")}</span> : null}
+                      {mine ? <span className="status-pill muted">{t("room.seat.you")}</span> : null}
                     </div>
                     <div className="seat-status-meta">
                       {occupied ? (
                         <PlayerColorBadge color={seat.color} label={renderPlayerColorLabel(locale, seat.color)} compact />
                       ) : (
-                        <span className="status-pill muted">{text("Frei", "Open")}</span>
+                        <span className="status-pill muted">{t("room.seat.open")}</span>
                       )}
                       <span className={`online-indicator ${indicatorClass}`} aria-hidden="true" />
                     </div>
                   </div>
                   <div className="seat-card-summary">
                     {seat.ready ? <span className="status-pill seat-ready-pill">{stateLabel}</span> : null}
-                    {isStartingSeat ? <span className="status-pill seat-start-pill">{text("Startspieler", "Starting player")}</span> : null}
+                    {isStartingSeat ? <span className="status-pill seat-start-pill">{t("room.seat.startingPlayer")}</span> : null}
                     <span className="seat-card-state-label">{presenceLabel}</span>
                   </div>
                   {canKick ? (
                     <div className="seat-card-action">
                       <button className="ghost-button is-danger" type="button" onClick={() => props.onKickUser(seat.userId!)}>
-                        {text("Spieler entfernen", "Remove player")}
+                        {t("room.seat.removePlayer")}
                       </button>
                     </div>
                   ) : null}
@@ -202,23 +317,20 @@ export function RoomScreen(props: {
 
         <div className="room-side-stack">
           <article className="surface room-control-card">
-            <div className="eyebrow">{text("Steuerung", "Controls")}</div>
-            <h2>{text("Startklar machen", "Get ready")}</h2>
+            <div className="eyebrow">{t("room.controls.eyebrow")}</div>
+            <h2>{t("room.controls.title")}</h2>
             <div className="room-action-stack">
               {!currentSeat ? (
                 canJoinRoom ? (
                   <>
                     <p className="muted-copy room-action-hint">
-                      {text(
-                        "Beim Beitritt bekommst du automatisch den nächsten freien Platz.",
-                        "When you join, you automatically get the next available seat."
-                      )}
+                      {t("room.controls.joinHint")}
                     </p>
                     <button className="primary-button" type="button" onClick={props.onJoinRoom} disabled={props.joinRoomPending}>
                       <LoadingButtonContent
                         loading={props.joinRoomPending}
-                        idleLabel={text("Beitreten", "Join")}
-                        loadingLabel={text("Beitritt läuft...", "Joining...")}
+                        idleLabel={t("room.controls.join")}
+                        loadingLabel={t("room.controls.joinLoading")}
                       />
                     </button>
                   </>
@@ -237,8 +349,8 @@ export function RoomScreen(props: {
                 >
                   <LoadingButtonContent
                     loading={props.readyPending}
-                    idleLabel={currentSeat.ready ? text("Nicht mehr bereit", "Not ready anymore") : text("Bereit", "Ready")}
-                    loadingLabel={text("Status wird gespeichert...", "Saving status...")}
+                    idleLabel={currentSeat.ready ? t("room.controls.notReady") : t("room.controls.ready")}
+                    loadingLabel={t("room.controls.readyLoading")}
                   />
                 </button>
               ) : null}
@@ -246,24 +358,21 @@ export function RoomScreen(props: {
                 <button className="primary-button" type="button" onClick={props.onStart} disabled={props.startPending}>
                   <LoadingButtonContent
                     loading={props.startPending}
-                    idleLabel={text("Partie starten", "Start match")}
-                    loadingLabel={text("Partie startet...", "Starting match...")}
+                    idleLabel={t("room.controls.start")}
+                    loadingLabel={t("room.controls.startLoading")}
                   />
                 </button>
               ) : null}
               <button className="ghost-button" type="button" onClick={props.onLeave} disabled={props.leavePending}>
                 <LoadingButtonContent
                   loading={props.leavePending}
-                  idleLabel={text("Raum verlassen", "Leave room")}
-                  loadingLabel={text("Raum wird verlassen...", "Leaving room...")}
+                  idleLabel={t("room.leave.title")}
+                  loadingLabel={t("room.leave.loading")}
                 />
               </button>
             </div>
             <p className="muted-copy room-action-hint">
-              {text(
-                "Startet mit 3 bis 6 sitzenden Spielern, sobald alle bereit sind. Regeln und Startspieler gelten für die nächste Partie.",
-                "Start with 3 to 6 seated players as soon as everyone is ready. Rules and starting player apply to the next match."
-              )}
+              {t("room.controls.startHint")}
             </p>
             {!isOwner ? (
               <button
@@ -273,8 +382,8 @@ export function RoomScreen(props: {
                 onClick={() => setShowGameSettings((current) => !current)}
               >
                 <span className="room-settings-toggle-copy">
-                  <span className="eyebrow">{text("Spieleinstellungen", "Game settings")}</span>
-                  <strong>{settingsExpanded ? text("Ausblenden", "Hide") : text("Anzeigen", "Show")}</strong>
+                  <span className="eyebrow">{t("room.settings.eyebrow")}</span>
+                  <strong>{settingsExpanded ? t("room.settings.hide") : t("room.settings.show")}</strong>
                   <span>{settingsSummary}</span>
                 </span>
                 <span className="room-settings-toggle-icon" aria-hidden="true">
@@ -287,8 +396,8 @@ export function RoomScreen(props: {
               <>
                 <div className="room-settings-block">
                   <div className="room-setting-head">
-                    <span className="eyebrow">{text("Regeln", "Rules")}</span>
-                    <strong>{usesCustomRules ? text("Benutzerdefiniert", "Custom") : text("Standard", "Standard")}</strong>
+                    <span className="eyebrow">{t("room.rules.eyebrow")}</span>
+                    <strong>{usesCustomRules ? t("room.rules.custom") : t("room.rules.standard")}</strong>
                   </div>
                   <div className="mini-segmented room-starting-mode">
                     <button
@@ -300,7 +409,7 @@ export function RoomScreen(props: {
                         props.onRulesPresetChange("standard");
                       }}
                     >
-                      {text("Standard", "Standard")}
+                      {t("room.rules.standard")}
                     </button>
                     <button
                       type="button"
@@ -311,211 +420,327 @@ export function RoomScreen(props: {
                         props.onRulesPresetChange("custom");
                       }}
                     >
-                      {text("Benutzerdefiniert", "Custom")}
+                      {t("room.rules.custom")}
                     </button>
                   </div>
                   <p className="muted-copy room-action-hint">
                     {usesCustomRules
-                      ? text(
-                          "Benutzerdefinierte Regeln blenden alle Detail-Einstellungen für Brett, Aufbau, Zugregel und Startspieler auf.",
-                          "Custom rules reveal all detailed settings for board, setup, turn rule, and starting player."
-                        )
-                      : text(
-                          "Es gelten immer die aktuellsten offiziellen Regeln: {summary}.",
-                          "The latest official rules always apply: {summary}.",
-                          { summary: effectiveRulesSummary }
-                        )}
+                      ? effectiveGameConfig.rulesFamily === "seafarers"
+                        ? t("room.custom.seafarersSummary")
+                        : t("room.custom.baseSummary")
+                      : t("room.official.summary", { summary: effectiveRulesSummary })}
                   </p>
+                </div>
+
+                <div className="room-settings-block">
+                  <div className="room-setting-head">
+                    <span className="eyebrow">{t("room.rulesFamily.eyebrow")}</span>
+                    <strong>
+                      {effectiveGameConfig.rulesFamily === "base"
+                        ? t("room.rulesFamily.base.label")
+                        : t("room.rulesFamily.seafarers.label")}
+                    </strong>
+                  </div>
+                  <div className="profile-popup-select-shell">
+                    <PopupSelect
+                      value={effectiveGameConfig.rulesFamily}
+                      options={rulesFamilyOptions}
+                      onChange={props.onRulesFamilyChange}
+                      ariaLabel={t("room.rulesFamily.aria")}
+                      variant="profile"
+                      disabled={!canEditSettings}
+                    />
+                  </div>
+                </div>
+
+                <div className="room-settings-block">
+                  <div className="room-setting-head">
+                    <span className="eyebrow">{t("room.scenario.eyebrow")}</span>
+                    <strong>{t(effectiveScenario.titleKey)}</strong>
+                  </div>
+                  <div className="profile-popup-select-shell">
+                    <PopupSelect
+                      value={effectiveGameConfig.scenarioId}
+                      options={scenarioOptions}
+                      onChange={props.onScenarioChange}
+                      ariaLabel={t("room.scenario.aria")}
+                      variant="profile"
+                      disabled={!canEditSettings || scenarioOptions.length === 0}
+                    />
+                  </div>
+                  <p className="muted-copy room-action-hint">{t(effectiveScenario.summaryKey)}</p>
                 </div>
 
                 {usesCustomRules ? (
                   <>
                     <div className="room-settings-block">
                       <div className="room-setting-head">
-                        <span className="eyebrow">{text("Spielfeldgröße", "Board size")}</span>
-                        <strong>{props.room.gameConfig.boardSize === "extended" ? text("Erweitert", "Extended") : text("Standard", "Standard")}</strong>
-                      </div>
-                      <div className="mini-segmented room-setup-mode">
-                        <button
-                          type="button"
-                          className={props.room.gameConfig.boardSize === "standard" ? "is-active" : ""}
-                          disabled={!canEditSettings || extendedBoardRequired}
-                          onClick={() => {
-                            triggerSoftHaptic();
-                            props.onBoardSizeChange("standard");
-                          }}
-                        >
-                          {text("Standard", "Standard")}
-                        </button>
-                        <button
-                          type="button"
-                          className={props.room.gameConfig.boardSize === "extended" ? "is-active" : ""}
-                          disabled={!canEditSettings}
-                          onClick={() => {
-                            triggerSoftHaptic();
-                            props.onBoardSizeChange("extended");
-                          }}
-                        >
-                          {text("Erweitert", "Extended")}
-                        </button>
-                      </div>
-                      <p className="muted-copy room-action-hint">
-                        {extendedBoardRequired
-                          ? text(
-                              "Mit 5 oder 6 Spielern ist das erweiterte Brett verpflichtend.",
-                              "With 5 or 6 players, the extended board is required."
-                            )
-                          : text(
-                              "Bei 3 oder 4 Spielern kann der Host zwischen Standard und erweitertem Brett wechseln.",
-                              "With 3 or 4 players, the host can switch between the standard and extended board."
-                            )}
-                      </p>
-                    </div>
-
-                    <div className="room-settings-block">
-                      <div className="room-setting-head">
-                        <span className="eyebrow">{text("Aufbau", "Setup")}</span>
+                        <span className="eyebrow">{t("room.victoryPoints.eyebrow")}</span>
                         <strong>
-                          {props.room.gameConfig.setupMode === "beginner"
-                            ? text("Anfängeraufbau", "Beginner setup")
-                            : text("Variabler Aufbau", "Variable setup")}
+                          {t("room.victoryPoints.summary", {
+                            count: getScenarioVictoryPointsToWin(effectiveGameConfig)
+                          })}
                         </strong>
                       </div>
-                      <div className="mini-segmented room-setup-mode">
-                        <button
-                          type="button"
-                          className={props.room.gameConfig.setupMode === "official_variable" ? "is-active" : ""}
+                      <div className="profile-popup-select-shell">
+                        <PopupSelect
+                          value={`${getScenarioVictoryPointsToWin(effectiveGameConfig)}`}
+                          options={victoryPointOptions}
+                          onChange={(value) => props.onVictoryPointsToWinChange(Number(value))}
+                          ariaLabel={t("room.victoryPoints.aria")}
+                          variant="profile"
                           disabled={!canEditSettings}
-                          onClick={() => {
-                            triggerSoftHaptic();
-                            props.onSetupModeChange("official_variable");
-                          }}
-                        >
-                          {text("Variabler Aufbau", "Variable setup")}
-                        </button>
-                        <button
-                          type="button"
-                          className={props.room.gameConfig.setupMode === "beginner" ? "is-active" : ""}
-                          disabled={!canEditSettings || !beginnerAvailable}
-                          onClick={() => {
-                            triggerSoftHaptic();
-                            props.onSetupModeChange("beginner");
-                          }}
-                        >
-                          {text("Anfängeraufbau", "Beginner setup")}
-                        </button>
+                        />
                       </div>
-                      {props.room.gameConfig.setupMode === "beginner" && seatedPlayers.length === 3 ? (
-                        <p className="muted-copy room-action-hint">
-                          {text(
-                            "Im Anfängeraufbau mit 3 Spielern werden die Match-Farben auf die offiziellen Einsteigerfarben umgelegt.",
-                            "In beginner setup with 3 players, the match colors are reassigned to the official beginner colors."
-                          )}
-                        </p>
-                      ) : null}
-                      {!beginnerAvailable ? (
-                        <p className="muted-copy room-action-hint">
-                          {text(
-                            "Der Anfängeraufbau ist nur auf dem Standardbrett verfügbar.",
-                            "Beginner setup is only available on the standard board."
-                          )}
-                        </p>
-                      ) : null}
                     </div>
+
+                    {effectiveGameConfig.rulesFamily === "seafarers" ? (
+                      <>
+                        <div className="room-settings-block">
+                          <div className="room-setting-head">
+                            <span className="eyebrow">{t("room.layoutMode.eyebrow")}</span>
+                            <strong>
+                              {effectiveGameConfig.layoutMode === "official_variable"
+                                ? t("room.layoutMode.variable")
+                                : t("room.layoutMode.fixed")}
+                            </strong>
+                          </div>
+                          <div className="profile-popup-select-shell">
+                            <PopupSelect
+                              value={effectiveGameConfig.layoutMode}
+                              options={layoutModeOptions}
+                              onChange={props.onLayoutModeChange}
+                              ariaLabel={t("room.layoutMode.aria")}
+                              variant="profile"
+                              disabled={!canEditSettings}
+                            />
+                          </div>
+                          <p className="muted-copy room-action-hint">
+                            {fixedLayoutOnly
+                              ? t("room.layoutMode.fixedOnly")
+                              : t("room.layoutMode.variableAllowed")}
+                          </p>
+                        </div>
+
+                        {effectiveGameConfig.scenarioId === "seafarers.new_world" ? (
+                          <div className="room-settings-block">
+                            <div className="room-setting-head">
+                              <span className="eyebrow">{t("room.newWorldSetup.eyebrow")}</span>
+                              <strong>{newWorldSetupLabel}</strong>
+                            </div>
+                            <div className="mini-segmented room-starting-mode">
+                              <button
+                                type="button"
+                                className={!newWorldScenarioSetupEnabled ? "is-active" : ""}
+                                disabled={!canEditSettings}
+                                onClick={() => {
+                                  triggerSoftHaptic();
+                                  props.onNewWorldScenarioSetupChange(false);
+                                }}
+                              >
+                                {t("room.newWorldSetup.official")}
+                              </button>
+                              <button
+                                type="button"
+                                className={newWorldScenarioSetupEnabled ? "is-active" : ""}
+                                disabled={!canEditSettings}
+                                onClick={() => {
+                                  triggerSoftHaptic();
+                                  props.onNewWorldScenarioSetupChange(true);
+                                }}
+                              >
+                                {t("room.newWorldSetup.editor")}
+                              </button>
+                            </div>
+                            <p className="muted-copy room-action-hint">
+                              {newWorldScenarioSetupEnabled
+                                ? t("room.newWorldSetup.hint.editor")
+                                : t("room.newWorldSetup.hint.official")}
+                            </p>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {effectiveGameConfig.rulesFamily === "base" ? (
+                      <>
+                        <div className="room-settings-block">
+                          <div className="room-setting-head">
+                            <span className="eyebrow">{t("room.boardSize.eyebrow")}</span>
+                            <strong>
+                              {effectiveGameConfig.boardSize === "extended"
+                                ? t("room.boardSize.extended")
+                                : t("room.boardSize.standard")}
+                            </strong>
+                          </div>
+                          <div className="mini-segmented room-setup-mode">
+                            <button
+                              type="button"
+                              className={effectiveGameConfig.boardSize === "standard" ? "is-active" : ""}
+                              disabled={!canEditSettings || extendedBoardRequired}
+                              onClick={() => {
+                                triggerSoftHaptic();
+                                props.onBoardSizeChange("standard");
+                              }}
+                            >
+                              {t("room.boardSize.standard")}
+                            </button>
+                            <button
+                              type="button"
+                              className={effectiveGameConfig.boardSize === "extended" ? "is-active" : ""}
+                              disabled={!canEditSettings}
+                              onClick={() => {
+                                triggerSoftHaptic();
+                                props.onBoardSizeChange("extended");
+                              }}
+                            >
+                              {t("room.boardSize.extended")}
+                            </button>
+                          </div>
+                          <p className="muted-copy room-action-hint">
+                            {extendedBoardRequired
+                              ? t("room.boardSize.hint.extendedRequired")
+                              : t("room.boardSize.hint.standardOptional")}
+                          </p>
+                        </div>
+
+                        <div className="room-settings-block">
+                          <div className="room-setting-head">
+                            <span className="eyebrow">{t("room.setup.eyebrow")}</span>
+                            <strong>
+                              {effectiveGameConfig.setupMode === "beginner"
+                                ? t("room.setup.beginner")
+                                : t("room.setup.variable")}
+                            </strong>
+                          </div>
+                          <div className="mini-segmented room-setup-mode">
+                            <button
+                              type="button"
+                              className={effectiveGameConfig.setupMode === "official_variable" ? "is-active" : ""}
+                              disabled={!canEditSettings}
+                              onClick={() => {
+                                triggerSoftHaptic();
+                                props.onSetupModeChange("official_variable");
+                              }}
+                            >
+                              {t("room.setup.variable")}
+                            </button>
+                            <button
+                              type="button"
+                              className={effectiveGameConfig.setupMode === "beginner" ? "is-active" : ""}
+                              disabled={!canEditSettings || !beginnerAvailable}
+                              onClick={() => {
+                                triggerSoftHaptic();
+                                props.onSetupModeChange("beginner");
+                              }}
+                            >
+                              {t("room.setup.beginner")}
+                            </button>
+                          </div>
+                          {effectiveGameConfig.setupMode === "beginner" && seatedPlayers.length === 3 ? (
+                            <p className="muted-copy room-action-hint">
+                              {t("room.setup.hint.beginnerColors")}
+                            </p>
+                          ) : null}
+                          {!beginnerAvailable ? (
+                            <p className="muted-copy room-action-hint">
+                              {t("room.setup.hint.beginnerOnlyStandard")}
+                            </p>
+                          ) : null}
+                        </div>
+                      </>
+                    ) : null}
 
                     <div className="room-settings-block">
                       <div className="room-setting-head">
-                        <span className="eyebrow">{text("Zugregel", "Turn rule")}</span>
-                        <strong>{renderTurnRuleLabel(locale, props.room.gameConfig.turnRule)}</strong>
+                        <span className="eyebrow">{t("room.turnRule.eyebrow")}</span>
+                        <strong>{renderTurnRuleLabel(locale, effectiveGameConfig.turnRule)}</strong>
                       </div>
                       <div className="mini-segmented room-starting-mode">
                         <button
                           type="button"
-                          className={props.room.gameConfig.turnRule === "standard" ? "is-active" : ""}
-                          disabled={!canEditSettings}
+                          className={effectiveGameConfig.turnRule === "standard" ? "is-active" : ""}
+                          disabled={!canEditSettings || turnRuleLocked}
                           onClick={() => {
                             triggerSoftHaptic();
                             props.onTurnRuleChange("standard");
                           }}
                         >
-                          {text("Standard", "Standard")}
+                          {t("room.turnRule.standard")}
                         </button>
                         <button
                           type="button"
-                          className={props.room.gameConfig.turnRule === "paired_players" ? "is-active" : ""}
-                          disabled={!canEditSettings}
+                          className={effectiveGameConfig.turnRule === "paired_players" ? "is-active" : ""}
+                          disabled={!canEditSettings || turnRuleLocked}
                           onClick={() => {
                             triggerSoftHaptic();
                             props.onTurnRuleChange("paired_players");
                           }}
                         >
-                          {text("Paired Players", "Paired players")}
+                          {t("room.turnRule.pairedPlayers")}
                         </button>
                         <button
                           type="button"
-                          className={props.room.gameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
-                          disabled={!canEditSettings}
+                          className={effectiveGameConfig.turnRule === "special_build_phase" ? "is-active" : ""}
+                          disabled={!canEditSettings || turnRuleLocked}
                           onClick={() => {
                             triggerSoftHaptic();
                             props.onTurnRuleChange("special_build_phase");
                           }}
                         >
-                          {text("Sonderbauphase", "Special build phase")}
+                          {t("room.turnRule.specialBuildPhase")}
                         </button>
                       </div>
+                      {turnRuleLocked ? (
+                        <p className="muted-copy room-action-hint">{t("room.turnRule.lockedSeafarers")}</p>
+                      ) : null}
                     </div>
 
                     <div className="room-settings-block">
                       <div className="room-setting-head">
-                        <span className="eyebrow">{text("Startspieler", "Starting player")}</span>
+                        <span className="eyebrow">{t("room.startingPlayer.eyebrow")}</span>
                         <strong>
-                          {usesCustomRolledStart
-                            ? text("Wird ausgewürfelt", "Will be rolled")
-                            : customStartingSeat?.username ?? seatText(props.room.gameConfig.startingPlayer.seatIndex)}
+                          {usesRolledStart
+                            ? t("room.startingPlayer.rolled")
+                            : effectiveStartingSeat?.username ?? seatText(effectiveGameConfig.startingPlayer.seatIndex)}
                         </strong>
                       </div>
                       <div className="mini-segmented room-starting-mode">
                         <button
                           type="button"
-                          className={usesCustomRolledStart ? "is-active" : ""}
+                          className={usesRolledStart ? "is-active" : ""}
                           disabled={!canEditSettings}
                           onClick={() => {
                             triggerSoftHaptic();
                             props.onStartingPlayerModeChange("rolled");
                           }}
                         >
-                          {text("Auswürfeln", "Roll")}
+                          {t("room.startingPlayer.roll")}
                         </button>
                         <button
                           type="button"
-                          className={!usesCustomRolledStart ? "is-active" : ""}
+                          className={!usesRolledStart ? "is-active" : ""}
                           disabled={!canEditSettings}
                           onClick={() => {
                             triggerSoftHaptic();
                             props.onStartingPlayerModeChange("manual");
                           }}
                         >
-                          {text("Manuell", "Manual")}
+                          {t("room.startingPlayer.manual")}
                         </button>
                       </div>
                       <p className="muted-copy room-action-hint">
-                        {usesCustomRolledStart
-                          ? text(
-                              "Vor Spielstart würfeln alle sitzenden Spieler. Nur der erste Spieler wird so bestimmt.",
-                              "Before the match starts, all seated players roll. Only the first player is determined this way."
-                            )
-                          : text(
-                              "Nur besetzte Plätze können als erster Spieler gewählt werden.",
-                              "Only occupied seats can be selected as the starting player."
-                            )}
+                        {usesRolledStart
+                          ? t("room.startingPlayer.hint.roll")
+                          : t("room.startingPlayer.hint.manual")}
                       </p>
-                      {!usesCustomRolledStart ? (
+                      {!usesRolledStart ? (
                         <div className="mini-segmented room-starting-seat">
                           {seatedPlayers.map((seat) => (
                             <button
                               key={seat.index}
                               type="button"
-                              className={props.room.gameConfig.startingPlayer.seatIndex === seat.index ? "is-active" : ""}
+                              className={effectiveGameConfig.startingPlayer.seatIndex === seat.index ? "is-active" : ""}
                               disabled={!canEditSettings}
                               onClick={() => {
                                 triggerSoftHaptic();

@@ -1,0 +1,612 @@
+{
+  "homeIslandCounts": {
+    "base.standard": 0,
+    "seafarers.heading_for_new_shores": 1,
+    "seafarers.four_islands": 0,
+    "seafarers.six_islands": 0,
+    "seafarers.fog_islands": 1,
+    "seafarers.through_the_desert": 1,
+    "seafarers.forgotten_tribe": 1,
+    "seafarers.cloth_for_catan": 2,
+    "seafarers.pirate_islands": 1,
+    "seafarers.wonders_of_catan": 1,
+    "seafarers.new_world": 1
+  },
+  "islandRewardPoints": {
+    "base.standard": 0,
+    "seafarers.heading_for_new_shores": 2,
+    "seafarers.four_islands": 2,
+    "seafarers.six_islands": 2,
+    "seafarers.fog_islands": 2,
+    "seafarers.through_the_desert": 2,
+    "seafarers.forgotten_tribe": 1,
+    "seafarers.cloth_for_catan": 0,
+    "seafarers.pirate_islands": 0,
+    "seafarers.wonders_of_catan": 1,
+    "seafarers.new_world": 1
+  },
+  "fixedScenarioSpecs": {
+    "seafarers.heading_for_new_shores:standard:3": {
+      "layoutCoords": [
+        "1:-3",
+        "2:-3",
+        "3:-3",
+        "-1:-2",
+        "0:-2",
+        "1:-2",
+        "2:-2",
+        "3:-2",
+        "-2:-1",
+        "-1:-1",
+        "0:-1",
+        "1:-1",
+        "2:-1",
+        "3:-1",
+        "-3:0",
+        "-2:0",
+        "-1:0",
+        "0:0",
+        "1:0",
+        "2:0",
+        "3:0",
+        "-3:1",
+        "-2:1",
+        "-1:1",
+        "0:1",
+        "1:1",
+        "2:1",
+        "-3:2",
+        "-2:2",
+        "-1:2",
+        "0:2",
+        "1:2",
+        "2:2",
+        "-1:3",
+        "0:3"
+      ],
+      "logicalIslandGroups": [
+        [
+          "1:-2",
+          "-2:-1",
+          "-1:-1",
+          "0:-1",
+          "1:-1",
+          "2:-1",
+          "-3:0",
+          "-2:0",
+          "-1:0",
+          "0:0",
+          "1:0",
+          "-2:1",
+          "-1:1",
+          "0:1"
+        ],
+        ["3:-1", "3:0"],
+        ["-3:2", "-2:2"],
+        ["0:2", "1:2", "2:1", "2:2"]
+      ],
+      "tiles": {
+        "1:-2": { "terrain": "brick", "token": 8 },
+        "-2:-1": { "terrain": "grain", "token": 6 },
+        "-1:-1": { "terrain": "grain", "token": 11 },
+        "0:-1": { "terrain": "wool", "token": 10 },
+        "1:-1": { "terrain": "wool", "token": 2 },
+        "2:-1": { "terrain": "grain", "token": 4 },
+        "3:-1": { "terrain": "brick", "token": 12, "robber": true },
+        "-3:0": { "terrain": "lumber", "token": 5 },
+        "-2:0": { "terrain": "ore", "token": 3 },
+        "-1:0": { "terrain": "wool", "token": 9 },
+        "0:0": { "terrain": "ore", "token": 5 },
+        "1:0": { "terrain": "wool", "token": 6 },
+        "3:0": { "terrain": "gold", "token": 5 },
+        "-2:1": { "terrain": "brick", "token": 11 },
+        "-1:1": { "terrain": "lumber", "token": 8 },
+        "0:1": { "terrain": "lumber", "token": 10 },
+        "2:1": { "terrain": "wool", "token": 4 },
+        "-3:2": { "terrain": "brick", "token": 10 },
+        "-2:2": { "terrain": "ore", "token": 8 },
+        "0:2": { "terrain": "gold", "token": 4 },
+        "1:2": { "terrain": "grain", "token": 3 },
+        "2:2": { "terrain": "ore", "token": 9 },
+        "0:3": { "terrain": "sea", "token": null, "kind": "sea", "occupant": "pirate" }
+      },
+      "ports": [
+        { "tileCoord": "1:-2", "side": 4, "type": "generic" },
+        { "tileCoord": "1:-2", "side": 5, "type": "ore" },
+        { "tileCoord": "-2:-1", "side": 4, "type": "brick" },
+        { "tileCoord": "2:-1", "side": 5, "type": "grain" },
+        { "tileCoord": "-3:0", "side": 3, "type": "lumber" },
+        { "tileCoord": "-3:0", "side": 2, "type": "generic" },
+        { "tileCoord": "-1:1", "side": 1, "type": "wool" },
+        { "tileCoord": "1:0", "side": 1, "type": "generic" }
+      ]
+    }
+  },
+  "profileOverrides": {
+    "seafarers.heading_for_new_shores:standard:3": {
+      "variableRobberPlacement": "token_12"
+    },
+    "seafarers.heading_for_new_shores:standard:4": {
+      "variableRobberPlacement": "first_desert"
+    },
+    "seafarers.heading_for_new_shores:extended:5": {
+      "variableRobberPlacement": "first_desert"
+    },
+    "seafarers.heading_for_new_shores:extended:6": {
+      "variableRobberPlacement": "first_desert"
+    },
+    "seafarers.heading_for_new_shores:standard": {
+      "landOmittedCoords": ["-1:0", "0:1"],
+      "goldCoords": ["2:-2", "1:1"],
+      "desertCoords": [],
+      "initialRobberCoord": "-2:1",
+      "initialPirateCoord": "-1:0",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.heading_for_new_shores:extended": {
+      "landOmittedCoords": ["-1:0", "0:0", "0:1"],
+      "goldCoords": ["2:-1", "-3:2"],
+      "desertCoords": [],
+      "initialRobberCoord": "-2:2",
+      "initialPirateCoord": "0:0",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.four_islands:standard": {
+      "landOmittedCoords": ["-1:0", "0:-1", "0:1", "1:0"],
+      "goldCoords": [],
+      "desertCoords": [],
+      "initialRobberCoord": "1:-2",
+      "initialPirateCoord": "0:-1",
+      "variableRobberPlacement": "token_12",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": true,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": true,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.four_islands:extended": {
+      "landOmittedCoords": ["-1:0", "0:-1", "0:0", "0:1", "1:0"],
+      "goldCoords": [],
+      "desertCoords": [],
+      "initialRobberCoord": "1:-1",
+      "initialPirateCoord": "0:-1",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": true,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": true,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.six_islands:extended": {
+      "landOmittedCoords": ["-1:0", "0:-1", "0:0", "0:1", "1:0"],
+      "goldCoords": ["2:-1", "-3:2"],
+      "desertCoords": [],
+      "initialRobberCoord": "1:-1",
+      "initialPirateCoord": "0:-1",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": true,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": true,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.fog_islands:standard": {
+      "landCoords": ["-3:0", "-3:1", "-2:0", "-2:1", "-2:2", "-1:0", "-1:1", "-1:2", "-1:3", "0:-1", "0:1", "0:2", "1:-3", "1:-2", "1:-1"],
+      "fogLandCoords": ["1:0", "1:1", "2:-2"],
+      "fogSeaCoords": ["2:-3"],
+      "goldCoords": ["0:2"],
+      "desertCoords": [],
+      "initialRobberCoord": "-2:1",
+      "initialPirateCoord": "2:-3",
+      "variableRobberPlacement": "token_12",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": false,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": false,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.fog_islands:extended": {
+      "landCoords": ["-3:0", "-3:1", "-2:0", "-2:1", "-2:2", "-1:0", "-1:1", "-1:2", "-1:3", "0:-1", "0:1", "0:2", "1:-3", "1:-2", "1:-1", "-2:3", "0:-2", "0:0", "2:-1"],
+      "fogLandCoords": ["1:0", "1:1", "2:-2", "-3:2"],
+      "fogSeaCoords": ["2:-3", "0:0"],
+      "goldCoords": ["2:-1"],
+      "desertCoords": [],
+      "initialRobberCoord": "-2:2",
+      "initialPirateCoord": "0:0",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": false,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": false,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.through_the_desert:standard": {
+      "landOmittedCoords": ["0:-1"],
+      "goldCoords": ["2:-2"],
+      "desertCoords": ["-1:0", "0:1"],
+      "initialRobberCoord": "-1:0",
+      "initialPirateCoord": "0:-1",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.through_the_desert:extended": {
+      "landOmittedCoords": ["0:-2", "0:-1"],
+      "goldCoords": ["2:-1", "-3:2"],
+      "desertCoords": ["-1:0", "0:0", "0:1"],
+      "initialRobberCoord": "0:0",
+      "initialPirateCoord": "0:-2",
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.forgotten_tribe:standard": {
+      "landOmittedCoords": ["-1:0", "0:1"],
+      "goldCoords": ["2:-2"],
+      "initialRobberCoord": "-1:1",
+      "initialPirateCoord": "-1:0",
+      "variableRobberPlacement": "first_desert",
+      "markers": [
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:2", "side": 1 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:2", "side": 5 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:3", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:3", "side": 4 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:-1", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:-1", "side": 4 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:1", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:1", "side": 1 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "0:1", "side": 5 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "0:2", "side": 0 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "0:2", "side": 1 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:-3", "side": 1 } },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:-3", "side": 2 }, "portType": "generic" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:-2", "side": 1 }, "portType": "brick" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:-2", "side": 3 }, "portType": "lumber" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:-2", "side": 4 }, "portType": "ore" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:-1", "side": 0 }, "portType": "grain" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:-1", "side": 2 }, "portType": "wool" }
+      ],
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {
+          "1:-1": [5, 6, 8, 9],
+          "1:0": [5, 6, 8, 9],
+          "1:1": [5, 6, 8, 9]
+        }
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {
+          "1:-1": [5, 6, 8, 9],
+          "1:0": [5, 6, 8, 9],
+          "1:1": [5, 6, 8, 9]
+        }
+      }
+    },
+    "seafarers.forgotten_tribe:extended": {
+      "landOmittedCoords": ["-1:0", "0:0", "0:1"],
+      "goldCoords": ["2:-1", "-3:2"],
+      "initialRobberCoord": "-1:1",
+      "initialPirateCoord": "0:0",
+      "variableRobberPlacement": "first_desert",
+      "markers": [
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:2", "side": 1 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:2", "side": 5 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:3", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "-1:3", "side": 4 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:-1", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:1", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:1", "side": 1 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:1", "side": 5 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:2", "side": 0 } },
+        { "type": "forgotten_tribe_vp", "ref": { "tileCoord": "0:2", "side": 1 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:-3", "side": 1 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:-2", "side": 1 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:-2", "side": 4 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:-1", "side": 3 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:-1", "side": 4 } },
+        { "type": "forgotten_tribe_development", "ref": { "tileCoord": "1:0", "side": 0 } },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:1", "side": 0 }, "portType": "generic" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:1", "side": 1 }, "portType": "generic" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "1:1", "side": 5 }, "portType": "generic" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "2:-3", "side": 0 }, "portType": "brick" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "2:-3", "side": 3 }, "portType": "lumber" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "2:-3", "side": 4 }, "portType": "ore" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "2:-3", "side": 5 }, "portType": "grain" },
+        { "type": "forgotten_tribe_port", "ref": { "tileCoord": "2:-2", "side": 0 }, "portType": "wool" }
+      ],
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {
+          "1:-1": [5, 6, 8, 9],
+          "1:0": [5, 6, 8, 9],
+          "1:1": [5, 6, 8, 9]
+        }
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": false,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {
+          "1:-1": [5, 6, 8, 9],
+          "1:0": [5, 6, 8, 9],
+          "1:1": [5, 6, 8, 9]
+        }
+      }
+    },
+    "seafarers.cloth_for_catan:standard": {
+      "landOmittedCoords": ["-1:0", "0:1"],
+      "goldCoords": ["-1:3"],
+      "desertCoords": ["-2:1"],
+      "initialRobberCoord": "-2:1",
+      "initialPirateCoord": "-1:0",
+      "variableRobberPlacement": "token_12",
+      "sites": [
+        { "type": "village", "ref": { "tileCoord": "-1:2", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "-1:2", "corner": 2 } },
+        { "type": "village", "ref": { "tileCoord": "-2:2", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "-1:3", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "-1:3", "corner": 2 } },
+        { "type": "village", "ref": { "tileCoord": "-1:3", "corner": 4 } },
+        { "type": "village", "ref": { "tileCoord": "2:-2", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "2:-3", "corner": 0 } }
+      ]
+    },
+    "seafarers.cloth_for_catan:extended": {
+      "landOmittedCoords": ["-1:0", "0:0", "0:1"],
+      "goldCoords": ["-2:3", "2:-1"],
+      "desertCoords": ["-2:2"],
+      "initialRobberCoord": "-2:2",
+      "initialPirateCoord": "0:0",
+      "variableRobberPlacement": "token_12",
+      "sites": [
+        { "type": "village", "ref": { "tileCoord": "-1:3", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "-1:3", "corner": 2 } },
+        { "type": "village", "ref": { "tileCoord": "-1:3", "corner": 4 } },
+        { "type": "village", "ref": { "tileCoord": "1:1", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "0:2", "corner": 0 } },
+        { "type": "village", "ref": { "tileCoord": "1:0", "corner": 2 } },
+        { "type": "village", "ref": { "tileCoord": "0:1", "corner": 1 } },
+        { "type": "village", "ref": { "tileCoord": "-1:2", "corner": 0 } }
+      ]
+    },
+    "seafarers.pirate_islands:standard": {
+      "landOmittedCoords": ["-1:0", "0:-1", "0:1"],
+      "goldCoords": ["2:-2"],
+      "desertCoords": [],
+      "initialRobberCoord": null,
+      "initialPirateCoord": "0:-1",
+      "pirateFleetPath": ["0:-1", "0:1", "-1:0"]
+    },
+    "seafarers.pirate_islands:extended": {
+      "landOmittedCoords": ["-1:0", "0:-2", "0:-1", "0:0", "0:1"],
+      "goldCoords": ["2:-1", "-3:2"],
+      "desertCoords": [],
+      "initialRobberCoord": null,
+      "initialPirateCoord": "0:-2",
+      "pirateFleetPath": ["0:-2", "0:-1", "0:0", "0:1", "-1:0"]
+    },
+    "seafarers.pirate_islands:standard:3": {
+      "sites": [
+        { "type": "landing", "ref": { "tileCoord": "-2:0", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-2:1", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-1:2", "corner": 0 } },
+        { "type": "fortress", "ref": { "tileCoord": "-2:0", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-2:1", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-1:2", "corner": 0 }, "pirateLairCount": 3 }
+      ]
+    },
+    "seafarers.pirate_islands:standard:4": {
+      "sites": [
+        { "type": "landing", "ref": { "tileCoord": "-2:0", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-2:1", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-1:2", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-1:3", "corner": 0 } },
+        { "type": "fortress", "ref": { "tileCoord": "-2:0", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-2:1", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-1:2", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-1:3", "corner": 0 }, "pirateLairCount": 3 }
+      ]
+    },
+    "seafarers.pirate_islands:extended:5": {
+      "sites": [
+        { "type": "landing", "ref": { "tileCoord": "-2:0", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-3:0", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-2:1", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-3:1", "corner": 2 } },
+        { "type": "landing", "ref": { "tileCoord": "-1:1", "corner": 0 } },
+        { "type": "fortress", "ref": { "tileCoord": "-2:0", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-3:0", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-2:1", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-3:1", "corner": 2 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-1:1", "corner": 0 }, "pirateLairCount": 3 }
+      ]
+    },
+    "seafarers.pirate_islands:extended:6": {
+      "sites": [
+        { "type": "landing", "ref": { "tileCoord": "-2:0", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-3:0", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-2:1", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-3:1", "corner": 2 } },
+        { "type": "landing", "ref": { "tileCoord": "-1:1", "corner": 0 } },
+        { "type": "landing", "ref": { "tileCoord": "-2:2", "corner": 0 } },
+        { "type": "fortress", "ref": { "tileCoord": "-2:0", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-3:0", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-2:1", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-3:1", "corner": 2 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-1:1", "corner": 0 }, "pirateLairCount": 3 },
+        { "type": "fortress", "ref": { "tileCoord": "-2:2", "corner": 0 }, "pirateLairCount": 3 }
+      ]
+    },
+    "seafarers.wonders_of_catan:standard": {
+      "landOmittedCoords": ["-1:0", "0:1"],
+      "goldCoords": ["2:-2"],
+      "initialPirateCoord": null,
+      "variableRobberPlacement": "first_desert",
+      "sites": [
+        { "type": "wonder", "ref": { "tileCoord": "1:1", "corner": 0 }, "wonderId": "great_wall" },
+        { "type": "wonder", "ref": { "tileCoord": "1:0", "corner": 0 }, "wonderId": "great_bridge" },
+        { "type": "wonder", "ref": { "tileCoord": "2:-2", "corner": 0 }, "wonderId": "grand_monument" },
+        { "type": "wonder", "ref": { "tileCoord": "2:-3", "corner": 0 }, "wonderId": "grand_theater" },
+        { "type": "wonder", "ref": { "tileCoord": "-1:3", "corner": 0 }, "wonderId": "grand_castle" }
+      ],
+      "markers": [
+        { "type": "wonder_block", "ref": { "tileCoord": "1:1", "corner": 0 }, "marker": "!" },
+        { "type": "wonder_block", "ref": { "tileCoord": "1:0", "corner": 0 }, "marker": "!" },
+        { "type": "wonder_block", "ref": { "tileCoord": "2:-2", "corner": 0 }, "marker": "x" },
+        { "type": "wonder_block", "ref": { "tileCoord": "2:-3", "corner": 0 }, "marker": "x" },
+        { "type": "wonder_block", "ref": { "tileCoord": "-1:3", "corner": 0 }, "marker": "x" }
+      ]
+    },
+    "seafarers.wonders_of_catan:extended": {
+      "landOmittedCoords": ["-1:0", "0:0", "0:1"],
+      "goldCoords": ["2:-1", "-3:2"],
+      "initialPirateCoord": null,
+      "variableRobberPlacement": "first_desert",
+      "sites": [
+        { "type": "wonder", "ref": { "tileCoord": "2:-2", "corner": 0 }, "wonderId": "great_wall" },
+        { "type": "wonder", "ref": { "tileCoord": "2:-3", "corner": 0 }, "wonderId": "great_bridge" },
+        { "type": "wonder", "ref": { "tileCoord": "2:-1", "corner": 0 }, "wonderId": "grand_monument" },
+        { "type": "wonder", "ref": { "tileCoord": "1:0", "corner": 0 }, "wonderId": "grand_theater" },
+        { "type": "wonder", "ref": { "tileCoord": "1:1", "corner": 0 }, "wonderId": "grand_castle" },
+        { "type": "wonder", "ref": { "tileCoord": "0:2", "corner": 0 }, "wonderId": "lighthouse" },
+        { "type": "wonder", "ref": { "tileCoord": "-1:3", "corner": 0 }, "wonderId": "great_library" }
+      ],
+      "markers": [
+        { "type": "wonder_block", "ref": { "tileCoord": "2:-2", "corner": 0 }, "marker": "!" },
+        { "type": "wonder_block", "ref": { "tileCoord": "2:-3", "corner": 0 }, "marker": "!" },
+        { "type": "wonder_block", "ref": { "tileCoord": "2:-1", "corner": 0 }, "marker": "x" },
+        { "type": "wonder_block", "ref": { "tileCoord": "1:0", "corner": 0 }, "marker": "x" },
+        { "type": "wonder_block", "ref": { "tileCoord": "1:1", "corner": 0 }, "marker": "x" },
+        { "type": "wonder_block", "ref": { "tileCoord": "0:2", "corner": 0 }, "marker": "!" },
+        { "type": "wonder_block", "ref": { "tileCoord": "-1:3", "corner": 0 }, "marker": "x" }
+      ]
+    },
+    "seafarers.new_world:standard": {
+      "layoutCoords": ["0:-4", "1:-4", "-1:-3", "0:-3", "1:-3", "2:-3", "3:-3", "-2:-2", "-1:-2", "0:-2", "1:-2", "2:-2", "3:-2", "-3:-1", "-2:-1", "-1:-1", "0:-1", "1:-1", "2:-1", "3:-1", "-3:0", "-2:0", "-1:0", "0:0", "1:0", "2:0", "3:0", "-3:1", "-2:1", "-1:1", "0:1", "1:1", "2:1", "-2:2", "-1:2", "0:2", "1:2", "2:2", "-1:3", "0:3", "1:3", "2:3"],
+      "landCoords": ["0:-4", "1:-4", "-1:-3", "0:-3", "1:-3", "2:-3", "3:-3", "-2:-2", "-1:-2", "0:-2", "1:-2", "2:-2", "3:-2", "-3:-1", "-2:-1", "-1:-1", "0:-1", "1:-1", "2:-1", "3:-1", "-3:0", "-2:0", "-1:0", "0:0", "1:0", "2:0", "3:0", "-3:1", "-2:1", "-1:1", "0:1", "1:1", "2:1", "-2:2", "-1:2", "0:2", "1:2", "2:2", "-1:3", "0:3", "1:3", "2:3"],
+      "fogLandCoords": [],
+      "fogSeaCoords": [],
+      "goldCoords": [],
+      "desertCoords": [],
+      "portDistribution": [],
+      "logicalIslandGroups": [],
+      "initialRobberCoord": null,
+      "initialPirateCoord": null,
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    },
+    "seafarers.new_world:extended": {
+      "layoutCoords": ["-1:-4", "0:-4", "1:-4", "-2:-3", "-1:-3", "0:-3", "1:-3", "2:-3", "-3:-2", "-2:-2", "-1:-2", "0:-2", "1:-2", "2:-2", "3:-2", "-4:-1", "-3:-1", "-2:-1", "-1:-1", "0:-1", "1:-1", "2:-1", "3:-1", "-4:0", "-3:0", "-2:0", "-1:0", "0:0", "1:0", "2:0", "3:0", "-4:1", "-3:1", "-2:1", "-1:1", "0:1", "1:1", "2:1", "-3:2", "-2:2", "-1:2", "0:2", "1:2", "2:2", "-2:3", "-1:3", "0:3", "1:3"],
+      "landCoords": ["-1:-4", "0:-4", "1:-4", "-2:-3", "-1:-3", "0:-3", "1:-3", "2:-3", "-3:-2", "-2:-2", "-1:-2", "0:-2", "1:-2", "2:-2", "3:-2", "-4:-1", "-3:-1", "-2:-1", "-1:-1", "0:-1", "1:-1", "2:-1", "3:-1", "-4:0", "-3:0", "-2:0", "-1:0", "0:0", "1:0", "2:0", "3:0", "-4:1", "-3:1", "-2:1", "-1:1", "0:1", "1:1", "2:1", "-3:2", "-2:2", "-1:2", "0:2", "1:2", "2:2", "-2:3", "-1:3", "0:3", "1:3"],
+      "fogLandCoords": [],
+      "fogSeaCoords": [],
+      "goldCoords": [],
+      "desertCoords": [],
+      "portDistribution": [],
+      "logicalIslandGroups": [],
+      "initialRobberCoord": null,
+      "initialPirateCoord": null,
+      "fixedTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      },
+      "variableTokenRules": {
+        "forbidAdjacentRedNumbers": true,
+        "forbidRedNumbersOnGold": true,
+        "forbidLowNumbersOnForestOrPasture": false,
+        "forbiddenNumbersByCoord": {}
+      }
+    }
+  }
+}
