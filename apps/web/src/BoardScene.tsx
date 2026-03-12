@@ -140,13 +140,13 @@ const tileSandMaterial = markSharedResource(
 );
 const seaTileOverlayMaterial = markSharedResource(
   new THREE.MeshStandardMaterial({
-    color: "#2c8bc0",
-    roughness: 0.26,
-    metalness: 0.12,
+    color: getSeaTilePalette().overlay,
+    roughness: 0.34,
+    metalness: 0.08,
     transparent: true,
-    opacity: 0.94,
-    emissive: new THREE.Color("#8cd9ff"),
-    emissiveIntensity: 0.2
+    opacity: getSeaTilePalette().overlayOpacity,
+    emissive: new THREE.Color(getSeaTilePalette().overlayEmissive),
+    emissiveIntensity: getSeaTilePalette().overlayEmissiveIntensity
   })
 );
 const fogTileOverlayMaterial = markSharedResource(
@@ -780,13 +780,18 @@ function BoardSceneComponent(props: BoardSceneProps) {
       pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, cameraNode);
       const intersections = raycaster.intersectObjects(interactiveRef.current, false);
+      let fallbackPortObject: THREE.Object3D | null = null;
       for (const intersection of intersections) {
         const interactiveObject = resolveInteractiveObject(intersection.object);
         if (interactiveObject) {
+          if (interactiveObject.userData.kind === "port") {
+            fallbackPortObject ??= interactiveObject;
+            continue;
+          }
           return interactiveObject;
         }
       }
-      return null;
+      return fallbackPortObject;
     };
 
     const getInteractiveObjectAtPointer = () => {
@@ -1183,7 +1188,8 @@ function BoardSceneComponent(props: BoardSceneProps) {
     group.add(createBoardWaterBackdrop(props.snapshot.board));
 
     for (const tile of props.snapshot.board.tiles) {
-      if (useTexturedTiles && !texturedTerrainBundles.has(tile.resource)) {
+      const texturedTile = useTexturedTiles && !isSeaTile(tile);
+      if (texturedTile && !texturedTerrainBundles.has(tile.resource)) {
         texturedTerrainBundles.set(tile.resource, createUltraTerrainTextureBundle(tile.resource, "board"));
       }
       const terrainSurface = includeTerrainRelief
@@ -1194,8 +1200,8 @@ function BoardSceneComponent(props: BoardSceneProps) {
             boardVertices: props.snapshot.board.vertices,
             boardPorts: props.snapshot.board.ports,
             active: false,
-            textured: useTexturedTiles,
-            ...(useTexturedTiles ? { terrainBundle: texturedTerrainBundles.get(tile.resource)! } : {}),
+            textured: texturedTile,
+            ...(texturedTile ? { terrainBundle: texturedTerrainBundles.get(tile.resource)! } : {}),
             tileScale: TILE_OUTER_RENDER_SCALE,
             baseY: TILE_HEIGHT + 0.012
           })
@@ -1205,10 +1211,17 @@ function BoardSceneComponent(props: BoardSceneProps) {
       }
       const base =
         useTexturedTiles
-          ? createTexturedTileMesh(tile, verticesById, false, texturedTerrainBundles.get(tile.resource)!, terrainSurface, {
-              includeProps,
-              includeTerrainRelief
-            })
+          ? createTexturedTileMesh(
+              tile,
+              verticesById,
+              false,
+              isSeaTile(tile) ? null : texturedTerrainBundles.get(tile.resource)!,
+              terrainSurface,
+              {
+                includeProps,
+                includeTerrainRelief
+              }
+            )
           : createModernTileMesh(tile, verticesById, false, terrainSurface, {
               includeProps,
               includeTerrainRelief
@@ -2544,7 +2557,8 @@ function getSharedModernTileShell(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>
 ): SharedModernTileShell {
-  const cacheKey = `${tile.resource}:${createTileShapeKey(tile, verticesById)}`;
+  const palette = resolveTileShellPalette(tile);
+  const cacheKey = `${palette.cacheKey}:${createTileShapeKey(tile, verticesById)}`;
   const existing = modernTileShellCache.get(cacheKey);
   if (existing) {
     return existing;
@@ -2576,24 +2590,24 @@ function getSharedModernTileShell(
     outerGeometry,
     insetGeometry,
     outerTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: TILE_COLORS[tile.resource],
+      color: palette.outerTop,
       roughness: 0.92,
       metalness: 0.01
     })),
     outerSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: getTileOuterSideColor(tile.resource),
+      color: palette.outerSide,
       roughness: 0.98,
       metalness: 0.01
     })),
     insetTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: shadeColor(TILE_COLORS[tile.resource], 0.04),
+      color: palette.insetTop,
       roughness: 0.86,
       metalness: 0.02,
       emissive: new THREE.Color("#000000"),
       emissiveIntensity: 0
     })),
     insetSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: shadeColor(TILE_COLORS[tile.resource], -0.04),
+      color: palette.insetSide,
       roughness: 0.94,
       metalness: 0.01
     }))
@@ -2606,9 +2620,11 @@ function getSharedModernTileShell(
 function getSharedTexturedTileShell(
   tile: MatchSnapshot["board"]["tiles"][number],
   verticesById: Map<string, MatchSnapshot["board"]["vertices"][number]>,
-  terrainBundle: UltraTerrainTextureBundle
+  terrainBundle: UltraTerrainTextureBundle | null
 ): SharedTexturedTileShell {
-  const cacheKey = `${tile.resource}:${createTileShapeKey(tile, verticesById)}`;
+  const seaTile = isSeaTile(tile);
+  const seaPalette = getSeaTilePalette();
+  const cacheKey = `${seaTile ? seaPalette.cacheKey : tile.resource}:${createTileShapeKey(tile, verticesById)}`;
   const existing = texturedTileShellCache.get(cacheKey);
   if (existing) {
     return existing;
@@ -2647,42 +2663,42 @@ function getSharedTexturedTileShell(
     insetGeometry,
     overlayGeometry,
     outerTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.topTint,
-      map: terrainBundle.colorMap,
-      ...(terrainBundle.roughnessMap ? { roughnessMap: terrainBundle.roughnessMap } : {}),
-      ...(terrainBundle.bumpMap ? { bumpMap: terrainBundle.bumpMap } : {}),
-      roughness: terrainBundle.appearance.roughness,
-      metalness: terrainBundle.appearance.metalness,
-      bumpScale: terrainBundle.appearance.bumpScale * 0.82,
-      emissive: new THREE.Color(terrainBundle.appearance.emissive),
-      emissiveIntensity: 0.02
+      color: seaTile ? seaPalette.outerTop : terrainBundle!.appearance.topTint,
+      ...(seaTile ? {} : { map: terrainBundle!.colorMap }),
+      ...(!seaTile && terrainBundle!.roughnessMap ? { roughnessMap: terrainBundle!.roughnessMap } : {}),
+      ...(!seaTile && terrainBundle!.bumpMap ? { bumpMap: terrainBundle!.bumpMap } : {}),
+      roughness: seaTile ? 0.6 : terrainBundle!.appearance.roughness,
+      metalness: seaTile ? 0.08 : terrainBundle!.appearance.metalness,
+      ...(seaTile ? {} : { bumpScale: terrainBundle!.appearance.bumpScale * 0.82 }),
+      emissive: new THREE.Color(seaTile ? seaPalette.outerSide : terrainBundle!.appearance.emissive),
+      emissiveIntensity: seaTile ? 0.04 : 0.02
     })),
     outerSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.sideTint,
+      color: seaTile ? seaPalette.outerSide : terrainBundle!.appearance.sideTint,
       roughness: 0.96,
       metalness: 0.02
     })),
     insetTopMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.insetTint,
-      map: terrainBundle.colorMap,
-      ...(terrainBundle.roughnessMap ? { roughnessMap: terrainBundle.roughnessMap } : {}),
-      ...(terrainBundle.bumpMap ? { bumpMap: terrainBundle.bumpMap } : {}),
-      roughness: Math.max(terrainBundle.appearance.roughness - 0.05, 0.36),
-      metalness: terrainBundle.appearance.metalness,
-      bumpScale: terrainBundle.appearance.bumpScale,
-      emissive: new THREE.Color(terrainBundle.appearance.emissive),
-      emissiveIntensity: 0.028
+      color: seaTile ? seaPalette.insetTop : terrainBundle!.appearance.insetTint,
+      ...(seaTile ? {} : { map: terrainBundle!.colorMap }),
+      ...(!seaTile && terrainBundle!.roughnessMap ? { roughnessMap: terrainBundle!.roughnessMap } : {}),
+      ...(!seaTile && terrainBundle!.bumpMap ? { bumpMap: terrainBundle!.bumpMap } : {}),
+      roughness: seaTile ? 0.52 : Math.max(terrainBundle!.appearance.roughness - 0.05, 0.36),
+      metalness: seaTile ? 0.1 : terrainBundle!.appearance.metalness,
+      ...(seaTile ? {} : { bumpScale: terrainBundle!.appearance.bumpScale }),
+      emissive: new THREE.Color(seaTile ? seaPalette.overlayEmissive : terrainBundle!.appearance.emissive),
+      emissiveIntensity: seaTile ? 0.05 : 0.028
     })),
     insetSideMaterial: markSharedResource(new THREE.MeshStandardMaterial({
-      color: terrainBundle.appearance.insetSideTint,
+      color: seaTile ? seaPalette.insetSide : terrainBundle!.appearance.insetSideTint,
       roughness: 0.94,
       metalness: 0.01
     })),
     overlayMaterial: markSharedResource(new THREE.MeshBasicMaterial({
-      color: terrainBundle.appearance.overlayBase,
-      alphaMap: terrainBundle.overlayMask,
+      color: seaTile ? seaPalette.texturedOverlay : terrainBundle!.appearance.overlayBase,
+      ...(seaTile ? {} : { alphaMap: terrainBundle!.overlayMask }),
       transparent: true,
-      opacity: terrainBundle.appearance.overlayOpacity,
+      opacity: seaTile ? seaPalette.texturedOverlayOpacity : terrainBundle!.appearance.overlayOpacity,
       depthWrite: false,
       toneMapped: false,
       fog: false
@@ -2721,7 +2737,7 @@ function createModernTileMesh(
   ]));
   const insetTopMaterial = active
     ? new THREE.MeshStandardMaterial({
-        color: shadeColor(TILE_COLORS[tile.resource], 0.04),
+        color: isSeaTile(tile) ? shadeColor(getSeaTilePalette().insetTop, 0.02) : shadeColor(TILE_COLORS[tile.resource], 0.04),
         roughness: 0.86,
         metalness: 0.02,
         emissive: new THREE.Color("#f2c56b"),
@@ -2744,7 +2760,7 @@ function createTexturedTileMesh(
   tile: BoardTile,
   verticesById: BoardVerticesById,
   active: boolean,
-  terrainBundle: UltraTerrainTextureBundle,
+  terrainBundle: UltraTerrainTextureBundle | null,
   terrainSurface: TileTerrainSurfaceBundle | null,
   options: TexturedTileOptions
 ): THREE.Group {
@@ -2758,8 +2774,10 @@ function createTexturedTileMesh(
     outerTopMaterial.emissiveIntensity = 0.12;
     insetTopMaterial.emissive = new THREE.Color("#f4d990");
     insetTopMaterial.emissiveIntensity = 0.14;
-    overlayMaterial.color = new THREE.Color(shadeColor(terrainBundle.appearance.overlayBase, 0.06));
-    overlayMaterial.opacity = terrainBundle.appearance.overlayOpacity + 0.08;
+    overlayMaterial.color = new THREE.Color(
+      shadeColor(terrainBundle?.appearance.overlayBase ?? getSeaTilePalette().texturedOverlay, 0.06)
+    );
+    overlayMaterial.opacity = (terrainBundle?.appearance.overlayOpacity ?? getSeaTilePalette().texturedOverlayOpacity) + 0.08;
   }
 
   const outerMesh = markTileShadowReceiver(new THREE.Mesh(shell.outerGeometry, [
@@ -6530,6 +6548,58 @@ function areFocusElementsConnected(left: FocusElement, right: FocusElement): boo
 
 function arraysIntersect(left: string[], right: string[]): boolean {
   return left.some((entry) => right.includes(entry));
+}
+
+interface TileShellPalette {
+  cacheKey: string;
+  outerTop: string;
+  outerSide: string;
+  insetTop: string;
+  insetSide: string;
+}
+
+interface SeaTilePalette extends TileShellPalette {
+  overlay: string;
+  overlayOpacity: number;
+  overlayEmissive: string;
+  overlayEmissiveIntensity: number;
+  texturedOverlay: string;
+  texturedOverlayOpacity: number;
+}
+
+function isSeaTile(tile: BoardTile): boolean {
+  return tile.kind === "sea" || tile.terrain === "sea";
+}
+
+function resolveTileShellPalette(tile: BoardTile): TileShellPalette {
+  if (isSeaTile(tile)) {
+    return getSeaTilePalette();
+  }
+
+  return {
+    cacheKey: tile.resource,
+    outerTop: TILE_COLORS[tile.resource],
+    outerSide: getTileOuterSideColor(tile.resource),
+    insetTop: shadeColor(TILE_COLORS[tile.resource], 0.04),
+    insetSide: shadeColor(TILE_COLORS[tile.resource], -0.04)
+  };
+}
+
+function getSeaTilePalette(): SeaTilePalette {
+  const base = "#1c5f85";
+  return {
+    cacheKey: "sea",
+    outerTop: shadeColor(base, -0.06),
+    outerSide: shadeColor(base, -0.22),
+    insetTop: shadeColor(base, 0.02),
+    insetSide: shadeColor(base, -0.12),
+    overlay: shadeColor(base, 0.04),
+    overlayOpacity: 0.9,
+    overlayEmissive: shadeColor(base, 0.2),
+    overlayEmissiveIntensity: 0.08,
+    texturedOverlay: shadeColor(base, -0.02),
+    texturedOverlayOpacity: 0.24
+  };
 }
 
 function shadeColor(color: string, lightnessOffset: number): string {

@@ -128,13 +128,11 @@ export function RoomScreen(props: {
     () => [
       {
         value: "base",
-        label: t("room.rulesFamily.base.label"),
-        meta: t("room.rulesFamily.base.detail")
+        label: t("room.rulesFamily.base.label")
       },
       {
         value: "seafarers",
-        label: t("room.rulesFamily.seafarers.label"),
-        meta: t("room.rulesFamily.seafarers.detail")
+        label: t("room.rulesFamily.seafarers.label")
       }
     ],
     [t]
@@ -143,8 +141,7 @@ export function RoomScreen(props: {
     () =>
       scenarioEntries.map((entry) => ({
         value: entry.id,
-        label: t(entry.titleKey),
-        meta: t(entry.summaryKey)
+        label: t(entry.titleKey)
       })),
     [scenarioEntries, t]
   );

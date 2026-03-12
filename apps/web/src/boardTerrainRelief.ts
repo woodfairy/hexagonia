@@ -9,7 +9,7 @@ type TerrainTile = MatchSnapshot["board"]["tiles"][number];
 type TerrainVertex = MatchSnapshot["board"]["vertices"][number];
 type TerrainEdge = MatchSnapshot["board"]["edges"][number];
 type TerrainPort = MatchSnapshot["board"]["ports"][number];
-type TerrainResource = Resource | "desert";
+type TerrainResource = Resource | "desert" | "sea";
 
 interface TerrainPoint {
   x: number;
@@ -211,11 +211,28 @@ const BIOME_RECIPES: Record<TerrainResource, TerrainBiomeRecipe> = {
     coverEdgePadding: 0.06,
     featureCount: 10,
     pathDepth: 0.012
+  },
+  sea: {
+    baseColor: "#164d6b",
+    coverColor: "#2c7aa3",
+    accentColor: "#8fd4f3",
+    roughness: 0.58,
+    metalness: 0.08,
+    coverKind: "dune",
+    coverCount: 0,
+    coverMinScale: 0.9,
+    coverMaxScale: 1.2,
+    coverFootprint: 0.12,
+    coverSpacing: 0.48,
+    coverEdgePadding: 0.04,
+    featureCount: 6,
+    pathDepth: 0.004
   }
 };
 
 export function createTileTerrainSurface(params: CreateTileTerrainSurfaceParams): TileTerrainSurfaceBundle {
-  const biome = createBiomeState(params.tile);
+  const terrainResource = resolveTerrainResource(params.tile);
+  const biome = createBiomeState(params.tile, terrainResource);
   const polygon = createTerrainPolygon(params.tile, params.verticesById, params.tileScale);
   const structureMask = createStructureMask(
     params.tile,
@@ -226,10 +243,10 @@ export function createTileTerrainSurface(params: CreateTileTerrainSurfaceParams)
     polygon.scale
   );
   const sampleHeightLocal = (localX: number, localZ: number) =>
-    sampleBiomeHeight(params.tile.resource, biome, structureMask, localX, localZ, params.baseY);
+    sampleBiomeHeight(terrainResource, biome, structureMask, localX, localZ, params.baseY);
   const sampleHeight = (offsetX: number, offsetZ: number) => sampleHeightLocal(offsetX * polygon.scale, offsetZ * polygon.scale);
   const { geometry, maxHeight } = createSurfaceGeometry(polygon, sampleHeightLocal);
-  const material = createSurfaceMaterial(params.tile.resource, params.textured, params.terrainBundle, params.active, biome.recipe);
+  const material = createSurfaceMaterial(terrainResource, params.textured, params.terrainBundle, params.active, biome.recipe);
   const surfaceMesh = new THREE.Mesh(geometry, material);
   surfaceMesh.castShadow = true;
   surfaceMesh.receiveShadow = true;
@@ -293,6 +310,10 @@ function createCoverLayer(
   baseY: number,
   active: boolean
 ): THREE.Object3D | null {
+  if (biome.recipe.coverCount <= 0) {
+    return null;
+  }
+
   const coverTemplate = createCoverGeometry(biome.recipe.coverKind);
   const material = createCoverMaterial(biome.recipe, active);
   const spawns = createCoverSpawns(biome, polygon, structureMask, coverTemplate);
@@ -1053,9 +1074,9 @@ function createSurfaceGeometry(
   };
 }
 
-function createBiomeState(tile: TerrainTile): TerrainBiomeState {
-  const recipe = BIOME_RECIPES[tile.resource];
-  const random = createSeededRandom(`${tile.id}:${tile.q}:${tile.r}:${tile.resource}:terrain`);
+function createBiomeState(tile: TerrainTile, terrainResource: TerrainResource): TerrainBiomeState {
+  const recipe = BIOME_RECIPES[terrainResource];
+  const random = createSeededRandom(`${tile.id}:${tile.q}:${tile.r}:${terrainResource}:terrain`);
   const features: TerrainFeature[] = [];
   const primaryAngle = random() * Math.PI;
   const secondaryAngle = primaryAngle + Math.PI / 2 + (random() - 0.5) * 0.56;
@@ -1064,12 +1085,14 @@ function createBiomeState(tile: TerrainTile): TerrainBiomeState {
     const radial = THREE.MathUtils.lerp(0.15, 0.92, Math.sqrt(random()));
     const angle = random() * Math.PI * 2;
     const amplitude =
-      tile.resource === "brick"
+      terrainResource === "brick"
         ? THREE.MathUtils.lerp(-0.032, 0.026, random())
-        : tile.resource === "ore"
+        : terrainResource === "ore"
           ? THREE.MathUtils.lerp(0.02, 0.078, random())
-          : tile.resource === "desert"
+          : terrainResource === "desert"
             ? THREE.MathUtils.lerp(0.014, 0.062, random())
+            : terrainResource === "sea"
+              ? THREE.MathUtils.lerp(0.004, 0.016, random())
             : THREE.MathUtils.lerp(0.016, 0.054, random());
     features.push({
       x: Math.cos(angle) * radial * 2.36,
@@ -1083,7 +1106,7 @@ function createBiomeState(tile: TerrainTile): TerrainBiomeState {
 
   return {
     recipe,
-    seed: hashString(`${tile.id}:${tile.q}:${tile.r}:${tile.resource}`),
+    seed: hashString(`${tile.id}:${tile.q}:${tile.r}:${terrainResource}`),
     primaryAngle,
     secondaryAngle,
     features
@@ -1281,12 +1304,27 @@ function sampleBiomeHeight(
         Math.sin(rotatedPrimary.x * 7.4 + biome.seed * 0.0011) * 0.008 +
         fineNoise * 0.004;
       break;
+    case "sea":
+      macro =
+        0.012 +
+        Math.sin(rotatedPrimary.x * 1.8 + biome.seed * 0.0011) * 0.012 +
+        Math.sin(rotatedSecondary.z * 1.4 + biome.seed * 0.0009) * 0.01 +
+        featureField * 0.1;
+      micro =
+        Math.sin((rotatedPrimary.x + rotatedSecondary.z) * 4.8 + biome.seed * 0.0017) * 0.005 +
+        fineNoise * 0.003 +
+        ridgeNoise * 0.002;
+      break;
   }
 
   const rawHeight = baseY + macro + micro;
   const structureInfluence = sampleStructureInfluence(structureMask, localX, localZ);
   const flattenedHeight = baseY + macro * 0.42 + micro * 0.12 - structureInfluence * biome.recipe.pathDepth;
   return THREE.MathUtils.lerp(rawHeight, flattenedHeight, structureInfluence * 0.92);
+}
+
+function resolveTerrainResource(tile: TerrainTile): TerrainResource {
+  return tile.terrain === "sea" || tile.kind === "sea" ? "sea" : tile.resource;
 }
 
 function sampleStructureInfluence(mask: TerrainStructureMask, localX: number, localZ: number): number {

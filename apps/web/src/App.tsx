@@ -1756,6 +1756,24 @@ export function App() {
     return fallbackRouteTypes;
   }
 
+  function createRoutePlacementAction(
+    kind: PendingRouteChoiceState["kind"],
+    edgeId: string,
+    routeType: RouteBuildType
+  ): Extract<ClientMessage, { type: "match.action" }>["action"] {
+    return kind === "initial"
+      ? {
+          type: "place_initial_road",
+          edgeId,
+          routeType
+        }
+      : {
+          type: "place_free_road",
+          edgeId,
+          routeType
+        };
+  }
+
   const armRoutePlacement = useCallback(
     (
       currentMatch: MatchSnapshot,
@@ -1763,24 +1781,11 @@ export function App() {
       edgeId: string,
       routeType: RouteBuildType
     ) => {
-      const action: Extract<ClientMessage, { type: "match.action" }>["action"] =
-        kind === "initial"
-          ? {
-              type: "place_initial_road",
-              edgeId,
-              routeType
-            }
-          : {
-              type: "place_free_road",
-              edgeId,
-              routeType
-            };
-
       armBoardAction(
         {
           type: "match.action",
           matchId: currentMatch.matchId,
-          action
+          action: createRoutePlacementAction(kind, edgeId, routeType)
         },
         { kind: "edge", id: edgeId }
       );
@@ -1797,9 +1802,14 @@ export function App() {
       }
 
       setPendingRouteChoice(null);
-      armRoutePlacement(currentMatch, currentChoice.kind, currentChoice.edgeId, routeType);
+      setPendingBoardAction(null);
+      dispatchMatchAction({
+        type: "match.action",
+        matchId: currentMatch.matchId,
+        action: createRoutePlacementAction(currentChoice.kind, currentChoice.edgeId, routeType)
+      });
     },
-    [armRoutePlacement, pendingRouteChoice]
+    [dispatchMatchAction, pendingRouteChoice]
   );
 
   const handleCancelRouteChoice = useCallback(() => {

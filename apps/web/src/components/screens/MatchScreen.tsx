@@ -3256,38 +3256,6 @@ function MatchScreenComponent(props: MatchScreenProps) {
             </div>
           </section>
         ) : null}
-        {props.pendingRouteChoice ? (
-          <section className="dock-section">
-            <div className="dock-section-head">
-              <h3>{pendingRouteChoiceTitle}</h3>
-              <span>{pendingRouteChoiceDetail}</span>
-            </div>
-            <div className="build-action-grid">
-              {props.pendingRouteChoice.routeTypes.map((routeType) => (
-                <button
-                  key={`route-choice-${routeType}`}
-                  type="button"
-                  className="build-action-card is-ready"
-                  onClick={() => props.onChooseRouteType(routeType)}
-                >
-                  <span className="build-action-head">
-                    <strong>{routeType === "ship" ? t("match.build.ship") : t("match.build.road")}</strong>
-                    <span>
-                      {routeType === "ship"
-                        ? t("match.routeChoice.option.ship")
-                        : t("match.routeChoice.option.road")}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="dock-section-actions">
-              <button type="button" className="secondary-button" onClick={props.onCancelRouteChoice}>
-                {t("shared.cancel")}
-              </button>
-            </div>
-          </section>
-        ) : null}
         <section className="dock-section">
           <div className="dock-section-head">
             <h3>{t("match.build.title")}</h3>
