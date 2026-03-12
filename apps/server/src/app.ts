@@ -33,6 +33,7 @@ import {
   type Locale,
   type RoomGameConfigPatch,
   type RoomDetails,
+  type ScenarioOptions,
   type ScenarioId
 } from "@hexagonia/shared";
 import type { RawData } from "ws";
@@ -1079,7 +1080,13 @@ function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>): RoomGameCo
     patch.layoutMode = body.layoutMode;
   }
   if (body.scenarioOptions !== undefined) {
-    patch.scenarioOptions = body.scenarioOptions;
+    const scenarioOptions: Partial<ScenarioOptions> = {};
+    for (const [key, value] of Object.entries(body.scenarioOptions)) {
+      if (value !== undefined) {
+        scenarioOptions[key] = value;
+      }
+    }
+    patch.scenarioOptions = scenarioOptions;
   }
   if (body.boardSize !== undefined) {
     patch.boardSize = body.boardSize;
