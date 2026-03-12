@@ -93,6 +93,7 @@ const readySchema = z.object({
 });
 
 const scenarioIdSchema = z.custom<ScenarioId>((value): value is ScenarioId => isScenarioId(value));
+const scenarioOptionValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
 const roomSettingsSchema = z
   .object({
@@ -105,7 +106,7 @@ const roomSettingsSchema = z
       .object({
         victoryPointsToWin: z.number().int().min(3).max(30).optional()
       })
-      .passthrough()
+      .catchall(scenarioOptionValueSchema)
       .optional(),
     boardSize: z.enum(BOARD_SIZES).optional(),
     setupMode: z.enum(["official_variable", "beginner"]).optional(),
