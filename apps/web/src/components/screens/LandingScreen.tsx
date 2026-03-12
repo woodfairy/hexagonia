@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import type { ErrorParams } from "@hexagonia/shared";
 import type { MusicPlaybackMode, MusicTrack } from "../../audio/uiSoundManager";
-import { useI18n } from "../../i18n";
+import { createCatalogText, createText, resolveText, useI18n } from "../../i18n";
 import { HarborIcon } from "../../resourceIcons";
 import { LandingBoardScene } from "../../LandingBoardScene";
 import { LocaleSelect } from "../shared/LocaleSelect";
@@ -12,90 +11,132 @@ import hexaLogo from "../../../../../assets/img/hexa.png";
 
 const FLOW_STEPS = [
   {
-    titleKey: "landing.flow.startRound.title",
-    bodyKey: "landing.flow.startRound.body",
-    metaKey: "landing.flow.startRound.meta"
+    title: createText("Eine Runde starten", "Start a round"),
+    body: createText(
+      "Ein Tisch ist in Sekunden bereit. Der Ersteller sitzt direkt auf Platz 1 und steuert Setup und Start.",
+      "A table is ready within seconds. The creator takes seat 1 immediately and controls setup and start."
+    ),
+    meta: createText("Schnell drin, sofort startklar", "Fast in, ready immediately")
   },
   {
-    titleKey: "landing.flow.shareInvite.title",
-    bodyKey: "landing.flow.shareInvite.body",
-    metaKey: "landing.flow.shareInvite.meta"
+    title: createText("Code oder Link teilen", "Share code or link"),
+    body: createText(
+      "Freunde kommen per Raumcode oder Invite-Link direkt an denselben Tisch. Kein Matchmaking, kein unnötiger Overhead.",
+      "Friends join the same table directly via room code or invite link. No matchmaking, no unnecessary overhead."
+    ),
+    meta: createText("Invite-Code oder Direktlink", "Invite code or direct link")
   },
   {
-    titleKey: "landing.flow.configureMatch.title",
-    bodyKey: "landing.flow.configureMatch.body",
-    metaKey: "landing.flow.configureMatch.meta"
+    title: createText("Partie konfigurieren", "Configure the match"),
+    body: createText(
+      "Beginner-Aufbau oder dynamisch generiertes Brett, manueller Startspieler oder Auswürfeln: ihr legt fest, wie die Partie startet.",
+      "Beginner setup or a dynamically generated board, manual starting player or a roll-off: you decide how the match begins."
+    ),
+    meta: createText("Beginner oder dynamisch", "Beginner or dynamic")
   },
   {
-    titleKey: "landing.flow.startPlaying.title",
-    bodyKey: "landing.flow.startPlaying.body",
-    metaKey: "landing.flow.startPlaying.meta"
+    title: createText("Gemeinsam starten und losspielen", "Start together and play"),
+    body: createText(
+      "Sobald alle am Tisch sind, geht es direkt ins Spiel: bauen, handeln, würfeln und den nächsten starken Zug vorbereiten.",
+      "As soon as everyone is at the table, the match starts immediately: build, trade, roll, and set up the next strong move."
+    ),
+    meta: createText("Schnell rein, direkt spielen", "Jump in and play right away")
   }
 ] as const;
 
 const BUILD_FEATURES = [
   {
     icon: "board",
-    titleKey: "landing.features.boardDynamics.title",
-    bodyKey: "landing.features.boardDynamics.body",
-    detailKey: "landing.features.boardDynamics.detail"
+    title: createText("Jede Runde verändert das Spiel", "Every round changes the game"),
+    body: createText(
+      "Mit jedem Wurf, jedem Bau und jedem Deal kippt die Lage neu. Gute Positionen entstehen nicht zufällig, sondern weil du sie dir Zug für Zug holst.",
+      "Every roll, build, and deal reshapes the board. Strong positions are not random, you earn them move by move."
+    ),
+    detail: createText("Druck, Timing und starke Züge", "Pressure, timing, and strong moves")
   },
   {
     icon: "rooms",
-    titleKey: "landing.features.friendsAtTable.title",
-    bodyKey: "landing.features.friendsAtTable.body",
-    detailKey: "landing.features.friendsAtTable.detail"
+    title: createText("Mit Freunden direkt am Tisch", "Sit down with friends directly"),
+    body: createText(
+      "Runde eröffnen, Code oder Link teilen, Plätze füllen und gemeinsam starten, ohne Umwege bis zur Partie.",
+      "Open a round, share the code or link, fill the seats, and start together without detours."
+    ),
+    detail: createText("Schnell eingeladen, schnell im Spiel", "Invite fast, play fast")
   },
   {
     icon: "trade",
-    titleKey: "landing.features.tradeHarbors.title",
-    bodyKey: "landing.features.tradeHarbors.body",
-    detailKey: "landing.features.tradeHarbors.detail"
+    title: createText("Handel, Häfen und gute Deals", "Trades, harbors, and good deals"),
+    body: createText(
+      "Handle direkt mit anderen Spielern oder nutze Häfen, um aus knappen Karten doch noch den nächsten starken Zug zu machen.",
+      "Trade directly with other players or use harbors to turn a tight hand into the next strong move."
+    ),
+    detail: createText("Spielerhandel und Hafentausch", "Player trades and harbor trades")
   },
   {
     icon: "robber",
-    titleKey: "landing.features.robberDevelopment.title",
-    bodyKey: "landing.features.robberDevelopment.body",
-    detailKey: "landing.features.robberDevelopment.detail"
+    title: createText("Räuber, Entwicklung und Wertungen", "Robber, development, and awards"),
+    body: createText(
+      "Räuberphase, Entwicklungskarten, längste Straße und größte Rittermacht sorgen schon jetzt für echte Wendepunkte in der Partie.",
+      "Robber phases, development cards, longest road, and largest army already create real turning points in the match."
+    ),
+    detail: createText("Klassische Spannung, sofort im Browser", "Classic tension, instantly in the browser")
   }
 ] as const;
 
 const MECHANICS = [
   {
     icon: "board",
-    titleKey: "landing.mechanics.boardSetup.title",
-    bodyKey: "landing.mechanics.boardSetup.body",
-    accentKey: "landing.mechanics.boardSetup.accent"
+    title: createText("Board und Aufbauphase", "Board and setup phase"),
+    body: createText(
+      "Start-Siedlungen, Start-Straßen sowie Vorwärts- und Rückwärts-Setup sind klar abgebildet, egal ob ihr mit variablem oder vorbereitetem Brett spielt.",
+      "Initial settlements, initial roads, and forward and reverse setup are clearly represented, whether you play on a variable or prepared board."
+    ),
+    accent: createText("Setup, Platzierung, Häfen", "Setup, placement, harbors")
   },
   {
     icon: "trade",
-    titleKey: "landing.mechanics.trading.title",
-    bodyKey: "landing.mechanics.trading.body",
-    accentKey: "landing.mechanics.trading.accent"
+    title: createText("Handel mit echter Entscheidungstiefe", "Trading with real decision depth"),
+    body: createText(
+      "Deals entstehen nicht nebenbei: Du setzt Angebote, reizt andere Spieler zu Fehlern und holst selbst aus knappen Händen noch starke Züge heraus.",
+      "Deals do not happen on the side: you set offers, tempt other players into mistakes, and squeeze strong moves out of tight hands."
+    ),
+    accent: createText("Direkthandel und Banktausch", "Direct trades and bank trade")
   },
   {
     icon: "robber",
-    titleKey: "landing.mechanics.robber.title",
-    bodyKey: "landing.mechanics.robber.body",
-    accentKey: "landing.mechanics.robber.accent"
+    title: createText("Der Räuber kippt die Lage", "The robber shifts the board"),
+    body: createText(
+      "Wenn der Räuber kommt, werden Karten knapp, starke Felder blockiert und ein gut gesetzter Zug trifft genau den richtigen Gegner.",
+      "When the robber appears, cards get tight, strong tiles are blocked, and a well-placed move hits exactly the right opponent."
+    ),
+    accent: createText("Räuber, Abwurf und Zielwahl", "Robber, discard, and target selection")
   },
   {
     icon: "cards",
-    titleKey: "landing.mechanics.development.title",
-    bodyKey: "landing.mechanics.development.body",
-    accentKey: "landing.mechanics.development.accent"
+    title: createText("Entwicklungskarten und Wertungen", "Development cards and awards"),
+    body: createText(
+      "Ritter, Straßenbau, Erfindung, Monopol und Siegpunktkarten können eine Partie komplett drehen, zusammen mit den Wertungen für Straße und Rittermacht.",
+      "Knight, road building, year of plenty, monopoly, and victory point cards can completely swing a match, together with the road and army awards."
+    ),
+    accent: createText("Karten, Awards, Punkte", "Cards, awards, points")
   },
   {
     icon: "rooms",
-    titleKey: "landing.mechanics.friends.title",
-    bodyKey: "landing.mechanics.friends.body",
-    accentKey: "landing.mechanics.friends.accent"
+    title: createText("Mit Freunden ohne Umwege spielen", "Play with friends without detours"),
+    body: createText(
+      "Du eröffnest eine Runde, teilst Code oder Link und sitzt direkt mit deinen Leuten am Tisch.",
+      "You open a round, share the code or link, and sit down directly with your group."
+    ),
+    accent: createText("Code, Link, gemeinsame Runde", "Code, link, shared round")
   },
   {
     icon: "build",
-    titleKey: "landing.mechanics.mobile.title",
-    bodyKey: "landing.mechanics.mobile.body",
-    accentKey: "landing.mechanics.mobile.accent"
+    title: createText("Auch mobil gut spielbar", "Also plays well on mobile"),
+    body: createText(
+      "Hexagonia funktioniert nicht nur am Desktop, sondern auch im Handy-Browser. So kannst du deiner Runde auch unterwegs beitreten und weiterspielen.",
+      "Hexagonia works not just on desktop, but also in mobile browsers. That means you can join and continue your round while on the go."
+    ),
+    accent: createText("Desktop und Mobile Browser", "Desktop and mobile browsers")
   }
 ] as const;
 
@@ -118,8 +159,8 @@ export function LandingScreen(props: {
   onToggleMusicPaused: () => void;
   authSubmitPending: boolean;
 }) {
-  const { locale, setLocale, translate: t } = useI18n();
-  const text = (key: string, params?: ErrorParams) => t(key, undefined, undefined, params);
+  const { locale, setLocale } = useI18n();
+  const text = (de: string, en: string) => resolveText(locale, createText(de, en));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [optimisticTrackSwitchId, setOptimisticTrackSwitchId] = useState<string | null>(null);
@@ -235,36 +276,33 @@ export function LandingScreen(props: {
   };
 
   const flowSteps = FLOW_STEPS.map((step) => ({
-    title: text(step.titleKey),
-    body: text(step.bodyKey),
-    meta: text(step.metaKey)
+    title: resolveText(locale, step.title),
+    body: resolveText(locale, step.body),
+    meta: resolveText(locale, step.meta)
   }));
   const buildFeatures = BUILD_FEATURES.map((feature) => ({
     ...feature,
-    title: text(feature.titleKey),
-    body: text(feature.bodyKey),
-    detail: text(feature.detailKey)
+    title: resolveText(locale, feature.title),
+    body: resolveText(locale, feature.body),
+    detail: resolveText(locale, feature.detail)
   }));
   const mechanics = MECHANICS.map((entry) => ({
     ...entry,
-    title: text(entry.titleKey),
-    body: text(entry.bodyKey),
-    accent: text(entry.accentKey)
+    title: resolveText(locale, entry.title),
+    body: resolveText(locale, entry.body),
+    accent: resolveText(locale, entry.accent)
   }));
-  const authSubmitLabel =
-    props.authMode === "login" ? text("landing.auth.submit.login") : text("landing.auth.submit.register");
+  const authSubmitLabel = props.authMode === "login" ? text("Jetzt anmelden", "Sign in now") : text("Konto anlegen und loslegen", "Create account and start");
   const hasMusicTracks = props.musicTracks.length > 0;
   const selectedTrack = props.musicTracks.find((track) => track.id === props.selectedMusicTrackId) ?? props.musicTracks[0] ?? null;
-  const landingModeLabel =
-    props.musicPlaybackMode === "cycle" ? text("shared.playlist") : text("shared.loop");
+  const landingModeLabel = props.musicPlaybackMode === "cycle" ? text("Playlist", "Playlist") : text("Loop", "Loop");
   const landingMusicPaused = optimisticTrackSwitchId ? false : props.musicPaused;
-  const brandName = text("app.title");
   const musicTrackOptions = props.musicTracks.length
     ? props.musicTracks.map((track) => ({
         value: track.id,
         label: track.name
       }))
-    : [{ value: "", label: text("landing.music.noTracks"), disabled: true }];
+    : [{ value: "", label: text("Keine Songs gefunden", "No songs found"), disabled: true }];
 
   return (
     <div ref={rootRef} className="guest-root landing-root">
@@ -273,24 +311,24 @@ export function LandingScreen(props: {
           type="button"
           className="landing-brand"
           onClick={scrollToTop}
-          aria-label={text("landing.header.backToTop")}
+          aria-label={text("Nach oben zu Hexagonia", "Back to the top of Hexagonia")}
         >
           <span className="landing-brand-mark">
-            <img src={hexaLogo} alt={brandName} className="landing-brand-image" />
+            <img src={hexaLogo} alt="Hexagonia" className="landing-brand-image" />
           </span>
           <span className="landing-brand-copy">
-            <strong>{brandName}</strong>
-            <span>{text("landing.header.tagline")}</span>
+            <strong>Hexagonia</strong>
+            <span>{text("Modernes Tabletop-Strategy im Browser", "Modern tabletop strategy in the browser")}</span>
           </span>
         </button>
 
         <div className="landing-header-tools">
           <div className="landing-header-actions">
-            <LocaleSelect value={locale} ariaLabel={text("shared.language")} variant="landing" onChange={setLocale} />
+            <LocaleSelect value={locale} ariaLabel={text("Sprache", "Language")} variant="landing" onChange={setLocale} />
           </div>
           <div className="landing-music-panel">
             <div className="landing-music-copy">
-              <strong>{text("shared.music")}</strong>
+              <strong>{text("Musik", "Music")}</strong>
             </div>
             <div className="landing-music-controls">
               <div className="landing-music-track-shell">
@@ -306,7 +344,7 @@ export function LandingScreen(props: {
 
                     props.onSelectMusicTrack(trackId);
                   }}
-                  ariaLabel={text("landing.music.chooseTrack")}
+                  ariaLabel={text("Song wählen", "Choose track")}
                   variant="landing"
                   disabled={!hasMusicTracks}
                 />
@@ -319,8 +357,8 @@ export function LandingScreen(props: {
                 disabled={!hasMusicTracks}
               >
                 {landingMusicPaused
-                  ? text("shared.play")
-                  : text("shared.pause")}
+                  ? resolveText(locale, createCatalogText("landing.music.playButton", "Start", "Play"))
+                  : text("Pause", "Pause")}
               </button>
               <button
                 type="button"
@@ -328,7 +366,7 @@ export function LandingScreen(props: {
                 aria-pressed={props.musicPlaybackMode === "cycle"}
                 onClick={() => props.onMusicPlaybackModeChange(props.musicPlaybackMode === "cycle" ? "single" : "cycle")}
                 disabled={props.musicTracks.length <= 1}
-                title={text("landing.music.toggleMode")}
+                title={text("Wiedergabemodus umschalten", "Toggle playback mode")}
               >
                 {landingModeLabel}
               </button>
@@ -337,10 +375,10 @@ export function LandingScreen(props: {
 
           <div className="landing-header-actions">
             <button type="button" className="landing-nav-button is-ghost" onClick={() => scrollToSection("zugang")}>
-              {text("shared.login")}
+              {text("Login", "Login")}
             </button>
             <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-              {text("landing.actions.playNow")}
+              {text("Jetzt spielen", "Play now")}
             </button>
           </div>
         </div>
@@ -349,14 +387,19 @@ export function LandingScreen(props: {
       {props.inviteCode ? (
         <aside className="landing-invite-banner" data-reveal style={revealStyle(0)}>
           <div className="landing-invite-copy">
-            <span className="landing-kicker">{text("landing.invite.detected")}</span>
+            <span className="landing-kicker">{text("Einladung erkannt", "Invite detected")}</span>
             <strong>
-              {text("landing.invite.waitingForLogin", { code: props.inviteCode })}
+              {resolveText(
+                locale,
+                createText("Raumcode {code} wartet auf deinen Login.", "Room code {code} is waiting for your login.", {
+                  code: props.inviteCode
+                })
+              )}
             </strong>
-            <span>{text("landing.invite.redirect")}</span>
+            <span>{text("Nach Anmeldung oder Registrierung springst du direkt in die Ziel-Lobby.", "After signing in or registering, you will jump directly into the target lobby.")}</span>
           </div>
           <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-            {text("landing.invite.open")}
+            {text("Einladung öffnen", "Open invite")}
           </button>
         </aside>
       ) : null}
@@ -364,27 +407,30 @@ export function LandingScreen(props: {
       <main className="landing-main">
         <section className="landing-hero" aria-labelledby="landing-hero-title">
           <div className="landing-hero-copy">
-            <span className="landing-kicker">{text("landing.header.tagline")}</span>
-            <h1 id="landing-hero-title">{text("landing.hero.title")}</h1>
+            <span className="landing-kicker">{text("Modernes Tabletop-Strategy im Browser", "Modern tabletop strategy in the browser")}</span>
+            <h1 id="landing-hero-title">{text("Hexagonia bringt Strategie und Handel in den Browser.", "Hexagonia brings strategy and trade to the browser.")}</h1>
             <p className="landing-lead">
-              {text("landing.hero.lead")}
+              {text(
+                "Hol Freunde per Code oder Link an den Tisch und spiel direkt los. Handel, Bauentscheidungen, Räuberphase und Entwicklungskarten bringen sofort Druck und echte Brettspielspannung in den Browser.",
+                "Bring friends to the table with a code or link and start immediately. Trading, building decisions, robber phases, and development cards bring pressure and real board-game tension straight into the browser."
+              )}
             </p>
 
             <article className="landing-free-promise" data-reveal style={revealStyle(120)}>
               <div className="landing-free-promise-mark" aria-hidden="true">
                 <span>100%</span>
-                <span>{text("shared.free")}</span>
+                <span>{text("gratis", "free")}</span>
               </div>
               <div className="landing-free-promise-copy">
                 <div className="landing-free-promise-head">
-                  <span className="landing-kicker">{text("landing.hero.fairPlay")}</span>
+                  <span className="landing-kicker">{text("Fair Play", "Fair play")}</span>
                 </div>
-                <strong>{text("landing.hero.freeTitle")}</strong>
-                <p>{text("landing.hero.freeBody")}</p>
+                <strong>{text("Hexagonia ist 100 % kostenlos und wird es bleiben.", "Hexagonia is 100% free and will stay that way.")}</strong>
+                <p>{text("Kein Abo. Keine Paywalls. Keine bezahlten Vorteile. Nie.", "No subscription. No paywalls. No paid advantages. Ever.")}</p>
               </div>
               <div className="landing-free-promise-actions">
                 <button type="button" className="landing-button" onClick={() => scrollToSection("zugang")}>
-                  {props.inviteCode ? text("landing.hero.cta.invite") : text("landing.hero.cta.free")}
+                  {props.inviteCode ? text("Zur Einladung anmelden", "Sign in to open invite") : text("Jetzt kostenlos spielen", "Play for free now")}
                 </button>
               </div>
             </article>
@@ -394,16 +440,16 @@ export function LandingScreen(props: {
             <div className="landing-scene-shell">
               <LandingBoardScene reducedMotion={prefersReducedMotion} visualProfile="fancy" />
               <div className="landing-scene-badge is-top">
-                <span className="landing-badge-label">{text("landing.hero.badge.table.label")}</span>
-                <strong>{text("landing.hero.badge.table.value")}</strong>
+                <span className="landing-badge-label">{text("Am Tisch", "At the table")}</span>
+                <strong>{text("Handel, Druck und starke Wendungen", "Trade, pressure, and strong swings")}</strong>
               </div>
               <div className="landing-scene-badge is-bottom">
-                <span className="landing-badge-label">{text("landing.hero.badge.round.label")}</span>
-                <strong>{text("landing.hero.badge.round.value")}</strong>
+                <span className="landing-badge-label">{text("Deine Runde", "Your round")}</span>
+                <strong>{text("Freunde einladen und direkt losspielen", "Invite friends and start immediately")}</strong>
               </div>
               <div className="landing-scene-badge is-side">
-                <span className="landing-badge-label">{text("landing.hero.badge.invite.label")}</span>
-                <strong>{text("landing.hero.badge.invite.value")}</strong>
+                <span className="landing-badge-label">{text("Einladung", "Invite")}</span>
+                <strong>{text("Gemeinsam spielen per Code oder Link", "Play together by code or link")}</strong>
               </div>
             </div>
           </div>
@@ -411,9 +457,9 @@ export function LandingScreen(props: {
 
         <section id="ablauf" className="landing-section" aria-labelledby="landing-flow-title">
           <div className="landing-section-head" data-reveal style={revealStyle(0)}>
-            <span className="landing-kicker">{text("landing.section.flow.kicker")}</span>
-            <h2 id="landing-flow-title">{text("landing.section.flow.title")}</h2>
-            <p>{text("landing.section.flow.body")}</p>
+            <span className="landing-kicker">{text("So läuft eine Runde", "How a round works")}</span>
+            <h2 id="landing-flow-title">{text("Schnell in die Partie.", "Get into the match quickly.")}</h2>
+            <p>{text("Hexagonia setzt auf einen klaren Ablauf: Runde anlegen, Freunde reinholen, Setup festlegen und ohne Umwege gemeinsam starten.", "Hexagonia follows a clear flow: create a round, bring in friends, define the setup, and start together without detours.")}</p>
           </div>
 
           <div className="landing-flow-grid">
@@ -435,9 +481,9 @@ export function LandingScreen(props: {
 
         <section id="build" className="landing-section" aria-labelledby="landing-build-title">
           <div className="landing-section-head" data-reveal style={revealStyle(0)}>
-            <span className="landing-kicker">{text("landing.section.build.kicker")}</span>
-            <h2 id="landing-build-title">{text("landing.section.build.title")}</h2>
-            <p>{text("landing.section.build.body")}</p>
+            <span className="landing-kicker">{text("Im Spiel", "In the match")}</span>
+            <h2 id="landing-build-title">{text("Was dich in Hexagonia erwartet.", "What awaits you in Hexagonia.")}</h2>
+            <p>{text("Der Fokus liegt auf einer runden Spielerfahrung: Freunde einladen, Partie starten, handeln, bauen und mit jeder Entscheidung mehr Druck auf die anderen Spieler machen.", "The focus is on a tight player experience: invite friends, start a match, trade, build, and put more pressure on the other players with every decision.")}</p>
           </div>
 
           <div className="landing-build-grid">
@@ -460,16 +506,16 @@ export function LandingScreen(props: {
         <section id="features" className="landing-section landing-mechanics-section" aria-labelledby="landing-mechanics-title">
           <div className="landing-mechanics-layout">
             <aside className="landing-mechanics-sticky" data-reveal style={revealStyle(0)}>
-              <span className="landing-kicker">{text("landing.section.mechanics.kicker")}</span>
-              <h2 id="landing-mechanics-title">{text("landing.section.mechanics.title")}</h2>
-              <p>{text("landing.section.mechanics.body")}</p>
+              <span className="landing-kicker">{text("Mechaniken im Fokus", "Mechanics in focus")}</span>
+              <h2 id="landing-mechanics-title">{text("Die Partie lebt von Interaktion, nicht von Deko.", "The match lives from interaction, not decoration.")}</h2>
+              <p>{text("Hexagonia lebt von direkten Entscheidungen: bauen, handeln, blockieren, kontern und die Partie Zug für Zug zu deinen Gunsten kippen.", "Hexagonia lives from direct decisions: build, trade, block, counter, and swing the match in your favor move by move.")}</p>
 
               <ul className="landing-capability-list">
-                <li>{text("landing.section.mechanics.capability.seats")}</li>
-                <li>{text("landing.section.mechanics.capability.setup")}</li>
-                <li>{text("landing.section.mechanics.capability.trade")}</li>
-                <li>{text("landing.section.mechanics.capability.robber")}</li>
-                <li>{text("landing.section.mechanics.capability.cards")}</li>
+                <li>{text("Runden mit Sitzplätzen und Ready-State", "Rounds with seats and ready state")}</li>
+                <li>{text("Setup-Modi mit kontrolliertem Spielstart", "Setup modes with controlled match start")}</li>
+                <li>{text("Handel zwischen Spielern und über Häfen", "Trading between players and through harbors")}</li>
+                <li>{text("Räuber- und Abwurfphasen mit klarem Ablauf", "Robber and discard phases with a clear flow")}</li>
+                <li>{text("Entwicklungskarten und Wertungen mit echten Wendepunkten", "Development cards and awards with real turning points")}</li>
               </ul>
             </aside>
 
@@ -493,14 +539,19 @@ export function LandingScreen(props: {
 
         <section id="zugang" className="landing-section landing-access-section" aria-labelledby="landing-access-title">
           <div className="landing-access-copy" data-reveal style={revealStyle(0)}>
-            <h2 id="landing-access-title">{text("landing.access.title")}</h2>
-            <p>{text("landing.access.body")}</p>
+            <h2 id="landing-access-title">{text("Melde dich an und geh direkt an deinen Tisch.", "Sign in and go straight to your table.")}</h2>
+            <p>{text("Erstelle ein Konto oder logg dich ein. Wenn du mit einer Einladung gekommen bist, landest du danach direkt in der passenden Runde.", "Create an account or sign in. If you arrived via invite, you will land directly in the correct round afterward.")}</p>
             <article className="landing-access-point landing-access-point-highlight">
-              <strong>{props.inviteCode ? text("landing.access.highlight.inviteTitle") : text("landing.access.highlight.defaultTitle")}</strong>
+              <strong>{props.inviteCode ? text("Einladung wird direkt geöffnet", "Invite opens directly") : text("Direkt mit Freunden losspielen", "Start directly with friends")}</strong>
               <span>
                 {props.inviteCode
-                  ? text("landing.access.highlight.inviteBody", { code: props.inviteCode })
-                  : text("landing.access.highlight.defaultBody")}
+                  ? resolveText(
+                      locale,
+                      createText("Der erkannte Code {code} wird nach dem Login automatisch geöffnet.", "The detected code {code} opens automatically after sign-in.", {
+                        code: props.inviteCode
+                      })
+                    )
+                  : text("Code oder Link bringen euch ohne öffentliche Queue direkt an denselben Tisch.", "A code or link takes you straight to the same table without any public queue.")}
               </span>
             </article>
           </div>
@@ -508,8 +559,8 @@ export function LandingScreen(props: {
           <article className="landing-auth-panel" data-reveal style={revealStyle(120)}>
             <div className="landing-auth-head">
               <div>
-                <span className="landing-kicker">{text("shared.account")}</span>
-                <h3>{props.authMode === "login" ? text("landing.auth.title.login") : text("landing.auth.title.register")}</h3>
+                <span className="landing-kicker">{text("Konto", "Account")}</span>
+                <h3>{props.authMode === "login" ? text("Anmelden", "Sign in") : text("Neues Konto anlegen", "Create a new account")}</h3>
               </div>
               <div className="segmented-control landing-auth-toggle">
                 <button
@@ -517,28 +568,28 @@ export function LandingScreen(props: {
                   className={props.authMode === "login" ? "is-active" : ""}
                   onClick={() => props.onAuthModeChange("login")}
                 >
-                  {text("shared.login")}
+                  {text("Login", "Login")}
                 </button>
                 <button
                   type="button"
                   className={props.authMode === "register" ? "is-active" : ""}
                   onClick={() => props.onAuthModeChange("register")}
                 >
-                  {text("shared.register")}
+                  {text("Registrieren", "Register")}
                 </button>
               </div>
             </div>
 
             {props.inviteCode ? (
               <div className="landing-auth-note">
-                <strong>{text("landing.auth.inviteActive")}</strong>
-                <span>{text("landing.auth.inviteAfterLogin", { code: props.inviteCode })}</span>
+                <strong>{text("Einladung aktiv", "Invite active")}</strong>
+                <span>{resolveText(locale, createText("Nach dem Login springst du direkt in Raum {code}.", "After sign-in, you jump directly into room {code}.", { code: props.inviteCode }))}</span>
               </div>
             ) : null}
 
             <form className="landing-auth-form" onSubmit={props.onSubmit}>
               <label className="landing-field">
-                <span>{text("shared.username")}</span>
+                <span>{text("Nutzername", "Username")}</span>
                 <input
                   autoComplete="username"
                   type="text"
@@ -550,7 +601,7 @@ export function LandingScreen(props: {
               </label>
 
               <label className="landing-field">
-                <span>{text("shared.password")}</span>
+                <span>{text("Passwort", "Password")}</span>
                 <input
                   autoComplete={props.authMode === "login" ? "current-password" : "new-password"}
                   type="password"
@@ -563,19 +614,19 @@ export function LandingScreen(props: {
                 <LoadingButtonContent
                   loading={props.authSubmitPending}
                   idleLabel={authSubmitLabel}
-                loadingLabel={props.authMode === "login" ? text("landing.auth.loading.login") : text("landing.auth.loading.register")}
+                loadingLabel={props.authMode === "login" ? text("Anmeldung läuft...", "Signing in...") : text("Registrierung läuft...", "Registering...")}
                 />
               </button>
 
               {props.authMode === "register" ? (
                 <p className="landing-recaptcha-note">
-                {text("landing.auth.recaptcha.prefix")}{" "}
+                {text("Diese Seite ist durch reCAPTCHA geschützt. Es gelten die Google", "This site is protected by reCAPTCHA and the Google")}{" "}
                   <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
-                    {text("shared.privacyPolicy")}
+                    {text("Datenschutzerklärung", "Privacy Policy")}
                   </a>{" "}
-                  {text("shared.and")}{" "}
+                  {text("und", "and")}{" "}
                   <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">
-                    {text("shared.termsOfService")}
+                    {text("Nutzungsbedingungen", "Terms of Service")}
                   </a>
                   .
                 </p>
@@ -588,9 +639,9 @@ export function LandingScreen(props: {
       <footer className="landing-footer">
         <div className="landing-footer-copy">
           <strong>Hexagonia</strong>
-          <span>{text("landing.footer.body")}</span>
+          <span>{text("Browser-Strategie für gemeinsame Runden mit Freunden. Kostenlos, ohne Abo und ohne Paywalls.", "Browser strategy for shared rounds with friends. Free, without subscriptions, and without paywalls.")}</span>
         </div>
-        <span>{text("landing.footer.tagline")}</span>
+        <span>{text("Einladen, aufbauen, handeln und direkt gemeinsam spielen.", "Invite, set up, trade, and play together right away.")}</span>
       </footer>
     </div>
   );
