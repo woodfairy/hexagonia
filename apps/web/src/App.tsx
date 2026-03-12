@@ -1736,7 +1736,24 @@ export function App() {
       kind === "initial"
         ? currentMatch.allowedMoves.initialRouteOptions
         : currentMatch.allowedMoves.freeRouteOptions;
-    return [...new Set(options.filter((option) => option.edgeId === edgeId).map((option) => option.routeType))];
+    const routeTypes = [...new Set(options.filter((option) => option.edgeId === edgeId).map((option) => option.routeType))];
+    if (routeTypes.length > 0) {
+      return routeTypes;
+    }
+
+    const edge = currentMatch.board.edges.find((entry) => entry.id === edgeId);
+    if (!edge || edge.ownerId) {
+      return [];
+    }
+
+    const fallbackRouteTypes: RouteBuildType[] = [];
+    if (edge.roadAllowed) {
+      fallbackRouteTypes.push("road");
+    }
+    if (edge.shipAllowed) {
+      fallbackRouteTypes.push("ship");
+    }
+    return fallbackRouteTypes;
   }
 
   const armRoutePlacement = useCallback(

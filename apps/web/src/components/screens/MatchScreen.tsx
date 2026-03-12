@@ -1118,6 +1118,16 @@ function MatchScreenComponent(props: MatchScreenProps) {
     autoFocusEnabled && !isDiceAnimationActive
       ? (actionCameraCue ?? openingCameraCue ?? (shouldAutoFocusRecentEvent ? visibleNotificationCue : null))
       : null;
+  const pendingRouteChoiceTitle = props.pendingRouteChoice
+    ? props.pendingRouteChoice.kind === "initial"
+      ? t("match.routeChoice.initial.title")
+      : t("match.routeChoice.free.title")
+    : "";
+  const pendingRouteChoiceDetail = props.pendingRouteChoice
+    ? props.pendingRouteChoice.kind === "initial"
+      ? t("match.routeChoice.initial.detail")
+      : t("match.routeChoice.free.detail")
+    : "";
   const tradeTargetPlayers = isCurrentPlayer
     ? props.match.players.filter((player) => player.id !== props.match.you)
     : props.match.players.filter((player) => player.id === props.match.currentPlayerId);
@@ -3249,16 +3259,8 @@ function MatchScreenComponent(props: MatchScreenProps) {
         {props.pendingRouteChoice ? (
           <section className="dock-section">
             <div className="dock-section-head">
-              <h3>
-                {props.pendingRouteChoice.kind === "initial"
-                  ? t("match.routeChoice.initial.title")
-                  : t("match.routeChoice.free.title")}
-              </h3>
-              <span>
-                {props.pendingRouteChoice.kind === "initial"
-                  ? t("match.routeChoice.initial.detail")
-                  : t("match.routeChoice.free.detail")}
-              </span>
+              <h3>{pendingRouteChoiceTitle}</h3>
+              <span>{pendingRouteChoiceDetail}</span>
             </div>
             <div className="build-action-grid">
               {props.pendingRouteChoice.routeTypes.map((routeType) => (
@@ -3641,6 +3643,40 @@ function MatchScreenComponent(props: MatchScreenProps) {
               snapshot={props.match}
               visualSettings={props.boardVisualSettings}
             />
+            {props.pendingRouteChoice ? (
+              <aside
+                className={`surface board-route-choice ${isMobileViewport ? "is-mobile" : ""}`.trim()}
+                role="dialog"
+                aria-modal="false"
+                aria-labelledby="board-route-choice-title"
+              >
+                <div className="board-route-choice-copy">
+                  <span className="eyebrow">{t("shared.selection")}</span>
+                  <strong id="board-route-choice-title">{pendingRouteChoiceTitle}</strong>
+                  <span>{pendingRouteChoiceDetail}</span>
+                </div>
+                <div className="board-route-choice-options">
+                  {props.pendingRouteChoice.routeTypes.map((routeType) => (
+                    <button
+                      key={`board-route-choice-${routeType}`}
+                      type="button"
+                      className="board-route-choice-option"
+                      onClick={() => props.onChooseRouteType(routeType)}
+                    >
+                      <strong>{routeType === "ship" ? t("match.build.ship") : t("match.build.road")}</strong>
+                      <span>
+                        {routeType === "ship" ? t("match.routeChoice.option.ship") : t("match.routeChoice.option.road")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="board-route-choice-actions">
+                  <button type="button" className="ghost-button" onClick={props.onCancelRouteChoice}>
+                    {t("shared.cancel")}
+                  </button>
+                </div>
+              </aside>
+            ) : null}
             {props.pendingBoardAction ? (
               <aside
                 className={`surface board-inline-confirm ${isMobileViewport ? "is-mobile" : ""}`.trim()}
