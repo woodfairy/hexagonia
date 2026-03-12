@@ -16,9 +16,9 @@ import {
   LAYOUT_MODES,
   RULES_PRESETS,
   RULES_FAMILIES,
-  SCENARIO_IDS,
   SCENARIO_RULESET_IDS,
   TURN_RULES,
+  isScenarioId,
   mergeGameConfig,
   mergeRoomGameConfig,
   sanitizeLocale,
@@ -32,7 +32,8 @@ import {
   type GameConfig,
   type Locale,
   type RoomGameConfigPatch,
-  type RoomDetails
+  type RoomDetails,
+  type ScenarioId
 } from "@hexagonia/shared";
 import type { RawData } from "ws";
 import { z } from "zod";
@@ -90,11 +91,13 @@ const readySchema = z.object({
   ready: z.boolean()
 });
 
+const scenarioIdSchema = z.custom<ScenarioId>((value): value is ScenarioId => isScenarioId(value));
+
 const roomSettingsSchema = z
   .object({
     rulesPreset: z.enum(RULES_PRESETS).optional(),
     rulesFamily: z.enum(RULES_FAMILIES).optional(),
-    scenarioId: z.enum(SCENARIO_IDS).optional(),
+    scenarioId: scenarioIdSchema.optional(),
     scenarioRulesetId: z.enum(SCENARIO_RULESET_IDS).optional(),
     layoutMode: z.enum(LAYOUT_MODES).optional(),
     scenarioOptions: z
@@ -1058,30 +1061,48 @@ function resolveManualStartingSeatIndex(room: RoomDetails, gameConfig: GameConfi
 }
 
 function toGameConfigPatch(body: z.infer<typeof roomSettingsSchema>): RoomGameConfigPatch {
-  return {
-    ...(body.rulesPreset !== undefined ? { rulesPreset: body.rulesPreset } : {}),
-    ...(body.rulesFamily !== undefined ? { rulesFamily: body.rulesFamily } : {}),
-    ...(body.scenarioId !== undefined ? { scenarioId: body.scenarioId } : {}),
-    ...(body.scenarioRulesetId !== undefined ? { scenarioRulesetId: body.scenarioRulesetId } : {}),
-    ...(body.layoutMode !== undefined ? { layoutMode: body.layoutMode } : {}),
-    ...(body.scenarioOptions !== undefined ? { scenarioOptions: body.scenarioOptions } : {}),
-    ...(body.boardSize !== undefined ? { boardSize: body.boardSize } : {}),
-    ...(body.setupMode !== undefined ? { setupMode: body.setupMode } : {}),
-    ...(body.turnRule !== undefined ? { turnRule: body.turnRule } : {}),
-    ...(body.startingPlayer
-      ? {
-          startingPlayer: {
-            ...(body.startingPlayer.mode !== undefined
-              ? { mode: body.startingPlayer.mode }
-              : {}),
-            ...(body.startingPlayer.seatIndex !== undefined
-              ? { seatIndex: body.startingPlayer.seatIndex }
-              : {})
-          }
-        }
-      : {}),
-    ...(body.enabledExpansions !== undefined
-      ? { enabledExpansions: body.enabledExpansions }
-      : {})
-  };
+  const patch: RoomGameConfigPatch = {};
+
+  if (body.rulesPreset !== undefined) {
+    patch.rulesPreset = body.rulesPreset;
+  }
+  if (body.rulesFamily !== undefined) {
+    patch.rulesFamily = body.rulesFamily;
+  }
+  if (body.scenarioId !== undefined) {
+    patch.scenarioId = body.scenarioId;
+  }
+  if (body.scenarioRulesetId !== undefined) {
+    patch.scenarioRulesetId = body.scenarioRulesetId;
+  }
+  if (body.layoutMode !== undefined) {
+    patch.layoutMode = body.layoutMode;
+  }
+  if (body.scenarioOptions !== undefined) {
+    patch.scenarioOptions = body.scenarioOptions;
+  }
+  if (body.boardSize !== undefined) {
+    patch.boardSize = body.boardSize;
+  }
+  if (body.setupMode !== undefined) {
+    patch.setupMode = body.setupMode;
+  }
+  if (body.turnRule !== undefined) {
+    patch.turnRule = body.turnRule;
+  }
+  if (body.startingPlayer) {
+    const startingPlayer: NonNullable<RoomGameConfigPatch["startingPlayer"]> = {};
+    if (body.startingPlayer.mode !== undefined) {
+      startingPlayer.mode = body.startingPlayer.mode;
+    }
+    if (body.startingPlayer.seatIndex !== undefined) {
+      startingPlayer.seatIndex = body.startingPlayer.seatIndex;
+    }
+    patch.startingPlayer = startingPlayer;
+  }
+  if (body.enabledExpansions !== undefined) {
+    patch.enabledExpansions = body.enabledExpansions;
+  }
+
+  return patch;
 }
