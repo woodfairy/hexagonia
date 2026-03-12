@@ -219,9 +219,15 @@ body.guest-landing-mode {
   color: var(--landing-muted);
 }
 
-.locale-select-trigger-landing:is(:hover, :focus-visible, .is-open) {
+.locale-select-trigger-landing:is(:hover, :focus-visible) {
   border-color: rgba(182, 148, 255, 0.34);
   background: rgba(182, 148, 255, 0.12);
+  box-shadow: 0 0 0 0.12rem rgba(182, 148, 255, 0.12);
+}
+
+.locale-select-trigger-landing.is-open {
+  border-color: rgba(182, 148, 255, 0.34);
+  background: rgba(255, 255, 255, 0.05);
   box-shadow: 0 0 0 0.12rem rgba(182, 148, 255, 0.12);
 }
 
@@ -374,7 +380,8 @@ body.guest-landing-mode {
 
 .landing-music-select-button.is-open {
   border-color: rgba(182, 148, 255, 0.34);
-  background: rgba(182, 148, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 0.12rem rgba(182, 148, 255, 0.12);
 }
 
 .landing-music-track-label {
@@ -475,8 +482,8 @@ body.guest-landing-mode {
 .landing-hero {
   min-block-size: min(52rem, calc(100svh - 5rem));
   grid-template-columns: minmax(0, 1.02fr) minmax(20rem, 0.98fr);
-  align-items: center;
-  padding-block-start: 0.35rem;
+  align-items: start;
+  padding-block-start: 1rem;
 }
 
 .landing-kicker,
@@ -500,6 +507,11 @@ body.guest-landing-mode {
 .landing-footer {
   display: grid;
   gap: 1.12rem;
+}
+
+.landing-hero-copy {
+  align-content: start;
+  padding-block-start: 0.2rem;
 }
 
 .landing-hero-copy h1,
@@ -702,6 +714,8 @@ body.guest-landing-mode {
 
 .landing-hero-scene-column {
   min-inline-size: 0;
+  align-self: start;
+  padding-block-start: 0.65rem;
 }
 
 .landing-scene-shell {
@@ -1123,6 +1137,7 @@ body.guest-landing-mode .toast-stack {
 
   .landing-hero {
     min-block-size: auto;
+    padding-block-start: 0.5rem;
   }
 
   .landing-hero-stats,
