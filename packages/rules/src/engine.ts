@@ -1,6 +1,7 @@
 import type {
   ActionIntent,
   AllowedMoves,
+  BoardSiteView,
   DevelopmentCardView,
   DevelopmentCardType,
   EdgeView,
@@ -123,6 +124,10 @@ interface RobberState {
   resumePhase: MatchPhase;
   pendingDiscardByPlayerId: Record<string, number>;
   mode?: "standard" | "pirate_islands_seven";
+}
+
+function sortId(left: string, right: string): number {
+  return left.localeCompare(right, "en");
 }
 
 interface PendingRoadBuildingEffect {
@@ -484,8 +489,9 @@ function assignOfficialNewWorldTokens(state: GameState, rng: SeededRandom): void
       continue;
     }
 
-    adjacentTileIdsByTileId.get(adjacentTileIds[0])?.push(adjacentTileIds[1]!);
-    adjacentTileIdsByTileId.get(adjacentTileIds[1])?.push(adjacentTileIds[0]!);
+    const [firstTileId, secondTileId] = adjacentTileIds as [string, string];
+    adjacentTileIdsByTileId.get(firstTileId)?.push(secondTileId);
+    adjacentTileIdsByTileId.get(secondTileId)?.push(firstTileId);
   }
 
   const orderedTiles = [...tokenTargetTiles].sort((left, right) => {
@@ -994,7 +1000,9 @@ function buildPirateFleetPathTileIds(state: GameState): string[] {
     layoutMode: state.gameConfig.layoutMode
   });
   if (explicitPathCoords && explicitPathCoords.length > 0) {
-    const tileByCoord = new Map(state.board.tiles.map((tile) => [`${tile.q}:${tile.r}`, tile.id] as const));
+    const tileByCoord = new Map<string, string>(
+      state.board.tiles.map((tile) => [`${tile.q}:${tile.r}`, tile.id] as const)
+    );
     const explicitTileIds = explicitPathCoords
       .map((coord) => tileByCoord.get(coord) ?? null)
       .filter((tileId): tileId is string => tileId !== null);
@@ -1433,7 +1441,7 @@ function getNewWorldPortCandidateEdgeIds(state: GameState): string[] {
       return edge.vertexIds.every((vertexId) => !blockedVertexIds.has(vertexId));
     })
     .map((edge) => edge.id)
-    .sort(sortId);
+    .sort((left, right) => sortId(left, right));
 }
 
 function isRedNumberTokenValue(token: number | null): boolean {
@@ -1690,7 +1698,7 @@ function handleScenarioSetupPlaceToken(
     throw new GameRuleError("game.scenario_setup_pool_empty");
   }
   clearScenarioSetupTileToken(state, tile);
-  setupState.tokenPool[token] -= 1;
+  setupState.tokenPool[token] = (setupState.tokenPool[token] ?? 0) - 1;
   tile.token = token;
   resetScenarioSetupReady(state);
   recomputeNewWorldScenarioSetupState(state);
@@ -3591,14 +3599,16 @@ function createPlayerView(state: GameState, playerId: string, viewerId: string):
     view.resources = cloneResourceMap(player.resources);
     view.developmentCards = player.developmentCards.map((card) => {
       const blockedReason = getDevelopmentCardBlockedReason(state, player, card, hasRoadBuildingTarget);
-
-      return {
+      const developmentCard: DevelopmentCardView = {
         id: card.id,
         type: card.type,
         boughtOnTurn: card.boughtOnTurn,
-        playable: blockedReason === null,
-        blockedReason
+        playable: blockedReason === null
       };
+      if (blockedReason !== undefined) {
+        developmentCard.blockedReason = blockedReason;
+      }
+      return developmentCard;
     });
     view.hiddenVictoryPoints = player.developmentCards.filter(
       (card) => card.type === "victory_point"
@@ -4669,7 +4679,11 @@ function maybeEstablishVillageTrade(state: GameState, playerId: string, edgeId: 
   }
 
   for (const vertexId of edge.vertexIds) {
-    const site = state.board.sites?.find((entry) => entry.type === "village" && entry.vertexId === vertexId) ?? null;
+    const site =
+      state.board.sites.find(
+        (entry): entry is Extract<BoardSiteView, { type: "village" }> =>
+          entry.type === "village" && entry.vertexId === vertexId
+      ) ?? null;
     if (!site || site.clothSupply <= 0) {
       continue;
     }
@@ -4983,9 +4997,12 @@ function declareWinner(state: GameState, playerId: string): void {
 function getPlayerWonderProgress(state: GameState, playerId: string): number {
   return Math.max(
     0,
-    ...(state.board.sites ?? [])
-      .filter((site) => site.type === "wonder" && site.ownerId === playerId)
-      .map((site) => site.progress ?? 0)
+    ...state.board.sites
+      .filter(
+        (site): site is Extract<BoardSiteView, { type: "wonder" }> =>
+          site.type === "wonder" && site.ownerId === playerId
+      )
+      .map((site) => site.progress)
   );
 }
 
@@ -5890,8 +5907,8 @@ function cloneBoard(board: GeneratedBoard): GeneratedBoard {
       ...port,
       vertexIds: [...port.vertexIds] as [string, string]
     })),
-    sites: board.sites?.map((site) => ({ ...site })),
-    scenarioMarkers: board.scenarioMarkers?.map((marker) => ({ ...marker }))
+    sites: board.sites.map((site) => ({ ...site })),
+    scenarioMarkers: board.scenarioMarkers.map((marker) => ({ ...marker }))
   };
 }
 
@@ -5938,7 +5955,7 @@ function cloneState(state: GameState): GameState {
       ? {
           resumePhase: state.robberState.resumePhase,
           pendingDiscardByPlayerId: { ...state.robberState.pendingDiscardByPlayerId },
-          mode: state.robberState.mode
+          ...(state.robberState.mode !== undefined ? { mode: state.robberState.mode } : {})
         }
       : null,
     pendingDevelopmentEffect: state.pendingDevelopmentEffect ? { ...state.pendingDevelopmentEffect } : null,

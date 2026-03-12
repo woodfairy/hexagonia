@@ -26,8 +26,8 @@ export interface GeneratedBoard {
   vertices: VertexView[];
   edges: EdgeView[];
   ports: PortView[];
-  sites?: BoardSiteView[];
-  scenarioMarkers?: ScenarioMarkerView[];
+  sites: BoardSiteView[];
+  scenarioMarkers: ScenarioMarkerView[];
 }
 
 export interface BoardGenerationInput {
@@ -432,7 +432,7 @@ function generateBoard(seed: string, boardInput: BoardGenerationInput): Generate
     .sort((left, right) => sortId(left.id, right.id));
 
   const finalizedEdges: EdgeView[] = edges
-    .map((edge) => ({
+    .map((edge): EdgeView => ({
       ...edge,
       tileIds: edge.tileIds.sort(sortId),
       ownerId: null,

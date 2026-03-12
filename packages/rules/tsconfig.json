@@ -11,6 +11,6 @@
     "outDir": "dist",
     "declaration": true
   },
-  "include": ["src"],
+  "include": ["src", "src/**/*.json"],
   "references": [{ "path": "../shared" }]
 }

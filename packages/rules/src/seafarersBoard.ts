@@ -699,7 +699,6 @@ function createProfile(
       override?.portDistribution !== undefined
         ? [...override.portDistribution]
         : getScenarioPortDistribution(scenarioId, resolvedPlayerCount),
-    explicitPortPlacements: override?.explicitPortPlacements,
     logicalIslandGroups: override?.logicalIslandGroups
       ? cloneLogicalIslandGroups(override.logicalIslandGroups)
       : getScenarioLogicalIslandGroups(boardSize, scenarioId),
@@ -708,6 +707,9 @@ function createProfile(
     fixedTokenRules: override?.fixedTokenRules ?? createTokenRules(),
     variableTokenRules: override?.variableTokenRules ?? createTokenRules()
   };
+  if (override?.explicitPortPlacements !== undefined) {
+    base.explicitPortPlacements = [...override.explicitPortPlacements];
+  }
   return base;
 }
 
@@ -1862,13 +1864,17 @@ function createVillageSites(
       perIslandLimit
     );
     for (const vertexId of vertexIds) {
+      const numberToken = getVertexNumberToken(verticesById.get(vertexId) ?? null, tilesById);
+      if (numberToken === null) {
+        continue;
+      }
       index += 1;
       sites.push({
         id: `site-village-${index}`,
         type: "village",
         scenarioId: "seafarers.cloth_for_catan",
         vertexId,
-        numberToken: getVertexNumberToken(verticesById.get(vertexId) ?? null, tilesById),
+        numberToken,
         clothSupply: 5,
         initialClothSupply: 5
       });
@@ -2004,10 +2010,12 @@ function createIslandRewardMarkers(
   tiles: TileView[],
   edges: EdgeView[]
 ): ScenarioMarkerView[] {
+  type IslandRewardMarker = Extract<ScenarioMarkerView, { type: "island_reward" }>;
   const rewardPoints = getSeafarersIslandRewardPoints(scenarioId);
   if (rewardPoints === 0) {
     return [];
   }
+  const resolvedRewardPoints: 1 | 2 = rewardPoints;
 
   const regions =
     scenarioId === "seafarers.through_the_desert"
@@ -2032,10 +2040,10 @@ function createIslandRewardMarkers(
           "base.standard" | "seafarers.cloth_for_catan" | "seafarers.pirate_islands"
         >,
         regionId: region.id,
-        rewardPoints
-      } satisfies ScenarioMarkerView;
+        rewardPoints: resolvedRewardPoints
+      } satisfies IslandRewardMarker;
     })
-    .filter((marker): marker is ScenarioMarkerView => marker !== null);
+    .filter((marker): marker is IslandRewardMarker => marker !== null);
 }
 
 function createWonderBlockMarkers(sites: BoardSiteView[]): ScenarioMarkerView[] {
