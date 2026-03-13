@@ -6071,12 +6071,16 @@ function cloneState(state: GameState): GameState {
         : state.scenarioState?.type === "fog_islands"
           ? {
               ...state.scenarioState,
-              hiddenTerrainStack: state.scenarioState.hiddenTerrainStack
-                ? [...state.scenarioState.hiddenTerrainStack]
-                : undefined,
-              hiddenTokenStack: state.scenarioState.hiddenTokenStack
-                ? [...state.scenarioState.hiddenTokenStack]
-                : undefined,
+              ...(state.scenarioState.hiddenTerrainStack
+                ? {
+                    hiddenTerrainStack: [...state.scenarioState.hiddenTerrainStack]
+                  }
+                : {}),
+              ...(state.scenarioState.hiddenTokenStack
+                ? {
+                    hiddenTokenStack: [...state.scenarioState.hiddenTokenStack]
+                  }
+                : {}),
               revealEntriesByTileId: Object.fromEntries(
                 Object.entries(state.scenarioState.revealEntriesByTileId).map(([tileId, entry]) => [
                   tileId,
