@@ -69,7 +69,11 @@
     "defaultTurnRule": "standard",
     "defaultLayoutMode": "official_fixed",
     "defaultVictoryPointsToWin": 13,
-    "fixedLayoutOnly": true,
+    "fixedLayoutOnly": false,
+    "playerCountLayoutModes": {
+      "5": ["official_fixed", "official_variable"],
+      "6": ["official_fixed", "official_variable"]
+    },
     "playerCountTurnRules": {
       "5": "paired_players",
       "6": "paired_players"
@@ -92,8 +96,8 @@
     "playerCountLayoutModes": {
       "3": ["official_fixed", "official_variable"],
       "4": ["official_fixed", "official_variable"],
-      "5": ["official_fixed"],
-      "6": ["official_fixed"]
+      "5": ["official_fixed", "official_variable"],
+      "6": ["official_fixed", "official_variable"]
     },
     "playerCountTurnRules": {
       "5": "paired_players",
@@ -117,8 +121,8 @@
     "playerCountLayoutModes": {
       "3": ["official_fixed", "official_variable"],
       "4": ["official_fixed", "official_variable"],
-      "5": ["official_fixed"],
-      "6": ["official_fixed"]
+      "5": ["official_fixed", "official_variable"],
+      "6": ["official_fixed", "official_variable"]
     },
     "playerCountTurnRules": {
       "5": "paired_players",
@@ -142,8 +146,8 @@
     "playerCountLayoutModes": {
       "3": ["official_fixed", "official_variable"],
       "4": ["official_fixed", "official_variable"],
-      "5": ["official_fixed"],
-      "6": ["official_fixed"]
+      "5": ["official_fixed", "official_variable"],
+      "6": ["official_fixed", "official_variable"]
     },
     "playerCountTurnRules": {
       "5": "paired_players",
@@ -167,8 +171,8 @@
     "playerCountLayoutModes": {
       "3": ["official_fixed", "official_variable"],
       "4": ["official_fixed", "official_variable"],
-      "5": ["official_fixed"],
-      "6": ["official_fixed"]
+      "5": ["official_fixed", "official_variable"],
+      "6": ["official_fixed", "official_variable"]
     },
     "playerCountTurnRules": {
       "5": "paired_players",
@@ -211,8 +215,8 @@
     "playerCountLayoutModes": {
       "3": ["official_fixed", "official_variable"],
       "4": ["official_fixed", "official_variable"],
-      "5": ["official_fixed"],
-      "6": ["official_fixed"]
+      "5": ["official_fixed", "official_variable"],
+      "6": ["official_fixed", "official_variable"]
     },
     "playerCountTurnRules": {
       "5": "paired_players",

@@ -81,27 +81,36 @@ def player_color_sort_key(color: str) -> int:
 
 
 def build_layout_coords(map_info: dict[str, Any], map_class: str) -> list[str]:
-    rows: list[int] = map_info[map_class]["hexesPerRow"]
-    max_row_len = max(rows)
-    row_starts: dict[int, int] = {}
-    flattened_rows: list[int] = []
+    map_class_info = map_info[map_class]
+    rows: list[int] = map_class_info["hexesPerRow"]
+
+    if map_class_info.get("baseClass") == "hexagon-gallery-seafarers":
+        compact_row_count = (len(rows) + 1) // 2
+        plateau_count = max(0, compact_row_count - 7)
+        rows = [4, 5, 6, 7, *([7] * plateau_count), 6, 5, 4]
+
+        expected_tile_count = int(map_class_info["numTiles"])
+        if sum(rows) != expected_tile_count:
+            raise ValueError(
+                f"Unexpected compact Seafarers row sum for {map_class}: {sum(rows)} != {expected_tile_count}"
+            )
+
+    center_row_index = len(rows) // 2
+    layout_coords: list[str] = []
+    q_start = 0
+    previous_row_len = rows[0]
+
     for row_index, row_len in enumerate(rows):
-        row_starts[row_index] = len(flattened_rows)
-        flattened_rows.extend([row_index] * row_len)
+        if row_index > 0 and row_len > previous_row_len:
+            q_start -= row_len - previous_row_len
 
-    coords: list[tuple[int, int]] = []
-    for tile_index, row_index in enumerate(flattened_rows, start=1):
-        row_len = rows[row_index]
-        position_in_row = (tile_index - 1) - row_starts[row_index]
-        col = (max_row_len - row_len) + position_in_row * 2
-        q = int((col - row_index - 1) / 2)
-        r = row_index - (len(rows) // 2)
-        coords.append((q, r))
+        r = row_index - center_row_index
+        for offset in range(row_len):
+            layout_coords.append(f"{q_start + offset}:{r}")
 
-    min_q = min(q for q, _ in coords)
-    max_q = max(q for q, _ in coords)
-    q_shift = -((min_q + max_q) // 2)
-    return [f"{q + q_shift}:{r}" for q, r in coords]
+        previous_row_len = row_len
+
+    return layout_coords
 
 
 def build_coord_by_index(layout_coords: list[str]) -> dict[str, str]:
