@@ -6176,6 +6176,20 @@ function cloneBoard(board: GeneratedBoard): GeneratedBoard {
 }
 
 function cloneState(state: GameState): GameState {
+  const forgottenTribeDevelopmentCardsByMarkerId: Partial<
+    Record<string, InternalDevelopmentCard>
+  > = {};
+
+  for (const [markerId, card] of Object.entries(
+    state.forgottenTribeDevelopmentCardsByMarkerId ?? {}
+  )) {
+    if (!card) {
+      continue;
+    }
+
+    forgottenTribeDevelopmentCardsByMarkerId[markerId] = { ...card };
+  }
+
   return {
     ...state,
     gameConfig: {
@@ -6201,12 +6215,7 @@ function cloneState(state: GameState): GameState {
     })),
     bank: cloneResourceMap(state.bank),
     developmentDeck: state.developmentDeck.map((card) => ({ ...card })),
-    forgottenTribeDevelopmentCardsByMarkerId: Object.fromEntries(
-      Object.entries(state.forgottenTribeDevelopmentCardsByMarkerId ?? {}).map(([markerId, card]) => [
-        markerId,
-        { ...card }
-      ])
-    ),
+    forgottenTribeDevelopmentCardsByMarkerId,
     pirateOnFrame: state.pirateOnFrame === true,
     tradeOffers: state.tradeOffers.map((trade) => ({
       ...trade,
