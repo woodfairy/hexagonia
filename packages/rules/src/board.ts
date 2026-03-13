@@ -62,6 +62,7 @@ export interface BoardGeometryLayout {
   portDistribution: PortType[];
   portSlotEdgeIndices?: number[];
   explicitPortPlacements?: PortPlacementRef[];
+  preserveExplicitPortTypes?: boolean;
   beginnerPortDistribution?: PortType[];
 }
 
@@ -613,7 +614,7 @@ function assignExplicitPorts(
       ? setupMode === "beginner" && layout.beginnerPortDistribution
         ? layout.beginnerPortDistribution
         : rng.shuffle(layout.portDistribution)
-      : layoutMode === "official_variable"
+      : layoutMode === "official_variable" && !layout.preserveExplicitPortTypes
         ? rng.shuffle(layout.portDistribution)
         : portPlacements.map((placement, index) => placement.type ?? layout.portDistribution[index]!);
 

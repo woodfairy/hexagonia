@@ -58,6 +58,7 @@ import { SeededRandom } from "./random.js";
 import {
   createSeafarersScenarioFeatures,
   finalizeSeafarersBoard,
+  getFogIslandsOriginalSetup,
   getSeafarersHomeIslandCount,
   getSeafarersIslandRewardPoints,
   getSeafarersPirateFleetPathCoords
@@ -159,7 +160,9 @@ interface FogRevealEntry {
 
 interface FogIslandsScenarioState {
   type: "fog_islands";
-  pendingRevealEntries: FogRevealEntry[];
+  revealEntriesByTileId: Record<string, FogRevealEntry>;
+  hiddenTerrainStack?: TileTerrain[];
+  hiddenTokenStack?: number[];
 }
 
 interface NewWorldScenarioState {
@@ -849,8 +852,54 @@ function createFogIslandsScenarioState(state: GameState): FogIslandsScenarioStat
     return null;
   }
 
-  const pendingRevealEntries: FogRevealEntry[] = hiddenTiles.map((tile) => {
-    const entry: FogRevealEntry = {
+  const fogSetup = getFogIslandsOriginalSetup({
+    scenarioId: state.gameConfig.scenarioId,
+    boardSize: state.gameConfig.boardSize,
+    playerCount: state.players.length
+  });
+  if (fogSetup) {
+    if (hiddenTiles.length !== fogSetup.hiddenCoords.length) {
+      throw new Error("Fog Islands hidden coord count does not match the original setup.");
+    }
+
+    for (const tile of hiddenTiles) {
+      tile.terrain = null;
+      tile.resource = "desert";
+      tile.token = null;
+      tile.robber = false;
+      tile.occupant = null;
+      tile.hidden = true;
+      tile.discovered = false;
+      tile.kind = "fog";
+    }
+
+    const hiddenTerrainStack = new SeededRandom(
+      `${state.seed}:fog-islands:hidden-hexes:${state.gameConfig.boardSize}:${state.players.length}`
+    ).shuffle([...fogSetup.hiddenTerrainPool]);
+    const hiddenTokenStack = new SeededRandom(
+      `${state.seed}:fog-islands:hidden-tokens:${state.gameConfig.boardSize}:${state.players.length}`
+    ).shuffle([...fogSetup.hiddenTokenPool]);
+    if (hiddenTerrainStack.length !== hiddenTiles.length) {
+      throw new Error("Fog Islands hidden hex stack size does not match the hidden tile count.");
+    }
+    if (
+      hiddenTokenStack.length !==
+      hiddenTerrainStack.filter((terrain) => terrain !== "sea" && terrain !== "desert").length
+    ) {
+      throw new Error("Fog Islands hidden token stack size does not match the hidden land count.");
+    }
+
+    return {
+      type: "fog_islands",
+      revealEntriesByTileId: {},
+      hiddenTerrainStack,
+      hiddenTokenStack
+    };
+  }
+
+  const revealEntriesByTileId: Record<string, FogRevealEntry> = {};
+  for (const tile of hiddenTiles) {
+    revealEntriesByTileId[tile.id] = {
       terrain: tile.terrain ?? "sea",
       token: tile.token,
       robber: tile.robber,
@@ -864,12 +913,11 @@ function createFogIslandsScenarioState(state: GameState): FogIslandsScenarioStat
     tile.hidden = true;
     tile.discovered = false;
     tile.kind = "fog";
-    return entry;
-  });
+  }
 
   return {
     type: "fog_islands",
-    pendingRevealEntries
+    revealEntriesByTileId
   };
 }
 
@@ -919,7 +967,11 @@ function applyPirateIslandsScenarioSetup(state: GameState): void {
     });
 
     state.board.sites = state.board.sites.filter((site) => retainedSiteIds.has(site.id));
-    const siteByVertexId = new Map(state.board.sites.map((site) => [site.vertexId, site]));
+    const siteByVertexId = new Map(
+      state.board.sites
+        .filter((site) => !(site.type === "village" && site.edgeId))
+        .map((site) => [site.vertexId, site])
+    );
     for (const vertex of state.board.vertices) {
       vertex.site = siteByVertexId.get(vertex.id) ?? null;
     }
@@ -4594,10 +4646,31 @@ function revealAdjacentFogTiles(state: GameState, playerId: string, edgeId: stri
     }
 
     revealedAnyTile = true;
-    const revealEntry =
-      state.scenarioState?.type === "fog_islands"
-        ? state.scenarioState.pendingRevealEntries.shift() ?? null
-        : null;
+    let revealEntry: FogRevealEntry | null = null;
+    if (state.scenarioState?.type === "fog_islands") {
+      if (state.scenarioState.hiddenTerrainStack && state.scenarioState.hiddenTokenStack) {
+        const terrain = state.scenarioState.hiddenTerrainStack.shift() ?? null;
+        if (terrain === null) {
+          throw new Error("Fog Islands hidden hex stack exhausted.");
+        }
+        const token =
+          terrain !== "sea" && terrain !== "desert"
+            ? (state.scenarioState.hiddenTokenStack.shift() ?? null)
+            : null;
+        if (terrain !== "sea" && terrain !== "desert" && token === null) {
+          throw new Error("Fog Islands hidden token stack exhausted.");
+        }
+        revealEntry = {
+          terrain,
+          token,
+          robber: false,
+          occupant: null
+        };
+      } else {
+        revealEntry = state.scenarioState.revealEntriesByTileId[tile.id] ?? null;
+        delete state.scenarioState.revealEntriesByTileId[tile.id];
+      }
+    }
     const revealedTerrain = revealEntry?.terrain ?? tile.terrain ?? "sea";
     tile.terrain = revealedTerrain;
     tile.token = revealEntry?.token ?? tile.token;
@@ -4678,16 +4751,15 @@ function maybeEstablishVillageTrade(state: GameState, playerId: string, edgeId: 
     return;
   }
 
-  for (const vertexId of edge.vertexIds) {
-    const site =
-      state.board.sites.find(
-        (entry): entry is Extract<BoardSiteView, { type: "village" }> =>
-          entry.type === "village" && entry.vertexId === vertexId
-      ) ?? null;
-    if (!site || site.clothSupply <= 0) {
+  const candidateSites = (state.board.sites ?? []).filter(
+    (entry): entry is Extract<BoardSiteView, { type: "village" }> =>
+      entry.type === "village" && (entry.edgeId === edgeId || edge.vertexIds.includes(entry.vertexId))
+  );
+  for (const site of candidateSites) {
+    if (site.clothSupply <= 0) {
       continue;
     }
-    if (hasVillageShipConnection(state, playerId, vertexId, edgeId)) {
+    if (hasVillageShipConnection(state, playerId, site, edgeId)) {
       continue;
     }
 
@@ -4711,7 +4783,7 @@ function awardVillageClothForRoll(state: GameState, roll: number): void {
     if (site.type !== "village" || site.numberToken !== roll || site.clothSupply <= 0) {
       continue;
     }
-    const connectedPlayerIds = getVillageConnectedPlayerIds(state, site.vertexId);
+    const connectedPlayerIds = getVillageConnectedPlayerIds(state, site);
     if (!connectedPlayerIds.length) {
       continue;
     }
@@ -4749,8 +4821,19 @@ function getGeneralClothSupply(state: GameState): number {
   );
 }
 
-function getVillageConnectedPlayerIds(state: GameState, vertexId: string): string[] {
-  const vertex = getVertex(state, vertexId);
+function getVillageConnectedPlayerIds(
+  state: GameState,
+  site: Extract<BoardSiteView, { type: "village" }>
+): string[] {
+  if (site.edgeId) {
+    const edge = getEdge(state, site.edgeId);
+    if (!edge.ownerId || (edge.routeType !== "ship" && edge.routeType !== "warship")) {
+      return [];
+    }
+    return [edge.ownerId];
+  }
+
+  const vertex = getVertex(state, site.vertexId);
   const connected = new Set<string>();
   for (const edgeId of vertex.edgeIds) {
     const edge = getEdge(state, edgeId);
@@ -4765,10 +4848,18 @@ function getVillageConnectedPlayerIds(state: GameState, vertexId: string): strin
 function hasVillageShipConnection(
   state: GameState,
   playerId: string,
-  vertexId: string,
+  site: Extract<BoardSiteView, { type: "village" }>,
   excludeEdgeId: string
 ): boolean {
-  return getVertex(state, vertexId).edgeIds.some((edgeId) => {
+  if (site.edgeId) {
+    if (site.edgeId === excludeEdgeId) {
+      return false;
+    }
+    const edge = getEdge(state, site.edgeId);
+    return edge.ownerId === playerId && (edge.routeType === "ship" || edge.routeType === "warship");
+  }
+
+  return getVertex(state, site.vertexId).edgeIds.some((edgeId) => {
     if (edgeId === excludeEdgeId) {
       return false;
     }
@@ -4947,7 +5038,13 @@ function getSiteAtVertex(
 
 function syncVertexSite(state: GameState, site: NonNullable<GameState["board"]["sites"]>[number]): void {
   const vertex = getVertex(state, site.vertexId);
-  vertex.site = { ...site };
+  if (site.type === "village" && site.edgeId) {
+    if (vertex.site?.id === site.id) {
+      vertex.site = null;
+    }
+  } else {
+    vertex.site = { ...site };
+  }
   if (!state.board.sites) {
     state.board.sites = [{ ...site }];
     return;
@@ -5059,7 +5156,7 @@ function canPlayerMovePirate(state: GameState, playerId: string): boolean {
   return (state.board.sites ?? []).some(
     (site) =>
       site.type === "village" &&
-      getVillageConnectedPlayerIds(state, site.vertexId).includes(playerId)
+      getVillageConnectedPlayerIds(state, site).includes(playerId)
   );
 }
 
@@ -5072,8 +5169,10 @@ function canRobberOccupyTile(state: GameState, tileId: string): boolean {
     return tile.token !== null;
   }
   if (state.gameConfig.scenarioId === "seafarers.cloth_for_catan") {
-    return !tile.vertexIds.some((vertexId) =>
-      (state.board.sites ?? []).some((site) => site.type === "village" && site.vertexId === vertexId)
+    return !(state.board.sites ?? []).some(
+      (site) =>
+        site.type === "village" &&
+        (site.edgeId ? tile.edgeIds.includes(site.edgeId) : tile.vertexIds.includes(site.vertexId))
     );
   }
   return true;
@@ -5649,7 +5748,9 @@ function isShipComponentClosedByVillageTrade(
   const hasVillage = (state.board.sites ?? []).some(
     (site) =>
       site.type === "village" &&
-      getVertex(state, site.vertexId).edgeIds.some((candidateEdgeId) => shipComponent.has(candidateEdgeId))
+      (site.edgeId
+        ? shipComponent.has(site.edgeId)
+        : getVertex(state, site.vertexId).edgeIds.some((candidateEdgeId) => shipComponent.has(candidateEdgeId)))
   );
   return hasBuilding && hasVillage;
 }
@@ -5970,7 +6071,18 @@ function cloneState(state: GameState): GameState {
         : state.scenarioState?.type === "fog_islands"
           ? {
               ...state.scenarioState,
-              pendingRevealEntries: state.scenarioState.pendingRevealEntries.map((entry) => ({ ...entry }))
+              hiddenTerrainStack: state.scenarioState.hiddenTerrainStack
+                ? [...state.scenarioState.hiddenTerrainStack]
+                : undefined,
+              hiddenTokenStack: state.scenarioState.hiddenTokenStack
+                ? [...state.scenarioState.hiddenTokenStack]
+                : undefined,
+              revealEntriesByTileId: Object.fromEntries(
+                Object.entries(state.scenarioState.revealEntriesByTileId).map(([tileId, entry]) => [
+                  tileId,
+                  { ...entry }
+                ])
+              )
             }
           : state.scenarioState
             ? {

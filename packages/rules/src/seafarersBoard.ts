@@ -18,6 +18,7 @@ import type {
   WonderRequirementId
 } from "@hexagonia/shared";
 import seafarersOfficialScenarioDataJson from "./seafarersOfficialScenarioData.json" with { type: "json" };
+import seafarersOfficialFixedScenarioSpecsJson from "./seafarersOfficialFixedScenarioSpecs.json" with { type: "json" };
 import type { BoardLayoutTile, PortPlacementRef, ScenarioBoardLayout } from "./board.js";
 import { SeededRandom } from "./random.js";
 
@@ -89,14 +90,17 @@ interface OfficialTileContentSpec {
   occupant?: TileOccupant | null;
 }
 
+type OfficialVillageSiteSpec = {
+  type: "village";
+  ref?: TileVertexRefSpec;
+  edgeRef?: TileEdgeRefSpec;
+  numberToken?: number;
+  clothSupply?: number;
+  initialClothSupply?: number;
+};
+
 type OfficialSiteSpec =
-  | {
-      type: "village";
-      ref: TileVertexRefSpec;
-      numberToken?: number;
-      clothSupply?: number;
-      initialClothSupply?: number;
-    }
+  | OfficialVillageSiteSpec
   | {
       type: "landing";
       ref: TileVertexRefSpec;
@@ -136,10 +140,34 @@ interface OfficialFixedScenarioSpec {
   layoutCoords?: readonly string[];
   logicalIslandGroups?: readonly (readonly string[])[];
   tiles: Partial<Record<string, OfficialTileContentSpec>>;
-  ports: readonly (PortPlacementRef & { type: PortType; side: TileSideIndex })[];
+  ports: readonly (PortPlacementRef & { type?: PortType; side: TileSideIndex })[];
+  portDistribution?: readonly PortType[];
   sites?: readonly OfficialSiteSpec[];
   markers?: readonly OfficialMarkerSpec[];
   pirateFleetPath?: readonly string[];
+}
+
+interface FogOriginalSetup {
+  layoutCoords: readonly string[];
+  fixedSeaCoords: readonly string[];
+  hiddenCoords: readonly string[];
+  visibleTiles?: Readonly<Record<string, OfficialTileContentSpec>>;
+  visibleLandCoords?: readonly string[];
+  faceupTerrainPool?: readonly TileTerrain[];
+  faceupTokenPool?: readonly number[];
+  hiddenTerrainPool: readonly TileTerrain[];
+  hiddenTokenPool: readonly number[];
+  ports: readonly (PortPlacementRef & { type?: PortType; side: TileSideIndex })[];
+  preserveExplicitPortTypes: boolean;
+  pirateCoord: string;
+}
+
+type FogRowCellSpec = "sea" | "hidden" | OfficialTileContentSpec;
+
+interface FogRowSpec {
+  r: number;
+  qStart: number;
+  cells: readonly FogRowCellSpec[];
 }
 
 type ResolvedScenarioPlayerCount = 3 | 4 | 5 | 6;
@@ -178,6 +206,8 @@ interface SeafarersOfficialScenarioData {
 
 const seafarersOfficialScenarioData =
   seafarersOfficialScenarioDataJson as SeafarersOfficialScenarioData;
+const generatedOfficialFixedScenarioSpecs =
+  seafarersOfficialFixedScenarioSpecsJson as Partial<Record<OfficialFixedScenarioSpecKey, OfficialFixedScenarioSpec>>;
 
 const STANDARD_RESOURCE_POOL = [
   "brick",
@@ -401,10 +431,499 @@ const SCENARIO_HOME_ISLAND_COUNTS = seafarersOfficialScenarioData.homeIslandCoun
 
 const SCENARIO_ISLAND_REWARD_POINTS = seafarersOfficialScenarioData.islandRewardPoints;
 
-const OFFICIAL_FIXED_SCENARIO_SPECS = seafarersOfficialScenarioData.fixedScenarioSpecs;
+const OFFICIAL_FIXED_SCENARIO_SPECS: Partial<Record<OfficialFixedScenarioSpecKey, OfficialFixedScenarioSpec>> = {
+  ...seafarersOfficialScenarioData.fixedScenarioSpecs,
+  ...generatedOfficialFixedScenarioSpecs
+};
+
+const FOG_ISLANDS_STANDARD_3_VISIBLE_TILES = {
+  "3:-5": { terrain: "lumber", token: 6 },
+  "2:-4": { terrain: "brick", token: 11 },
+  "1:-3": { terrain: "ore", token: 8 },
+  "2:-3": { terrain: "wool", token: 5 },
+  "0:-2": { terrain: "wool", token: 12 },
+  "1:-2": { terrain: "lumber", token: 9 },
+  "0:-1": { terrain: "grain", token: 10 },
+  "1:2": { terrain: "brick", token: 6 },
+  "0:3": { terrain: "lumber", token: 5 },
+  "-1:4": { terrain: "wool", token: 8 },
+  "0:4": { terrain: "lumber", token: 11 },
+  "-2:5": { terrain: "ore", token: 4 },
+  "-1:5": { terrain: "grain", token: 3 },
+  "-2:6": { terrain: "wool", token: 9 }
+} as const satisfies Readonly<Record<string, OfficialTileContentSpec>>;
+
+const FOG_ISLANDS_STANDARD_3_SETUP: FogOriginalSetup = {
+  layoutCoords: buildFogLayoutCoords(
+    [
+      "4:-7",
+      "3:-6",
+      "4:-6",
+      "2:-5",
+      "1:-4",
+      "3:-4",
+      "2:-2",
+      "1:-1",
+      "-1:0",
+      "0:0",
+      "2:0",
+      "-1:1",
+      "1:1",
+      "0:2",
+      "-1:3",
+      "-2:4",
+      "-3:6",
+      "-3:7"
+    ],
+    [
+      "4:-5",
+      "4:-4",
+      "3:-3",
+      "3:-2",
+      "2:-1",
+      "1:0",
+      "0:1",
+      "-2:2",
+      "-1:2",
+      "-2:3",
+      "-3:4",
+      "-3:5"
+    ],
+    Object.keys(FOG_ISLANDS_STANDARD_3_VISIBLE_TILES)
+  ),
+  fixedSeaCoords: [
+    "4:-7",
+    "3:-6",
+    "4:-6",
+    "2:-5",
+    "1:-4",
+    "3:-4",
+    "2:-2",
+    "1:-1",
+    "-1:0",
+    "0:0",
+    "2:0",
+    "-1:1",
+    "1:1",
+    "0:2",
+    "-1:3",
+    "-2:4",
+    "-3:6",
+    "-3:7"
+  ],
+  hiddenCoords: [
+    "4:-5",
+    "4:-4",
+    "3:-3",
+    "3:-2",
+    "2:-1",
+    "1:0",
+    "0:1",
+    "-2:2",
+    "-1:2",
+    "-2:3",
+    "-3:4",
+    "-3:5"
+  ],
+  visibleTiles: FOG_ISLANDS_STANDARD_3_VISIBLE_TILES,
+  hiddenTerrainPool: createFogTerrainPool({
+    sea: 2,
+    gold: 2,
+    brick: 2,
+    lumber: 1,
+    wool: 1,
+    grain: 2,
+    ore: 2
+  }),
+  hiddenTokenPool: createFogTokenPool({
+    3: 2,
+    4: 1,
+    5: 1,
+    6: 1,
+    8: 1,
+    9: 1,
+    10: 1,
+    11: 1,
+    12: 1
+  }),
+  ports: [
+    { tileCoord: "3:-5", side: 5, type: "ore" },
+    { tileCoord: "2:-4", side: 5, type: "lumber" },
+    { tileCoord: "0:-2", side: 0, type: "generic" },
+    { tileCoord: "0:-1", side: 4, type: "brick" },
+    { tileCoord: "1:2", side: 2, type: "wool" },
+    { tileCoord: "0:4", side: 2, type: "generic" },
+    { tileCoord: "-2:5", side: 3, type: "generic" },
+    { tileCoord: "-2:6", side: 2, type: "grain" }
+  ],
+  preserveExplicitPortTypes: true,
+  pirateCoord: "4:-7"
+};
+
+const FOG_ISLANDS_STANDARD_4_VISIBLE_LAND_COORDS = [
+  "3:-6",
+  "2:-5",
+  "3:-5",
+  "1:-4",
+  "2:-4",
+  "1:-3",
+  "0:-2",
+  "2:0",
+  "1:1",
+  "1:2",
+  "0:3",
+  "-1:4",
+  "0:4",
+  "-2:5",
+  "-1:5",
+  "-3:6",
+  "-2:6"
+] as const;
+
+const FOG_ISLANDS_STANDARD_4_SETUP: FogOriginalSetup = {
+  layoutCoords: buildFogLayoutCoords(
+    [
+      "4:-7",
+      "4:-6",
+      "3:-4",
+      "2:-3",
+      "1:-2",
+      "3:-2",
+      "0:-1",
+      "2:-1",
+      "-1:0",
+      "1:0",
+      "0:2",
+      "-1:3",
+      "-2:4",
+      "-3:5",
+      "-3:7"
+    ],
+    [
+      "4:-5",
+      "4:-4",
+      "3:-3",
+      "2:-2",
+      "1:-1",
+      "0:0",
+      "-1:1",
+      "0:1",
+      "-2:2",
+      "-1:2",
+      "-2:3",
+      "-3:4"
+    ],
+    FOG_ISLANDS_STANDARD_4_VISIBLE_LAND_COORDS
+  ),
+  fixedSeaCoords: [
+    "4:-7",
+    "4:-6",
+    "3:-4",
+    "2:-3",
+    "1:-2",
+    "3:-2",
+    "0:-1",
+    "2:-1",
+    "-1:0",
+    "1:0",
+    "0:2",
+    "-1:3",
+    "-2:4",
+    "-3:5",
+    "-3:7"
+  ],
+  hiddenCoords: [
+    "4:-5",
+    "4:-4",
+    "3:-3",
+    "2:-2",
+    "1:-1",
+    "0:0",
+    "-1:1",
+    "0:1",
+    "-2:2",
+    "-1:2",
+    "-2:3",
+    "-3:4"
+  ],
+  visibleLandCoords: FOG_ISLANDS_STANDARD_4_VISIBLE_LAND_COORDS,
+  faceupTerrainPool: createFogTerrainPool({
+    brick: 3,
+    lumber: 4,
+    wool: 4,
+    grain: 3,
+    ore: 3
+  }),
+  faceupTokenPool: createFogTokenPool({
+    2: 1,
+    3: 2,
+    4: 2,
+    5: 2,
+    6: 2,
+    8: 2,
+    9: 2,
+    10: 2,
+    11: 1,
+    12: 1
+  }),
+  hiddenTerrainPool: createFogTerrainPool({
+    sea: 2,
+    gold: 2,
+    brick: 2,
+    lumber: 1,
+    wool: 1,
+    grain: 2,
+    ore: 2
+  }),
+  hiddenTokenPool: createFogTokenPool({
+    3: 1,
+    4: 1,
+    5: 1,
+    6: 1,
+    8: 1,
+    9: 1,
+    10: 1,
+    11: 2,
+    12: 1
+  }),
+  ports: [
+    { tileCoord: "3:-6", side: 5 },
+    { tileCoord: "3:-5", side: 0 },
+    { tileCoord: "1:-4", side: 0 },
+    { tileCoord: "1:-4", side: 4 },
+    { tileCoord: "2:0", side: 2 },
+    { tileCoord: "0:4", side: 1 },
+    { tileCoord: "0:4", side: 3 },
+    { tileCoord: "-3:6", side: 2 },
+    { tileCoord: "-2:6", side: 2 }
+  ],
+  preserveExplicitPortTypes: false,
+  pirateCoord: "4:-7"
+};
+
+const FOG_ISLANDS_EXTENDED_56_ROWS = [
+  {
+    r: -6,
+    qStart: 1,
+    cells: [
+      { terrain: "lumber", token: 10 },
+      "sea",
+      "hidden",
+      "hidden",
+      "sea",
+      { terrain: "lumber", token: 9 },
+      { terrain: "grain", token: 2 }
+    ]
+  },
+  {
+    r: -5,
+    qStart: 0,
+    cells: [
+      { terrain: "wool", token: 6 },
+      "sea",
+      "hidden",
+      "hidden",
+      "hidden",
+      { terrain: "brick", token: 5 },
+      { terrain: "ore", token: 12 },
+      "sea"
+    ]
+  },
+  {
+    r: -4,
+    qStart: -1,
+    cells: [
+      { terrain: "grain", token: 12, robber: true },
+      { terrain: "brick", token: 4 },
+      "sea",
+      "hidden",
+      "hidden",
+      "hidden",
+      { terrain: "wool", token: 4 },
+      { terrain: "brick", token: 8 },
+      "sea"
+    ]
+  },
+  {
+    r: -3,
+    qStart: -1,
+    cells: [
+      { terrain: "ore", token: 11 },
+      { terrain: "wool", token: 5 },
+      "sea",
+      "hidden",
+      "hidden",
+      "sea",
+      { terrain: "lumber", token: 6 },
+      { terrain: "wool", token: 3 }
+    ]
+  },
+  {
+    r: -2,
+    qStart: -2,
+    cells: [
+      { terrain: "grain", token: 6 },
+      { terrain: "lumber", token: 3 },
+      "sea",
+      "hidden",
+      "hidden",
+      "hidden",
+      { terrain: "ore", token: 9 },
+      { terrain: "grain", token: 4 },
+      "sea"
+    ]
+  },
+  {
+    r: -1,
+    qStart: -2,
+    cells: [
+      { terrain: "brick", token: 9 },
+      { terrain: "wool", token: 8 },
+      "sea",
+      "hidden",
+      "hidden",
+      "hidden",
+      { terrain: "brick", token: 10 },
+      "sea"
+    ]
+  },
+  {
+    r: 0,
+    qStart: -2,
+    cells: [
+      { terrain: "grain", token: 11 },
+      { terrain: "ore", token: 10 },
+      "sea",
+      "hidden",
+      "hidden",
+      "sea",
+      { terrain: "lumber", token: 8 }
+    ]
+  }
+] as const satisfies readonly FogRowSpec[];
+
+const FOG_ISLANDS_EXTENDED_56_SETUP: FogOriginalSetup = buildFogOriginalSetupFromRows(
+  FOG_ISLANDS_EXTENDED_56_ROWS,
+  {
+    hiddenTerrainPool: createFogTerrainPool({
+      sea: 3,
+      gold: 3,
+      brick: 2,
+      lumber: 2,
+      wool: 2,
+      grain: 2,
+      ore: 3,
+      desert: 1
+    }),
+    hiddenTokenPool: createFogTokenPool({
+      2: 2,
+      3: 2,
+      4: 1,
+      5: 2,
+      6: 1,
+      8: 1,
+      9: 1,
+      10: 1,
+      11: 2,
+      12: 1
+    }),
+    ports: [
+      { tileCoord: "1:-6", side: 3, type: "generic" },
+      { tileCoord: "6:-6", side: 1, type: "lumber" },
+      { tileCoord: "0:-4", side: 0, type: "wool" },
+      { tileCoord: "6:-5", side: 0, type: "generic" },
+      { tileCoord: "-1:-3", side: 3, type: "ore" },
+      { tileCoord: "5:-4", side: 4, type: "wool" },
+      { tileCoord: "6:-3", side: 0, type: "brick" },
+      { tileCoord: "-2:-1", side: 3, type: "generic" },
+      { tileCoord: "-1:-1", side: 0, type: "generic" },
+      { tileCoord: "4:-1", side: 4, type: "generic" },
+      { tileCoord: "5:-2", side: 5, type: "grain" }
+    ],
+    preserveExplicitPortTypes: true,
+    pirateCoord: "0:0"
+  }
+);
 
 function coordKey(q: number, r: number): string {
   return `${q}:${r}`;
+}
+
+function coordSortKey(coord: string): [number, number] {
+  const [qPart, rPart] = coord.split(":");
+  return [Number(rPart), Number(qPart)];
+}
+
+function buildFogLayoutCoords(
+  fixedSeaCoords: readonly string[],
+  hiddenCoords: readonly string[],
+  visibleCoords: readonly string[]
+): string[] {
+  return [...new Set([...fixedSeaCoords, ...hiddenCoords, ...visibleCoords])].sort((left, right) => {
+    const [leftR, leftQ] = coordSortKey(left);
+    const [rightR, rightQ] = coordSortKey(right);
+    return leftR - rightR || leftQ - rightQ;
+  });
+}
+
+function buildFogOriginalSetupFromRows(
+  rows: readonly FogRowSpec[],
+  config: Omit<FogOriginalSetup, "layoutCoords" | "fixedSeaCoords" | "hiddenCoords" | "visibleTiles">
+): FogOriginalSetup {
+  const layoutCoords: string[] = [];
+  const fixedSeaCoords: string[] = [];
+  const hiddenCoords: string[] = [];
+  const visibleTiles: Record<string, OfficialTileContentSpec> = {};
+
+  for (const row of rows) {
+    for (const [index, cell] of row.cells.entries()) {
+      const coord = coordKey(row.qStart + index, row.r);
+      layoutCoords.push(coord);
+      if (cell === "sea") {
+        fixedSeaCoords.push(coord);
+        continue;
+      }
+      if (cell === "hidden") {
+        hiddenCoords.push(coord);
+        continue;
+      }
+      visibleTiles[coord] = { ...cell };
+    }
+  }
+
+  return {
+    layoutCoords,
+    fixedSeaCoords,
+    hiddenCoords,
+    visibleTiles,
+    ...config
+  };
+}
+
+function createFogTerrainPool(counts: Partial<Record<TileTerrain, number>>): TileTerrain[] {
+  const orderedTerrains: readonly TileTerrain[] = [
+    "sea",
+    "gold",
+    "brick",
+    "lumber",
+    "wool",
+    "grain",
+    "ore",
+    "desert"
+  ];
+  const pool: TileTerrain[] = [];
+  for (const terrain of orderedTerrains) {
+    pool.push(...Array.from({ length: counts[terrain] ?? 0 }, () => terrain));
+  }
+  return pool;
+}
+
+function createFogTokenPool(counts: Partial<Record<number, number>>): number[] {
+  const pool: number[] = [];
+  for (const token of [2, 3, 4, 5, 6, 8, 9, 10, 11, 12] as const) {
+    pool.push(...Array.from({ length: counts[token] ?? 0 }, () => token));
+  }
+  return pool;
 }
 
 function createResourceMap(cost: Partial<Record<Resource, number>>): ResourceMap {
@@ -525,6 +1044,30 @@ function resolveScenarioPlayerCount(playerCount: number, boardSize: BoardSize): 
     return 6;
   }
   return boardSize === "extended" ? 5 : 4;
+}
+
+export function getFogIslandsOriginalSetup(input: {
+  scenarioId: ScenarioId;
+  boardSize: BoardSize;
+  playerCount: number;
+}): FogOriginalSetup | null {
+  if (input.scenarioId !== "seafarers.fog_islands") {
+    return null;
+  }
+
+  const resolvedPlayerCount = resolveScenarioPlayerCount(input.playerCount, input.boardSize);
+  if (input.boardSize === "extended") {
+    return resolvedPlayerCount >= 5 ? FOG_ISLANDS_EXTENDED_56_SETUP : null;
+  }
+
+  switch (resolvedPlayerCount) {
+    case 3:
+      return FOG_ISLANDS_STANDARD_3_SETUP;
+    case 4:
+      return FOG_ISLANDS_STANDARD_4_SETUP;
+    default:
+      return null;
+  }
 }
 
 function getScenarioLogicalIslandGroups(
@@ -668,7 +1211,38 @@ function createProfile(
 ): ScenarioProfile {
   const activeCoords = boardSize === "extended" ? [...EXTENDED_ACTIVE_COORDS] : [...STANDARD_ACTIVE_COORDS];
   const resolvedPlayerCount = resolveScenarioPlayerCount(playerCount, boardSize);
+  const fogSetup = getFogIslandsOriginalSetup({ scenarioId, boardSize, playerCount });
   const override = getScenarioProfileOverride(scenarioId, boardSize, resolvedPlayerCount);
+  if (fogSetup) {
+    const portDistribution = fogSetup.ports.every((placement) => placement.type !== undefined)
+      ? fogSetup.ports.map((placement) => placement.type!)
+      : getScenarioPortDistribution(scenarioId, resolvedPlayerCount);
+    return {
+      layoutCoords: [...fogSetup.layoutCoords],
+      landCoords: [],
+      fogLandCoords: [],
+      fogSeaCoords: [],
+      goldCoords: [],
+      desertCoords: [],
+      initialRobberCoord: null,
+      initialPirateCoord: fogSetup.pirateCoord,
+      portDistribution,
+      explicitPortPlacements: fogSetup.ports.map((placement) => ({
+        tileCoord: placement.tileCoord,
+        side: placement.side,
+        ...(placement.type ? { type: placement.type } : {})
+      })),
+      logicalIslandGroups: [],
+      homeIslandCount: getScenarioHomeIslandCount(scenarioId),
+      variableRobberPlacement: "token_12",
+      fixedTokenRules: createTokenRules({
+        forbidAdjacentRedNumbers: false
+      }),
+      variableTokenRules: createTokenRules({
+        forbidAdjacentRedNumbers: false
+      })
+    };
+  }
   const layoutCoords = override?.layoutCoords ? [...override.layoutCoords] : activeCoords;
   const base: ScenarioProfile = {
     layoutCoords,
@@ -775,7 +1349,7 @@ function validateScenarioProfileOverrides(): void {
     assertCoordsWithinLayout(
       variantKey,
       layoutCoords,
-      override.sites?.map((site) => site.ref.tileCoord) ?? [],
+      override.sites?.map((site) => getOfficialSiteCoord(site)) ?? [],
       "variant-site"
     );
     assertCoordsWithinLayout(
@@ -815,10 +1389,19 @@ function validateOfficialFixedScenarioSpecs(): void {
       spec.ports.map((placement) => placement.tileCoord),
       "fixed-port"
     );
+    if (spec.portDistribution && spec.portDistribution.length !== spec.ports.length) {
+      throw new Error(`Fixed port distribution mismatch for Seafarers variant ${variantKey}.`);
+    }
+    if (
+      spec.ports.some((placement) => placement.type === undefined) &&
+      (!spec.portDistribution || spec.portDistribution.length !== spec.ports.length)
+    ) {
+      throw new Error(`Missing fixed port types/distribution for Seafarers variant ${variantKey}.`);
+    }
     assertCoordsWithinLayout(
       variantKey,
       layoutCoords,
-      spec.sites?.map((site) => site.ref.tileCoord) ?? [],
+      spec.sites?.map((site) => getOfficialSiteCoord(site)) ?? [],
       "fixed-site"
     );
     assertCoordsWithinLayout(
@@ -857,25 +1440,29 @@ export function getSeafarersBoardLayout(input: {
   playerCount: number;
 }): ScenarioBoardLayout {
   const profile = createProfile(input.boardSize, input.scenarioId, input.playerCount);
+  const fogSetup = getFogIslandsOriginalSetup(input);
   const fixedSpec =
     input.layoutMode === "official_fixed"
       ? getOfficialFixedScenarioSpec(input.scenarioId, input.boardSize, input.playerCount)
       : null;
   const layoutCoords = fixedSpec?.layoutCoords ?? profile.layoutCoords;
+  const fixedPortDistribution =
+    fixedSpec?.portDistribution && fixedSpec.portDistribution.length > 0
+      ? [...fixedSpec.portDistribution]
+      : fixedSpec && fixedSpec.ports.every((placement) => placement.type !== undefined)
+        ? fixedSpec.ports.map((placement) => placement.type!)
+        : [...profile.portDistribution];
   return {
     contentMode: "scenario",
     boardSize: input.boardSize,
     tiles: layoutCoords.map(parseCoordKey),
-    portDistribution:
-      fixedSpec && fixedSpec.ports.length > 0
-        ? fixedSpec.ports.map((placement) => placement.type)
-        : [...profile.portDistribution],
+    portDistribution: fixedSpec && fixedSpec.ports.length > 0 ? fixedPortDistribution : [...profile.portDistribution],
     ...(fixedSpec && fixedSpec.ports.length > 0
       ? {
           explicitPortPlacements: fixedSpec.ports.map((placement) => ({
             tileCoord: placement.tileCoord,
             side: placement.side,
-            type: placement.type
+            ...(placement.type ? { type: placement.type } : {})
           }))
         }
       : profile.explicitPortPlacements && profile.explicitPortPlacements.length > 0
@@ -886,6 +1473,11 @@ export function getSeafarersBoardLayout(input: {
               ...(placement.type ? { type: placement.type } : {})
             }))
           }
+      : {}),
+    ...(fogSetup
+      ? {
+          preserveExplicitPortTypes: fogSetup.preserveExplicitPortTypes
+        }
       : {})
   };
 }
@@ -1109,6 +1701,86 @@ function applyOfficialFixedScenarioTileContents(
   };
 }
 
+function applyFogIslandsOriginalTileContents(
+  setup: FogOriginalSetup,
+  rng: SeededRandom,
+  tiles: TileView[]
+): void {
+  const fixedSeaCoords = new Set(setup.fixedSeaCoords);
+  const hiddenCoords = new Set(setup.hiddenCoords);
+  const fixedVisibleTiles = new Map(Object.entries(setup.visibleTiles ?? {}));
+  const hasExplicitRobber = [...fixedVisibleTiles.values()].some((tile) => tile.robber === true);
+  const variableVisibleTerrains = setup.faceupTerrainPool ? rng.shuffle([...setup.faceupTerrainPool]) : [];
+  const variableVisibleTokens = setup.faceupTokenPool ? rng.shuffle([...setup.faceupTokenPool]) : [];
+  const variableVisibleTerrainByCoord = new Map<string, TileTerrain>();
+  const variableVisibleTokenByCoord = new Map<string, number>();
+
+  if (setup.visibleLandCoords) {
+    if (variableVisibleTerrains.length !== setup.visibleLandCoords.length) {
+      throw new Error("Fog Islands faceup terrain pool does not match the visible coord count.");
+    }
+    let tokenIndex = 0;
+    for (const [index, coord] of setup.visibleLandCoords.entries()) {
+      const terrain = variableVisibleTerrains[index]!;
+      variableVisibleTerrainByCoord.set(coord, terrain);
+      if (terrain !== "sea" && terrain !== "desert") {
+        const token = variableVisibleTokens[tokenIndex] ?? null;
+        if (token === null) {
+          throw new Error("Fog Islands faceup token pool exhausted.");
+        }
+        variableVisibleTokenByCoord.set(coord, token);
+        tokenIndex += 1;
+      }
+    }
+    if (tokenIndex !== variableVisibleTokens.length) {
+      throw new Error("Fog Islands faceup token pool has unused entries.");
+    }
+  }
+
+  for (const tile of tiles) {
+    const key = coordKey(tile.q, tile.r);
+    const fixedVisibleTile = fixedVisibleTiles.get(key) ?? null;
+    const variableVisibleTerrain = variableVisibleTerrainByCoord.get(key) ?? null;
+    const terrain = fixedSeaCoords.has(key)
+      ? "sea"
+      : fixedVisibleTile?.terrain ?? variableVisibleTerrain;
+
+    tile.robber = false;
+    tile.occupant = null;
+
+    if (hiddenCoords.has(key)) {
+      tile.kind = "fog";
+      tile.terrain = null;
+      tile.resource = "desert";
+      tile.token = null;
+      tile.hidden = true;
+      tile.discovered = false;
+      continue;
+    }
+
+    const resolvedTerrain = terrain ?? "sea";
+    tile.kind = resolvedTerrain === "sea" ? "sea" : "land";
+    tile.terrain = resolvedTerrain;
+    tile.resource = getResourceForTerrain(resolvedTerrain);
+    tile.token = fixedVisibleTile?.token ?? variableVisibleTokenByCoord.get(key) ?? null;
+    tile.robber = fixedVisibleTile?.robber ?? false;
+    tile.hidden = false;
+    tile.discovered = true;
+  }
+
+  const pirateTile = tiles.find((tile) => coordKey(tile.q, tile.r) === setup.pirateCoord);
+  if (pirateTile) {
+    pirateTile.occupant = "pirate";
+  }
+
+  if (!hasExplicitRobber) {
+    const robberTile = tiles.find((tile) => tile.token === 12 && tile.terrain !== "sea" && tile.kind !== "sea");
+    if (robberTile) {
+      robberTile.robber = true;
+    }
+  }
+}
+
 export function applySeafarersTileContents(
   input: {
     boardSize: BoardSize;
@@ -1146,11 +1818,17 @@ export function applySeafarersTileContents(
     return;
   }
 
-  const profile = createProfile(input.boardSize, input.scenarioId, input.playerCount);
   const placementRng =
     input.layoutMode === "official_fixed"
       ? new SeededRandom(`seafarers:fixed:${input.scenarioId}:${input.boardSize}:${input.playerCount}`)
       : rng;
+  const fogSetup = getFogIslandsOriginalSetup(input);
+  if (fogSetup) {
+    applyFogIslandsOriginalTileContents(fogSetup, placementRng, tiles);
+    return;
+  }
+
+  const profile = createProfile(input.boardSize, input.scenarioId, input.playerCount);
   const specByCoord = new Map<string, "sea" | "land" | "fog_land" | "fog_sea" | "gold" | "desert">();
   let defaultRobberTileId: string | null = null;
   let firstDesertTileId: string | null = null;
@@ -1469,6 +2147,31 @@ function resolveEdgeIdFromRef(
   return edgeId;
 }
 
+function resolveVillageSiteVertexId(
+  tilesByCoord: Map<string, TileView>,
+  site: OfficialVillageSiteSpec
+): string {
+  if (site.edgeRef) {
+    const tile = resolveTileByCoord(tilesByCoord, site.edgeRef.tileCoord);
+    const vertexId = tile.vertexIds[site.edgeRef.side] ?? null;
+    if (!vertexId) {
+      throw new Error(`Missing vertex side ${site.edgeRef.side} on tile ${site.edgeRef.tileCoord}.`);
+    }
+    return vertexId;
+  }
+  if (!site.ref) {
+    throw new Error("Village site is missing both ref and edgeRef.");
+  }
+  return resolveVertexIdFromRef(tilesByCoord, site.ref);
+}
+
+function getOfficialSiteCoord(site: OfficialSiteSpec): string {
+  if (site.type === "village") {
+    return site.edgeRef?.tileCoord ?? site.ref?.tileCoord ?? "";
+  }
+  return site.ref.tileCoord;
+}
+
 function createOfficialScenarioSites(
   spec: OfficialFixedScenarioSpec,
   input: {
@@ -1480,20 +2183,24 @@ function createOfficialScenarioSites(
   return (spec.sites ?? []).map((siteSpec, index) => {
     switch (siteSpec.type) {
       case "village": {
-        const vertexId = resolveVertexIdFromRef(tilesByCoord, siteSpec.ref);
+        const vertexId = resolveVillageSiteVertexId(tilesByCoord, siteSpec);
+        const edgeId = siteSpec.edgeRef ? resolveEdgeIdFromRef(tilesByCoord, siteSpec.edgeRef) : null;
         const numberToken =
           siteSpec.numberToken ??
           [...tilesByCoord.values()].find(
             (tile) =>
-              tile.vertexIds.includes(vertexId) &&
+              (edgeId ? tile.edgeIds.includes(edgeId) : tile.vertexIds.includes(vertexId)) &&
               tile.token !== null &&
               tile.terrain !== "sea" &&
               tile.kind !== "sea"
           )?.token ??
           null;
         if (numberToken === null) {
+          const locationLabel = siteSpec.edgeRef
+            ? `${siteSpec.edgeRef.tileCoord}:edge:${siteSpec.edgeRef.side}`
+            : `${siteSpec.ref?.tileCoord}:${siteSpec.ref?.corner}`;
           throw new Error(
-            `Missing number token for village site at ${siteSpec.ref.tileCoord}:${siteSpec.ref.corner}.`
+            `Missing number token for village site at ${locationLabel}.`
           );
         }
         return {
@@ -1501,6 +2208,7 @@ function createOfficialScenarioSites(
           type: "village",
           scenarioId: "seafarers.cloth_for_catan",
           vertexId,
+          edgeId,
           numberToken,
           clothSupply: siteSpec.clothSupply ?? 5,
           initialClothSupply: siteSpec.initialClothSupply ?? 5
@@ -1627,7 +2335,7 @@ export function createSeafarersScenarioFeatures(
       ? getOfficialFixedScenarioSpec(input.scenarioId, input.boardSize, input.playerCount)
       : null;
   const scenarioProfile =
-    fixedSpec?.logicalIslandGroups && fixedSpec.logicalIslandGroups.length > 0
+    fixedSpec?.logicalIslandGroups !== undefined
       ? {
           ...profile,
           logicalIslandGroups: cloneLogicalIslandGroups(fixedSpec.logicalIslandGroups)
@@ -1714,6 +2422,9 @@ export function createSeafarersScenarioFeatures(
   );
 
   for (const site of sites) {
+    if (site.type === "village" && site.edgeId) {
+      continue;
+    }
     const vertex = vertexById.get(site.vertexId);
     if (vertex) {
       vertex.site = { ...site };

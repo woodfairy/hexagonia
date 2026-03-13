@@ -1535,15 +1535,30 @@ function BoardSceneComponent(props: BoardSceneProps) {
         continue;
       }
 
-      const vertexHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
       const active = legalVertices.has(site.vertexId);
       const siteObject = createBoardSiteObject(site, active);
-      siteObject.position.set(vertex.x, vertexHeight + 0.12, vertex.y);
+      let siteX = vertex.x;
+      let siteZ = vertex.y;
+      let siteHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
+      if (site.type === "village" && site.edgeId) {
+        const edge = edgesById.get(site.edgeId);
+        if (edge) {
+          const [leftId, rightId] = edge.vertexIds;
+          const left = verticesById.get(leftId);
+          const right = verticesById.get(rightId);
+          if (left && right) {
+            siteX = (left.x + right.x) / 2;
+            siteZ = (left.y + right.y) / 2;
+            siteHeight = sampleEdgeTerrainHeight(edge, verticesById, terrainSurfaceByTile, tilesById);
+          }
+        }
+      }
+      siteObject.position.set(siteX, siteHeight + 0.12, siteZ);
       group.add(siteObject);
 
       if (site.type === "village" && site.numberToken !== null) {
         const badge = createTileBadgeSprite(String(site.numberToken));
-        badge.position.set(vertex.x, vertexHeight + 0.96, vertex.y);
+        badge.position.set(siteX, siteHeight + 0.96, siteZ);
         group.add(badge);
       }
     }

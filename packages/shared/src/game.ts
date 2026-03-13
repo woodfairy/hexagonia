@@ -102,6 +102,7 @@ interface BaseBoardSiteView {
 export type ClothVillageSiteView = BaseBoardSiteView & {
   type: "village";
   scenarioId: "seafarers.cloth_for_catan";
+  edgeId?: string | null;
   numberToken: number;
   clothSupply: number;
   initialClothSupply: number;

@@ -51,6 +51,18 @@ export const SCENARIO_IDS = Object.freeze(
   Object.keys(SCENARIO_CATALOG) as ScenarioId[]
 );
 
+const OFFICIAL_FIXED_LAYOUT_SUPPORT: Partial<Record<ScenarioId, readonly number[]>> = {
+  "seafarers.heading_for_new_shores": [3, 4, 5, 6],
+  "seafarers.four_islands": [3, 4],
+  "seafarers.six_islands": [5, 6],
+  "seafarers.fog_islands": [3, 4, 5, 6],
+  "seafarers.through_the_desert": [3, 4, 5, 6],
+  "seafarers.forgotten_tribe": [3, 4, 5, 6],
+  "seafarers.cloth_for_catan": [3, 4, 5, 6],
+  "seafarers.pirate_islands": [3, 4, 5, 6],
+  "seafarers.wonders_of_catan": [3, 4, 5, 6]
+};
+
 export function isRulesFamily(value: unknown): value is RulesFamily {
   return typeof value === "string" && RULES_FAMILIES.includes(value as RulesFamily);
 }
@@ -77,11 +89,22 @@ export function getScenarioAllowedLayoutModes(
 ): readonly LayoutMode[] {
   const scenario = getScenarioCatalogEntry(scenarioId);
   const playerCountModes = scenario.playerCountLayoutModes?.[playerCount];
-  if (playerCountModes?.length) {
-    return playerCountModes;
+  const configuredModes: LayoutMode[] = playerCountModes?.length
+    ? [...playerCountModes]
+    : scenario.fixedLayoutOnly
+      ? ["official_fixed"]
+      : [...LAYOUT_MODES];
+
+  if (scenario.rulesFamily !== "seafarers") {
+    return configuredModes;
   }
 
-  return scenario.fixedLayoutOnly ? ["official_fixed"] : LAYOUT_MODES;
+  if (hasOfficialFixedLayoutSupport(scenarioId, playerCount)) {
+    return configuredModes;
+  }
+
+  const filteredModes: LayoutMode[] = configuredModes.filter((mode) => mode !== "official_fixed");
+  return filteredModes.length > 0 ? filteredModes : ["official_variable"];
 }
 
 export function getScenarioDefaultLayoutMode(
@@ -89,7 +112,9 @@ export function getScenarioDefaultLayoutMode(
   playerCount: number
 ): LayoutMode {
   const scenario = getScenarioCatalogEntry(scenarioId);
-  return scenario.playerCountDefaultLayoutModes?.[playerCount] ?? scenario.defaultLayoutMode;
+  const configuredDefault = scenario.playerCountDefaultLayoutModes?.[playerCount] ?? scenario.defaultLayoutMode;
+  const allowedModes = getScenarioAllowedLayoutModes(scenarioId, playerCount);
+  return allowedModes.includes(configuredDefault) ? configuredDefault : allowedModes[0]!;
 }
 
 export function getScenarioDefaultTurnRule(
@@ -106,6 +131,14 @@ export function isScenarioFixedLayoutOnly(
 ): boolean {
   const allowedModes = getScenarioAllowedLayoutModes(scenarioId, playerCount);
   return allowedModes.length === 1 && allowedModes[0] === "official_fixed";
+}
+
+export function hasOfficialFixedLayoutSupport(
+  scenarioId: ScenarioId,
+  playerCount: number
+): boolean {
+  const supportedPlayerCounts = OFFICIAL_FIXED_LAYOUT_SUPPORT[scenarioId];
+  return supportedPlayerCounts?.includes(playerCount) ?? false;
 }
 
 export function listScenarioCatalogEntries(rulesFamily?: RulesFamily): ScenarioCatalogEntry[] {
