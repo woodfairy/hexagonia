@@ -1,4 +1,4 @@
-import { RESOURCES, sanitizeUsernameInput } from "@hexagonia/shared";
+import { PIRATE_FRAME_TILE_ID, RESOURCES, sanitizeUsernameInput } from "@hexagonia/shared";
 import type {
   AdminUserRecord,
   ClientMessage,
@@ -544,6 +544,7 @@ export function getMatchActionConfirmation(
       };
     }
     case "move_pirate": {
+      const movingToFrame = action.tileId === PIRATE_FRAME_TILE_ID;
       const targetName = action.targetPlayerId
         ? match.players.find((player) => player.id === action.targetPlayerId)?.username
         : null;
@@ -553,17 +554,19 @@ export function getMatchActionConfirmation(
           : action.stealType === "resource"
             ? t("match.pirateSteal.resource")
             : null;
+      const detail = movingToFrame
+        ? t("match.confirm.movePirate.detailFrame")
+        : targetName && stealTypeLabel
+          ? t("match.confirm.movePirate.detailWithTargetAndStealType", {
+              player: targetName,
+              stealType: stealTypeLabel
+            })
+          : targetName
+            ? t("match.confirm.movePirate.detailWithTarget", { player: targetName })
+            : t("match.confirm.movePirate.detail");
       return {
         title: t("match.confirm.movePirate.title"),
-        detail:
-          targetName && stealTypeLabel
-            ? t("match.confirm.movePirate.detailWithTargetAndStealType", {
-                player: targetName,
-                stealType: stealTypeLabel
-              })
-            : targetName
-              ? t("match.confirm.movePirate.detailWithTarget", { player: targetName })
-              : t("match.confirm.movePirate.detail"),
+        detail,
         confirmLabel: t("match.confirm.movePirate.confirm")
       };
     }

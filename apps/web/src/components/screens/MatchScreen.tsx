@@ -19,6 +19,7 @@ import {
   createEmptyResourceMap,
   equalResourceMaps,
   hasResources,
+  PIRATE_FRAME_TILE_ID,
   RESOURCES,
   totalResources
 } from "@hexagonia/shared";
@@ -172,6 +173,7 @@ export interface MatchScreenProps {
   onCancelPendingBoardAction: () => void;
   onSelectPendingRobberTarget: (targetPlayerId: string) => void;
   onSelectPendingPirateStealType: (stealType: PirateStealType) => void;
+  onMovePirateToFrame: () => void;
   onRollDice: () => void;
   onOfferTrade: () => void;
   onVertexSelect: (vertexId: string) => void;
@@ -1287,6 +1289,9 @@ function MatchScreenComponent(props: MatchScreenProps) {
     props.match.phase === "robber_interrupt" &&
     props.match.allowedMoves.pendingDiscardCount === 0 &&
     props.match.allowedMoves.pirateMoveOptions.length > 0;
+  const pirateFrameMoveAvailable = props.match.allowedMoves.pirateMoveOptions.some(
+    (option) => option.tileId === PIRATE_FRAME_TILE_ID
+  );
   const goldChoiceSource = props.match.allowedMoves.goldResourceChoiceSource;
   const goldChoiceTitle =
     goldChoiceSource === "pirate_fleet_reward"
@@ -1776,6 +1781,20 @@ function MatchScreenComponent(props: MatchScreenProps) {
             confirmLabel: null,
             armedLabel: null,
             onClick: () => props.setInteractionMode(props.interactionMode === "pirate" ? null : "pirate")
+          }
+        ]
+      : []),
+    ...(canMovePirate && pirateFrameMoveAvailable && props.interactionMode === "pirate"
+      ? [
+          {
+            id: "pirate-frame",
+            label: t("match.quickAction.movePirateToFrame"),
+            className: "secondary-button",
+            disabled: false,
+            confirmKey: null,
+            confirmLabel: null,
+            armedLabel: null,
+            onClick: props.onMovePirateToFrame
           }
         ]
       : []),

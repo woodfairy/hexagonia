@@ -17,6 +17,7 @@ export const PORT_TYPES = ["generic", ...RESOURCES] as const;
 export const TILE_KINDS = ["land", "sea", "fog"] as const;
 export const TILE_TERRAINS = [...RESOURCES, "desert", "gold", "sea"] as const;
 export const TILE_OCCUPANTS = ["robber", "pirate"] as const;
+export const PIRATE_FRAME_TILE_ID = "__pirate_frame__";
 export const ROUTE_TYPES = ["road", "ship", "warship"] as const;
 export const ROUTE_BUILD_TYPES = ["road", "ship"] as const;
 export const ROUTE_ZONES = ["land", "sea", "coast"] as const;

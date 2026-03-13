@@ -32,13 +32,13 @@ import type {
 import {
   BUILD_COSTS,
   DEVELOPMENT_CARD_TYPES,
+  PIRATE_FRAME_TILE_ID,
   RESOURCES,
   addResources,
   cloneResourceMap,
   createEmptyResourceMap,
   getScenarioVictoryPointsToWin,
   hasResources,
-  isNewWorldScenarioSetupEnabled,
   isEmptyResourceMap,
   subtractResources,
   totalResources
@@ -229,6 +229,8 @@ export interface GameState {
   players: InternalPlayer[];
   bank: ResourceMap;
   developmentDeck: InternalDevelopmentCard[];
+  forgottenTribeDevelopmentCardsByMarkerId: Partial<Record<string, InternalDevelopmentCard>>;
+  pirateOnFrame: boolean;
   dice: [number, number] | null;
   winnerId: string | null;
   tradeOffers: InternalTradeOffer[];
@@ -722,6 +724,8 @@ export function createMatchState(input: {
       wool: resourceBankStart
     },
     developmentDeck,
+    forgottenTribeDevelopmentCardsByMarkerId: {},
+    pirateOnFrame: false,
     dice: null,
     winnerId: null,
     tradeOffers: [],
@@ -750,19 +754,11 @@ export function createMatchState(input: {
     state.scenarioState = {
       type: "new_world"
     };
-
-    if (isNewWorldScenarioSetupEnabled(input.gameConfig)) {
-      state.phase = "scenario_setup";
-      state.previousPhase = null;
-      state.setupState = null;
-      state.scenarioSetupState = createNewWorldScenarioSetupState(state);
-      prepareNewWorldScenarioSetupBoard(state);
-    } else {
-      applyOfficialNewWorldSetup(state);
-    }
+    applyOfficialNewWorldSetup(state);
   }
 
   applyScenarioSetup(state);
+  reserveForgottenTribeDevelopmentCards(state);
   updatePirateBlocks(state);
 
   if (input.startingPlayerRoll) {
@@ -1129,6 +1125,7 @@ function resolvePirateIslandsFleetRoll(
     currentPirateTile.occupant = null;
     nextTile.occupant = "pirate";
   }
+  state.pirateOnFrame = false;
   updatePirateBlocks(state);
   scenarioState.fleetPositionIndex = nextIndex;
 
@@ -1623,6 +1620,7 @@ function initializeNewWorldBoardAfterScenarioSetup(state: GameState): void {
   const pirateTile = state.board.tiles.find((tile) => tile.terrain === "sea") ?? null;
   if (pirateTile) {
     pirateTile.occupant = "pirate";
+    state.pirateOnFrame = false;
   }
   finalizeSeafarersBoard(state.board.tiles, state.board.vertices, state.board.edges);
   syncScenarioFeatures(state);
@@ -1652,14 +1650,17 @@ function clearScenarioSetupTileToken(state: GameState, tile: TileView): void {
 
 function syncScenarioFeatures(state: GameState): void {
   const currentIslandRewardClaims = new Map<string, string>();
-  for (const marker of state.board.scenarioMarkers ?? []) {
-    if (marker.type === "island_reward" && marker.claimedByPlayerId) {
-      currentIslandRewardClaims.set(marker.regionId, marker.claimedByPlayerId);
+  const usesSharedMarkerClaims = usesSharedIslandRewardMarkers(state.gameConfig.scenarioId);
+  if (usesSharedMarkerClaims) {
+    for (const marker of state.board.scenarioMarkers ?? []) {
+      if (marker.type === "island_reward" && marker.claimedByPlayerId) {
+        currentIslandRewardClaims.set(marker.regionId, marker.claimedByPlayerId);
+      }
     }
-  }
-  for (const player of state.players) {
-    for (const regionId of player.rewardedRegionIds) {
-      currentIslandRewardClaims.set(regionId, player.id);
+    for (const player of state.players) {
+      for (const regionId of player.rewardedRegionIds) {
+        currentIslandRewardClaims.set(regionId, player.id);
+      }
     }
   }
 
@@ -1678,7 +1679,9 @@ function syncScenarioFeatures(state: GameState): void {
     if (marker.type !== "island_reward") {
       continue;
     }
-    marker.claimedByPlayerId = currentIslandRewardClaims.get(marker.regionId) ?? null;
+    marker.claimedByPlayerId = usesSharedMarkerClaims
+      ? (currentIslandRewardClaims.get(marker.regionId) ?? null)
+      : null;
   }
   state.board.sites = features.sites;
   state.board.scenarioMarkers = features.scenarioMarkers;
@@ -2530,17 +2533,23 @@ function handleMovePirate(
   if (!getPirateMoveOptions(state, playerId).some((option) => option.tileId === tileId)) {
     throw new GameRuleError("game.pirate_must_move");
   }
+  if (tileId === PIRATE_FRAME_TILE_ID && (targetPlayerId || stealType)) {
+    throw new GameRuleError("game.pirate_target_invalid");
+  }
 
   for (const tile of state.board.tiles) {
     if (tile.occupant === "pirate") {
       tile.occupant = null;
     }
   }
-  const pirateTile = getTile(state, tileId);
-  pirateTile.occupant = "pirate";
+  state.pirateOnFrame = tileId === PIRATE_FRAME_TILE_ID;
+  if (!state.pirateOnFrame) {
+    const pirateTile = getTile(state, tileId);
+    pirateTile.occupant = "pirate";
+  }
   updatePirateBlocks(state);
 
-  const victims = getPirateStealTargets(state, playerId, tileId);
+  const victims = state.pirateOnFrame ? [] : getPirateStealTargets(state, playerId, tileId);
   let resolvedStealType: PirateStealType | undefined;
   if (victims.length > 0) {
     if (victims.length > 1 && !targetPlayerId) {
@@ -4040,7 +4049,7 @@ function getPirateMoveOptions(state: GameState, playerId: string) {
 
   const currentPirateTileId =
     state.board.tiles.find((tile) => tile.occupant === "pirate")?.id ?? "";
-  return state.board.tiles
+  const options = state.board.tiles
     .filter((tile) => tile.id !== currentPirateTileId && tile.terrain === "sea")
     .map((tile) => {
       const targetPlayerIds = getPirateStealTargets(state, playerId, tile.id);
@@ -4055,6 +4064,14 @@ function getPirateMoveOptions(state: GameState, playerId: string) {
           : {})
       };
     });
+  if (!state.pirateOnFrame) {
+    options.push({
+      tileId: PIRATE_FRAME_TILE_ID,
+      targetPlayerIds: [],
+      moveType: "pirate" as const
+    });
+  }
+  return options;
 }
 
 function getPlayableDevelopmentCards(state: GameState, playerId: string): DevelopmentCardType[] {
@@ -4557,10 +4574,7 @@ function getMovableShipEdgeIds(state: GameState, playerId: string): string[] {
       visitedEdgeIds.add(componentEdgeId);
     }
 
-    if (isShipComponentClosedByVillageTrade(state, playerId, shipComponent)) {
-      continue;
-    }
-
+    const lockedEdgeIds = getShipComponentLockedByVillageTradeEdgeIds(state, playerId, shipComponent);
     const topology = createShipComponentTopology(state, shipComponent);
     for (const vertexId of getOpenShipRouteEndVertexIds(state, topology.vertexDegreeById)) {
       const endpointEdgeId = topology.edgeIdsByVertexId.get(vertexId)?.[0] ?? null;
@@ -4569,7 +4583,7 @@ function getMovableShipEdgeIds(state: GameState, playerId: string): string[] {
       }
 
       const edge = getEdge(state, endpointEdgeId);
-      if (edge.placedOnTurn === state.turn || edge.blockedByPirate) {
+      if (edge.placedOnTurn === state.turn || edge.blockedByPirate || lockedEdgeIds.has(endpointEdgeId)) {
         continue;
       }
       movableEdgeIds.add(endpointEdgeId);
@@ -4707,6 +4721,7 @@ function resolveScenarioEdgeRewards(state: GameState, playerId: string, edgeId: 
 }
 
 function claimScenarioEdgeMarkers(state: GameState, playerId: string, edgeId: string): void {
+  reserveForgottenTribeDevelopmentCards(state);
   for (const marker of state.board.scenarioMarkers ?? []) {
     if (!("edgeId" in marker) || marker.edgeId !== edgeId || marker.claimedByPlayerId) {
       continue;
@@ -4719,7 +4734,8 @@ function claimScenarioEdgeMarkers(state: GameState, playerId: string, edgeId: st
         player.specialVictoryPoints += 1;
         break;
       case "forgotten_tribe_development": {
-        const card = state.developmentDeck.shift();
+        const card = state.forgottenTribeDevelopmentCardsByMarkerId[marker.id];
+        delete state.forgottenTribeDevelopmentCardsByMarkerId[marker.id];
         if (card) {
           card.boughtOnTurn = state.turn;
           player.developmentCards.push(card);
@@ -4738,6 +4754,30 @@ function claimScenarioEdgeMarkers(state: GameState, playerId: string, edgeId: st
       byPlayerId: playerId,
       payload: { rewardType: marker.type, markerId: marker.id }
     });
+  }
+}
+
+function reserveForgottenTribeDevelopmentCards(state: GameState): void {
+  if (state.gameConfig.scenarioId !== "seafarers.forgotten_tribe") {
+    return;
+  }
+
+  const reservedCardsByMarkerId = state.forgottenTribeDevelopmentCardsByMarkerId ?? {};
+  state.forgottenTribeDevelopmentCardsByMarkerId = reservedCardsByMarkerId;
+  for (const marker of state.board.scenarioMarkers ?? []) {
+    if (
+      marker.type !== "forgotten_tribe_development" ||
+      marker.claimedByPlayerId ||
+      reservedCardsByMarkerId[marker.id]
+    ) {
+      continue;
+    }
+
+    const card = state.developmentDeck.shift();
+    if (!card) {
+      break;
+    }
+    reservedCardsByMarkerId[marker.id] = card;
   }
 }
 
@@ -4909,7 +4949,7 @@ function resolveSettlementScenarioRewards(
     (marker): marker is Extract<NonNullable<GameState["board"]["scenarioMarkers"]>[number], { type: "island_reward" }> =>
       marker.type === "island_reward" && marker.regionId === regionId
   );
-  if (rewardMarker) {
+  if (rewardMarker && usesSharedIslandRewardMarkers(state.gameConfig.scenarioId)) {
     rewardMarker.claimedByPlayerId = playerId;
   }
   appendEvent(state, {
@@ -4928,6 +4968,10 @@ function getScenarioRewardRegionId(state: GameState, vertexId: string): string |
   }
 
   return getVertex(state, vertexId).islandId ?? null;
+}
+
+function usesSharedIslandRewardMarkers(scenarioId: GameConfig["scenarioId"]): boolean {
+  return scenarioId !== "seafarers.new_world";
 }
 
 function getThroughTheDesertRegionId(state: GameState, vertexId: string): string | null {
@@ -5733,26 +5777,144 @@ function compareVerticesForScenarioSetup(left: VertexView, right: VertexView): n
   return left.y - right.y;
 }
 
-function isShipComponentClosedByVillageTrade(
+function getShipComponentLockedByVillageTradeEdgeIds(
   state: GameState,
   playerId: string,
   shipComponent: ReadonlySet<string>
-): boolean {
+): Set<string> {
+  const lockedEdgeIds = new Set<string>();
   if (state.gameConfig.scenarioId !== "seafarers.cloth_for_catan") {
-    return false;
+    return lockedEdgeIds;
   }
 
-  const hasBuilding = [...getPlayer(state, playerId).settlements, ...getPlayer(state, playerId).cities].some(
+  const buildingVertexIds = [...getPlayer(state, playerId).settlements, ...getPlayer(state, playerId).cities].filter(
     (vertexId) => getVertex(state, vertexId).edgeIds.some((candidateEdgeId) => shipComponent.has(candidateEdgeId))
   );
-  const hasVillage = (state.board.sites ?? []).some(
-    (site) =>
+  if (!buildingVertexIds.length) {
+    return lockedEdgeIds;
+  }
+
+  const villageSites = (state.board.sites ?? []).filter(
+    (site): site is Extract<BoardSiteView, { type: "village" }> =>
       site.type === "village" &&
       (site.edgeId
         ? shipComponent.has(site.edgeId)
         : getVertex(state, site.vertexId).edgeIds.some((candidateEdgeId) => shipComponent.has(candidateEdgeId)))
   );
-  return hasBuilding && hasVillage;
+  for (const buildingVertexId of buildingVertexIds) {
+    for (const site of villageSites) {
+      for (const edgeId of collectVillageTradeLockedPathEdgeIds(
+        state,
+        playerId,
+        shipComponent,
+        buildingVertexId,
+        site
+      )) {
+        lockedEdgeIds.add(edgeId);
+      }
+    }
+  }
+  return lockedEdgeIds;
+}
+
+function collectVillageTradeLockedPathEdgeIds(
+  state: GameState,
+  playerId: string,
+  shipComponent: ReadonlySet<string>,
+  buildingVertexId: string,
+  site: Extract<BoardSiteView, { type: "village" }>
+): Set<string> {
+  const lockedEdgeIds = new Set<string>();
+  if (site.edgeId) {
+    const siteEdge = getEdge(state, site.edgeId);
+    for (const targetVertexId of siteEdge.vertexIds) {
+      const paths = findShipPathsBetweenVertices(
+        state,
+        playerId,
+        shipComponent,
+        buildingVertexId,
+        targetVertexId,
+        site.edgeId
+      );
+      for (const path of paths) {
+        for (const edgeId of path) {
+          lockedEdgeIds.add(edgeId);
+        }
+        lockedEdgeIds.add(site.edgeId);
+      }
+    }
+    return lockedEdgeIds;
+  }
+
+  const paths = findShipPathsBetweenVertices(
+    state,
+    playerId,
+    shipComponent,
+    buildingVertexId,
+    site.vertexId
+  );
+  for (const path of paths) {
+    for (const edgeId of path) {
+      lockedEdgeIds.add(edgeId);
+    }
+  }
+  return lockedEdgeIds;
+}
+
+function findShipPathsBetweenVertices(
+  state: GameState,
+  playerId: string,
+  shipComponent: ReadonlySet<string>,
+  startVertexId: string,
+  targetVertexId: string,
+  excludedEdgeId?: string
+): string[][] {
+  if (startVertexId === targetVertexId) {
+    return [[]];
+  }
+
+  const paths: string[][] = [];
+  const pathEdgeIds: string[] = [];
+  const usedEdgeIds = new Set<string>();
+  const visitedVertexIds = new Set([startVertexId]);
+
+  const walk = (vertexId: string): void => {
+    const vertex = getVertex(state, vertexId);
+    if (vertexId !== startVertexId && vertex.building && vertex.building.ownerId !== playerId) {
+      return;
+    }
+
+    for (const edgeId of vertex.edgeIds) {
+      if (edgeId === excludedEdgeId || usedEdgeIds.has(edgeId) || !shipComponent.has(edgeId)) {
+        continue;
+      }
+
+      const edge = getEdge(state, edgeId);
+      if (edge.ownerId !== playerId || (edge.routeType !== "ship" && edge.routeType !== "warship")) {
+        continue;
+      }
+
+      const nextVertexId = edge.vertexIds[0] === vertexId ? edge.vertexIds[1] : edge.vertexIds[0];
+      if (visitedVertexIds.has(nextVertexId) && nextVertexId !== targetVertexId) {
+        continue;
+      }
+
+      pathEdgeIds.push(edgeId);
+      usedEdgeIds.add(edgeId);
+      if (nextVertexId === targetVertexId) {
+        paths.push([...pathEdgeIds]);
+      } else {
+        visitedVertexIds.add(nextVertexId);
+        walk(nextVertexId);
+        visitedVertexIds.delete(nextVertexId);
+      }
+      usedEdgeIds.delete(edgeId);
+      pathEdgeIds.pop();
+    }
+  };
+
+  walk(startVertexId);
+  return paths;
 }
 
 function collectConnectedShipEdges(state: GameState, playerId: string, startEdgeId: string): Set<string> {
@@ -6039,6 +6201,13 @@ function cloneState(state: GameState): GameState {
     })),
     bank: cloneResourceMap(state.bank),
     developmentDeck: state.developmentDeck.map((card) => ({ ...card })),
+    forgottenTribeDevelopmentCardsByMarkerId: Object.fromEntries(
+      Object.entries(state.forgottenTribeDevelopmentCardsByMarkerId ?? {}).map(([markerId, card]) => [
+        markerId,
+        { ...card }
+      ])
+    ),
+    pirateOnFrame: state.pirateOnFrame === true,
     tradeOffers: state.tradeOffers.map((trade) => ({
       ...trade,
       give: cloneResourceMap(trade.give),

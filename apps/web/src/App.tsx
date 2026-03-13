@@ -30,6 +30,7 @@ import {
   cloneResourceMap,
   createEmptyResourceMap,
   hasResources,
+  PIRATE_FRAME_TILE_ID,
   RESOURCES,
   sanitizeUsernameInput
 } from "@hexagonia/shared";
@@ -1973,6 +1974,31 @@ export function App() {
     });
   }, []);
 
+  const handleMovePirateToFrame = useCallback(() => {
+    if (!match) {
+      return;
+    }
+
+    const option = match.allowedMoves.pirateMoveOptions.find((entry) => entry.tileId === PIRATE_FRAME_TILE_ID);
+    if (!option) {
+      return;
+    }
+
+    armBoardAction(
+      {
+        type: "match.action",
+        matchId: match.matchId,
+        action: buildPirateMoveAction(match, PIRATE_FRAME_TILE_ID)
+      },
+      { kind: "tile", id: PIRATE_FRAME_TILE_ID },
+      {
+        afterConfirm: () => setInteractionMode(null),
+        targetPlayerIds: option.targetPlayerIds,
+        pirateStealTypes: []
+      }
+    );
+  }, [armBoardAction, match, setInteractionMode]);
+
   const handleAdjustRobberDiscard = useCallback(
     (resource: Resource, delta: -1 | 1) => {
       if (!selfPlayer?.resources || requiredDiscardCount <= 0) {
@@ -2432,28 +2458,6 @@ export function App() {
       pushToast(
         "error",
         translate(locale, "room.errors.victoryPointsChange"),
-        describeClientError(settingsError)
-      );
-    }
-  };
-
-  const handleRoomNewWorldScenarioSetupChange = async (newWorldScenarioSetupEnabled: boolean) => {
-    if (!room || room.gameConfig.scenarioOptions.newWorldScenarioSetupEnabled === newWorldScenarioSetupEnabled) {
-      return;
-    }
-
-    try {
-      const nextRoom = await updateRoomSettings(room.id, {
-        scenarioOptions: {
-          newWorldScenarioSetupEnabled
-        }
-      });
-      setRoom(nextRoom);
-      await loadMyRooms();
-    } catch (settingsError) {
-      pushToast(
-        "error",
-        translate(locale, "room.errors.newWorldScenarioSetupChange"),
         describeClientError(settingsError)
       );
     }
@@ -3532,7 +3536,6 @@ export function App() {
                 onSetupModeChange={handleRoomSetupModeChange}
                 onRulesPresetChange={handleRoomRulesPresetChange}
                 onScenarioChange={handleRoomScenarioChange}
-                onNewWorldScenarioSetupChange={handleRoomNewWorldScenarioSetupChange}
                 onStartingPlayerModeChange={handleRoomStartingPlayerModeChange}
                 onStartingSeatChange={handleRoomStartingSeatChange}
                 onStart={handleStartRoom}
@@ -3587,6 +3590,7 @@ export function App() {
                 onRollDice={handleRollDiceHaptic}
                 onEdgeSelect={handleEdgeSelect}
                 onOfferTrade={sendTradeOffer}
+                onMovePirateToFrame={handleMovePirateToFrame}
                 onSelectPendingPirateStealType={handleSelectPendingPirateStealType}
                 onSelectPendingRobberTarget={handleSelectPendingRobberTarget}
                 onTileSelect={handleTileSelect}

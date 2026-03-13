@@ -5,7 +5,6 @@ import {
   getScenarioCatalogEntry,
   getScenarioAllowedLayoutModes,
   getScenarioVictoryPointsToWin,
-  isNewWorldScenarioSetupEnabled,
   isScenarioFixedLayoutOnly,
   listScenarioCatalogEntries,
   type LayoutMode,
@@ -42,7 +41,6 @@ export function RoomScreen(props: {
   onSetupModeChange: (setupMode: SetupMode) => void;
   onLayoutModeChange: (layoutMode: LayoutMode) => void;
   onVictoryPointsToWinChange: (victoryPointsToWin: number) => void;
-  onNewWorldScenarioSetupChange: (newWorldScenarioSetupEnabled: boolean) => void;
   onStartingPlayerModeChange: (startingPlayerMode: StartingPlayerMode) => void;
   onStartingSeatChange: (startingSeatIndex: number) => void;
   onReady: (ready: boolean) => void;
@@ -86,15 +84,12 @@ export function RoomScreen(props: {
       (seat) => seat.index === effectiveGameConfig.startingPlayer.seatIndex && seat.userId
     ) ?? null;
   const usesRolledStart = effectiveGameConfig.startingPlayer.mode === "rolled";
-  const newWorldScenarioSetupEnabled = isNewWorldScenarioSetupEnabled(effectiveGameConfig);
   const [showGameSettings, setShowGameSettings] = useState(isOwner);
   const setupModeLabel =
     effectiveGameConfig.setupMode === "beginner"
       ? t("room.setup.beginner")
       : t("room.setup.variable");
-  const newWorldSetupLabel = newWorldScenarioSetupEnabled
-    ? t("room.newWorldSetup.editor")
-    : t("room.newWorldSetup.official");
+  const newWorldSetupLabel = t("room.newWorldSetup.official");
   const startingPlayerLabel = usesRolledStart
     ? t("room.startingPlayer.rollSummary")
     : effectiveStartingSeat?.username ?? t("room.startingPlayer.fallback", {
@@ -525,34 +520,8 @@ export function RoomScreen(props: {
                               <span className="eyebrow">{t("room.newWorldSetup.eyebrow")}</span>
                               <strong>{newWorldSetupLabel}</strong>
                             </div>
-                            <div className="mini-segmented room-starting-mode">
-                              <button
-                                type="button"
-                                className={!newWorldScenarioSetupEnabled ? "is-active" : ""}
-                                disabled={!canEditSettings}
-                                onClick={() => {
-                                  triggerSoftHaptic();
-                                  props.onNewWorldScenarioSetupChange(false);
-                                }}
-                              >
-                                {t("room.newWorldSetup.official")}
-                              </button>
-                              <button
-                                type="button"
-                                className={newWorldScenarioSetupEnabled ? "is-active" : ""}
-                                disabled={!canEditSettings}
-                                onClick={() => {
-                                  triggerSoftHaptic();
-                                  props.onNewWorldScenarioSetupChange(true);
-                                }}
-                              >
-                                {t("room.newWorldSetup.editor")}
-                              </button>
-                            </div>
                             <p className="muted-copy room-action-hint">
-                              {newWorldScenarioSetupEnabled
-                                ? t("room.newWorldSetup.hint.editor")
-                                : t("room.newWorldSetup.hint.official")}
+                              {t("room.newWorldSetup.hint.official")}
                             </p>
                           </div>
                         ) : null}

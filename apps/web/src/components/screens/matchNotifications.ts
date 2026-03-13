@@ -1,5 +1,5 @@
 import type { DevelopmentCardType, Locale, MatchSnapshot, Resource, ResourceMap, TradeOfferView } from "@hexagonia/shared";
-import { RESOURCES } from "@hexagonia/shared";
+import { PIRATE_FRAME_TILE_ID, RESOURCES } from "@hexagonia/shared";
 import type { BoardFocusBadge, BoardFocusCue } from "../../BoardScene";
 import { translate } from "../../i18n";
 import {
@@ -602,6 +602,7 @@ function createPirateNotification(
   viewerId: string
 ): MatchNotification {
   const { tileId, targetPlayerId, stealType } = event.payload;
+  const movedToFrame = tileId === PIRATE_FRAME_TILE_ID;
   const tileLabel = getTileLabel(match, tileId);
   const title =
     targetPlayerId && stealType === "cloth"
@@ -633,7 +634,9 @@ function createPirateNotification(
   return createBaseNotification(match, event, {
     label: tx("match.notification.label.scenario"),
     title,
-    detail: tx("match.notification.pirateMoved.detail", { tile: tileLabel }),
+    detail: movedToFrame
+      ? tx("match.notification.pirateMoved.detailFrame")
+      : tx("match.notification.pirateMoved.detail", { tile: tileLabel }),
     badges: [
       ...(targetPlayerId
         ? [{ label: getDisplayPlayerName(match, viewerId, targetPlayerId), playerId: targetPlayerId, tone: "player" as const }]
@@ -641,16 +644,18 @@ function createPirateNotification(
       ...(stealType ? [{ label: renderPirateStealTypeLabel(stealType), tone: "warning" as const }] : []),
       ...(tileLabel ? [{ label: tileLabel }] : [])
     ],
-    cue: {
-      key: `event-${event.id}-${tileId ?? "pirate"}`,
-      mode: "event",
-      title: tx("match.notification.pirateMoved.cue.title"),
-      detail: tx("match.notification.pirateMoved.cue.detail"),
-      vertexIds: [],
-      edgeIds: [],
-      tileIds: tileId ? [tileId] : [],
-      scale: "wide"
-    },
+    cue: movedToFrame
+      ? null
+      : {
+          key: `event-${event.id}-${tileId ?? "pirate"}`,
+          mode: "event",
+          title: tx("match.notification.pirateMoved.cue.title"),
+          detail: tx("match.notification.pirateMoved.cue.detail"),
+          vertexIds: [],
+          edgeIds: [],
+          tileIds: tileId ? [tileId] : [],
+          scale: "wide"
+        },
     autoFocus: true,
     emphasis: "warning"
   });
@@ -2398,6 +2403,10 @@ function summarizeTileLine(match: MatchSnapshot, tileIds: string[], roll: number
 }
 
 function getTileLabel(match: MatchSnapshot, tileId: string): string {
+  if (tileId === PIRATE_FRAME_TILE_ID) {
+    return tx("match.notification.common.frame");
+  }
+
   const tile = match.board.tiles.find((entry) => entry.id === tileId);
   if (!tile) {
     return tx("match.notification.common.tile");

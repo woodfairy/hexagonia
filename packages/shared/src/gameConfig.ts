@@ -174,10 +174,7 @@ function normalizeScenarioOptions(
     candidate.victoryPointsToWin,
     fallbackVictoryPointsToWin
   );
-  next.newWorldScenarioSetupEnabled =
-    typeof candidate.newWorldScenarioSetupEnabled === "boolean"
-      ? candidate.newWorldScenarioSetupEnabled
-      : false;
+  next.newWorldScenarioSetupEnabled = false;
 
   return next;
 }
@@ -389,12 +386,9 @@ export function getScenarioVictoryPointsToWin(gameConfig: GameConfig): number {
 }
 
 export function isNewWorldScenarioSetupEnabled(
-  gameConfig: Pick<GameConfig, "scenarioId" | "scenarioOptions">
+  _gameConfig: Pick<GameConfig, "scenarioId" | "scenarioOptions">
 ): boolean {
-  return (
-    gameConfig.scenarioId === "seafarers.new_world" &&
-    gameConfig.scenarioOptions.newWorldScenarioSetupEnabled === true
-  );
+  return false;
 }
 
 export function sanitizeRoomGameConfig(

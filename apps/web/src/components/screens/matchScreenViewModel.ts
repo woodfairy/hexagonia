@@ -5,7 +5,7 @@ import type {
   PlayerColor,
   Resource
 } from "@hexagonia/shared";
-import { BUILD_COSTS, RESOURCES } from "@hexagonia/shared";
+import { BUILD_COSTS, PIRATE_FRAME_TILE_ID, RESOURCES } from "@hexagonia/shared";
 import type { BoardFocusCue, InteractionMode } from "../../BoardScene";
 import { getDocumentLocale, translate } from "../../i18n";
 import { renderResourceLabel } from "../../ui";
@@ -21,6 +21,10 @@ export interface TurnStatus {
 
 function t(key: string, params?: Record<string, string | number>): string {
   return translate(getDocumentLocale(), key, undefined, undefined, params);
+}
+
+function hasPirateFrameMoveOption(match: MatchSnapshot): boolean {
+  return match.allowedMoves.pirateMoveOptions.some((option) => option.tileId === PIRATE_FRAME_TILE_ID);
 }
 
 export function getRobberDiscardGroups(match: MatchSnapshot) {
@@ -413,7 +417,12 @@ export function createOwnActionCue(
   }
 
   if (interactionMode === "pirate") {
-    const tileIds = match.allowedMoves.pirateMoveOptions.map((option) => option.tileId);
+    const tileIds = match.allowedMoves.pirateMoveOptions
+      .map((option) => option.tileId)
+      .filter((tileId) => tileId !== PIRATE_FRAME_TILE_ID);
+    const detailKey = hasPirateFrameMoveOption(match)
+      ? "match.cue.pirate.detailWithFrame"
+      : "match.cue.pirate.detail";
     if (!tileIds.length) {
       return null;
     }
@@ -422,7 +431,7 @@ export function createOwnActionCue(
       key: `action-pirate-${match.version}-${tileIds.join(",")}`,
       mode: "action",
       title: t("match.cue.pirate.title"),
-      detail: t("match.cue.pirate.detail"),
+      detail: t(detailKey),
       vertexIds: [],
       edgeIds: [],
       tileIds,
@@ -674,7 +683,12 @@ export function createOwnActionCameraCue(
   }
 
   if (interactionMode === "pirate") {
-    const tileIds = match.allowedMoves.pirateMoveOptions.map((option) => option.tileId);
+    const tileIds = match.allowedMoves.pirateMoveOptions
+      .map((option) => option.tileId)
+      .filter((tileId) => tileId !== PIRATE_FRAME_TILE_ID);
+    const detailKey = hasPirateFrameMoveOption(match)
+      ? "match.camera.pirate.detailWithFrame"
+      : "match.camera.pirate.detail";
     if (!tileIds.length) {
       return null;
     }
@@ -683,7 +697,7 @@ export function createOwnActionCameraCue(
       key: `camera-pirate-${match.version}-${tileIds.join(",")}`,
       mode: "action",
       title: t("match.camera.pirate.title"),
-      detail: t("match.camera.pirate.detail"),
+      detail: t(detailKey),
       vertexIds: [],
       edgeIds: [],
       tileIds,
@@ -1111,11 +1125,17 @@ export function getTurnStatus(
   }
 
   if (interactionMode === "pirate") {
+    const detailKey = hasPirateFrameMoveOption(match)
+      ? "match.turnStatus.pirate.moveDetailWithFrame"
+      : "match.turnStatus.pirate.moveDetail";
+    const calloutKey = hasPirateFrameMoveOption(match)
+      ? "match.turnStatus.pirate.moveCalloutWithFrame"
+      : "match.turnStatus.pirate.moveCallout";
     return withPlayer(
       t("match.turnStatus.pirate.moveTitle"),
-      t("match.turnStatus.pirate.moveDetail"),
+      t(detailKey),
       selfId,
-      t("match.turnStatus.pirate.moveCallout")
+      t(calloutKey)
     );
   }
 
