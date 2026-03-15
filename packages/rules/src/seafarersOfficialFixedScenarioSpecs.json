@@ -44,31 +44,31 @@
       "0:-3": {
         "terrain": "sea"
       },
+      "1:-3": {
+        "terrain": "sea"
+      },
       "2:-3": {
         "terrain": "sea"
       },
-      "0:-2": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "2:-1": {
+        "terrain": "sea"
+      },
+      "-3:2": {
         "terrain": "sea"
       },
       "1:0": {
         "terrain": "sea"
       },
-      "2:0": {
-        "terrain": "sea"
-      },
-      "-3:1": {
-        "terrain": "sea"
-      },
-      "-1:1": {
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "sea"
       },
-      "-3:2": {
+      "-1:2": {
         "terrain": "sea"
       },
       "0:3": {
@@ -76,35 +76,35 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "1:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 8
       },
-      "3:-3": {
+      "-2:-1": {
         "terrain": "grain",
         "token": 11
       },
-      "-1:-2": {
+      "0:-2": {
         "terrain": "wool",
         "token": 2
       },
-      "1:-2": {
+      "-3:0": {
         "terrain": "grain",
         "token": 6
       },
-      "2:-2": {
+      "-1:-1": {
         "terrain": "wool",
         "token": 10
       },
-      "3:-2": {
+      "1:-2": {
         "terrain": "grain",
         "token": 4
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "brick",
         "token": 12
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "ore",
         "token": 3
       },
@@ -112,23 +112,23 @@
         "terrain": "ore",
         "token": 5
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "lumber",
         "token": 5
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "wool",
         "token": 9
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "wool",
         "token": 6
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "gold",
         "token": 5
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "brick",
         "token": 11
       },
@@ -136,85 +136,85 @@
         "terrain": "lumber",
         "token": 10
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "lumber",
         "token": 8
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "sea"
       },
-      "1:1": {
+      "2:0": {
         "terrain": "wool",
         "token": 4
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "brick",
         "token": 10
       },
-      "-2:2": {
+      "1:1": {
         "terrain": "grain",
         "token": 3
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "sea"
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "ore",
         "token": 8
       },
-      "1:2": {
+      "0:2": {
         "terrain": "gold",
         "token": 4
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "ore",
         "token": 9
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-1:3": {
+      "1:2": {
         "terrain": "sea"
       }
     },
     "ports": [
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "-1:-2",
         "side": 1,
         "type": "ore"
       },
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "-1:-2",
         "side": 5,
-        "type": "generic"
-      },
-      {
-        "tileCoord": "1:-2",
-        "side": 0,
-        "type": "brick"
-      },
-      {
-        "tileCoord": "3:-2",
-        "side": 0,
-        "type": "grain"
-      },
-      {
-        "tileCoord": "2:-1",
-        "side": 5,
-        "type": "lumber"
-      },
-      {
-        "tileCoord": "2:-1",
-        "side": 3,
         "type": "generic"
       },
       {
         "tileCoord": "-3:0",
+        "side": 0,
+        "type": "brick"
+      },
+      {
+        "tileCoord": "1:-2",
+        "side": 0,
+        "type": "grain"
+      },
+      {
+        "tileCoord": "-3:1",
+        "side": 5,
+        "type": "lumber"
+      },
+      {
+        "tileCoord": "-3:1",
         "side": 3,
         "type": "generic"
       },
       {
-        "tileCoord": "3:0",
+        "tileCoord": "1:-1",
+        "side": 3,
+        "type": "generic"
+      },
+      {
+        "tileCoord": "-1:1",
         "side": 2,
         "type": "wool"
       }
@@ -282,34 +282,34 @@
       "0:-4": {
         "terrain": "sea"
       },
+      "1:-4": {
+        "terrain": "sea"
+      },
       "2:-4": {
         "terrain": "sea"
       },
-      "0:-3": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "1:-2": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "2:-1": {
+        "terrain": "sea"
+      },
+      "-3:2": {
         "terrain": "sea"
       },
       "1:0": {
         "terrain": "sea"
       },
-      "2:0": {
-        "terrain": "sea"
-      },
-      "-3:1": {
-        "terrain": "sea"
-      },
-      "-1:1": {
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "sea"
       },
-      "-3:2": {
+      "-1:2": {
         "terrain": "sea"
       },
       "0:3": {
@@ -317,35 +317,35 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "brick",
         "token": 6
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "ore",
         "token": 3
       },
-      "-1:-3": {
+      "0:-3": {
         "terrain": "grain",
         "token": 12
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "grain",
         "token": 8
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "lumber",
         "token": 10
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "wool",
         "token": 5
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "ore",
         "token": 8
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "wool",
         "token": 4
       },
@@ -353,22 +353,22 @@
         "terrain": "brick",
         "token": 11
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "lumber",
         "token": 2
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "desert"
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "wool",
         "token": 11
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "brick",
         "token": 9
       },
@@ -376,22 +376,22 @@
         "terrain": "grain",
         "token": 3
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "ore",
         "token": 10
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "grain",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "ore",
         "token": 4
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "sea"
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "wool",
         "token": 8
       },
@@ -399,75 +399,75 @@
         "terrain": "wool",
         "token": 9
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "lumber",
         "token": 5
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "gold",
         "token": 4
       },
-      "1:1": {
+      "2:0": {
         "terrain": "brick",
         "token": 5
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "grain",
         "token": 6
       },
-      "-2:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 9
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "sea"
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "brick",
         "token": 3
       },
-      "1:2": {
+      "0:2": {
         "terrain": "gold",
         "token": 10
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "ore",
         "token": 2
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-1:3": {
+      "1:2": {
         "terrain": "sea"
       }
     },
     "ports": [
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "-2:-2",
         "side": 0
       },
       {
-        "tileCoord": "-1:-3",
+        "tileCoord": "0:-3",
         "side": 0
-      },
-      {
-        "tileCoord": "1:-3",
-        "side": 5
-      },
-      {
-        "tileCoord": "3:-3",
-        "side": 1
-      },
-      {
-        "tileCoord": "2:-2",
-        "side": 4
       },
       {
         "tileCoord": "-3:-1",
+        "side": 5
+      },
+      {
+        "tileCoord": "1:-3",
+        "side": 1
+      },
+      {
+        "tileCoord": "-3:0",
+        "side": 4
+      },
+      {
+        "tileCoord": "1:-2",
         "side": 2
       },
       {
-        "tileCoord": "-1:0",
+        "tileCoord": "-2:1",
         "side": 4
       },
       {
@@ -475,7 +475,7 @@
         "side": 2
       },
       {
-        "tileCoord": "3:0",
+        "tileCoord": "-1:1",
         "side": 3
       }
     ],
@@ -559,88 +559,88 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "-1:-4": {
-        "terrain": "sea"
-      },
-      "2:-4": {
-        "terrain": "sea"
-      },
-      "3:-4": {
+      "0:-4": {
         "terrain": "sea"
       },
       "-1:-3": {
         "terrain": "sea"
       },
-      "1:-3": {
-        "terrain": "sea"
-      },
-      "2:-3": {
+      "1:-4": {
         "terrain": "sea"
       },
       "-2:-2": {
         "terrain": "sea"
       },
-      "2:1": {
+      "2:-4": {
         "terrain": "sea"
       },
-      "-2:2": {
+      "-3:-1": {
         "terrain": "sea"
       },
-      "-1:2": {
-        "terrain": "sea"
-      },
-      "1:2": {
+      "3:-4": {
         "terrain": "sea"
       },
       "-3:3": {
         "terrain": "sea"
       },
+      "3:0": {
+        "terrain": "sea"
+      },
       "-2:3": {
         "terrain": "sea"
       },
-      "1:3": {
+      "2:1": {
+        "terrain": "sea"
+      },
+      "-1:3": {
+        "terrain": "sea"
+      },
+      "1:2": {
+        "terrain": "sea"
+      },
+      "0:3": {
         "terrain": "sea"
       },
       "0:4": {
         "terrain": "sea"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "brick",
         "token": 4
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "wool",
         "token": 8
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "lumber",
         "token": 2
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "ore",
         "token": 11
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "gold",
         "token": 5
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "gold",
         "token": 9
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "gold",
         "token": 10
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "ore",
         "token": 6
       },
-      "-2:4": {
+      "-1:4": {
         "terrain": "grain",
         "token": 3
       },
-      "-1:4": {
+      "1:3": {
         "terrain": "brick",
         "token": 12,
         "robber": true
@@ -652,39 +652,39 @@
         "side": 5
       },
       {
-        "tileCoord": "-3:-2",
+        "tileCoord": "1:-3",
         "side": 0
       },
       {
-        "tileCoord": "-1:-2",
+        "tileCoord": "-2:-1",
         "side": 5
       },
       {
-        "tileCoord": "1:-2",
+        "tileCoord": "2:-3",
         "side": 1
       },
       {
-        "tileCoord": "2:-1",
+        "tileCoord": "-3:1",
         "side": 5
       },
       {
-        "tileCoord": "-2:0",
-        "side": 2
-      },
-      {
-        "tileCoord": "2:0",
-        "side": 4
-      },
-      {
-        "tileCoord": "-1:1",
-        "side": 3
-      },
-      {
-        "tileCoord": "1:1",
+        "tileCoord": "3:-2",
         "side": 2
       },
       {
         "tileCoord": "-3:2",
+        "side": 4
+      },
+      {
+        "tileCoord": "-2:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "2:0",
+        "side": 2
+      },
+      {
+        "tileCoord": "1:1",
         "side": 3
       },
       {
@@ -774,88 +774,88 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "-1:-4": {
-        "terrain": "sea"
-      },
-      "2:-4": {
-        "terrain": "sea"
-      },
-      "3:-4": {
+      "0:-4": {
         "terrain": "sea"
       },
       "-1:-3": {
         "terrain": "sea"
       },
-      "1:-3": {
-        "terrain": "sea"
-      },
-      "2:-3": {
+      "1:-4": {
         "terrain": "sea"
       },
       "-2:-2": {
         "terrain": "sea"
       },
-      "2:1": {
+      "2:-4": {
         "terrain": "sea"
       },
-      "-2:2": {
+      "-3:-1": {
         "terrain": "sea"
       },
-      "-1:2": {
-        "terrain": "sea"
-      },
-      "1:2": {
+      "3:-4": {
         "terrain": "sea"
       },
       "-3:3": {
         "terrain": "sea"
       },
+      "3:0": {
+        "terrain": "sea"
+      },
       "-2:3": {
         "terrain": "sea"
       },
-      "1:3": {
+      "2:1": {
+        "terrain": "sea"
+      },
+      "-1:3": {
+        "terrain": "sea"
+      },
+      "1:2": {
+        "terrain": "sea"
+      },
+      "0:3": {
         "terrain": "sea"
       },
       "0:4": {
         "terrain": "sea"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "brick",
         "token": 4
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "wool",
         "token": 8
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "lumber",
         "token": 2
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "ore",
         "token": 11
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "gold",
         "token": 5
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "gold",
         "token": 9
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "gold",
         "token": 10
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "ore",
         "token": 6
       },
-      "-2:4": {
+      "-1:4": {
         "terrain": "grain",
         "token": 3
       },
-      "-1:4": {
+      "1:3": {
         "terrain": "brick",
         "token": 12,
         "robber": true
@@ -867,39 +867,39 @@
         "side": 5
       },
       {
-        "tileCoord": "-3:-2",
+        "tileCoord": "1:-3",
         "side": 0
       },
       {
-        "tileCoord": "-1:-2",
+        "tileCoord": "-2:-1",
         "side": 5
       },
       {
-        "tileCoord": "1:-2",
+        "tileCoord": "2:-3",
         "side": 1
       },
       {
-        "tileCoord": "2:-1",
+        "tileCoord": "-3:1",
         "side": 5
       },
       {
-        "tileCoord": "-2:0",
-        "side": 2
-      },
-      {
-        "tileCoord": "2:0",
-        "side": 4
-      },
-      {
-        "tileCoord": "-1:1",
-        "side": 3
-      },
-      {
-        "tileCoord": "1:1",
+        "tileCoord": "3:-2",
         "side": 2
       },
       {
         "tileCoord": "-3:2",
+        "side": 4
+      },
+      {
+        "tileCoord": "-2:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "2:0",
+        "side": 2
+      },
+      {
+        "tileCoord": "1:1",
         "side": 3
       },
       {
@@ -963,84 +963,84 @@
     ],
     "logicalIslandGroups": [],
     "tiles": {
-      "1:-3": {
+      "-1:-2": {
         "terrain": "grain",
         "token": 11
       },
-      "2:-3": {
+      "1:-3": {
         "terrain": "wool",
         "token": 6
       },
-      "3:-3": {
+      "-2:-1": {
         "terrain": "lumber",
         "token": 5
       },
-      "0:-2": {
+      "2:-3": {
         "terrain": "ore",
         "token": 4
       },
-      "1:-2": {
+      "-3:0": {
         "terrain": "wool",
         "token": 12,
         "robber": true
       },
-      "2:-2": {
+      "-1:-1": {
         "terrain": "ore",
         "token": 8
       },
-      "3:-2": {
+      "1:-2": {
         "terrain": "ore",
         "token": 10
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "wool",
         "token": 9
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "lumber",
         "token": 9
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "lumber",
         "token": 3
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "lumber",
         "token": 8
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "grain",
         "token": 4
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "ore",
         "token": 2
       },
-      "1:1": {
+      "2:0": {
         "terrain": "grain",
         "token": 9
       },
-      "-3:2": {
+      "-1:2": {
         "terrain": "brick",
         "token": 10
       },
-      "-2:2": {
+      "1:1": {
         "terrain": "brick",
         "token": 11
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "wool",
         "token": 3
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "grain",
         "token": 5
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "brick",
         "token": 5
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "brick",
         "token": 6
       },
@@ -1052,47 +1052,47 @@
     },
     "ports": [
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "-1:-2",
         "side": 2,
         "type": "lumber"
       },
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "-1:-2",
         "side": 5,
         "type": "generic"
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "1:-3",
         "side": 1,
         "type": "generic"
       },
       {
-        "tileCoord": "-1:-1",
+        "tileCoord": "-2:0",
         "side": 4,
         "type": "wool"
       },
       {
-        "tileCoord": "1:-1",
+        "tileCoord": "2:-2",
         "side": 4,
         "type": "ore"
       },
       {
-        "tileCoord": "-1:1",
+        "tileCoord": "-2:2",
         "side": 1,
         "type": "generic"
       },
       {
-        "tileCoord": "-2:2",
+        "tileCoord": "1:1",
         "side": 5,
         "type": "brick"
       },
       {
-        "tileCoord": "-3:3",
+        "tileCoord": "2:1",
         "side": 2,
         "type": "generic"
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "-1:3",
         "side": 4,
         "type": "grain"
       }
@@ -1151,47 +1151,47 @@
     ],
     "logicalIslandGroups": [],
     "tiles": {
-      "1:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 4
       },
-      "2:-3": {
+      "1:-3": {
         "terrain": "grain",
         "token": 5
       },
-      "3:-3": {
+      "-2:-1": {
         "terrain": "grain",
         "token": 6
       },
-      "0:-2": {
+      "2:-3": {
         "terrain": "brick",
         "token": 10
       },
-      "1:-2": {
+      "-3:0": {
         "terrain": "wool",
         "token": 10
       },
-      "2:-2": {
+      "-1:-1": {
         "terrain": "wool",
         "token": 9
       },
-      "3:-2": {
+      "1:-2": {
         "terrain": "lumber",
         "token": 3
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "wool",
         "token": 8
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "ore",
         "token": 4
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "grain",
         "token": 11
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "brick",
         "token": 2
       },
@@ -1199,47 +1199,47 @@
         "terrain": "lumber",
         "token": 6
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "brick",
         "token": 5
       },
-      "-2:1": {
+      "3:-1": {
+        "terrain": "lumber",
+        "token": 9
+      },
+      "2:0": {
+        "terrain": "grain",
+        "token": 12
+      },
+      "-3:3": {
+        "terrain": "grain",
+        "token": 4
+      },
+      "-1:2": {
         "terrain": "lumber",
         "token": 9
       },
       "1:1": {
-        "terrain": "grain",
-        "token": 12
-      },
-      "2:1": {
-        "terrain": "grain",
-        "token": 4
-      },
-      "-3:2": {
-        "terrain": "lumber",
-        "token": 9
-      },
-      "-2:2": {
         "terrain": "ore",
         "token": 10
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "lumber",
         "token": 11
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "ore",
         "token": 8
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "wool",
         "token": 5
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "wool",
         "token": 11
       },
@@ -1251,27 +1251,27 @@
     },
     "ports": [
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "-1:-2",
         "side": 5,
         "type": "brick"
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "1:-3",
         "side": 4,
         "type": "generic"
       },
       {
-        "tileCoord": "0:-2",
+        "tileCoord": "2:-3",
         "side": 0,
         "type": "grain"
       },
       {
-        "tileCoord": "1:-2",
+        "tileCoord": "-3:0",
         "side": 0,
         "type": "wool"
       },
       {
-        "tileCoord": "-1:-1",
+        "tileCoord": "-2:0",
         "side": 2,
         "type": "generic"
       },
@@ -1281,17 +1281,17 @@
         "type": "generic"
       },
       {
-        "tileCoord": "-3:3",
+        "tileCoord": "2:1",
         "side": 4,
         "type": "lumber"
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "-1:3",
         "side": 1,
         "type": "ore"
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "-1:3",
         "side": 4,
         "type": "generic"
       }
@@ -1371,80 +1371,80 @@
     ],
     "logicalIslandGroups": [],
     "tiles": {
-      "2:-5": {
+      "1:-5": {
         "terrain": "brick",
         "token": 11
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "lumber",
         "token": 9
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "lumber",
         "token": 8
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "wool",
         "token": 5
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "brick",
         "token": 4
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 9
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "wool",
         "token": 12
       },
-      "-1:-3": {
+      "-2:-2": {
         "terrain": "grain",
         "token": 12
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "ore",
         "token": 10
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "ore",
         "token": 6
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "ore",
         "token": 4
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "wool",
         "token": 3
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "grain",
         "token": 5
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "ore",
         "token": 11
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "wool",
         "token": 2,
         "robber": true
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "wool",
         "token": 8
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "lumber",
         "token": 4
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "lumber",
         "token": 6
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "ore",
         "token": 3
       },
@@ -1452,51 +1452,51 @@
         "terrain": "brick",
         "token": 10
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "lumber",
         "token": 10
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "brick",
         "token": 5
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "ore",
         "token": 9
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "brick",
         "token": 8
       },
-      "1:2": {
+      "2:1": {
         "terrain": "grain",
         "token": 3
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "grain",
         "token": 2
       },
-      "-3:3": {
+      "-1:3": {
         "terrain": "lumber",
         "token": 5
       },
-      "-2:3": {
+      "1:2": {
         "terrain": "lumber",
         "token": 4
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "wool",
         "token": 6
       },
-      "0:3": {
+      "-2:4": {
         "terrain": "wool",
         "token": 9
       },
-      "-3:4": {
+      "2:2": {
         "terrain": "brick",
         "token": 10
       },
-      "-2:4": {
+      "-1:4": {
         "terrain": "grain",
         "token": 6
       },
@@ -1508,47 +1508,47 @@
     },
     "ports": [
       {
-        "tileCoord": "3:-5",
+        "tileCoord": "-2:-3",
         "side": 0
       },
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "1:-4",
         "side": 5
       },
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "2:-4",
         "side": 4
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "-3:-1",
         "side": 2
       },
       {
-        "tileCoord": "-2:-2",
+        "tileCoord": "3:-4",
         "side": 1
       },
       {
-        "tileCoord": "-1:-1",
+        "tileCoord": "-2:0",
         "side": 5
       },
       {
-        "tileCoord": "-2:0",
+        "tileCoord": "3:-2",
         "side": 2
+      },
+      {
+        "tileCoord": "-3:3",
+        "side": 5
       },
       {
         "tileCoord": "2:1",
         "side": 5
       },
       {
-        "tileCoord": "1:2",
-        "side": 5
-      },
-      {
-        "tileCoord": "-1:3",
+        "tileCoord": "3:1",
         "side": 2
       },
       {
-        "tileCoord": "0:3",
+        "tileCoord": "-2:4",
         "side": 3
       }
     ],
@@ -1629,80 +1629,80 @@
     ],
     "logicalIslandGroups": [],
     "tiles": {
-      "2:-5": {
+      "1:-5": {
         "terrain": "brick",
         "token": 11
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "lumber",
         "token": 9
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "lumber",
         "token": 8
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "wool",
         "token": 5
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "brick",
         "token": 4
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 9
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "wool",
         "token": 12
       },
-      "-1:-3": {
+      "-2:-2": {
         "terrain": "grain",
         "token": 12
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "ore",
         "token": 10
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "ore",
         "token": 6
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "ore",
         "token": 4
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "wool",
         "token": 3
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "grain",
         "token": 5
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "ore",
         "token": 11
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "wool",
         "token": 2,
         "robber": true
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "wool",
         "token": 8
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "lumber",
         "token": 4
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "lumber",
         "token": 6
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "ore",
         "token": 3
       },
@@ -1710,51 +1710,51 @@
         "terrain": "brick",
         "token": 10
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "lumber",
         "token": 10
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "brick",
         "token": 5
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "ore",
         "token": 9
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "brick",
         "token": 8
       },
-      "1:2": {
+      "2:1": {
         "terrain": "grain",
         "token": 3
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "grain",
         "token": 2
       },
-      "-3:3": {
+      "-1:3": {
         "terrain": "lumber",
         "token": 5
       },
-      "-2:3": {
+      "1:2": {
         "terrain": "lumber",
         "token": 4
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "wool",
         "token": 6
       },
-      "0:3": {
+      "-2:4": {
         "terrain": "wool",
         "token": 9
       },
-      "-3:4": {
+      "2:2": {
         "terrain": "brick",
         "token": 10
       },
-      "-2:4": {
+      "-1:4": {
         "terrain": "grain",
         "token": 6
       },
@@ -1766,47 +1766,47 @@
     },
     "ports": [
       {
-        "tileCoord": "3:-5",
+        "tileCoord": "-2:-3",
         "side": 0
       },
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "1:-4",
         "side": 5
       },
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "2:-4",
         "side": 4
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "-3:-1",
         "side": 2
       },
       {
-        "tileCoord": "-2:-2",
+        "tileCoord": "3:-4",
         "side": 1
       },
       {
-        "tileCoord": "-1:-1",
+        "tileCoord": "-2:0",
         "side": 5
       },
       {
-        "tileCoord": "-2:0",
+        "tileCoord": "3:-2",
         "side": 2
+      },
+      {
+        "tileCoord": "-3:3",
+        "side": 5
       },
       {
         "tileCoord": "2:1",
         "side": 5
       },
       {
-        "tileCoord": "1:2",
-        "side": 5
-      },
-      {
-        "tileCoord": "-1:3",
+        "tileCoord": "3:1",
         "side": 2
       },
       {
-        "tileCoord": "0:3",
+        "tileCoord": "-2:4",
         "side": 3
       }
     ],
@@ -1869,38 +1869,38 @@
       "0:-3": {
         "terrain": "sea"
       },
-      "-1:-2": {
+      "0:-2": {
         "terrain": "sea"
+      },
+      "1:-2": {
+        "terrain": "desert"
+      },
+      "2:-2": {
+        "terrain": "desert",
+        "robber": true
       },
       "3:-2": {
         "terrain": "desert"
       },
-      "1:-1": {
-        "terrain": "desert",
-        "robber": true
-      },
-      "-2:0": {
-        "terrain": "desert"
-      },
-      "2:0": {
+      "-3:2": {
         "terrain": "sea"
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "sea"
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "sea"
       },
+      "2:0": {
+        "terrain": "sea"
+      },
+      "-1:2": {
+        "terrain": "sea"
+      },
       "1:1": {
-        "terrain": "sea"
-      },
-      "-3:2": {
-        "terrain": "sea"
-      },
-      "-2:2": {
         "terrain": "sea"
       },
       "0:3": {
@@ -1908,35 +1908,35 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "1:-3": {
+      "-1:-2": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:-3": {
+      "1:-3": {
         "terrain": "grain",
         "token": 6
       },
-      "3:-3": {
+      "-2:-1": {
         "terrain": "ore",
         "token": 10
       },
-      "0:-2": {
+      "2:-3": {
         "terrain": "lumber",
         "token": 3
       },
-      "1:-2": {
+      "-3:0": {
         "terrain": "wool",
         "token": 8
       },
-      "2:-2": {
+      "-1:-1": {
         "terrain": "brick",
         "token": 6
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "gold",
         "token": 4
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "grain",
         "token": 9
       },
@@ -1944,19 +1944,19 @@
         "terrain": "ore",
         "token": 3
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "wool",
         "token": 4
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "grain",
         "token": 2
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 5
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "lumber",
         "token": 8
       },
@@ -1964,83 +1964,83 @@
         "terrain": "lumber",
         "token": 10
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "lumber",
         "token": 4
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 9
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "wool",
         "token": 6
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "ore",
         "token": 5
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "ore",
         "token": 8
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "grain",
         "token": 9
       },
-      "1:2": {
+      "0:2": {
         "terrain": "gold",
         "token": 5
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "wool",
         "token": 11
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-1:3": {
+      "1:2": {
         "terrain": "sea"
       }
     },
     "ports": [
       {
-        "tileCoord": "1:-3",
+        "tileCoord": "-1:-2",
         "side": 5,
         "type": "wool"
       },
       {
-        "tileCoord": "1:-2",
+        "tileCoord": "-3:0",
         "side": 0,
         "type": "ore"
       },
       {
-        "tileCoord": "1:-2",
+        "tileCoord": "-3:0",
         "side": 4,
         "type": "brick"
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-1:-1",
         "side": 1,
         "type": "grain"
       },
       {
-        "tileCoord": "2:-1",
+        "tileCoord": "-3:1",
         "side": 3,
         "type": "generic"
       },
       {
-        "tileCoord": "1:0",
+        "tileCoord": "2:-1",
         "side": 2,
         "type": "lumber"
       },
       {
-        "tileCoord": "3:0",
+        "tileCoord": "-1:1",
         "side": 2,
         "type": "generic"
       },
       {
-        "tileCoord": "3:0",
+        "tileCoord": "-1:1",
         "side": 4,
         "type": "generic"
       }
@@ -2108,28 +2108,22 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "-1:-3": {
+      "0:-3": {
+        "terrain": "sea"
+      },
+      "-3:-1": {
         "terrain": "sea"
       },
       "1:-3": {
-        "terrain": "sea"
+        "terrain": "desert"
+      },
+      "2:-3": {
+        "terrain": "desert"
       },
       "3:-3": {
         "terrain": "desert"
       },
-      "1:-2": {
-        "terrain": "desert"
-      },
-      "-2:-1": {
-        "terrain": "desert"
-      },
-      "2:-1": {
-        "terrain": "sea"
-      },
-      "-1:0": {
-        "terrain": "sea"
-      },
-      "3:0": {
+      "-3:1": {
         "terrain": "sea"
       },
       "-2:1": {
@@ -2138,13 +2132,19 @@
       "-1:1": {
         "terrain": "sea"
       },
-      "0:1": {
-        "terrain": "sea"
-      },
-      "1:1": {
+      "3:-1": {
         "terrain": "sea"
       },
       "-2:2": {
+        "terrain": "sea"
+      },
+      "0:1": {
+        "terrain": "sea"
+      },
+      "2:0": {
+        "terrain": "sea"
+      },
+      "1:1": {
         "terrain": "sea"
       },
       "0:3": {
@@ -2152,31 +2152,31 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "brick",
         "token": 12
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 8
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "wool",
         "token": 3
       },
-      "0:-3": {
+      "2:-4": {
         "terrain": "ore",
         "token": 11
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 6
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "gold",
         "token": 10
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "wool",
         "token": 11
       },
@@ -2184,19 +2184,19 @@
         "terrain": "lumber",
         "token": 10
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "lumber",
         "token": 9
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "grain",
         "token": 5
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "ore",
         "token": 8
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "ore",
         "token": 4
       },
@@ -2204,19 +2204,19 @@
         "terrain": "brick",
         "token": 11
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "brick",
         "token": 3
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "lumber",
         "token": 8
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "grain",
         "token": 10
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "lumber",
         "token": 5
       },
@@ -2224,57 +2224,57 @@
         "terrain": "wool",
         "token": 9
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "wool",
         "token": 6
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "ore",
         "token": 6
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "lumber",
         "token": 4
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "grain",
         "token": 12
       },
-      "-3:2": {
+      "-1:2": {
         "terrain": "gold",
         "token": 5
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "ore",
         "token": 9
+      },
+      "-2:3": {
+        "terrain": "sea"
       },
       "0:2": {
         "terrain": "sea"
       },
-      "1:2": {
-        "terrain": "sea"
-      },
-      "-3:3": {
+      "2:1": {
         "terrain": "grain",
         "token": 4
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "wool",
         "token": 3
       },
-      "-1:3": {
+      "1:2": {
         "terrain": "brick",
         "token": 2
       }
     },
     "ports": [
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "-2:-2",
         "side": 0,
         "type": "grain"
       },
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "-2:-2",
         "side": 4,
         "type": "ore"
       },
@@ -2284,32 +2284,32 @@
         "type": "wool"
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-3:0",
         "side": 3,
         "type": "lumber"
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-3:0",
         "side": 5,
         "type": "generic"
       },
       {
-        "tileCoord": "3:-1",
+        "tileCoord": "-1:0",
         "side": 4,
         "type": "generic"
       },
       {
-        "tileCoord": "-2:0",
+        "tileCoord": "3:-2",
         "side": 3,
         "type": "brick"
       },
       {
-        "tileCoord": "-3:1",
+        "tileCoord": "1:0",
         "side": 2,
         "type": "generic"
       },
       {
-        "tileCoord": "-3:1",
+        "tileCoord": "1:0",
         "side": 4,
         "type": "generic"
       }
@@ -2399,106 +2399,106 @@
       "0:-5": {
         "terrain": "sea"
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "1:-4": {
+        "terrain": "sea"
+      },
+      "-3:-1": {
+        "terrain": "sea"
+      },
+      "1:-3": {
+        "terrain": "sea"
+      },
+      "-2:-1": {
         "terrain": "sea"
       },
       "2:-3": {
-        "terrain": "sea"
-      },
-      "-3:-2": {
-        "terrain": "sea"
-      },
-      "-1:-2": {
-        "terrain": "sea"
-      },
-      "1:-2": {
-        "terrain": "desert"
-      },
-      "-1:-1": {
-        "terrain": "sea"
-      },
-      "1:-1": {
         "terrain": "desert"
       },
       "-2:0": {
         "terrain": "sea"
       },
-      "-1:0": {
+      "2:-2": {
+        "terrain": "desert"
+      },
+      "3:-2": {
         "terrain": "sea"
       },
-      "1:0": {
-        "terrain": "desert"
-      },
-      "-1:1": {
+      "-2:1": {
         "terrain": "sea"
       },
-      "1:1": {
+      "2:-1": {
         "terrain": "desert"
       },
-      "1:2": {
+      "-2:2": {
+        "terrain": "sea"
+      },
+      "2:0": {
         "terrain": "desert"
       },
-      "2:2": {
+      "2:1": {
+        "terrain": "desert"
+      },
+      "-3:4": {
         "terrain": "sea",
         "kind": "sea",
         "occupant": "pirate"
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "sea"
       },
       "0:3": {
         "terrain": "sea"
       },
+      "2:2": {
+        "terrain": "sea"
+      },
+      "-1:4": {
+        "terrain": "sea"
+      },
       "1:3": {
         "terrain": "sea"
       },
-      "-3:4": {
-        "terrain": "sea"
-      },
-      "-2:4": {
-        "terrain": "sea"
-      },
-      "-3:5": {
+      "2:3": {
         "terrain": "sea"
       },
       "0:5": {
         "terrain": "sea"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "wool",
         "token": 12
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "brick",
         "token": 9
       },
-      "-1:-4": {
+      "0:-4": {
         "terrain": "ore",
         "token": 4
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "lumber",
         "token": 5
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "wool",
         "token": 6
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "grain",
         "token": 3
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "gold",
         "token": 4
       },
-      "-1:-3": {
+      "-2:-2": {
         "terrain": "ore",
         "token": 11
       },
@@ -2506,15 +2506,15 @@
         "terrain": "lumber",
         "token": 5
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "wool",
         "token": 2
       },
-      "3:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 12
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "ore",
         "token": 6
       },
@@ -2522,19 +2522,19 @@
         "terrain": "grain",
         "token": 10
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "wool",
         "token": 8
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "ore",
         "token": 6
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "grain",
         "token": 2
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "brick",
         "token": 11
       },
@@ -2542,15 +2542,15 @@
         "terrain": "brick",
         "token": 5
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "grain",
         "token": 2
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "brick",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "lumber",
         "token": 8
       },
@@ -2558,18 +2558,18 @@
         "terrain": "wool",
         "token": 10
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "sea"
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "wool",
         "token": 9
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "lumber",
         "token": 12
       },
@@ -2577,84 +2577,84 @@
         "terrain": "lumber",
         "token": 4
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "gold",
         "token": 4
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "grain",
         "token": 9
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 10
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "grain",
         "token": 5
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "sea"
       },
       "0:2": {
         "terrain": "brick",
         "token": 8
       },
-      "-2:3": {
+      "3:1": {
         "terrain": "ore",
         "token": 3
       },
-      "-1:3": {
+      "-2:4": {
         "terrain": "wool",
         "token": 11
       },
-      "2:3": {
+      "-3:5": {
         "terrain": "grain",
         "token": 9
       },
-      "-1:4": {
+      "3:2": {
         "terrain": "brick",
         "token": 6
       },
-      "0:4": {
+      "-2:5": {
         "terrain": "lumber",
         "token": 3
       },
-      "1:4": {
+      "0:4": {
         "terrain": "sea"
       },
-      "-2:5": {
+      "-1:5": {
         "terrain": "ore",
         "token": 8
       },
-      "-1:5": {
+      "1:4": {
         "terrain": "gold",
         "token": 10
       }
     },
     "ports": [
       {
-        "tileCoord": "1:-5",
-        "side": 1
-      },
-      {
-        "tileCoord": "3:-5",
-        "side": 0
-      },
-      {
         "tileCoord": "-1:-4",
         "side": 1
       },
       {
-        "tileCoord": "1:-4",
+        "tileCoord": "-2:-3",
+        "side": 0
+      },
+      {
+        "tileCoord": "0:-4",
+        "side": 1
+      },
+      {
+        "tileCoord": "-3:-2",
         "side": 5
       },
       {
-        "tileCoord": "-1:-3",
+        "tileCoord": "-2:-2",
         "side": 4
       },
       {
-        "tileCoord": "3:-3",
+        "tileCoord": "-1:-2",
         "side": 4
       },
       {
@@ -2662,15 +2662,15 @@
         "side": 1
       },
       {
-        "tileCoord": "3:-1",
+        "tileCoord": "-1:0",
         "side": 5
       },
       {
-        "tileCoord": "3:1",
+        "tileCoord": "-1:2",
         "side": 5
       },
       {
-        "tileCoord": "-3:2",
+        "tileCoord": "1:1",
         "side": 3
       },
       {
@@ -2765,106 +2765,106 @@
       "0:-5": {
         "terrain": "sea"
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "1:-4": {
+        "terrain": "sea"
+      },
+      "-3:-1": {
+        "terrain": "sea"
+      },
+      "1:-3": {
+        "terrain": "sea"
+      },
+      "-2:-1": {
         "terrain": "sea"
       },
       "2:-3": {
-        "terrain": "sea"
-      },
-      "-3:-2": {
-        "terrain": "sea"
-      },
-      "-1:-2": {
-        "terrain": "sea"
-      },
-      "1:-2": {
-        "terrain": "desert"
-      },
-      "-1:-1": {
-        "terrain": "sea"
-      },
-      "1:-1": {
         "terrain": "desert"
       },
       "-2:0": {
         "terrain": "sea"
       },
-      "-1:0": {
+      "2:-2": {
+        "terrain": "desert"
+      },
+      "3:-2": {
         "terrain": "sea"
       },
-      "1:0": {
-        "terrain": "desert"
-      },
-      "-1:1": {
+      "-2:1": {
         "terrain": "sea"
       },
-      "1:1": {
+      "2:-1": {
         "terrain": "desert"
       },
-      "1:2": {
+      "-2:2": {
+        "terrain": "sea"
+      },
+      "2:0": {
         "terrain": "desert"
       },
-      "2:2": {
+      "2:1": {
+        "terrain": "desert"
+      },
+      "-3:4": {
         "terrain": "sea",
         "kind": "sea",
         "occupant": "pirate"
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "sea"
       },
       "0:3": {
         "terrain": "sea"
       },
+      "2:2": {
+        "terrain": "sea"
+      },
+      "-1:4": {
+        "terrain": "sea"
+      },
       "1:3": {
         "terrain": "sea"
       },
-      "-3:4": {
-        "terrain": "sea"
-      },
-      "-2:4": {
-        "terrain": "sea"
-      },
-      "-3:5": {
+      "2:3": {
         "terrain": "sea"
       },
       "0:5": {
         "terrain": "sea"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "wool",
         "token": 12
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "brick",
         "token": 9
       },
-      "-1:-4": {
+      "0:-4": {
         "terrain": "ore",
         "token": 4
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "lumber",
         "token": 5
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "wool",
         "token": 6
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "grain",
         "token": 3
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "gold",
         "token": 4
       },
-      "-1:-3": {
+      "-2:-2": {
         "terrain": "ore",
         "token": 11
       },
@@ -2872,15 +2872,15 @@
         "terrain": "lumber",
         "token": 5
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "wool",
         "token": 2
       },
-      "3:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 12
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "ore",
         "token": 6
       },
@@ -2888,19 +2888,19 @@
         "terrain": "grain",
         "token": 10
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "wool",
         "token": 8
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "ore",
         "token": 6
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "grain",
         "token": 2
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "brick",
         "token": 11
       },
@@ -2908,15 +2908,15 @@
         "terrain": "brick",
         "token": 5
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "grain",
         "token": 2
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "brick",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "lumber",
         "token": 8
       },
@@ -2924,18 +2924,18 @@
         "terrain": "wool",
         "token": 10
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "sea"
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "wool",
         "token": 9
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "lumber",
         "token": 12
       },
@@ -2943,84 +2943,84 @@
         "terrain": "lumber",
         "token": 4
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "gold",
         "token": 4
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "grain",
         "token": 9
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 10
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "grain",
         "token": 5
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "sea"
       },
       "0:2": {
         "terrain": "brick",
         "token": 8
       },
-      "-2:3": {
+      "3:1": {
         "terrain": "ore",
         "token": 3
       },
-      "-1:3": {
+      "-2:4": {
         "terrain": "wool",
         "token": 11
       },
-      "2:3": {
+      "-3:5": {
         "terrain": "grain",
         "token": 9
       },
-      "-1:4": {
+      "3:2": {
         "terrain": "brick",
         "token": 6
       },
-      "0:4": {
+      "-2:5": {
         "terrain": "lumber",
         "token": 3
       },
-      "1:4": {
+      "0:4": {
         "terrain": "sea"
       },
-      "-2:5": {
+      "-1:5": {
         "terrain": "ore",
         "token": 8
       },
-      "-1:5": {
+      "1:4": {
         "terrain": "gold",
         "token": 10
       }
     },
     "ports": [
       {
-        "tileCoord": "1:-5",
-        "side": 1
-      },
-      {
-        "tileCoord": "3:-5",
-        "side": 0
-      },
-      {
         "tileCoord": "-1:-4",
         "side": 1
       },
       {
-        "tileCoord": "1:-4",
+        "tileCoord": "-2:-3",
+        "side": 0
+      },
+      {
+        "tileCoord": "0:-4",
+        "side": 1
+      },
+      {
+        "tileCoord": "-3:-2",
         "side": 5
       },
       {
-        "tileCoord": "-1:-3",
+        "tileCoord": "-2:-2",
         "side": 4
       },
       {
-        "tileCoord": "3:-3",
+        "tileCoord": "-1:-2",
         "side": 4
       },
       {
@@ -3028,15 +3028,15 @@
         "side": 1
       },
       {
-        "tileCoord": "3:-1",
+        "tileCoord": "-1:0",
         "side": 5
       },
       {
-        "tileCoord": "3:1",
+        "tileCoord": "-1:2",
         "side": 5
       },
       {
-        "tileCoord": "-3:2",
+        "tileCoord": "1:1",
         "side": 3
       },
       {
@@ -3117,122 +3117,122 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "sea"
       },
-      "0:-3": {
+      "2:-4": {
         "terrain": "sea"
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "desert"
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "gold"
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "sea"
       },
-      "1:-2": {
+      "2:-3": {
+        "terrain": "sea"
+      },
+      "-3:0": {
+        "terrain": "brick"
+      },
+      "3:-3": {
+        "terrain": "ore"
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "2:-2": {
-        "terrain": "brick"
-      },
-      "-2:-1": {
-        "terrain": "ore"
-      },
-      "-1:-1": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "-3:1": {
+        "terrain": "sea"
+      },
+      "3:-2": {
+        "terrain": "sea",
+        "kind": "sea",
+        "occupant": "pirate"
+      },
+      "-2:1": {
         "terrain": "sea"
       },
       "2:-1": {
         "terrain": "sea"
       },
-      "-2:0": {
-        "terrain": "sea",
-        "kind": "sea",
-        "occupant": "pirate"
+      "-3:2": {
+        "terrain": "brick"
       },
-      "-1:0": {
-        "terrain": "sea"
+      "3:-1": {
+        "terrain": "desert"
       },
-      "1:0": {
+      "-2:2": {
         "terrain": "sea"
       },
       "2:0": {
-        "terrain": "brick"
-      },
-      "-2:1": {
-        "terrain": "desert"
-      },
-      "-1:1": {
         "terrain": "sea"
       },
-      "1:1": {
-        "terrain": "sea"
-      },
-      "2:1": {
+      "-3:3": {
         "terrain": "desert",
         "robber": true
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "ore"
       },
-      "-1:2": {
+      "-2:3": {
+        "terrain": "sea"
+      },
+      "2:1": {
+        "terrain": "sea"
+      },
+      "-3:4": {
+        "terrain": "gold"
+      },
+      "-1:3": {
         "terrain": "sea"
       },
       "1:2": {
         "terrain": "sea"
       },
-      "2:2": {
-        "terrain": "gold"
-      },
-      "-3:3": {
-        "terrain": "sea"
-      },
-      "-2:3": {
-        "terrain": "sea"
-      },
-      "-1:3": {
+      "3:1": {
         "terrain": "grain"
+      },
+      "-2:4": {
+        "terrain": "sea"
       },
       "0:3": {
         "terrain": "sea"
       },
-      "1:3": {
+      "2:2": {
         "terrain": "sea"
-      },
-      "-3:4": {
-        "terrain": "sea"
-      },
-      "-2:4": {
-        "terrain": "lumber"
       },
       "-1:4": {
+        "terrain": "lumber"
+      },
+      "1:3": {
         "terrain": "wool"
       },
       "0:4": {
         "terrain": "sea"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 6
       },
-      "-1:-3": {
+      "0:-3": {
         "terrain": "wool",
         "token": 10
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "grain",
         "token": 9
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "lumber",
         "token": 9
       },
@@ -3240,11 +3240,11 @@
         "terrain": "brick",
         "token": 8
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "ore",
         "token": 11
       },
@@ -3252,11 +3252,11 @@
         "terrain": "wool",
         "token": 4
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "wool",
         "token": 8
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 5
       },
@@ -3264,11 +3264,11 @@
         "terrain": "grain",
         "token": 12
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 10
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "lumber",
         "token": 6
       },
@@ -3276,11 +3276,11 @@
         "terrain": "lumber",
         "token": 5
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "grain",
         "token": 3
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "ore",
         "token": 4
       },
@@ -3295,50 +3295,43 @@
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "1:-3",
+          "tileCoord": "-3:-1",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "-3:4",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-1:3",
+          "tileCoord": "3:1",
           "side": 2
-        }
-      },
-      {
-        "type": "forgotten_tribe_vp",
-        "ref": {
-          "tileCoord": "-2:4",
-          "side": 3
         }
       },
       {
@@ -3349,37 +3342,44 @@
         }
       },
       {
-        "type": "forgotten_tribe_development",
+        "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "1:-3",
-          "side": 0
-        }
-      },
-      {
-        "type": "forgotten_tribe_development",
-        "ref": {
-          "tileCoord": "-2:-2",
-          "side": 0
-        }
-      },
-      {
-        "type": "forgotten_tribe_development",
-        "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "1:3",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-1:3",
+          "tileCoord": "-3:-1",
+          "side": 0
+        }
+      },
+      {
+        "type": "forgotten_tribe_development",
+        "ref": {
+          "tileCoord": "3:-4",
+          "side": 0
+        }
+      },
+      {
+        "type": "forgotten_tribe_development",
+        "ref": {
+          "tileCoord": "-3:4",
+          "side": 3
+        }
+      },
+      {
+        "type": "forgotten_tribe_development",
+        "ref": {
+          "tileCoord": "3:1",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "1:-3",
+          "tileCoord": "-3:-1",
           "side": 5
         },
         "portType": "generic"
@@ -3387,7 +3387,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 1
         },
         "portType": "brick"
@@ -3395,7 +3395,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 4
         },
         "portType": "lumber"
@@ -3403,7 +3403,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 1
         },
         "portType": "ore"
@@ -3411,7 +3411,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:4",
+          "tileCoord": "-1:4",
           "side": 4
         },
         "portType": "grain"
@@ -3419,7 +3419,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-1:4",
+          "tileCoord": "1:3",
           "side": 2
         },
         "portType": "wool"
@@ -3485,122 +3485,122 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "sea"
       },
-      "0:-3": {
+      "2:-4": {
         "terrain": "sea"
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "desert"
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "gold"
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "sea"
       },
-      "1:-2": {
+      "2:-3": {
+        "terrain": "sea"
+      },
+      "-3:0": {
+        "terrain": "brick"
+      },
+      "3:-3": {
+        "terrain": "ore"
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "2:-2": {
-        "terrain": "brick"
-      },
-      "-2:-1": {
-        "terrain": "ore"
-      },
-      "-1:-1": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "-3:1": {
+        "terrain": "sea"
+      },
+      "3:-2": {
+        "terrain": "sea",
+        "kind": "sea",
+        "occupant": "pirate"
+      },
+      "-2:1": {
         "terrain": "sea"
       },
       "2:-1": {
         "terrain": "sea"
       },
-      "-2:0": {
-        "terrain": "sea",
-        "kind": "sea",
-        "occupant": "pirate"
+      "-3:2": {
+        "terrain": "brick"
       },
-      "-1:0": {
-        "terrain": "sea"
+      "3:-1": {
+        "terrain": "desert"
       },
-      "1:0": {
+      "-2:2": {
         "terrain": "sea"
       },
       "2:0": {
-        "terrain": "brick"
-      },
-      "-2:1": {
-        "terrain": "desert"
-      },
-      "-1:1": {
         "terrain": "sea"
       },
-      "1:1": {
-        "terrain": "sea"
-      },
-      "2:1": {
+      "-3:3": {
         "terrain": "desert",
         "robber": true
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "ore"
       },
-      "-1:2": {
+      "-2:3": {
+        "terrain": "sea"
+      },
+      "2:1": {
+        "terrain": "sea"
+      },
+      "-3:4": {
+        "terrain": "gold"
+      },
+      "-1:3": {
         "terrain": "sea"
       },
       "1:2": {
         "terrain": "sea"
       },
-      "2:2": {
-        "terrain": "gold"
-      },
-      "-3:3": {
-        "terrain": "sea"
-      },
-      "-2:3": {
-        "terrain": "sea"
-      },
-      "-1:3": {
+      "3:1": {
         "terrain": "grain"
+      },
+      "-2:4": {
+        "terrain": "sea"
       },
       "0:3": {
         "terrain": "sea"
       },
-      "1:3": {
+      "2:2": {
         "terrain": "sea"
-      },
-      "-3:4": {
-        "terrain": "sea"
-      },
-      "-2:4": {
-        "terrain": "lumber"
       },
       "-1:4": {
+        "terrain": "lumber"
+      },
+      "1:3": {
         "terrain": "wool"
       },
       "0:4": {
         "terrain": "sea"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 6
       },
-      "-1:-3": {
+      "0:-3": {
         "terrain": "wool",
         "token": 10
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "grain",
         "token": 9
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "lumber",
         "token": 9
       },
@@ -3608,11 +3608,11 @@
         "terrain": "brick",
         "token": 8
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "ore",
         "token": 11
       },
@@ -3620,11 +3620,11 @@
         "terrain": "wool",
         "token": 4
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "wool",
         "token": 8
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 5
       },
@@ -3632,11 +3632,11 @@
         "terrain": "grain",
         "token": 12
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 10
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "lumber",
         "token": 6
       },
@@ -3644,11 +3644,11 @@
         "terrain": "lumber",
         "token": 5
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "grain",
         "token": 3
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "ore",
         "token": 4
       },
@@ -3663,50 +3663,43 @@
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "1:-3",
+          "tileCoord": "-3:-1",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "-3:4",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-1:3",
+          "tileCoord": "3:1",
           "side": 2
-        }
-      },
-      {
-        "type": "forgotten_tribe_vp",
-        "ref": {
-          "tileCoord": "-2:4",
-          "side": 3
         }
       },
       {
@@ -3717,37 +3710,44 @@
         }
       },
       {
-        "type": "forgotten_tribe_development",
+        "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "1:-3",
-          "side": 0
-        }
-      },
-      {
-        "type": "forgotten_tribe_development",
-        "ref": {
-          "tileCoord": "-2:-2",
-          "side": 0
-        }
-      },
-      {
-        "type": "forgotten_tribe_development",
-        "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "1:3",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-1:3",
+          "tileCoord": "-3:-1",
+          "side": 0
+        }
+      },
+      {
+        "type": "forgotten_tribe_development",
+        "ref": {
+          "tileCoord": "3:-4",
+          "side": 0
+        }
+      },
+      {
+        "type": "forgotten_tribe_development",
+        "ref": {
+          "tileCoord": "-3:4",
+          "side": 3
+        }
+      },
+      {
+        "type": "forgotten_tribe_development",
+        "ref": {
+          "tileCoord": "3:1",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "1:-3",
+          "tileCoord": "-3:-1",
           "side": 5
         },
         "portType": "generic"
@@ -3755,7 +3755,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 1
         },
         "portType": "brick"
@@ -3763,7 +3763,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 4
         },
         "portType": "lumber"
@@ -3771,7 +3771,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 1
         },
         "portType": "ore"
@@ -3779,7 +3779,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:4",
+          "tileCoord": "-1:4",
           "side": 4
         },
         "portType": "grain"
@@ -3787,7 +3787,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-1:4",
+          "tileCoord": "1:3",
           "side": 2
         },
         "portType": "wool"
@@ -3867,131 +3867,131 @@
       "0:-5": {
         "terrain": "sea"
       },
-      "3:-5": {
-        "terrain": "sea"
-      },
-      "0:-4": {
-        "terrain": "sea"
-      },
-      "1:-4": {
-        "terrain": "desert"
-      },
       "-2:-3": {
+        "terrain": "sea"
+      },
+      "2:-5": {
+        "terrain": "sea"
+      },
+      "-3:-2": {
         "terrain": "desert"
       },
-      "-1:-3": {
+      "3:-5": {
+        "terrain": "desert"
+      },
+      "-2:-2": {
         "terrain": "sea"
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "sea"
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "desert",
         "robber": true
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "desert"
-      },
-      "-1:-2": {
-        "terrain": "sea"
-      },
-      "1:-2": {
-        "terrain": "sea"
-      },
-      "2:-2": {
-        "terrain": "sea",
-        "kind": "sea",
-        "occupant": "pirate"
       },
       "-2:-1": {
         "terrain": "sea"
       },
-      "-1:-1": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "-3:0": {
+        "terrain": "sea",
+        "kind": "sea",
+        "occupant": "pirate"
+      },
+      "3:-3": {
+        "terrain": "sea"
+      },
+      "-2:0": {
+        "terrain": "sea"
+      },
+      "2:-2": {
+        "terrain": "sea"
+      },
+      "-3:1": {
+        "terrain": "ore"
+      },
+      "3:-2": {
+        "terrain": "gold"
+      },
+      "-2:1": {
         "terrain": "sea"
       },
       "2:-1": {
-        "terrain": "ore"
-      },
-      "-2:0": {
-        "terrain": "gold"
-      },
-      "-1:0": {
         "terrain": "sea"
       },
-      "1:0": {
+      "-3:2": {
+        "terrain": "brick"
+      },
+      "3:-1": {
+        "terrain": "gold"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "2:0": {
-        "terrain": "brick"
-      },
-      "-2:1": {
-        "terrain": "gold"
-      },
-      "-1:1": {
         "terrain": "sea"
       },
-      "1:1": {
+      "-3:3": {
+        "terrain": "sea"
+      },
+      "3:0": {
+        "terrain": "sea"
+      },
+      "-2:3": {
         "terrain": "sea"
       },
       "2:1": {
         "terrain": "sea"
       },
-      "-2:2": {
-        "terrain": "sea"
+      "-3:4": {
+        "terrain": "grain"
       },
-      "-1:2": {
-        "terrain": "sea"
+      "3:1": {
+        "terrain": "wool"
       },
-      "1:2": {
+      "-2:4": {
         "terrain": "sea"
       },
       "2:2": {
-        "terrain": "grain"
-      },
-      "-2:3": {
-        "terrain": "wool"
-      },
-      "-1:3": {
-        "terrain": "sea"
-      },
-      "1:3": {
-        "terrain": "sea"
-      },
-      "2:3": {
-        "terrain": "gold"
-      },
-      "-1:4": {
-        "terrain": "wool"
-      },
-      "0:4": {
         "terrain": "sea"
       },
       "-3:5": {
+        "terrain": "gold"
+      },
+      "3:2": {
+        "terrain": "wool"
+      },
+      "-2:5": {
+        "terrain": "sea"
+      },
+      "2:3": {
         "terrain": "sea"
       },
       "0:5": {
         "terrain": "sea"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "lumber",
         "token": 6
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "grain",
         "token": 3
       },
-      "-1:-4": {
+      "0:-4": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "ore",
         "token": 4
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "brick",
         "token": 5
       },
@@ -3999,11 +3999,11 @@
         "terrain": "wool",
         "token": 12
       },
-      "3:-3": {
+      "-1:-2": {
         "terrain": "grain",
         "token": 9
       },
-      "-3:-2": {
+      "1:-3": {
         "terrain": "ore",
         "token": 11
       },
@@ -4011,11 +4011,11 @@
         "terrain": "lumber",
         "token": 5
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "brick",
         "token": 8
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "wool",
         "token": 8
       },
@@ -4023,11 +4023,11 @@
         "terrain": "grain",
         "token": 10
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "lumber",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 4
       },
@@ -4035,11 +4035,11 @@
         "terrain": "wool",
         "token": 5
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "lumber",
         "token": 10
       },
@@ -4047,11 +4047,11 @@
         "terrain": "brick",
         "token": 9
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "wool",
         "token": 4
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "grain",
         "token": 4
       },
@@ -4059,11 +4059,11 @@
         "terrain": "grain",
         "token": 2
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "grain",
         "token": 6
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "brick",
         "token": 3
       },
@@ -4071,23 +4071,23 @@
         "terrain": "wool",
         "token": 9
       },
-      "-3:4": {
+      "-1:4": {
         "terrain": "lumber",
         "token": 3
       },
-      "-2:4": {
+      "1:3": {
         "terrain": "lumber",
         "token": 8
       },
-      "1:4": {
+      "0:4": {
         "terrain": "brick",
         "token": 10
       },
-      "-2:5": {
+      "-1:5": {
         "terrain": "ore",
         "token": 6
       },
-      "-1:5": {
+      "1:4": {
         "terrain": "ore",
         "token": 5
       }
@@ -4098,119 +4098,119 @@
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:-3",
+          "tileCoord": "3:-5",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:-3",
+          "tileCoord": "-3:-1",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:-1",
+          "tileCoord": "-3:1",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:0",
+          "tileCoord": "3:-2",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "-3:4",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:3",
+          "tileCoord": "3:1",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:3",
+          "tileCoord": "-3:5",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "1:-4",
+          "tileCoord": "-3:-2",
           "side": 0
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-2:-3",
+          "tileCoord": "3:-5",
           "side": 0
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "2:-1",
+          "tileCoord": "-3:1",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "2:3",
+          "tileCoord": "-3:5",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-1:4",
+          "tileCoord": "3:2",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "1:-4",
+          "tileCoord": "-3:-2",
           "side": 5
         },
         "portType": "generic"
@@ -4218,7 +4218,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:-3",
+          "tileCoord": "-3:-1",
           "side": 4
         },
         "portType": "generic"
@@ -4226,7 +4226,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 2
         },
         "portType": "generic"
@@ -4234,7 +4234,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:0",
+          "tileCoord": "3:-2",
           "side": 1
         },
         "portType": "brick"
@@ -4242,7 +4242,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 4
         },
         "portType": "lumber"
@@ -4250,7 +4250,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "-3:4",
           "side": 5
         },
         "portType": "ore"
@@ -4258,7 +4258,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:3",
+          "tileCoord": "3:1",
           "side": 2
         },
         "portType": "grain"
@@ -4266,7 +4266,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-1:4",
+          "tileCoord": "3:2",
           "side": 2
         },
         "portType": "wool"
@@ -4346,131 +4346,131 @@
       "0:-5": {
         "terrain": "sea"
       },
-      "3:-5": {
-        "terrain": "sea"
-      },
-      "0:-4": {
-        "terrain": "sea"
-      },
-      "1:-4": {
-        "terrain": "desert"
-      },
       "-2:-3": {
+        "terrain": "sea"
+      },
+      "2:-5": {
+        "terrain": "sea"
+      },
+      "-3:-2": {
         "terrain": "desert"
       },
-      "-1:-3": {
+      "3:-5": {
+        "terrain": "desert"
+      },
+      "-2:-2": {
         "terrain": "sea"
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "sea"
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "desert",
         "robber": true
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "desert"
-      },
-      "-1:-2": {
-        "terrain": "sea"
-      },
-      "1:-2": {
-        "terrain": "sea"
-      },
-      "2:-2": {
-        "terrain": "sea",
-        "kind": "sea",
-        "occupant": "pirate"
       },
       "-2:-1": {
         "terrain": "sea"
       },
-      "-1:-1": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "-3:0": {
+        "terrain": "sea",
+        "kind": "sea",
+        "occupant": "pirate"
+      },
+      "3:-3": {
+        "terrain": "sea"
+      },
+      "-2:0": {
+        "terrain": "sea"
+      },
+      "2:-2": {
+        "terrain": "sea"
+      },
+      "-3:1": {
+        "terrain": "ore"
+      },
+      "3:-2": {
+        "terrain": "gold"
+      },
+      "-2:1": {
         "terrain": "sea"
       },
       "2:-1": {
-        "terrain": "ore"
-      },
-      "-2:0": {
-        "terrain": "gold"
-      },
-      "-1:0": {
         "terrain": "sea"
       },
-      "1:0": {
+      "-3:2": {
+        "terrain": "brick"
+      },
+      "3:-1": {
+        "terrain": "gold"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "2:0": {
-        "terrain": "brick"
-      },
-      "-2:1": {
-        "terrain": "gold"
-      },
-      "-1:1": {
         "terrain": "sea"
       },
-      "1:1": {
+      "-3:3": {
+        "terrain": "sea"
+      },
+      "3:0": {
+        "terrain": "sea"
+      },
+      "-2:3": {
         "terrain": "sea"
       },
       "2:1": {
         "terrain": "sea"
       },
-      "-2:2": {
-        "terrain": "sea"
+      "-3:4": {
+        "terrain": "grain"
       },
-      "-1:2": {
-        "terrain": "sea"
+      "3:1": {
+        "terrain": "wool"
       },
-      "1:2": {
+      "-2:4": {
         "terrain": "sea"
       },
       "2:2": {
-        "terrain": "grain"
-      },
-      "-2:3": {
-        "terrain": "wool"
-      },
-      "-1:3": {
-        "terrain": "sea"
-      },
-      "1:3": {
-        "terrain": "sea"
-      },
-      "2:3": {
-        "terrain": "gold"
-      },
-      "-1:4": {
-        "terrain": "wool"
-      },
-      "0:4": {
         "terrain": "sea"
       },
       "-3:5": {
+        "terrain": "gold"
+      },
+      "3:2": {
+        "terrain": "wool"
+      },
+      "-2:5": {
+        "terrain": "sea"
+      },
+      "2:3": {
         "terrain": "sea"
       },
       "0:5": {
         "terrain": "sea"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "lumber",
         "token": 6
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "grain",
         "token": 3
       },
-      "-1:-4": {
+      "0:-4": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "ore",
         "token": 4
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "brick",
         "token": 5
       },
@@ -4478,11 +4478,11 @@
         "terrain": "wool",
         "token": 12
       },
-      "3:-3": {
+      "-1:-2": {
         "terrain": "grain",
         "token": 9
       },
-      "-3:-2": {
+      "1:-3": {
         "terrain": "ore",
         "token": 11
       },
@@ -4490,11 +4490,11 @@
         "terrain": "lumber",
         "token": 5
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "brick",
         "token": 8
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "wool",
         "token": 8
       },
@@ -4502,11 +4502,11 @@
         "terrain": "grain",
         "token": 10
       },
-      "3:-1": {
+      "-1:0": {
         "terrain": "lumber",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 4
       },
@@ -4514,11 +4514,11 @@
         "terrain": "wool",
         "token": 5
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "ore",
         "token": 3
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "lumber",
         "token": 10
       },
@@ -4526,11 +4526,11 @@
         "terrain": "brick",
         "token": 9
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "wool",
         "token": 4
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "grain",
         "token": 4
       },
@@ -4538,11 +4538,11 @@
         "terrain": "grain",
         "token": 2
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "grain",
         "token": 6
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "brick",
         "token": 3
       },
@@ -4550,23 +4550,23 @@
         "terrain": "wool",
         "token": 9
       },
-      "-3:4": {
+      "-1:4": {
         "terrain": "lumber",
         "token": 3
       },
-      "-2:4": {
+      "1:3": {
         "terrain": "lumber",
         "token": 8
       },
-      "1:4": {
+      "0:4": {
         "terrain": "brick",
         "token": 10
       },
-      "-2:5": {
+      "-1:5": {
         "terrain": "ore",
         "token": 6
       },
-      "-1:5": {
+      "1:4": {
         "terrain": "ore",
         "token": 5
       }
@@ -4577,119 +4577,119 @@
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:-3",
+          "tileCoord": "3:-5",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:-3",
+          "tileCoord": "-3:-1",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:-1",
+          "tileCoord": "-3:1",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:0",
+          "tileCoord": "3:-2",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "-3:4",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "-2:3",
+          "tileCoord": "3:1",
           "side": 1
         }
       },
       {
         "type": "forgotten_tribe_vp",
         "ref": {
-          "tileCoord": "2:3",
+          "tileCoord": "-3:5",
           "side": 4
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "1:-4",
+          "tileCoord": "-3:-2",
           "side": 0
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-2:-3",
+          "tileCoord": "3:-5",
           "side": 0
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "2:-1",
+          "tileCoord": "-3:1",
           "side": 5
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-2:1",
+          "tileCoord": "3:-1",
           "side": 2
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "2:3",
+          "tileCoord": "-3:5",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_development",
         "ref": {
-          "tileCoord": "-1:4",
+          "tileCoord": "3:2",
           "side": 3
         }
       },
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "1:-4",
+          "tileCoord": "-3:-2",
           "side": 5
         },
         "portType": "generic"
@@ -4697,7 +4697,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:-3",
+          "tileCoord": "-3:-1",
           "side": 4
         },
         "portType": "generic"
@@ -4705,7 +4705,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:-2",
+          "tileCoord": "3:-4",
           "side": 2
         },
         "portType": "generic"
@@ -4713,7 +4713,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:0",
+          "tileCoord": "3:-2",
           "side": 1
         },
         "portType": "brick"
@@ -4721,7 +4721,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:0",
+          "tileCoord": "-3:2",
           "side": 4
         },
         "portType": "lumber"
@@ -4729,7 +4729,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "2:2",
+          "tileCoord": "-3:4",
           "side": 5
         },
         "portType": "ore"
@@ -4737,7 +4737,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-2:3",
+          "tileCoord": "3:1",
           "side": 2
         },
         "portType": "grain"
@@ -4745,7 +4745,7 @@
       {
         "type": "forgotten_tribe_port",
         "ref": {
-          "tileCoord": "-1:4",
+          "tileCoord": "3:2",
           "side": 2
         },
         "portType": "wool"
@@ -4804,70 +4804,70 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "1:-4": {
-        "terrain": "sea"
-      },
       "-1:-3": {
         "terrain": "sea"
       },
-      "2:-3": {
+      "0:-3": {
         "terrain": "sea"
       },
-      "3:-3": {
+      "-1:-2": {
+        "terrain": "sea"
+      },
+      "1:-3": {
         "terrain": "sea"
       },
       "0:-2": {
         "terrain": "desert"
       },
-      "3:-2": {
-        "terrain": "sea"
-      },
-      "-3:-1": {
-        "terrain": "sea"
-      },
       "-1:-1": {
+        "terrain": "sea"
+      },
+      "1:-2": {
+        "terrain": "sea"
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "0:-1": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "3:-1": {
-        "terrain": "gold"
-      },
-      "-3:0": {
-        "terrain": "gold"
-      },
       "-1:0": {
+        "terrain": "gold"
+      },
+      "1:-1": {
+        "terrain": "gold"
+      },
+      "-2:1": {
         "terrain": "sea"
       },
       "0:0": {
         "terrain": "sea"
       },
+      "2:-1": {
+        "terrain": "sea"
+      },
+      "-1:1": {
+        "terrain": "sea"
+      },
       "1:0": {
-        "terrain": "sea"
-      },
-      "3:0": {
-        "terrain": "sea"
-      },
-      "-3:1": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "desert"
       },
-      "-3:2": {
+      "-1:2": {
         "terrain": "sea"
       },
-      "-2:2": {
+      "1:1": {
+        "terrain": "sea"
+      },
+      "0:2": {
         "terrain": "sea"
       },
       "1:2": {
-        "terrain": "sea"
-      },
-      "-1:3": {
         "terrain": "sea"
       },
       "0:3": {
@@ -4875,123 +4875,123 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 12,
         "robber": true
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "brick",
         "token": 9
       },
-      "0:-3": {
+      "2:-4": {
         "terrain": "grain",
         "token": 3
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "wool",
         "token": 10
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "lumber",
         "token": 4
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "grain",
         "token": 2
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "lumber",
         "token": 12
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "wool",
         "token": 6
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "ore",
         "token": 5
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "brick",
         "token": 5
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "grain",
         "token": 10
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "wool",
         "token": 11
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "wool",
         "token": 11
       },
-      "1:1": {
+      "2:0": {
         "terrain": "lumber",
         "token": 3
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "brick",
         "token": 8
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "grain",
         "token": 8
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "ore",
         "token": 4
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "ore",
         "token": 9
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "ore",
         "token": 2
       }
     },
     "ports": [
       {
-        "tileCoord": "3:-4",
-        "side": 0
-      },
-      {
-        "tileCoord": "0:-3",
-        "side": 0
-      },
-      {
         "tileCoord": "-2:-2",
+        "side": 0
+      },
+      {
+        "tileCoord": "2:-4",
+        "side": 0
+      },
+      {
+        "tileCoord": "3:-4",
         "side": 2
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-3:0",
         "side": 5
       },
       {
-        "tileCoord": "2:0",
+        "tileCoord": "-3:2",
         "side": 4
       },
       {
-        "tileCoord": "-2:1",
+        "tileCoord": "3:-1",
         "side": 1
       },
       {
-        "tileCoord": "0:2",
+        "tileCoord": "-2:3",
         "side": 4
       },
       {
-        "tileCoord": "-3:3",
+        "tileCoord": "2:1",
         "side": 3
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "-1:3",
         "side": 3
       }
     ],
@@ -5026,7 +5026,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-1",
+          "tileCoord": "-1:0",
           "side": 1
         },
         "numberToken": 3
@@ -5034,7 +5034,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-1",
+          "tileCoord": "-1:0",
           "side": 5
         },
         "numberToken": 6
@@ -5042,7 +5042,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:0",
+          "tileCoord": "1:-1",
           "side": 1
         },
         "numberToken": 8
@@ -5050,7 +5050,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:0",
+          "tileCoord": "1:-1",
           "side": 5
         },
         "numberToken": 11
@@ -5125,70 +5125,70 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "1:-4": {
-        "terrain": "sea"
-      },
       "-1:-3": {
         "terrain": "sea"
       },
-      "2:-3": {
+      "0:-3": {
         "terrain": "sea"
       },
-      "3:-3": {
+      "-1:-2": {
+        "terrain": "sea"
+      },
+      "1:-3": {
         "terrain": "sea"
       },
       "0:-2": {
         "terrain": "desert"
       },
-      "3:-2": {
-        "terrain": "sea"
-      },
-      "-3:-1": {
-        "terrain": "sea"
-      },
       "-1:-1": {
+        "terrain": "sea"
+      },
+      "1:-2": {
+        "terrain": "sea"
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "0:-1": {
         "terrain": "sea"
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "3:-1": {
-        "terrain": "gold"
-      },
-      "-3:0": {
-        "terrain": "gold"
-      },
       "-1:0": {
+        "terrain": "gold"
+      },
+      "1:-1": {
+        "terrain": "gold"
+      },
+      "-2:1": {
         "terrain": "sea"
       },
       "0:0": {
         "terrain": "sea"
       },
+      "2:-1": {
+        "terrain": "sea"
+      },
+      "-1:1": {
+        "terrain": "sea"
+      },
       "1:0": {
-        "terrain": "sea"
-      },
-      "3:0": {
-        "terrain": "sea"
-      },
-      "-3:1": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "desert"
       },
-      "-3:2": {
+      "-1:2": {
         "terrain": "sea"
       },
-      "-2:2": {
+      "1:1": {
+        "terrain": "sea"
+      },
+      "0:2": {
         "terrain": "sea"
       },
       "1:2": {
-        "terrain": "sea"
-      },
-      "-1:3": {
         "terrain": "sea"
       },
       "0:3": {
@@ -5196,123 +5196,123 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 12,
         "robber": true
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "brick",
         "token": 9
       },
-      "0:-3": {
+      "2:-4": {
         "terrain": "grain",
         "token": 3
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "wool",
         "token": 10
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "lumber",
         "token": 4
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "grain",
         "token": 2
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "lumber",
         "token": 12
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "wool",
         "token": 6
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "ore",
         "token": 5
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "brick",
         "token": 5
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "grain",
         "token": 10
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "wool",
         "token": 11
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "wool",
         "token": 11
       },
-      "1:1": {
+      "2:0": {
         "terrain": "lumber",
         "token": 3
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "brick",
         "token": 8
       },
-      "-1:2": {
+      "3:0": {
         "terrain": "grain",
         "token": 8
       },
-      "0:2": {
+      "-2:3": {
         "terrain": "ore",
         "token": 4
       },
-      "-3:3": {
+      "2:1": {
         "terrain": "ore",
         "token": 9
       },
-      "-2:3": {
+      "-1:3": {
         "terrain": "ore",
         "token": 2
       }
     },
     "ports": [
       {
-        "tileCoord": "3:-4",
-        "side": 0
-      },
-      {
-        "tileCoord": "0:-3",
-        "side": 0
-      },
-      {
         "tileCoord": "-2:-2",
+        "side": 0
+      },
+      {
+        "tileCoord": "2:-4",
+        "side": 0
+      },
+      {
+        "tileCoord": "3:-4",
         "side": 2
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-3:0",
         "side": 5
       },
       {
-        "tileCoord": "2:0",
+        "tileCoord": "-3:2",
         "side": 4
       },
       {
-        "tileCoord": "-2:1",
+        "tileCoord": "3:-1",
         "side": 1
       },
       {
-        "tileCoord": "0:2",
+        "tileCoord": "-2:3",
         "side": 4
       },
       {
-        "tileCoord": "-3:3",
+        "tileCoord": "2:1",
         "side": 3
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "-1:3",
         "side": 3
       }
     ],
@@ -5347,7 +5347,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-1",
+          "tileCoord": "-1:0",
           "side": 1
         },
         "numberToken": 3
@@ -5355,7 +5355,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-1",
+          "tileCoord": "-1:0",
           "side": 5
         },
         "numberToken": 6
@@ -5363,7 +5363,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:0",
+          "tileCoord": "1:-1",
           "side": 1
         },
         "numberToken": 8
@@ -5371,7 +5371,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:0",
+          "tileCoord": "1:-1",
           "side": 5
         },
         "numberToken": 11
@@ -5460,94 +5460,94 @@
       "0:-5": {
         "terrain": "sea"
       },
-      "-1:-4": {
+      "0:-4": {
         "terrain": "sea"
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "sea"
       },
       "0:-3": {
         "terrain": "gold"
       },
-      "3:-3": {
-        "terrain": "sea"
-      },
-      "-3:-2": {
-        "terrain": "sea"
-      },
       "-1:-2": {
+        "terrain": "sea"
+      },
+      "1:-3": {
+        "terrain": "sea"
+      },
+      "-2:-1": {
         "terrain": "sea"
       },
       "0:-2": {
         "terrain": "sea"
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "3:-2": {
-        "terrain": "desert"
-      },
-      "-3:-1": {
-        "terrain": "desert"
-      },
       "-1:-1": {
+        "terrain": "desert"
+      },
+      "1:-2": {
+        "terrain": "desert"
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "0:-1": {
         "terrain": "sea"
       },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-3:0": {
+      "2:-2": {
         "terrain": "sea"
       },
       "-1:0": {
         "terrain": "sea"
       },
+      "1:-1": {
+        "terrain": "sea"
+      },
+      "-2:1": {
+        "terrain": "sea"
+      },
       "0:0": {
         "terrain": "sea"
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "sea"
       },
-      "3:0": {
-        "terrain": "desert"
-      },
-      "-3:1": {
-        "terrain": "desert"
-      },
       "-1:1": {
+        "terrain": "desert"
+      },
+      "1:0": {
+        "terrain": "desert"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "sea"
       },
+      "2:0": {
+        "terrain": "sea"
+      },
+      "-1:2": {
+        "terrain": "sea"
+      },
       "1:1": {
-        "terrain": "sea"
-      },
-      "3:1": {
-        "terrain": "sea"
-      },
-      "-3:2": {
         "terrain": "sea"
       },
       "0:2": {
         "terrain": "gold"
       },
-      "-3:3": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-2:3": {
+      "1:2": {
         "terrain": "sea"
       },
-      "1:3": {
+      "0:3": {
         "terrain": "sea"
       },
       "0:4": {
@@ -5555,155 +5555,155 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "ore",
         "token": 8
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "grain",
         "token": 11,
         "robber": true
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "brick",
         "token": 9
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "grain",
         "token": 3
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "wool",
         "token": 10
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "lumber",
         "token": 4
       },
-      "-1:-3": {
+      "-2:-2": {
         "terrain": "grain",
         "token": 2
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "lumber",
         "token": 12
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "wool",
         "token": 6
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "ore",
         "token": 5
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "brick",
         "token": 5
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "lumber",
         "token": 11
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "grain",
         "token": 12
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "lumber",
         "token": 8
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "brick",
         "token": 3
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "grain",
         "token": 10
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "wool",
         "token": 11
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "wool",
         "token": 11
       },
-      "1:2": {
+      "2:1": {
         "terrain": "lumber",
         "token": 3
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "brick",
         "token": 6
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "grain",
         "token": 8
-      },
-      "0:3": {
-        "terrain": "ore",
-        "token": 4
-      },
-      "-3:4": {
-        "terrain": "ore",
-        "token": 9
       },
       "-2:4": {
         "terrain": "ore",
-        "token": 2
+        "token": 4
+      },
+      "2:2": {
+        "terrain": "ore",
+        "token": 9
       },
       "-1:4": {
+        "terrain": "ore",
+        "token": 2
+      },
+      "1:3": {
         "terrain": "wool",
         "token": 3
       }
     },
     "ports": [
       {
-        "tileCoord": "3:-5",
-        "side": 0
-      },
-      {
-        "tileCoord": "0:-4",
-        "side": 0
-      },
-      {
         "tileCoord": "-2:-3",
+        "side": 0
+      },
+      {
+        "tileCoord": "2:-5",
+        "side": 0
+      },
+      {
+        "tileCoord": "3:-5",
         "side": 2
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "-3:-1",
         "side": 5
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-3:0",
         "side": 4
       },
       {
-        "tileCoord": "-2:0",
+        "tileCoord": "3:-2",
         "side": 1
       },
       {
-        "tileCoord": "2:1",
+        "tileCoord": "-3:3",
         "side": 4
       },
       {
-        "tileCoord": "-2:2",
+        "tileCoord": "3:0",
         "side": 1
-      },
-      {
-        "tileCoord": "0:3",
-        "side": 4
-      },
-      {
-        "tileCoord": "-3:4",
-        "side": 3
       },
       {
         "tileCoord": "-2:4",
+        "side": 4
+      },
+      {
+        "tileCoord": "2:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "-1:4",
         "side": 3
       }
     ],
@@ -5740,7 +5740,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-2",
+          "tileCoord": "-1:-1",
           "side": 1
         },
         "numberToken": 12
@@ -5748,7 +5748,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-2",
+          "tileCoord": "-1:-1",
           "side": 5
         },
         "numberToken": 6
@@ -5756,7 +5756,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:-1",
+          "tileCoord": "1:-2",
           "side": 1
         },
         "numberToken": 5
@@ -5764,7 +5764,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:-1",
+          "tileCoord": "1:-2",
           "side": 5
         },
         "numberToken": 2
@@ -5772,7 +5772,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:0",
+          "tileCoord": "-1:1",
           "side": 1
         },
         "numberToken": 10
@@ -5780,7 +5780,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:0",
+          "tileCoord": "-1:1",
           "side": 5
         },
         "numberToken": 9
@@ -5788,7 +5788,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:1",
+          "tileCoord": "1:0",
           "side": 1
         },
         "numberToken": 8
@@ -5796,7 +5796,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:1",
+          "tileCoord": "1:0",
           "side": 5
         },
         "numberToken": 10
@@ -5885,94 +5885,94 @@
       "0:-5": {
         "terrain": "sea"
       },
-      "-1:-4": {
+      "0:-4": {
         "terrain": "sea"
       },
-      "2:-4": {
+      "-1:-3": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "sea"
       },
       "0:-3": {
         "terrain": "gold"
       },
-      "3:-3": {
-        "terrain": "sea"
-      },
-      "-3:-2": {
-        "terrain": "sea"
-      },
       "-1:-2": {
+        "terrain": "sea"
+      },
+      "1:-3": {
+        "terrain": "sea"
+      },
+      "-2:-1": {
         "terrain": "sea"
       },
       "0:-2": {
         "terrain": "sea"
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "3:-2": {
-        "terrain": "desert"
-      },
-      "-3:-1": {
-        "terrain": "desert"
-      },
       "-1:-1": {
+        "terrain": "desert"
+      },
+      "1:-2": {
+        "terrain": "desert"
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "0:-1": {
         "terrain": "sea"
       },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-3:0": {
+      "2:-2": {
         "terrain": "sea"
       },
       "-1:0": {
         "terrain": "sea"
       },
+      "1:-1": {
+        "terrain": "sea"
+      },
+      "-2:1": {
+        "terrain": "sea"
+      },
       "0:0": {
         "terrain": "sea"
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "sea"
       },
-      "3:0": {
-        "terrain": "desert"
-      },
-      "-3:1": {
-        "terrain": "desert"
-      },
       "-1:1": {
+        "terrain": "desert"
+      },
+      "1:0": {
+        "terrain": "desert"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "sea"
       },
+      "2:0": {
+        "terrain": "sea"
+      },
+      "-1:2": {
+        "terrain": "sea"
+      },
       "1:1": {
-        "terrain": "sea"
-      },
-      "3:1": {
-        "terrain": "sea"
-      },
-      "-3:2": {
         "terrain": "sea"
       },
       "0:2": {
         "terrain": "gold"
       },
-      "-3:3": {
+      "-1:3": {
         "terrain": "sea"
       },
-      "-2:3": {
+      "1:2": {
         "terrain": "sea"
       },
-      "1:3": {
+      "0:3": {
         "terrain": "sea"
       },
       "0:4": {
@@ -5980,155 +5980,155 @@
         "kind": "sea",
         "occupant": "pirate"
       },
-      "1:-5": {
+      "-1:-4": {
         "terrain": "ore",
         "token": 8
       },
-      "2:-5": {
+      "1:-5": {
         "terrain": "grain",
         "token": 11,
         "robber": true
       },
-      "3:-5": {
+      "-2:-3": {
         "terrain": "brick",
         "token": 9
       },
-      "0:-4": {
+      "2:-5": {
         "terrain": "grain",
         "token": 3
       },
-      "1:-4": {
+      "-3:-2": {
         "terrain": "wool",
         "token": 10
       },
-      "-2:-3": {
+      "3:-5": {
         "terrain": "lumber",
         "token": 4
       },
-      "-1:-3": {
+      "-2:-2": {
         "terrain": "grain",
         "token": 2
       },
-      "1:-3": {
+      "2:-4": {
         "terrain": "lumber",
         "token": 12
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "wool",
         "token": 6
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "ore",
         "token": 5
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "brick",
         "token": 5
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "lumber",
         "token": 11
       },
-      "-2:0": {
+      "3:-2": {
         "terrain": "grain",
         "token": 12
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "lumber",
         "token": 8
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "brick",
         "token": 3
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "grain",
         "token": 10
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "wool",
         "token": 11
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "wool",
         "token": 11
       },
-      "1:2": {
+      "2:1": {
         "terrain": "lumber",
         "token": 3
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "brick",
         "token": 6
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "grain",
         "token": 8
-      },
-      "0:3": {
-        "terrain": "ore",
-        "token": 4
-      },
-      "-3:4": {
-        "terrain": "ore",
-        "token": 9
       },
       "-2:4": {
         "terrain": "ore",
-        "token": 2
+        "token": 4
+      },
+      "2:2": {
+        "terrain": "ore",
+        "token": 9
       },
       "-1:4": {
+        "terrain": "ore",
+        "token": 2
+      },
+      "1:3": {
         "terrain": "wool",
         "token": 3
       }
     },
     "ports": [
       {
-        "tileCoord": "3:-5",
-        "side": 0
-      },
-      {
-        "tileCoord": "0:-4",
-        "side": 0
-      },
-      {
         "tileCoord": "-2:-3",
+        "side": 0
+      },
+      {
+        "tileCoord": "2:-5",
+        "side": 0
+      },
+      {
+        "tileCoord": "3:-5",
         "side": 2
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "-3:-1",
         "side": 5
       },
       {
-        "tileCoord": "2:-2",
+        "tileCoord": "-3:0",
         "side": 4
       },
       {
-        "tileCoord": "-2:0",
+        "tileCoord": "3:-2",
         "side": 1
       },
       {
-        "tileCoord": "2:1",
+        "tileCoord": "-3:3",
         "side": 4
       },
       {
-        "tileCoord": "-2:2",
+        "tileCoord": "3:0",
         "side": 1
-      },
-      {
-        "tileCoord": "0:3",
-        "side": 4
-      },
-      {
-        "tileCoord": "-3:4",
-        "side": 3
       },
       {
         "tileCoord": "-2:4",
+        "side": 4
+      },
+      {
+        "tileCoord": "2:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "-1:4",
         "side": 3
       }
     ],
@@ -6165,7 +6165,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-2",
+          "tileCoord": "-1:-1",
           "side": 1
         },
         "numberToken": 12
@@ -6173,7 +6173,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:-2",
+          "tileCoord": "-1:-1",
           "side": 5
         },
         "numberToken": 6
@@ -6181,7 +6181,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:-1",
+          "tileCoord": "1:-2",
           "side": 1
         },
         "numberToken": 5
@@ -6189,7 +6189,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:-1",
+          "tileCoord": "1:-2",
           "side": 5
         },
         "numberToken": 2
@@ -6197,7 +6197,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:0",
+          "tileCoord": "-1:1",
           "side": 1
         },
         "numberToken": 10
@@ -6205,7 +6205,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "3:0",
+          "tileCoord": "-1:1",
           "side": 5
         },
         "numberToken": 9
@@ -6213,7 +6213,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:1",
+          "tileCoord": "1:0",
           "side": 1
         },
         "numberToken": 8
@@ -6221,7 +6221,7 @@
       {
         "type": "village",
         "edgeRef": {
-          "tileCoord": "-3:1",
+          "tileCoord": "1:0",
           "side": 5
         },
         "numberToken": 10
@@ -6303,39 +6303,41 @@
         "1:-4",
         "2:-4",
         "3:-4",
-        "0:-3",
-        "1:-3",
+        "-1:-3",
+        "3:-3",
         "-2:-2",
-        "0:-2",
-        "-2:-1",
+        "-3:-1",
         "-3:0"
       ],
       [
-        "2:-2"
+        "0:-2"
       ],
       [
-        "3:-1"
+        "1:-1"
+      ],
+      [
+        "2:-1"
       ],
       [
         "-1:0"
       ],
       [
-        "1:0"
+        "3:0"
+      ],
+      [
+        "-2:1"
       ],
       [
         "0:1"
+      ],
+      [
+        "1:1"
       ],
       [
         "2:1"
       ],
       [
         "3:1"
-      ],
-      [
-        "-3:2"
-      ],
-      [
-        "-2:2"
       ],
       [
         "-1:2"
@@ -6378,132 +6380,132 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "grain",
         "token": 10
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 4
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "brick"
-      },
-      "-1:-3": {
-        "terrain": "sea"
       },
       "0:-3": {
+        "terrain": "sea"
+      },
+      "2:-4": {
         "terrain": "brick"
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "gold",
         "token": 3
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "sea"
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "sea"
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "gold",
         "token": 11
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "sea"
       },
       "0:-2": {
         "terrain": "ore",
         "token": 8
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "2:-2": {
-        "terrain": "ore",
-        "token": 6
-      },
-      "3:-2": {
-        "terrain": "sea"
-      },
-      "-3:-1": {
-        "terrain": "sea"
-      },
-      "-2:-1": {
+      "-3:0": {
         "terrain": "ore",
         "token": 6
       },
       "-1:-1": {
         "terrain": "sea"
       },
-      "0:-1": {
+      "1:-2": {
         "terrain": "sea"
       },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "2:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "desert"
-      },
-      "-3:0": {
-        "terrain": "desert"
+      "3:-3": {
+        "terrain": "ore",
+        "token": 6
       },
       "-2:0": {
         "terrain": "sea"
       },
-      "-1:0": {
-        "terrain": "wool"
-      },
-      "0:0": {
+      "0:-1": {
         "terrain": "sea"
       },
-      "1:0": {
-        "terrain": "desert"
-      },
-      "2:0": {
-        "terrain": "sea",
-        "kind": "sea",
-        "occupant": "pirate"
-      },
-      "3:0": {
+      "2:-2": {
         "terrain": "sea"
       },
       "-3:1": {
         "terrain": "sea"
       },
-      "-2:1": {
+      "-1:0": {
+        "terrain": "desert"
+      },
+      "1:-1": {
+        "terrain": "desert"
+      },
+      "3:-2": {
         "terrain": "sea"
       },
+      "-2:1": {
+        "terrain": "wool"
+      },
+      "0:0": {
+        "terrain": "sea"
+      },
+      "2:-1": {
+        "terrain": "desert"
+      },
+      "-3:2": {
+        "terrain": "sea",
+        "kind": "sea",
+        "occupant": "pirate"
+      },
       "-1:1": {
+        "terrain": "sea"
+      },
+      "1:0": {
+        "terrain": "sea"
+      },
+      "3:-1": {
+        "terrain": "sea"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "grain",
         "token": 6
       },
-      "1:1": {
+      "2:0": {
         "terrain": "sea"
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "grain",
         "token": 10
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "wool",
         "token": 11
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 3
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "grain",
         "token": 4
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "ore",
         "token": 5
       },
@@ -6511,43 +6513,43 @@
         "terrain": "brick",
         "token": 9
       },
-      "1:2": {
+      "2:1": {
         "terrain": "ore",
         "token": 9
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "brick",
         "token": 4
       },
-      "-3:3": {
+      "-1:3": {
         "terrain": "lumber",
         "token": 8
       },
-      "-2:3": {
+      "1:2": {
         "terrain": "wool",
         "token": 8
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "brick",
         "token": 5
       },
-      "0:3": {
+      "-2:4": {
         "terrain": "lumber",
         "token": 2
       },
-      "1:3": {
+      "0:3": {
         "terrain": "wool",
         "token": 12
       },
-      "-3:4": {
+      "2:2": {
         "terrain": "lumber",
         "token": 10
       },
-      "-2:4": {
+      "-1:4": {
         "terrain": "wool",
         "token": 9
       },
-      "-1:4": {
+      "1:3": {
         "terrain": "lumber",
         "token": 5
       },
@@ -6557,35 +6559,35 @@
     },
     "ports": [
       {
-        "tileCoord": "2:1",
+        "tileCoord": "-3:3",
         "side": 4
       },
       {
-        "tileCoord": "-2:2",
+        "tileCoord": "3:0",
         "side": 1
       },
       {
-        "tileCoord": "-1:3",
+        "tileCoord": "3:1",
         "side": 1
       },
       {
-        "tileCoord": "-1:3",
-        "side": 3
-      },
-      {
-        "tileCoord": "0:3",
-        "side": 4
-      },
-      {
-        "tileCoord": "1:3",
-        "side": 3
-      },
-      {
-        "tileCoord": "-3:4",
+        "tileCoord": "3:1",
         "side": 3
       },
       {
         "tileCoord": "-2:4",
+        "side": 4
+      },
+      {
+        "tileCoord": "0:3",
+        "side": 3
+      },
+      {
+        "tileCoord": "2:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "-1:4",
         "side": 4
       }
     ],
@@ -6603,7 +6605,7 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "-2:2",
+          "tileCoord": "3:0",
           "corner": 4
         }
       },
@@ -6624,7 +6626,7 @@
       {
         "type": "fortress",
         "ref": {
-          "tileCoord": "-2:-1",
+          "tileCoord": "3:-3",
           "corner": 2
         },
         "pirateLairCount": 3
@@ -6647,9 +6649,8 @@
       }
     ],
     "pirateFleetPath": [
-      "2:0",
-      "3:-2",
-      "3:-3"
+      "-3:2",
+      "-3:1"
     ]
   },
   "seafarers.pirate_islands:standard:4": {
@@ -6711,39 +6712,41 @@
         "1:-4",
         "2:-4",
         "3:-4",
-        "0:-3",
-        "1:-3",
+        "-1:-3",
+        "3:-3",
         "-2:-2",
-        "0:-2",
-        "-2:-1",
+        "-3:-1",
         "-3:0"
       ],
       [
-        "2:-2"
+        "0:-2"
       ],
       [
-        "3:-1"
+        "1:-1"
+      ],
+      [
+        "2:-1"
       ],
       [
         "-1:0"
       ],
       [
-        "1:0"
+        "3:0"
+      ],
+      [
+        "-2:1"
       ],
       [
         "0:1"
+      ],
+      [
+        "1:1"
       ],
       [
         "2:1"
       ],
       [
         "3:1"
-      ],
-      [
-        "-3:2"
-      ],
-      [
-        "-2:2"
       ],
       [
         "-1:2"
@@ -6786,132 +6789,132 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "grain",
         "token": 10
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "grain",
         "token": 4
       },
-      "3:-4": {
+      "-2:-2": {
         "terrain": "brick"
-      },
-      "-1:-3": {
-        "terrain": "sea"
       },
       "0:-3": {
+        "terrain": "sea"
+      },
+      "2:-4": {
         "terrain": "brick"
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "gold",
         "token": 3
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "sea"
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "sea"
       },
-      "-2:-2": {
+      "3:-4": {
         "terrain": "gold",
         "token": 11
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "sea"
       },
       "0:-2": {
         "terrain": "ore",
         "token": 8
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "sea"
       },
-      "2:-2": {
-        "terrain": "ore",
-        "token": 6
-      },
-      "3:-2": {
-        "terrain": "sea"
-      },
-      "-3:-1": {
-        "terrain": "sea"
-      },
-      "-2:-1": {
+      "-3:0": {
         "terrain": "ore",
         "token": 6
       },
       "-1:-1": {
         "terrain": "sea"
       },
-      "0:-1": {
+      "1:-2": {
         "terrain": "sea"
       },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "2:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "desert"
-      },
-      "-3:0": {
-        "terrain": "desert"
+      "3:-3": {
+        "terrain": "ore",
+        "token": 6
       },
       "-2:0": {
         "terrain": "sea"
       },
-      "-1:0": {
-        "terrain": "wool"
-      },
-      "0:0": {
+      "0:-1": {
         "terrain": "sea"
       },
-      "1:0": {
-        "terrain": "desert"
-      },
-      "2:0": {
-        "terrain": "sea",
-        "kind": "sea",
-        "occupant": "pirate"
-      },
-      "3:0": {
+      "2:-2": {
         "terrain": "sea"
       },
       "-3:1": {
         "terrain": "sea"
       },
-      "-2:1": {
+      "-1:0": {
+        "terrain": "desert"
+      },
+      "1:-1": {
+        "terrain": "desert"
+      },
+      "3:-2": {
         "terrain": "sea"
       },
+      "-2:1": {
+        "terrain": "wool"
+      },
+      "0:0": {
+        "terrain": "sea"
+      },
+      "2:-1": {
+        "terrain": "desert"
+      },
+      "-3:2": {
+        "terrain": "sea",
+        "kind": "sea",
+        "occupant": "pirate"
+      },
       "-1:1": {
+        "terrain": "sea"
+      },
+      "1:0": {
+        "terrain": "sea"
+      },
+      "3:-1": {
+        "terrain": "sea"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "grain",
         "token": 6
       },
-      "1:1": {
+      "2:0": {
         "terrain": "sea"
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "grain",
         "token": 10
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "wool",
         "token": 11
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 3
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "grain",
         "token": 4
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "ore",
         "token": 5
       },
@@ -6919,43 +6922,43 @@
         "terrain": "brick",
         "token": 9
       },
-      "1:2": {
+      "2:1": {
         "terrain": "ore",
         "token": 9
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "brick",
         "token": 4
       },
-      "-3:3": {
+      "-1:3": {
         "terrain": "lumber",
         "token": 8
       },
-      "-2:3": {
+      "1:2": {
         "terrain": "wool",
         "token": 8
       },
-      "-1:3": {
+      "3:1": {
         "terrain": "brick",
         "token": 5
       },
-      "0:3": {
+      "-2:4": {
         "terrain": "lumber",
         "token": 2
       },
-      "1:3": {
+      "0:3": {
         "terrain": "wool",
         "token": 12
       },
-      "-3:4": {
+      "2:2": {
         "terrain": "lumber",
         "token": 10
       },
-      "-2:4": {
+      "-1:4": {
         "terrain": "wool",
         "token": 9
       },
-      "-1:4": {
+      "1:3": {
         "terrain": "lumber",
         "token": 5
       },
@@ -6965,35 +6968,35 @@
     },
     "ports": [
       {
-        "tileCoord": "2:1",
+        "tileCoord": "-3:3",
         "side": 4
       },
       {
-        "tileCoord": "-2:2",
+        "tileCoord": "3:0",
         "side": 1
       },
       {
-        "tileCoord": "-1:3",
+        "tileCoord": "3:1",
         "side": 1
       },
       {
-        "tileCoord": "-1:3",
-        "side": 3
-      },
-      {
-        "tileCoord": "0:3",
-        "side": 4
-      },
-      {
-        "tileCoord": "1:3",
-        "side": 3
-      },
-      {
-        "tileCoord": "-3:4",
+        "tileCoord": "3:1",
         "side": 3
       },
       {
         "tileCoord": "-2:4",
+        "side": 4
+      },
+      {
+        "tileCoord": "0:3",
+        "side": 3
+      },
+      {
+        "tileCoord": "2:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "-1:4",
         "side": 4
       }
     ],
@@ -7011,7 +7014,7 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "-2:2",
+          "tileCoord": "3:0",
           "corner": 4
         }
       },
@@ -7032,14 +7035,14 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "2:1",
+          "tileCoord": "-3:3",
           "corner": 1
         }
       },
       {
         "type": "fortress",
         "ref": {
-          "tileCoord": "-2:-1",
+          "tileCoord": "3:-3",
           "corner": 2
         },
         "pirateLairCount": 3
@@ -7063,16 +7066,15 @@
       {
         "type": "fortress",
         "ref": {
-          "tileCoord": "2:-2",
+          "tileCoord": "-3:0",
           "corner": 3
         },
         "pirateLairCount": 3
       }
     ],
     "pirateFleetPath": [
-      "2:0",
-      "3:-2",
-      "3:-3"
+      "-3:2",
+      "-3:1"
     ]
   },
   "seafarers.pirate_islands:extended:5": {
@@ -7146,41 +7148,43 @@
     "logicalIslandGroups": [
       [
         "1:-5",
-        "2:-5",
+        "3:-5",
+        "-1:-4",
         "1:-4",
-        "2:-4",
-        "3:-4",
-        "-2:-3",
-        "3:-3",
+        "-1:-3",
+        "1:-3",
         "-3:-2",
-        "2:-2"
+        "-1:-2"
       ],
       [
-        "-2:-1"
+        "3:-3"
       ],
       [
         "0:-1"
       ],
       [
-        "-1:0"
+        "2:-1"
       ],
       [
-        "1:0"
+        "-3:0"
+      ],
+      [
+        "3:0"
+      ],
+      [
+        "-2:1"
       ],
       [
         "0:1"
+      ],
+      [
+        "1:1"
       ],
       [
         "2:1"
       ],
       [
         "3:1"
-      ],
-      [
-        "-3:2"
-      ],
-      [
-        "-2:2"
       ],
       [
         "-1:2"
@@ -7244,154 +7248,154 @@
       "0:-5": {
         "terrain": "sea"
       },
+      "-1:-4": {
+        "terrain": "gold",
+        "token": 11
+      },
       "1:-5": {
         "terrain": "gold",
         "token": 11
       },
-      "2:-5": {
-        "terrain": "gold",
-        "token": 11
-      },
-      "3:-5": {
-        "terrain": "sea"
-      },
-      "-1:-4": {
+      "-2:-3": {
         "terrain": "sea"
       },
       "0:-4": {
         "terrain": "sea"
       },
-      "1:-4": {
-        "terrain": "gold",
-        "token": 3
+      "2:-5": {
+        "terrain": "sea"
       },
-      "2:-4": {
-        "terrain": "desert"
-      },
-      "3:-4": {
-        "terrain": "desert"
-      },
-      "-2:-3": {
+      "-3:-2": {
         "terrain": "gold",
         "token": 3
       },
       "-1:-3": {
+        "terrain": "desert"
+      },
+      "1:-4": {
+        "terrain": "desert"
+      },
+      "3:-5": {
+        "terrain": "gold",
+        "token": 3
+      },
+      "-2:-2": {
         "terrain": "sea"
       },
       "0:-3": {
         "terrain": "sea"
       },
+      "2:-4": {
+        "terrain": "sea"
+      },
+      "-3:-1": {
+        "terrain": "sea"
+      },
+      "-1:-2": {
+        "terrain": "ore",
+        "token": 6
+      },
       "1:-3": {
+        "terrain": "ore",
+        "token": 8
+      },
+      "3:-4": {
+        "terrain": "sea"
+      },
+      "-2:-1": {
+        "terrain": "sea"
+      },
+      "0:-2": {
         "terrain": "sea"
       },
       "2:-3": {
+        "terrain": "sea"
+      },
+      "-3:0": {
+        "terrain": "ore",
+        "token": 8
+      },
+      "-1:-1": {
+        "terrain": "sea"
+      },
+      "1:-2": {
         "terrain": "sea"
       },
       "3:-3": {
         "terrain": "ore",
         "token": 6
       },
-      "-3:-2": {
-        "terrain": "ore",
-        "token": 8
-      },
-      "-2:-2": {
-        "terrain": "sea"
-      },
-      "-1:-2": {
-        "terrain": "sea"
-      },
-      "0:-2": {
-        "terrain": "sea"
-      },
-      "1:-2": {
-        "terrain": "sea"
-      },
-      "2:-2": {
-        "terrain": "ore",
-        "token": 8
-      },
-      "3:-2": {
-        "terrain": "sea"
-      },
-      "-3:-1": {
-        "terrain": "sea"
-      },
-      "-2:-1": {
-        "terrain": "ore",
-        "token": 6
-      },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "sea"
       },
       "0:-1": {
         "terrain": "desert"
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "sea",
         "kind": "sea",
         "occupant": "pirate"
       },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-3:0": {
-        "terrain": "sea"
-      },
-      "-2:0": {
-        "terrain": "sea"
-      },
       "-1:0": {
+        "terrain": "sea"
+      },
+      "1:-1": {
+        "terrain": "sea"
+      },
+      "3:-2": {
+        "terrain": "sea"
+      },
+      "-2:1": {
         "terrain": "desert"
       },
       "0:0": {
         "terrain": "sea"
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "desert"
       },
-      "2:0": {
-        "terrain": "sea"
-      },
-      "3:0": {
-        "terrain": "sea"
-      },
-      "-3:1": {
-        "terrain": "sea"
-      },
-      "-2:1": {
+      "-3:2": {
         "terrain": "sea"
       },
       "-1:1": {
+        "terrain": "sea"
+      },
+      "1:0": {
+        "terrain": "sea"
+      },
+      "3:-1": {
+        "terrain": "sea"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "grain",
         "token": 6
       },
-      "1:1": {
+      "2:0": {
         "terrain": "sea"
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "lumber",
         "token": 9
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "wool",
         "token": 2
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 12
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "wool",
         "token": 5
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "grain",
         "token": 11
       },
@@ -7399,27 +7403,27 @@
         "terrain": "grain",
         "token": 4
       },
-      "1:2": {
+      "2:1": {
         "terrain": "ore",
         "token": 3
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "grain",
         "token": 5
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "wool",
         "token": 10
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:3": {
+      "3:1": {
         "terrain": "grain",
         "token": 4
       },
-      "-1:3": {
+      "-2:4": {
         "terrain": "ore",
         "token": 9
       },
@@ -7427,43 +7431,43 @@
         "terrain": "ore",
         "token": 5
       },
-      "1:3": {
+      "2:2": {
         "terrain": "brick",
         "token": 10
       },
-      "2:3": {
+      "-3:5": {
         "terrain": "lumber",
-        "token": 4
-      },
-      "-3:4": {
-        "terrain": "brick",
-        "token": 3
-      },
-      "-2:4": {
-        "terrain": "wool",
         "token": 4
       },
       "-1:4": {
         "terrain": "brick",
+        "token": 3
+      },
+      "1:3": {
+        "terrain": "wool",
+        "token": 4
+      },
+      "3:2": {
+        "terrain": "brick",
         "token": 9
       },
-      "0:4": {
+      "-2:5": {
         "terrain": "brick",
         "token": 8
       },
-      "1:4": {
+      "0:4": {
         "terrain": "wool",
         "token": 8
       },
-      "-3:5": {
+      "2:3": {
         "terrain": "lumber",
         "token": 11
       },
-      "-2:5": {
+      "-1:5": {
         "terrain": "wool",
         "token": 5
       },
-      "-1:5": {
+      "1:4": {
         "terrain": "lumber",
         "token": 10
       },
@@ -7473,27 +7477,31 @@
     },
     "ports": [
       {
-        "tileCoord": "2:2",
+        "tileCoord": "-3:4",
         "side": 5
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "3:1",
         "side": 1
       },
       {
-        "tileCoord": "2:3",
+        "tileCoord": "-3:5",
         "side": 3
       },
       {
-        "tileCoord": "2:3",
+        "tileCoord": "-3:5",
         "side": 5
       },
       {
-        "tileCoord": "-1:4",
+        "tileCoord": "3:2",
         "side": 1
       },
       {
-        "tileCoord": "-1:4",
+        "tileCoord": "3:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "-2:5",
         "side": 3
       },
       {
@@ -7501,11 +7509,7 @@
         "side": 3
       },
       {
-        "tileCoord": "1:4",
-        "side": 3
-      },
-      {
-        "tileCoord": "-3:5",
+        "tileCoord": "2:3",
         "side": 3
       }
     ],
@@ -7524,7 +7528,7 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "-2:2",
+          "tileCoord": "3:0",
           "corner": 0
         }
       },
@@ -7538,7 +7542,7 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "-2:2",
+          "tileCoord": "3:0",
           "corner": 4
         }
       },
@@ -7552,33 +7556,9 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "2:1",
+          "tileCoord": "-3:3",
           "corner": 1
         }
-      },
-      {
-        "type": "fortress",
-        "ref": {
-          "tileCoord": "-2:-1",
-          "corner": 2
-        },
-        "pirateLairCount": 3
-      },
-      {
-        "type": "fortress",
-        "ref": {
-          "tileCoord": "-3:-2",
-          "corner": 3
-        },
-        "pirateLairCount": 3
-      },
-      {
-        "type": "fortress",
-        "ref": {
-          "tileCoord": "-2:-1",
-          "corner": 4
-        },
-        "pirateLairCount": 3
       },
       {
         "type": "fortress",
@@ -7591,15 +7571,40 @@
       {
         "type": "fortress",
         "ref": {
-          "tileCoord": "2:-2",
+          "tileCoord": "1:-3",
+          "corner": 3
+        },
+        "pirateLairCount": 3
+      },
+      {
+        "type": "fortress",
+        "ref": {
+          "tileCoord": "3:-3",
+          "corner": 4
+        },
+        "pirateLairCount": 3
+      },
+      {
+        "type": "fortress",
+        "ref": {
+          "tileCoord": "-1:-2",
+          "corner": 2
+        },
+        "pirateLairCount": 3
+      },
+      {
+        "type": "fortress",
+        "ref": {
+          "tileCoord": "-3:0",
           "corner": 1
         },
         "pirateLairCount": 3
       }
     ],
     "pirateFleetPath": [
-      "2:-1",
-      "3:-2"
+      "-3:1",
+      "-2:0",
+      "-2:-1"
     ]
   },
   "seafarers.pirate_islands:extended:6": {
@@ -7673,41 +7678,43 @@
     "logicalIslandGroups": [
       [
         "1:-5",
-        "2:-5",
+        "3:-5",
+        "-1:-4",
         "1:-4",
-        "2:-4",
-        "3:-4",
-        "-2:-3",
-        "3:-3",
+        "-1:-3",
+        "1:-3",
         "-3:-2",
-        "2:-2"
+        "-1:-2"
       ],
       [
-        "-2:-1"
+        "3:-3"
       ],
       [
         "0:-1"
       ],
       [
-        "-1:0"
+        "2:-1"
       ],
       [
-        "1:0"
+        "-3:0"
+      ],
+      [
+        "3:0"
+      ],
+      [
+        "-2:1"
       ],
       [
         "0:1"
+      ],
+      [
+        "1:1"
       ],
       [
         "2:1"
       ],
       [
         "3:1"
-      ],
-      [
-        "-3:2"
-      ],
-      [
-        "-2:2"
       ],
       [
         "-1:2"
@@ -7771,154 +7778,154 @@
       "0:-5": {
         "terrain": "sea"
       },
+      "-1:-4": {
+        "terrain": "gold",
+        "token": 11
+      },
       "1:-5": {
         "terrain": "gold",
         "token": 11
       },
-      "2:-5": {
-        "terrain": "gold",
-        "token": 11
-      },
-      "3:-5": {
-        "terrain": "sea"
-      },
-      "-1:-4": {
+      "-2:-3": {
         "terrain": "sea"
       },
       "0:-4": {
         "terrain": "sea"
       },
-      "1:-4": {
-        "terrain": "gold",
-        "token": 3
+      "2:-5": {
+        "terrain": "sea"
       },
-      "2:-4": {
-        "terrain": "desert"
-      },
-      "3:-4": {
-        "terrain": "desert"
-      },
-      "-2:-3": {
+      "-3:-2": {
         "terrain": "gold",
         "token": 3
       },
       "-1:-3": {
+        "terrain": "desert"
+      },
+      "1:-4": {
+        "terrain": "desert"
+      },
+      "3:-5": {
+        "terrain": "gold",
+        "token": 3
+      },
+      "-2:-2": {
         "terrain": "sea"
       },
       "0:-3": {
         "terrain": "sea"
       },
+      "2:-4": {
+        "terrain": "sea"
+      },
+      "-3:-1": {
+        "terrain": "sea"
+      },
+      "-1:-2": {
+        "terrain": "ore",
+        "token": 6
+      },
       "1:-3": {
+        "terrain": "ore",
+        "token": 8
+      },
+      "3:-4": {
+        "terrain": "sea"
+      },
+      "-2:-1": {
+        "terrain": "sea"
+      },
+      "0:-2": {
         "terrain": "sea"
       },
       "2:-3": {
+        "terrain": "sea"
+      },
+      "-3:0": {
+        "terrain": "ore",
+        "token": 8
+      },
+      "-1:-1": {
+        "terrain": "sea"
+      },
+      "1:-2": {
         "terrain": "sea"
       },
       "3:-3": {
         "terrain": "ore",
         "token": 6
       },
-      "-3:-2": {
-        "terrain": "ore",
-        "token": 8
-      },
-      "-2:-2": {
-        "terrain": "sea"
-      },
-      "-1:-2": {
-        "terrain": "sea"
-      },
-      "0:-2": {
-        "terrain": "sea"
-      },
-      "1:-2": {
-        "terrain": "sea"
-      },
-      "2:-2": {
-        "terrain": "ore",
-        "token": 8
-      },
-      "3:-2": {
-        "terrain": "sea"
-      },
-      "-3:-1": {
-        "terrain": "sea"
-      },
-      "-2:-1": {
-        "terrain": "ore",
-        "token": 6
-      },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "sea"
       },
       "0:-1": {
         "terrain": "desert"
       },
-      "1:-1": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "sea",
         "kind": "sea",
         "occupant": "pirate"
       },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-3:0": {
-        "terrain": "sea"
-      },
-      "-2:0": {
-        "terrain": "sea"
-      },
       "-1:0": {
+        "terrain": "sea"
+      },
+      "1:-1": {
+        "terrain": "sea"
+      },
+      "3:-2": {
+        "terrain": "sea"
+      },
+      "-2:1": {
         "terrain": "desert"
       },
       "0:0": {
         "terrain": "sea"
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "desert"
       },
-      "2:0": {
-        "terrain": "sea"
-      },
-      "3:0": {
-        "terrain": "sea"
-      },
-      "-3:1": {
-        "terrain": "sea"
-      },
-      "-2:1": {
+      "-3:2": {
         "terrain": "sea"
       },
       "-1:1": {
+        "terrain": "sea"
+      },
+      "1:0": {
+        "terrain": "sea"
+      },
+      "3:-1": {
+        "terrain": "sea"
+      },
+      "-2:2": {
         "terrain": "sea"
       },
       "0:1": {
         "terrain": "grain",
         "token": 6
       },
-      "1:1": {
+      "2:0": {
         "terrain": "sea"
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "lumber",
         "token": 9
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "wool",
         "token": 2
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 12
       },
-      "-2:2": {
+      "3:0": {
         "terrain": "wool",
         "token": 5
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "grain",
         "token": 11
       },
@@ -7926,27 +7933,27 @@
         "terrain": "grain",
         "token": 4
       },
-      "1:2": {
+      "2:1": {
         "terrain": "ore",
         "token": 3
       },
-      "2:2": {
+      "-3:4": {
         "terrain": "grain",
         "token": 5
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "wool",
         "token": 10
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "lumber",
         "token": 6
       },
-      "-2:3": {
+      "3:1": {
         "terrain": "grain",
         "token": 4
       },
-      "-1:3": {
+      "-2:4": {
         "terrain": "ore",
         "token": 9
       },
@@ -7954,43 +7961,43 @@
         "terrain": "ore",
         "token": 5
       },
-      "1:3": {
+      "2:2": {
         "terrain": "brick",
         "token": 10
       },
-      "2:3": {
+      "-3:5": {
         "terrain": "lumber",
-        "token": 4
-      },
-      "-3:4": {
-        "terrain": "brick",
-        "token": 3
-      },
-      "-2:4": {
-        "terrain": "wool",
         "token": 4
       },
       "-1:4": {
         "terrain": "brick",
+        "token": 3
+      },
+      "1:3": {
+        "terrain": "wool",
+        "token": 4
+      },
+      "3:2": {
+        "terrain": "brick",
         "token": 9
       },
-      "0:4": {
+      "-2:5": {
         "terrain": "brick",
         "token": 8
       },
-      "1:4": {
+      "0:4": {
         "terrain": "wool",
         "token": 8
       },
-      "-3:5": {
+      "2:3": {
         "terrain": "lumber",
         "token": 11
       },
-      "-2:5": {
+      "-1:5": {
         "terrain": "wool",
         "token": 5
       },
-      "-1:5": {
+      "1:4": {
         "terrain": "lumber",
         "token": 10
       },
@@ -8000,27 +8007,31 @@
     },
     "ports": [
       {
-        "tileCoord": "2:2",
+        "tileCoord": "-3:4",
         "side": 5
       },
       {
-        "tileCoord": "-2:3",
+        "tileCoord": "3:1",
         "side": 1
       },
       {
-        "tileCoord": "2:3",
+        "tileCoord": "-3:5",
         "side": 3
       },
       {
-        "tileCoord": "2:3",
+        "tileCoord": "-3:5",
         "side": 5
       },
       {
-        "tileCoord": "-1:4",
+        "tileCoord": "3:2",
         "side": 1
       },
       {
-        "tileCoord": "-1:4",
+        "tileCoord": "3:2",
+        "side": 3
+      },
+      {
+        "tileCoord": "-2:5",
         "side": 3
       },
       {
@@ -8028,11 +8039,7 @@
         "side": 3
       },
       {
-        "tileCoord": "1:4",
-        "side": 3
-      },
-      {
-        "tileCoord": "-3:5",
+        "tileCoord": "2:3",
         "side": 3
       }
     ],
@@ -8051,7 +8058,7 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "-2:2",
+          "tileCoord": "3:0",
           "corner": 0
         }
       },
@@ -8065,7 +8072,7 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "-2:2",
+          "tileCoord": "3:0",
           "corner": 4
         }
       },
@@ -8079,40 +8086,16 @@
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "2:1",
+          "tileCoord": "-3:3",
           "corner": 1
         }
       },
       {
         "type": "landing",
         "ref": {
-          "tileCoord": "2:1",
+          "tileCoord": "-3:3",
           "corner": 5
         }
-      },
-      {
-        "type": "fortress",
-        "ref": {
-          "tileCoord": "-2:-1",
-          "corner": 2
-        },
-        "pirateLairCount": 3
-      },
-      {
-        "type": "fortress",
-        "ref": {
-          "tileCoord": "-3:-2",
-          "corner": 3
-        },
-        "pirateLairCount": 3
-      },
-      {
-        "type": "fortress",
-        "ref": {
-          "tileCoord": "-2:-1",
-          "corner": 4
-        },
-        "pirateLairCount": 3
       },
       {
         "type": "fortress",
@@ -8125,7 +8108,31 @@
       {
         "type": "fortress",
         "ref": {
-          "tileCoord": "2:-2",
+          "tileCoord": "1:-3",
+          "corner": 3
+        },
+        "pirateLairCount": 3
+      },
+      {
+        "type": "fortress",
+        "ref": {
+          "tileCoord": "3:-3",
+          "corner": 4
+        },
+        "pirateLairCount": 3
+      },
+      {
+        "type": "fortress",
+        "ref": {
+          "tileCoord": "-1:-2",
+          "corner": 2
+        },
+        "pirateLairCount": 3
+      },
+      {
+        "type": "fortress",
+        "ref": {
+          "tileCoord": "-3:0",
           "corner": 1
         },
         "pirateLairCount": 3
@@ -8133,15 +8140,16 @@
       {
         "type": "fortress",
         "ref": {
-          "tileCoord": "2:-2",
+          "tileCoord": "-3:0",
           "corner": 3
         },
         "pirateLairCount": 3
       }
     ],
     "pirateFleetPath": [
-      "2:-1",
-      "3:-2"
+      "-3:1",
+      "-2:0",
+      "-2:-1"
     ]
   },
   "seafarers.wonders_of_catan:standard:3": {
@@ -8203,120 +8211,120 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "3:-4": {
-        "terrain": "sea"
-      },
-      "0:-3": {
-        "terrain": "sea"
-      },
       "-2:-2": {
+        "terrain": "sea"
+      },
+      "2:-4": {
+        "terrain": "sea"
+      },
+      "3:-4": {
         "terrain": "gold",
         "token": 8
       },
-      "1:-2": {
+      "2:-3": {
+        "terrain": "sea"
+      },
+      "-3:0": {
+        "terrain": "sea"
+      },
+      "-1:-1": {
+        "terrain": "sea"
+      },
+      "3:-3": {
+        "terrain": "brick",
+        "token": 2
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "2:-2": {
         "terrain": "sea"
       },
+      "-1:0": {
+        "terrain": "sea"
+      },
       "3:-2": {
         "terrain": "sea"
       },
-      "-2:-1": {
-        "terrain": "brick",
-        "token": 2
-      },
-      "-1:-1": {
+      "2:0": {
         "terrain": "sea"
       },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-2:0": {
-        "terrain": "sea"
-      },
-      "1:1": {
-        "terrain": "sea"
-      },
-      "2:1": {
-        "terrain": "sea"
-      },
-      "3:1": {
-        "terrain": "sea"
-      },
-      "-2:2": {
+      "-3:3": {
         "terrain": "sea"
       },
       "-1:2": {
         "terrain": "sea"
       },
-      "0:2": {
-        "terrain": "desert"
-      },
-      "1:2": {
-        "terrain": "desert"
-      },
-      "2:2": {
-        "terrain": "grain",
-        "token": 5
-      },
-      "-3:3": {
+      "3:0": {
         "terrain": "sea"
       },
       "-2:3": {
+        "terrain": "sea"
+      },
+      "0:2": {
         "terrain": "desert"
+      },
+      "2:1": {
+        "terrain": "desert"
+      },
+      "-3:4": {
+        "terrain": "grain",
+        "token": 5
       },
       "-1:3": {
         "terrain": "sea"
       },
-      "0:3": {
-        "terrain": "lumber",
-        "token": 4
+      "1:2": {
+        "terrain": "desert"
       },
-      "1:3": {
-        "terrain": "sea"
-      },
-      "-3:4": {
+      "3:1": {
         "terrain": "sea"
       },
       "-2:4": {
+        "terrain": "lumber",
+        "token": 4
+      },
+      "0:3": {
+        "terrain": "sea"
+      },
+      "2:2": {
+        "terrain": "sea"
+      },
+      "-1:4": {
         "terrain": "gold",
         "token": 6
       },
-      "-1:4": {
+      "1:3": {
         "terrain": "sea"
       },
       "0:4": {
         "terrain": "sea"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "brick",
         "token": 8
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "ore",
         "token": 12
       },
-      "-1:-3": {
+      "0:-3": {
         "terrain": "ore",
         "token": 3
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "ore",
         "token": 5
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "wool",
         "token": 9
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "grain",
         "token": 6
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "lumber",
         "token": 3
       },
@@ -8324,7 +8332,7 @@
         "terrain": "grain",
         "token": 4
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "brick",
         "token": 11
       },
@@ -8332,15 +8340,15 @@
         "terrain": "ore",
         "token": 6
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "wool",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "grain",
         "token": 10
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "lumber",
         "token": 8
       },
@@ -8348,27 +8356,27 @@
         "terrain": "wool",
         "token": 5
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "wool",
         "token": 2
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 10
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "wool",
         "token": 3
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "ore",
         "token": 10
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "grain",
         "token": 9
       },
@@ -8376,22 +8384,22 @@
         "terrain": "brick",
         "token": 4
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 9
       }
     },
     "ports": [
       {
-        "tileCoord": "-1:-3",
+        "tileCoord": "0:-3",
         "side": 0
       },
       {
-        "tileCoord": "3:-3",
+        "tileCoord": "1:-3",
         "side": 1
       },
       {
-        "tileCoord": "-1:-2",
+        "tileCoord": "-2:-1",
         "side": 0
       },
       {
@@ -8399,23 +8407,23 @@
         "side": 4
       },
       {
-        "tileCoord": "2:-1",
+        "tileCoord": "-3:1",
         "side": 4
       },
       {
-        "tileCoord": "-3:0",
+        "tileCoord": "1:-1",
         "side": 1
       },
       {
-        "tileCoord": "-3:1",
+        "tileCoord": "1:0",
         "side": 2
       },
       {
-        "tileCoord": "-1:1",
+        "tileCoord": "-2:2",
         "side": 2
       },
       {
-        "tileCoord": "-1:1",
+        "tileCoord": "-2:2",
         "side": 4
       }
     ],
@@ -8490,120 +8498,120 @@
       "0:-4": {
         "terrain": "sea"
       },
-      "3:-4": {
-        "terrain": "sea"
-      },
-      "0:-3": {
-        "terrain": "sea"
-      },
       "-2:-2": {
+        "terrain": "sea"
+      },
+      "2:-4": {
+        "terrain": "sea"
+      },
+      "3:-4": {
         "terrain": "gold",
         "token": 8
       },
-      "1:-2": {
+      "2:-3": {
+        "terrain": "sea"
+      },
+      "-3:0": {
+        "terrain": "sea"
+      },
+      "-1:-1": {
+        "terrain": "sea"
+      },
+      "3:-3": {
+        "terrain": "brick",
+        "token": 2
+      },
+      "-2:0": {
         "terrain": "sea"
       },
       "2:-2": {
         "terrain": "sea"
       },
+      "-1:0": {
+        "terrain": "sea"
+      },
       "3:-2": {
         "terrain": "sea"
       },
-      "-2:-1": {
-        "terrain": "brick",
-        "token": 2
-      },
-      "-1:-1": {
+      "2:0": {
         "terrain": "sea"
       },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-2:0": {
-        "terrain": "sea"
-      },
-      "1:1": {
-        "terrain": "sea"
-      },
-      "2:1": {
-        "terrain": "sea"
-      },
-      "3:1": {
-        "terrain": "sea"
-      },
-      "-2:2": {
+      "-3:3": {
         "terrain": "sea"
       },
       "-1:2": {
         "terrain": "sea"
       },
-      "0:2": {
-        "terrain": "desert"
-      },
-      "1:2": {
-        "terrain": "desert"
-      },
-      "2:2": {
-        "terrain": "grain",
-        "token": 5
-      },
-      "-3:3": {
+      "3:0": {
         "terrain": "sea"
       },
       "-2:3": {
+        "terrain": "sea"
+      },
+      "0:2": {
         "terrain": "desert"
+      },
+      "2:1": {
+        "terrain": "desert"
+      },
+      "-3:4": {
+        "terrain": "grain",
+        "token": 5
       },
       "-1:3": {
         "terrain": "sea"
       },
-      "0:3": {
-        "terrain": "lumber",
-        "token": 4
+      "1:2": {
+        "terrain": "desert"
       },
-      "1:3": {
-        "terrain": "sea"
-      },
-      "-3:4": {
+      "3:1": {
         "terrain": "sea"
       },
       "-2:4": {
+        "terrain": "lumber",
+        "token": 4
+      },
+      "0:3": {
+        "terrain": "sea"
+      },
+      "2:2": {
+        "terrain": "sea"
+      },
+      "-1:4": {
         "terrain": "gold",
         "token": 6
       },
-      "-1:4": {
+      "1:3": {
         "terrain": "sea"
       },
       "0:4": {
         "terrain": "sea"
       },
-      "1:-4": {
+      "-1:-3": {
         "terrain": "brick",
         "token": 8
       },
-      "2:-4": {
+      "1:-4": {
         "terrain": "ore",
         "token": 12
       },
-      "-1:-3": {
+      "0:-3": {
         "terrain": "ore",
         "token": 3
       },
-      "1:-3": {
+      "-3:-1": {
         "terrain": "ore",
         "token": 5
       },
-      "2:-3": {
+      "-1:-2": {
         "terrain": "wool",
         "token": 9
       },
-      "3:-3": {
+      "1:-3": {
         "terrain": "grain",
         "token": 6
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "lumber",
         "token": 3
       },
@@ -8611,7 +8619,7 @@
         "terrain": "grain",
         "token": 4
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "brick",
         "token": 11
       },
@@ -8619,15 +8627,15 @@
         "terrain": "ore",
         "token": 6
       },
-      "2:-1": {
+      "-3:1": {
         "terrain": "wool",
         "token": 11
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "grain",
         "token": 10
       },
-      "-1:0": {
+      "-2:1": {
         "terrain": "lumber",
         "token": 8
       },
@@ -8635,27 +8643,27 @@
         "terrain": "wool",
         "token": 5
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "wool",
         "token": 2
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 10
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "wool",
         "token": 3
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "ore",
         "token": 10
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "grain",
         "token": 9
       },
@@ -8663,22 +8671,22 @@
         "terrain": "brick",
         "token": 4
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "lumber",
         "token": 9
       }
     },
     "ports": [
       {
-        "tileCoord": "-1:-3",
+        "tileCoord": "0:-3",
         "side": 0
       },
       {
-        "tileCoord": "3:-3",
+        "tileCoord": "1:-3",
         "side": 1
       },
       {
-        "tileCoord": "-1:-2",
+        "tileCoord": "-2:-1",
         "side": 0
       },
       {
@@ -8686,23 +8694,23 @@
         "side": 4
       },
       {
-        "tileCoord": "2:-1",
+        "tileCoord": "-3:1",
         "side": 4
       },
       {
-        "tileCoord": "-3:0",
+        "tileCoord": "1:-1",
         "side": 1
       },
       {
-        "tileCoord": "-3:1",
+        "tileCoord": "1:0",
         "side": 2
       },
       {
-        "tileCoord": "-1:1",
+        "tileCoord": "-2:2",
         "side": 2
       },
       {
-        "tileCoord": "-1:1",
+        "tileCoord": "-2:2",
         "side": 4
       }
     ],
@@ -8791,110 +8799,110 @@
       "0:-5": {
         "terrain": "sea"
       },
+      "-1:-4": {
+        "terrain": "sea"
+      },
       "1:-5": {
+        "terrain": "sea"
+      },
+      "-2:-3": {
+        "terrain": "gold",
+        "token": 6
+      },
+      "0:-4": {
         "terrain": "sea"
       },
       "2:-5": {
         "terrain": "sea"
       },
+      "-3:-2": {
+        "terrain": "sea"
+      },
+      "-1:-3": {
+        "terrain": "sea"
+      },
       "3:-5": {
         "terrain": "gold",
-        "token": 6
+        "token": 8
       },
-      "-1:-4": {
-        "terrain": "sea"
-      },
-      "0:-4": {
-        "terrain": "sea"
-      },
-      "1:-4": {
+      "-2:-2": {
         "terrain": "sea"
       },
       "2:-4": {
         "terrain": "sea"
       },
-      "-2:-3": {
-        "terrain": "gold",
-        "token": 8
-      },
-      "-1:-3": {
+      "3:-4": {
         "terrain": "sea"
       },
-      "1:-3": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "-2:-2": {
-        "terrain": "sea"
-      },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "2:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-2:0": {
+      "-3:1": {
         "terrain": "sea"
       },
       "-1:0": {
         "terrain": "sea"
       },
-      "1:1": {
+      "3:-2": {
         "terrain": "sea"
       },
-      "-2:2": {
+      "-2:1": {
         "terrain": "sea"
       },
-      "1:2": {
+      "2:0": {
+        "terrain": "sea"
+      },
+      "3:0": {
+        "terrain": "sea"
+      },
+      "2:1": {
+        "terrain": "sea"
+      },
+      "-3:4": {
+        "terrain": "sea"
+      },
+      "3:1": {
+        "terrain": "sea"
+      },
+      "-2:4": {
         "terrain": "sea"
       },
       "2:2": {
-        "terrain": "sea"
+        "terrain": "desert"
       },
-      "-2:3": {
-        "terrain": "sea"
+      "-3:5": {
+        "terrain": "gold",
+        "token": 6
       },
-      "-1:3": {
+      "-1:4": {
         "terrain": "sea"
       },
       "1:3": {
         "terrain": "desert"
       },
-      "2:3": {
-        "terrain": "gold",
-        "token": 6
-      },
-      "-3:4": {
+      "3:2": {
         "terrain": "sea"
       },
-      "-2:4": {
-        "terrain": "desert"
-      },
-      "-1:4": {
-        "terrain": "sea"
-      },
-      "0:4": {
+      "-2:5": {
         "terrain": "lumber",
         "token": 4
       },
-      "1:4": {
+      "0:4": {
         "terrain": "desert"
       },
-      "-3:5": {
+      "2:3": {
         "terrain": "desert"
-      },
-      "-2:5": {
-        "terrain": "sea"
       },
       "-1:5": {
+        "terrain": "sea"
+      },
+      "1:4": {
         "terrain": "sea"
       },
       "0:5": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "brick",
         "token": 2
       },
@@ -8902,19 +8910,19 @@
         "terrain": "grain",
         "token": 9
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "ore",
         "token": 5
       },
-      "3:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 8
       },
-      "-3:-2": {
+      "1:-3": {
         "terrain": "wool",
         "token": 5
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "lumber",
         "token": 10
       },
@@ -8922,27 +8930,27 @@
         "terrain": "ore",
         "token": 3
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "brick",
         "token": 11
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "lumber",
         "token": 9
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "wool",
         "token": 5
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "grain",
         "token": 6
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "wool",
         "token": 10
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "ore",
         "token": 3
       },
@@ -8950,7 +8958,7 @@
         "terrain": "lumber",
         "token": 4
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 5
       },
@@ -8958,27 +8966,27 @@
         "terrain": "ore",
         "token": 6
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "wool",
         "token": 2
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 4
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "grain",
         "token": 3
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "grain",
         "token": 12
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "ore",
         "token": 9
       },
@@ -8986,19 +8994,19 @@
         "terrain": "grain",
         "token": 10
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "wool",
         "token": 11
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "lumber",
         "token": 8
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "wool",
         "token": 8
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "grain",
         "token": 4
       },
@@ -9006,11 +9014,11 @@
         "terrain": "wool",
         "token": 9
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "ore",
         "token": 12
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "lumber",
         "token": 11
       },
@@ -9021,27 +9029,27 @@
     },
     "ports": [
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "1:-4",
         "side": 0
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "-3:-1",
         "side": 4
-      },
-      {
-        "tileCoord": "3:-3",
-        "side": 0
-      },
-      {
-        "tileCoord": "-3:-2",
-        "side": 1
       },
       {
         "tileCoord": "-1:-2",
         "side": 0
       },
       {
-        "tileCoord": "-3:-1",
+        "tileCoord": "1:-3",
+        "side": 1
+      },
+      {
+        "tileCoord": "-2:-1",
+        "side": 0
+      },
+      {
+        "tileCoord": "1:-2",
         "side": 2
       },
       {
@@ -9049,19 +9057,19 @@
         "side": 4
       },
       {
-        "tileCoord": "2:0",
+        "tileCoord": "-3:2",
         "side": 4
       },
       {
-        "tileCoord": "-3:1",
+        "tileCoord": "1:0",
         "side": 2
       },
       {
-        "tileCoord": "-1:2",
+        "tileCoord": "-2:3",
         "side": 4
       },
       {
-        "tileCoord": "3:2",
+        "tileCoord": "-1:3",
         "side": 4
       }
     ],
@@ -9152,110 +9160,110 @@
       "0:-5": {
         "terrain": "sea"
       },
+      "-1:-4": {
+        "terrain": "sea"
+      },
       "1:-5": {
+        "terrain": "sea"
+      },
+      "-2:-3": {
+        "terrain": "gold",
+        "token": 6
+      },
+      "0:-4": {
         "terrain": "sea"
       },
       "2:-5": {
         "terrain": "sea"
       },
+      "-3:-2": {
+        "terrain": "sea"
+      },
+      "-1:-3": {
+        "terrain": "sea"
+      },
       "3:-5": {
         "terrain": "gold",
-        "token": 6
+        "token": 8
       },
-      "-1:-4": {
-        "terrain": "sea"
-      },
-      "0:-4": {
-        "terrain": "sea"
-      },
-      "1:-4": {
+      "-2:-2": {
         "terrain": "sea"
       },
       "2:-4": {
         "terrain": "sea"
       },
-      "-2:-3": {
-        "terrain": "gold",
-        "token": 8
-      },
-      "-1:-3": {
+      "3:-4": {
         "terrain": "sea"
       },
-      "1:-3": {
+      "2:-2": {
         "terrain": "sea"
       },
-      "-2:-2": {
-        "terrain": "sea"
-      },
-      "1:-1": {
-        "terrain": "sea"
-      },
-      "2:-1": {
-        "terrain": "sea"
-      },
-      "3:-1": {
-        "terrain": "sea"
-      },
-      "-2:0": {
+      "-3:1": {
         "terrain": "sea"
       },
       "-1:0": {
         "terrain": "sea"
       },
-      "1:1": {
+      "3:-2": {
         "terrain": "sea"
       },
-      "-2:2": {
+      "-2:1": {
         "terrain": "sea"
       },
-      "1:2": {
+      "2:0": {
+        "terrain": "sea"
+      },
+      "3:0": {
+        "terrain": "sea"
+      },
+      "2:1": {
+        "terrain": "sea"
+      },
+      "-3:4": {
+        "terrain": "sea"
+      },
+      "3:1": {
+        "terrain": "sea"
+      },
+      "-2:4": {
         "terrain": "sea"
       },
       "2:2": {
-        "terrain": "sea"
+        "terrain": "desert"
       },
-      "-2:3": {
-        "terrain": "sea"
+      "-3:5": {
+        "terrain": "gold",
+        "token": 6
       },
-      "-1:3": {
+      "-1:4": {
         "terrain": "sea"
       },
       "1:3": {
         "terrain": "desert"
       },
-      "2:3": {
-        "terrain": "gold",
-        "token": 6
-      },
-      "-3:4": {
+      "3:2": {
         "terrain": "sea"
       },
-      "-2:4": {
-        "terrain": "desert"
-      },
-      "-1:4": {
-        "terrain": "sea"
-      },
-      "0:4": {
+      "-2:5": {
         "terrain": "lumber",
         "token": 4
       },
-      "1:4": {
+      "0:4": {
         "terrain": "desert"
       },
-      "-3:5": {
+      "2:3": {
         "terrain": "desert"
-      },
-      "-2:5": {
-        "terrain": "sea"
       },
       "-1:5": {
+        "terrain": "sea"
+      },
+      "1:4": {
         "terrain": "sea"
       },
       "0:5": {
         "terrain": "sea"
       },
-      "3:-4": {
+      "1:-4": {
         "terrain": "brick",
         "token": 2
       },
@@ -9263,19 +9271,19 @@
         "terrain": "grain",
         "token": 9
       },
-      "2:-3": {
+      "-3:-1": {
         "terrain": "ore",
         "token": 5
       },
-      "3:-3": {
+      "-1:-2": {
         "terrain": "brick",
         "token": 8
       },
-      "-3:-2": {
+      "1:-3": {
         "terrain": "wool",
         "token": 5
       },
-      "-1:-2": {
+      "-2:-1": {
         "terrain": "lumber",
         "token": 10
       },
@@ -9283,27 +9291,27 @@
         "terrain": "ore",
         "token": 3
       },
-      "1:-2": {
+      "2:-3": {
         "terrain": "brick",
         "token": 11
       },
-      "2:-2": {
+      "-3:0": {
         "terrain": "lumber",
         "token": 9
       },
-      "3:-2": {
+      "-1:-1": {
         "terrain": "wool",
         "token": 5
       },
-      "-3:-1": {
+      "1:-2": {
         "terrain": "grain",
         "token": 6
       },
-      "-2:-1": {
+      "3:-3": {
         "terrain": "wool",
         "token": 10
       },
-      "-1:-1": {
+      "-2:0": {
         "terrain": "ore",
         "token": 3
       },
@@ -9311,7 +9319,7 @@
         "terrain": "lumber",
         "token": 4
       },
-      "-3:0": {
+      "1:-1": {
         "terrain": "brick",
         "token": 5
       },
@@ -9319,27 +9327,27 @@
         "terrain": "ore",
         "token": 6
       },
-      "1:0": {
+      "2:-1": {
         "terrain": "lumber",
         "token": 11
       },
-      "2:0": {
+      "-3:2": {
         "terrain": "wool",
         "token": 2
       },
-      "3:0": {
+      "-1:1": {
         "terrain": "brick",
         "token": 4
       },
-      "-3:1": {
+      "1:0": {
         "terrain": "grain",
         "token": 3
       },
-      "-2:1": {
+      "3:-1": {
         "terrain": "grain",
         "token": 12
       },
-      "-1:1": {
+      "-2:2": {
         "terrain": "ore",
         "token": 9
       },
@@ -9347,19 +9355,19 @@
         "terrain": "grain",
         "token": 10
       },
-      "2:1": {
+      "-3:3": {
         "terrain": "wool",
         "token": 11
       },
-      "3:1": {
+      "-1:2": {
         "terrain": "lumber",
         "token": 8
       },
-      "-3:2": {
+      "1:1": {
         "terrain": "wool",
         "token": 8
       },
-      "-1:2": {
+      "-2:3": {
         "terrain": "grain",
         "token": 4
       },
@@ -9367,11 +9375,11 @@
         "terrain": "wool",
         "token": 9
       },
-      "3:2": {
+      "-1:3": {
         "terrain": "ore",
         "token": 12
       },
-      "-3:3": {
+      "1:2": {
         "terrain": "lumber",
         "token": 11
       },
@@ -9382,27 +9390,27 @@
     },
     "ports": [
       {
-        "tileCoord": "3:-4",
+        "tileCoord": "1:-4",
         "side": 0
       },
       {
-        "tileCoord": "2:-3",
+        "tileCoord": "-3:-1",
         "side": 4
-      },
-      {
-        "tileCoord": "3:-3",
-        "side": 0
-      },
-      {
-        "tileCoord": "-3:-2",
-        "side": 1
       },
       {
         "tileCoord": "-1:-2",
         "side": 0
       },
       {
-        "tileCoord": "-3:-1",
+        "tileCoord": "1:-3",
+        "side": 1
+      },
+      {
+        "tileCoord": "-2:-1",
+        "side": 0
+      },
+      {
+        "tileCoord": "1:-2",
         "side": 2
       },
       {
@@ -9410,19 +9418,19 @@
         "side": 4
       },
       {
-        "tileCoord": "2:0",
+        "tileCoord": "-3:2",
         "side": 4
       },
       {
-        "tileCoord": "-3:1",
+        "tileCoord": "1:0",
         "side": 2
       },
       {
-        "tileCoord": "-1:2",
+        "tileCoord": "-2:3",
         "side": 4
       },
       {
-        "tileCoord": "3:2",
+        "tileCoord": "-1:3",
         "side": 4
       }
     ],

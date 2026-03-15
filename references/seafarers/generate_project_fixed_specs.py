@@ -113,8 +113,24 @@ def build_layout_coords(map_info: dict[str, Any], map_class: str) -> list[str]:
     return layout_coords
 
 
-def build_coord_by_index(layout_coords: list[str]) -> dict[str, str]:
-    return {str(index): coord for index, coord in enumerate(layout_coords, start=1)}
+def sort_compact_seafarers_coords_for_indexing(layout_coords: list[str]) -> list[str]:
+    parsed_coords = [tuple(map(int, coord.split(":"))) for coord in layout_coords]
+    # Official Seafarers maps enumerate tiles by staggered half-columns, not by our
+    # compact axial rows. Sorting by pointy-top screen columns reproduces that order.
+    parsed_coords.sort(key=lambda coord: (2 * coord[1] + coord[0], coord[0]))
+    return [f"{q}:{r}" for q, r in parsed_coords]
+
+
+def build_coord_by_index(
+    layout_coords: list[str],
+    map_class_info: dict[str, Any],
+) -> dict[str, str]:
+    indexed_coords = (
+        sort_compact_seafarers_coords_for_indexing(layout_coords)
+        if map_class_info.get("baseClass") == "hexagon-gallery-seafarers"
+        else layout_coords
+    )
+    return {str(index): coord for index, coord in enumerate(indexed_coords, start=1)}
 
 
 def iter_neighbor_coords(coord: str) -> list[str]:
@@ -592,8 +608,9 @@ def build_variant_spec(
     board_size: str,
     player_count: int,
 ) -> dict[str, Any]:
+    map_class_info = map_info[scenario["mapClass"]]
     layout_coords = build_layout_coords(map_info, scenario["mapClass"])
-    coord_by_index = build_coord_by_index(layout_coords)
+    coord_by_index = build_coord_by_index(layout_coords, map_class_info)
     tiles = build_tile_specs(scenario, layout_coords, coord_by_index)
     spec: dict[str, Any] = {
         "layoutCoords": layout_coords,
