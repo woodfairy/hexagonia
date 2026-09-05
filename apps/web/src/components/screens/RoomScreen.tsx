@@ -171,10 +171,9 @@ export function RoomScreen(props: {
       Array.from({ length: 11 }, (_, index) => index + 8).map((count) => ({
         value: `${count}`,
         label: t("room.victoryPoints.option", { count }),
-        meta:
-          count === effectiveScenario.defaultVictoryPointsToWin
-            ? t("room.victoryPoints.official")
-            : undefined
+        ...(count === effectiveScenario.defaultVictoryPointsToWin
+          ? { meta: t("room.victoryPoints.official") }
+          : {})
       })),
     [effectiveScenario.defaultVictoryPointsToWin, t]
   );

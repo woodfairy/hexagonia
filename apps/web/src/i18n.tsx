@@ -60,7 +60,7 @@ export function getAvailableLocales(): readonly Locale[] {
 export function createText(de: string, en?: string, params?: ErrorParams): LocalizedText {
   return {
     key: de,
-    params,
+    ...(params ? { params } : {}),
     fallback: {
       de,
       ...(en !== undefined ? { en } : {})
@@ -76,7 +76,7 @@ export function createCatalogText(
 ): LocalizedText {
   return {
     key,
-    params,
+    ...(params ? { params } : {}),
     fallback: {
       de,
       ...(en !== undefined ? { en } : {})
@@ -320,7 +320,7 @@ function interpolate(template: string, params?: ErrorParams): string {
 function withParams(text: LocalizedText, params?: ErrorParams): LocalizedText {
   return {
     ...text,
-    params
+    ...(params ? { params } : {})
   };
 }
 
@@ -688,7 +688,7 @@ function resolveAvailableLocale(value: unknown): Locale | null {
     return normalized;
   }
 
-  const language = normalized.split("-")[0];
+  const language = normalized.split("-")[0] ?? "";
   return AVAILABLE_LOCALE_SET.has(language) ? language : null;
 }
 

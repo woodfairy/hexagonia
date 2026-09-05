@@ -2168,5 +2168,11 @@
   "match.robberPhase.moveStatus": "Robber action active",
   "match.robberPhase.moveDetail": " is now moving the robber.",
   "match.robberPhase.wait.readyToMove": "All discards are complete. The robber is now being moved.",
-  "match.robberPhase.wait.remaining": "{count} left to discard"
+  "match.robberPhase.wait.remaining": "{count} left to discard",
+  "match.sheet.open": "Open actions",
+  "match.sheet.close": "Back to the board",
+  "match.graphics.lost.title": "Restoring the board",
+  "match.graphics.lost.detail": "3D rendering was interrupted. It will resume automatically when graphics become available again.",
+  "match.graphics.unavailable.title": "3D graphics unavailable",
+  "match.graphics.unavailable.detail": "Enable graphics acceleration in your browser and reload the page to display the board."
 }

@@ -223,8 +223,8 @@ const DESKTOP_MATCH_TAB_LAYOUT: MatchTabLayoutConfig = {
   stretchSingleItemRow: false
 };
 const MOBILE_MATCH_TAB_LAYOUT: MatchTabLayoutConfig = {
-  columns: 2,
-  gridColumns: 4,
+  columns: 5,
+  gridColumns: 10,
   centerIncompleteRow: false,
   stretchSingleItemRow: true
 };
@@ -490,7 +490,7 @@ function InlineConfirmButton(props: InlineConfirmButtonProps) {
       <button
         type="button"
         className={`inline-confirm-main ${props.buttonClassName} ${armed ? "is-armed" : ""}`.trim()}
-        disabled={props.disabled}
+        disabled={props.disabled ?? false}
         onClick={() => {
           if (props.disabled) {
             return;
@@ -534,7 +534,7 @@ function TradeMatrixCellButton(props: {
     <button
       type="button"
       className={`trade-matrix-cell is-${props.tone} ${props.active ? "is-active" : ""}`.trim()}
-      disabled={props.disabled}
+      disabled={props.disabled ?? false}
       aria-pressed={props.active}
       title={props.title}
       onClick={props.onClick}
@@ -561,7 +561,7 @@ function TradeMatrixDraftControl(props: {
         value={props.value}
         tone={props.tone}
         active={props.value > 0}
-        disabled={props.incrementDisabled}
+        disabled={props.incrementDisabled ?? false}
         title={props.incrementTitle}
         onClick={props.onIncrement}
       />
@@ -1403,7 +1403,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
   );
   const hasRevealedDiceResult = diceDisplay.phase === "idle" && diceDisplay.total !== null;
   const visibleTabs = isMobileViewport ? mobileMatchTabs : matchTabs;
-  const effectiveSheetState: SheetState = isMobileViewport ? "full" : sheetState;
+  const effectiveSheetState = sheetState;
   const showIncomingTradeAlert = !!incomingTradeOffer && (activeTab !== "trade" || effectiveSheetState === "peek");
   const desktopTabLayout = useMemo(
     () => createMatchTabLayout(matchTabs, activeTab, DESKTOP_MATCH_TAB_LAYOUT),
@@ -1418,6 +1418,9 @@ function MatchScreenComponent(props: MatchScreenProps) {
     return visibleIndex === -1 ? MATCH_TAB_ORDER[tab] : visibleIndex;
   };
   const changeActiveTab = (nextTab: MatchPanelTab) => {
+    if (isMobileViewport) {
+      setSheetState("half");
+    }
     if (nextTab === activeTab) {
       return;
     }
@@ -1978,10 +1981,10 @@ function MatchScreenComponent(props: MatchScreenProps) {
   }, []);
 
   useEffect(() => {
-    if (isCompactViewport && sheetState === "half") {
+    if (isMobileViewport && props.interactionMode !== null) {
       setSheetState("peek");
     }
-  }, [isCompactViewport, sheetState]);
+  }, [isMobileViewport, props.interactionMode]);
 
   useEffect(() => {
     if (isMobileViewport || isDenseLegendViewportState) {
@@ -2243,9 +2246,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
     }
 
     const normalizedGive =
-      visibleMaritimeGiveResources.length === 0
-        ? props.maritimeForm.give
-        : visibleMaritimeGiveResources.includes(props.maritimeForm.give)
+      visibleMaritimeGiveResources.includes(props.maritimeForm.give)
           ? props.maritimeForm.give
           : affordableMaritimeGiveResources[0] ?? visibleMaritimeGiveResources[0] ?? "";
     const normalizedRatio = normalizedGive ? (maritimeRatesByResource[normalizedGive] ?? 4) : 0;
@@ -3556,7 +3557,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
       </div>
       <div className="match-screen">
         <div className="match-stage">
-          <div className={`board-topbar ${isMobileViewport ? "is-mobile" : ""}`}>
+          <div className={`board-topbar ${isMobileViewport ? "is-mobile" : ""}`} data-board-occlusion="top">
             {isMobileViewport ? (
               <>
                 <div
@@ -3614,6 +3615,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
                 >
                   {autoFocusEnabled ? t("match.topbar.autoFocusOn") : t("match.topbar.autoFocusOff")}
                 </button>
+                <div className="board-topbar-profile"><ProfileMenu {...props.profileMenuProps} /></div>
               </>
             )}
           </div>
@@ -3861,7 +3863,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
           </div>
         </div>
 
-        <aside className="surface match-dock">
+        <aside className="surface match-dock" data-board-occlusion="right">
           {hasQuickActions ? renderQuickActions(false) : null}
           <div className="tab-strip center-last-item" style={getTabStripStyle(desktopTabLayout)} role="tablist" aria-label={t("match.navigation.desktop")}>
             {matchTabs.map((tab) => (
@@ -3881,7 +3883,16 @@ function MatchScreenComponent(props: MatchScreenProps) {
           {renderActiveTabPanel()}
         </aside>
 
-        <section className={`surface match-sheet is-${effectiveSheetState}`}>
+        <section className={`surface match-sheet is-${effectiveSheetState}`} data-board-occlusion="bottom">
+          <button
+            type="button"
+            className="match-sheet-handle"
+            aria-expanded={effectiveSheetState !== "peek"}
+            onClick={() => setSheetState((current) => current === "peek" ? "half" : "peek")}
+          >
+            <span aria-hidden="true" className="match-sheet-grip" />
+            <span>{t(effectiveSheetState === "peek" ? "match.sheet.open" : "match.sheet.close")}</span>
+          </button>
           <div
             className={`match-sheet-summary ${isMobileViewport ? "is-mobile" : ""} ${
               getPlayerAccentClass(getPlayerColor(props.match, turnStatus.playerId))
@@ -3901,8 +3912,8 @@ function MatchScreenComponent(props: MatchScreenProps) {
               ) : null}
             </div>
           </div>
-          {effectiveSheetState !== "peek" && hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
-          {effectiveSheetState !== "peek" ? (
+          {hasQuickActions ? <div className="sheet-quick-actions">{renderQuickActions(false)}</div> : null}
+          {
             <div
               className="tab-strip mobile"
               style={getTabStripStyle(mobileTabLayout)}
@@ -3923,7 +3934,7 @@ function MatchScreenComponent(props: MatchScreenProps) {
                 </button>
               ))}
             </div>
-          ) : null}
+          }
           {effectiveSheetState !== "peek" ? renderActiveTabPanel(true) : null}
         </section>
       </div>
@@ -3932,4 +3943,3 @@ function MatchScreenComponent(props: MatchScreenProps) {
 }
 
 export const MatchScreen = memo(MatchScreenComponent, areMatchScreenPropsEqual);
-

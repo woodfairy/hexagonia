@@ -4561,6 +4561,21 @@ function getRouteFamily(edge: EdgeView): "road" | "ship" {
 }
 
 function getMovableShipEdgeIds(state: GameState, playerId: string): string[] {
+  if (state.phase !== "turn_action" && state.phase !== "paired_player_action") {
+    return [];
+  }
+
+  // Both paired players have their own allowance within the same numbered turn.
+  for (let index = state.eventLog.length - 1; index >= 0; index -= 1) {
+    const event = state.eventLog[index]!;
+    if (event.atTurn !== state.turn) {
+      break;
+    }
+    if (event.type === "ship_moved" && event.byPlayerId === playerId) {
+      return [];
+    }
+  }
+
   const movableEdgeIds = new Set<string>();
   const visitedEdgeIds = new Set<string>();
 
@@ -4576,7 +4591,7 @@ function getMovableShipEdgeIds(state: GameState, playerId: string): string[] {
 
     const lockedEdgeIds = getShipComponentLockedByVillageTradeEdgeIds(state, playerId, shipComponent);
     const topology = createShipComponentTopology(state, shipComponent);
-    for (const vertexId of getOpenShipRouteEndVertexIds(state, topology.vertexDegreeById)) {
+    for (const vertexId of getOpenShipRouteEndVertexIds(state, playerId, topology.vertexDegreeById)) {
       const endpointEdgeId = topology.edgeIdsByVertexId.get(vertexId)?.[0] ?? null;
       if (!endpointEdgeId) {
         continue;
@@ -4626,6 +4641,7 @@ function createShipComponentTopology(
 
 function getOpenShipRouteEndVertexIds(
   state: GameState,
+  playerId: string,
   vertexDegreeById: ReadonlyMap<string, number>
 ): string[] {
   const openEndVertexIds: string[] = [];
@@ -4634,7 +4650,7 @@ function getOpenShipRouteEndVertexIds(
     if (degree !== 1) {
       continue;
     }
-    if (getVertex(state, vertexId).building) {
+    if (getVertex(state, vertexId).building?.ownerId === playerId) {
       continue;
     }
     openEndVertexIds.push(vertexId);

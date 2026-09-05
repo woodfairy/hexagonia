@@ -924,7 +924,8 @@ function createFortressAttackedNotification(
   event: MatchEventOf<"fortress_attacked">,
   viewerId: string
 ): MatchNotification {
-  const site = getSiteAtVertex(match, event.payload.vertexId, "fortress");
+  const candidateSite = getSiteAtVertex(match, event.payload.vertexId, "fortress");
+  const site = candidateSite?.type === "fortress" ? candidateSite : undefined;
   const titleKey = site?.captured
     ? "match.notification.fortressAttacked.title.captured"
     : event.payload.defeated

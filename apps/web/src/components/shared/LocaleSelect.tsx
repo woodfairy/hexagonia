@@ -16,7 +16,7 @@ export function LocaleSelect(props: {
       onChange={props.onChange}
       ariaLabel={props.ariaLabel}
       variant={props.variant}
-      className={props.className}
+      className={props.className ?? ""}
       options={availableLocales.map((entry) => {
         const label = resolveText(locale, getLocaleName(entry));
         return {

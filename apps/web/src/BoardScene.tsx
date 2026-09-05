@@ -16,7 +16,7 @@ import {
 } from "./boardPieceModels";
 import { createFancyTileProps as createLandingFancyTileProps } from "./LandingBoardScene";
 import { TILE_COLORS, type BoardVisualSettings } from "./boardVisuals";
-import { getDocumentLocale, translate } from "./i18n";
+import { getDocumentLocale, translate, useI18n } from "./i18n";
 import { drawResourceIcon, getPortMarkerBadgePalette, getResourceIconColor } from "./resourceIcons";
 import { renderResourceLabel } from "./ui";
 
@@ -343,7 +343,7 @@ function createStaticBoardKey(board: MatchSnapshot["board"], visualSettings: Boa
         board.edges.map((edge) => `${edge.id}:${edge.ownerId ?? ""}:${edge.color ?? ""}:${edge.routeType ?? ""}:${edge.blockedByPirate ? 1 : 0}`).join("|"),
         board.vertices
           .map((vertex) =>
-            `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}:${vertex.site?.type ?? ""}:${vertex.site?.ownerId ?? ""}:${vertex.site?.progress ?? 0}`
+            `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}:${vertex.site?.type ?? ""}:${vertex.site?.ownerId ?? ""}:${vertex.site?.type === "wonder" ? vertex.site.progress : 0}`
           )
           .join("|")
       ].join("~")
@@ -382,7 +382,7 @@ function createDynamicBoardKey(
     .join("|");
   const vertexKey = snapshot.board.vertices
     .map((vertex) =>
-      `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}:${vertex.site?.type ?? ""}:${vertex.site?.ownerId ?? ""}:${vertex.site?.progress ?? 0}`
+      `${vertex.id}:${vertex.building ? `${vertex.building.ownerId}:${vertex.building.color}:${vertex.building.type}` : ""}:${vertex.site?.type ?? ""}:${vertex.site?.ownerId ?? ""}:${vertex.site?.type === "wonder" ? vertex.site.progress : 0}`
     )
     .join("|");
   const allowedMoves = snapshot.allowedMoves;
@@ -480,6 +480,8 @@ function applyReliefPropPresentation<T extends THREE.Object3D>(
 }
 
 function BoardSceneComponent(props: BoardSceneProps) {
+  const { translate: t } = useI18n();
+  const [graphicsStatus, setGraphicsStatus] = useState<"ready" | "lost" | "unavailable">("ready");
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -573,17 +575,27 @@ function BoardSceneComponent(props: BoardSceneProps) {
     }
 
     const scene = new THREE.Scene();
+    contextLostRef.current = false;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let lastFrameTime: number | null = null;
     scene.background = new THREE.Color("#156c97");
     scene.fog = new THREE.Fog("#156c97", 92, 210);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
     camera.position.copy(DEFAULT_CAMERA_POSITION);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: false,
-      powerPreference: "high-performance"
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance"
+      });
+    } catch {
+      setGraphicsStatus("unavailable");
+      return;
+    }
+    setGraphicsStatus("ready");
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isFirefoxBrowser() ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -711,7 +723,7 @@ function BoardSceneComponent(props: BoardSceneProps) {
       if (markDirty) {
         renderDirtyRef.current = true;
       }
-      if (contextLostRef.current || renderFrameRef.current !== null) {
+      if (contextLostRef.current || document.hidden || renderFrameRef.current !== null) {
         return;
       }
       renderFrameRef.current = window.requestAnimationFrame(renderScene);
@@ -737,9 +749,39 @@ function BoardSceneComponent(props: BoardSceneProps) {
 
       const width = container.clientWidth;
       const height = container.clientHeight;
+      if (width === 0 || height === 0) {
+        return;
+      }
+      const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, coarsePointer || isFirefoxBrowser() ? 1.5 : 2);
+      if (rendererRef.current.getPixelRatio() !== pixelRatio) {
+        rendererRef.current.setPixelRatio(pixelRatio);
+      }
       rendererRef.current.setSize(width, height, false);
-      cameraRef.current.aspect = width / Math.max(height, 1);
-      cameraRef.current.updateProjectionMatrix();
+      const canvasBounds = container.getBoundingClientRect();
+      const screen = container.closest<HTMLElement>(".match-screen");
+      let topInset = 0;
+      let rightInset = 0;
+      let bottomInset = 0;
+      for (const panel of screen?.querySelectorAll<HTMLElement>("[data-board-occlusion]") ?? []) {
+        const bounds = panel.getBoundingClientRect();
+        if (bounds.width === 0 || bounds.height === 0) {
+          continue;
+        }
+        const side = panel.dataset.boardOcclusion;
+        if (side === "top") {
+          topInset = Math.max(topInset, bounds.bottom - canvasBounds.top + 12);
+        } else if (side === "right" || (side === "bottom" && bounds.width < width * 0.6)) {
+          rightInset = Math.max(rightInset, canvasBounds.right - bounds.left + 12);
+        } else if (side === "bottom") {
+          bottomInset = Math.max(bottomInset, canvasBounds.bottom - bounds.top + 12);
+        }
+      }
+      const availableWidth = Math.max(width * 0.25, width - rightInset);
+      const availableHeight = Math.max(height * 0.2, height - topInset - bottomInset);
+      // Expand the projection around the unobscured play area, while drawing the ocean behind the HUD.
+      cameraRef.current.setViewOffset(availableWidth, availableHeight, 0, -topInset, width, height);
+      screen?.style.setProperty("--board-bottom-inset", `${bottomInset}px`);
       syncBoardFitMaxDistance(props.snapshot.board, cameraRef.current, controlsRef.current ?? controls);
       updateCanvasRect();
       requestRender();
@@ -750,6 +792,9 @@ function BoardSceneComponent(props: BoardSceneProps) {
     const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(handleResize) : null;
     if (resizeObserver && mountRef.current) {
       resizeObserver.observe(mountRef.current);
+      for (const panel of mountRef.current.closest(".match-screen")?.querySelectorAll("[data-board-occlusion]") ?? []) {
+        resizeObserver.observe(panel);
+      }
     }
 
     const raycaster = new THREE.Raycaster();
@@ -982,14 +1027,17 @@ function BoardSceneComponent(props: BoardSceneProps) {
 
     function renderScene(time: number): void {
       renderFrameRef.current = null;
-      if (contextLostRef.current || !rendererRef.current || !cameraRef.current || !controlsRef.current) {
+      if (contextLostRef.current || document.hidden || !rendererRef.current || !cameraRef.current || !controlsRef.current) {
         return;
       }
 
+      const elapsed = lastFrameTime === null ? 1000 / 60 : Math.min(time - lastFrameTime, 64);
+      lastFrameTime = time;
+      const cameraBlend = reducedMotion.matches ? 1 : 1 - Math.pow(0.88, elapsed / (1000 / 60));
       const pulse = time * 0.005;
       if (autoFlightRef.current && !userInteractingRef.current) {
-        controls.target.lerp(focusTargetRef.current, 0.12);
-        camera.position.lerp(focusCameraPositionRef.current, 0.12);
+        controls.target.lerp(focusTargetRef.current, cameraBlend);
+        camera.position.lerp(focusCameraPositionRef.current, cameraBlend);
         controls.update();
 
         if (
@@ -1013,7 +1061,7 @@ function BoardSceneComponent(props: BoardSceneProps) {
         const hoverScaleMultiplier = hovered ? (object.userData.hoverScaleMultiplier as number | undefined) ?? 1.12 : 1;
         const pulseIntensity = hovered ? "strong" : object.userData.pulseIntensity;
         const intensity = pulseIntensity === "strong" ? 0.14 : 0.08;
-        const scale = 1 + Math.sin(pulse) * intensity;
+        const scale = reducedMotion.matches ? 1 : 1 + Math.sin(pulse) * intensity;
         object.scale.set(
           baseScale.x * hoverScaleMultiplier * scale,
           baseScale.y * hoverScaleMultiplier * scale,
@@ -1056,14 +1104,32 @@ function BoardSceneComponent(props: BoardSceneProps) {
         renderDirtyRef.current = false;
       }
 
-      if (autoFlightRef.current || pulseObjectsRef.current.length > 0 || pointerDirtyRef.current || renderDirtyRef.current) {
+      if (autoFlightRef.current || (!reducedMotion.matches && pulseObjectsRef.current.length > 0) || pointerDirtyRef.current || renderDirtyRef.current) {
         requestRender(false);
       }
     }
 
+    const onVisibilityChange = () => {
+      lastFrameTime = null;
+      if (document.hidden) {
+        pendingClick = null;
+        if (renderFrameRef.current !== null) {
+          window.cancelAnimationFrame(renderFrameRef.current);
+          renderFrameRef.current = null;
+        }
+        return;
+      }
+      handleResize();
+      requestRender();
+    };
+    const onMotionPreferenceChange = () => requestRender();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    reducedMotion.addEventListener("change", onMotionPreferenceChange);
+
     const onContextLost = (event: Event) => {
       event.preventDefault();
       contextLostRef.current = true;
+      setGraphicsStatus("lost");
       if (renderFrameRef.current !== null) {
         window.cancelAnimationFrame(renderFrameRef.current);
         renderFrameRef.current = null;
@@ -1072,6 +1138,7 @@ function BoardSceneComponent(props: BoardSceneProps) {
 
     const onContextRestored = () => {
       contextLostRef.current = false;
+      setGraphicsStatus("ready");
       markObjectTreeForUpdate(scene);
       markShadowDirty();
     };
@@ -1132,8 +1199,20 @@ function BoardSceneComponent(props: BoardSceneProps) {
       controls.removeEventListener("start", onControlStart);
       controls.removeEventListener("end", onControlEnd);
       controls.dispose();
+      disposeObjectTree(scene);
+      keyLight.shadow.dispose();
       renderer.dispose();
-      mountRef.current?.removeChild(renderer.domElement);
+      renderer.domElement.remove();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      reducedMotion.removeEventListener("change", onMotionPreferenceChange);
+      rendererRef.current = null;
+      sceneRef.current = null;
+      cameraRef.current = null;
+      controlsRef.current = null;
+      hoveredInteractiveRef.current = null;
+      autoFlightRef.current = false;
+      userInteractingRef.current = false;
+      lastFocusKeyRef.current = null;
     };
   }, []);
 
@@ -1541,7 +1620,7 @@ function BoardSceneComponent(props: BoardSceneProps) {
       let siteZ = vertex.y;
       let siteHeight = sampleVertexTerrainHeight(vertex, tileIdsByVertex, terrainSurfaceByTile, tilesById);
       if (site.type === "village" && site.edgeId) {
-        const edge = edgesById.get(site.edgeId);
+        const edge = props.snapshot.board.edges.find((entry) => entry.id === site.edgeId);
         if (edge) {
           const [leftId, rightId] = edge.vertexIds;
           const left = verticesById.get(leftId);
@@ -1564,7 +1643,7 @@ function BoardSceneComponent(props: BoardSceneProps) {
     }
 
     for (const marker of props.snapshot.board.scenarioMarkers ?? []) {
-      if (marker.claimedByPlayerId) {
+      if ("claimedByPlayerId" in marker && marker.claimedByPlayerId) {
         continue;
       }
 
@@ -1670,6 +1749,12 @@ function BoardSceneComponent(props: BoardSceneProps) {
 
   return (
     <div className="board-canvas" ref={mountRef}>
+      {graphicsStatus !== "ready" ? (
+        <div className="board-graphics-status" role="status" aria-live="polite">
+          <strong>{t(`match.graphics.${graphicsStatus}.title`)}</strong>
+          <span>{t(`match.graphics.${graphicsStatus}.detail`)}</span>
+        </div>
+      ) : null}
       {boardTooltip ? (
         <div
           ref={boardTooltipElementRef}

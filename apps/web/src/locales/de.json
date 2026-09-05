@@ -2168,5 +2168,11 @@
   "match.robberPhase.moveStatus": "Räuberzug aktiv",
   "match.robberPhase.moveDetail": " versetzt jetzt den Räuber.",
   "match.robberPhase.wait.readyToMove": "Alle Abwürfe sind erledigt. Der Räuber wird jetzt versetzt.",
-  "match.robberPhase.wait.remaining": "noch {count} abwerfen"
+  "match.robberPhase.wait.remaining": "noch {count} abwerfen",
+  "match.sheet.open": "Aktionen öffnen",
+  "match.sheet.close": "Zurück zum Spielbrett",
+  "match.graphics.lost.title": "Spielbrett wird wiederhergestellt",
+  "match.graphics.lost.detail": "Die 3D-Darstellung wurde unterbrochen. Sie wird automatisch fortgesetzt, sobald die Grafik wieder verfügbar ist.",
+  "match.graphics.unavailable.title": "3D-Darstellung nicht verfügbar",
+  "match.graphics.unavailable.detail": "Aktiviere die Grafikbeschleunigung deines Browsers und lade die Seite erneut, um das Spielbrett anzuzeigen."
 }

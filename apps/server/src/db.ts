@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import type { GameState } from "@hexagonia/rules";
 import type {
   AdminMatchSummary,
   AdminUserRecord,
   AuthUser,
   Locale,
-  MatchEvent,
   RoomDetails,
   RoomGameConfig,
   SeatState,
@@ -563,22 +562,40 @@ export class Database {
   }
 
   async createMatch(state: GameState): Promise<void> {
-    await this.pool.query(
-      `
-      insert into matches (id, room_id, seed, status, winner_id)
-      values ($1, $2, $3, $4, $5)
-      `,
-      [state.matchId, state.roomId, state.seed, state.phase, state.winnerId]
-    );
+    await this.withTransaction(async (client) => {
+      await client.query(
+        `
+        insert into matches (id, room_id, seed, status, winner_id)
+        values ($1, $2, $3, $4, $5)
+        `,
+        [state.matchId, state.roomId, state.seed, state.phase, state.winnerId]
+      );
 
-    await this.saveMatchState(state);
-    for (const [index, event] of state.eventLog.entries()) {
-      await this.appendMatchEvent(state.matchId, index + 1, event);
+      await this.writeMatchState(client, state, 0);
+    });
+  }
+
+  async saveMatchState(state: GameState, previousEventCount = state.eventLog.length): Promise<void> {
+    await this.withTransaction((client) => this.writeMatchState(client, state, previousEventCount));
+  }
+
+  private async withTransaction<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await operation(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
-  async saveMatchState(state: GameState): Promise<void> {
-    await this.pool.query(
+  private async writeMatchState(client: PoolClient, state: GameState, previousEventCount: number): Promise<void> {
+    await client.query(
       `
       update matches
       set status = $2,
@@ -589,7 +606,7 @@ export class Database {
       [state.matchId, state.phase, state.winnerId]
     );
 
-    await this.pool.query(
+    await client.query(
       `
       insert into match_snapshots (match_id, version, snapshot, updated_at)
       values ($1, $2, $3::jsonb, now())
@@ -598,16 +615,18 @@ export class Database {
       `,
       [state.matchId, state.version, JSON.stringify(state)]
     );
-  }
 
-  async appendMatchEvent(matchId: string, seq: number, event: MatchEvent): Promise<void> {
-    await this.pool.query(
-      `
-      insert into match_events (match_id, seq, event)
-      values ($1, $2, $3::jsonb)
-      `,
-      [matchId, seq, JSON.stringify(event)]
-    );
+    const newEvents = state.eventLog.slice(previousEventCount);
+    if (newEvents.length > 0) {
+      await client.query(
+        `
+        insert into match_events (match_id, seq, event)
+        select $1, $2::integer + ordinal::integer, event
+        from jsonb_array_elements($3::jsonb) with ordinality as entries(event, ordinal)
+        `,
+        [state.matchId, previousEventCount, JSON.stringify(newEvents)]
+      );
+    }
   }
 
   async loadMatchState(matchId: string): Promise<GameState | null> {

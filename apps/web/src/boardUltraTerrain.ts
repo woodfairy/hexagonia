@@ -915,7 +915,8 @@ function drawOreFacetCluster(
     context.beginPath();
     context.moveTo(points[0][0] * scale, points[0][1] * scale);
     for (let pointIndex = 1; pointIndex < points.length; pointIndex += 1) {
-      context.lineTo(points[pointIndex][0] * scale, points[pointIndex][1] * scale);
+      const point = points[pointIndex]!;
+      context.lineTo(point[0] * scale, point[1] * scale);
     }
     context.closePath();
     context.fill();

@@ -405,7 +405,7 @@ export function App() {
     if (activeScreen === "lobby") {
       return {
         eyebrow: translate(locale, "app.header.lobby.eyebrow"),
-        title: translate(locale, "app.header.lobby.title", undefined, { username: session.username }),
+        title: translate(locale, "app.header.lobby.title", undefined, undefined, { username: session.username }),
         meta: translate(locale, "app.header.lobby.meta")
       };
     }
@@ -425,7 +425,7 @@ export function App() {
           ? translate(locale, "app.header.room.title")
           : translate(locale, "app.header.room.loading"),
         meta: room
-          ? translate(locale, "app.header.room.meta", undefined, {
+          ? translate(locale, "app.header.room.meta", undefined, undefined, {
               code: room.code,
               count: room.seats.filter((seat) => seat.userId).length
             })
@@ -436,10 +436,10 @@ export function App() {
     return {
       eyebrow: translate(locale, "app.header.match.eyebrow"),
       title: match
-        ? translate(locale, "app.header.match.title", undefined, { turn: match.turn })
+        ? translate(locale, "app.header.match.title", undefined, undefined, { turn: match.turn })
         : translate(locale, "app.header.match.loading"),
       meta: match
-        ? translate(locale, "app.header.match.meta", undefined, {
+        ? translate(locale, "app.header.match.meta", undefined, undefined, {
             player: match.players.find((player) => player.id === match.currentPlayerId)?.username ?? "-"
           })
         : translate(locale, "app.header.match.connection")
@@ -1874,7 +1874,7 @@ export function App() {
     if (preferredStealType && stealTypes.includes(preferredStealType)) {
       action.stealType = preferredStealType;
     } else if (stealTypes.length === 1) {
-      action.stealType = stealTypes[0];
+      action.stealType = stealTypes[0]!;
     }
     return action;
   }
@@ -3425,7 +3425,7 @@ export function App() {
       : activeScreen === "lobby"
         ? ""
         : activeScreen === "room" && room
-          ? translate(locale, "app.header.room.meta", undefined, {
+          ? translate(locale, "app.header.room.meta", undefined, undefined, {
               code: room.code,
               count: room.seats.filter((seat) => seat.userId).length
             })

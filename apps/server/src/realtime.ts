@@ -26,6 +26,7 @@ export class RealtimeHub {
   private readonly roomSubscribers = new Map<string, Set<SocketContext>>();
   private readonly matchSubscribers = new Map<string, Set<SocketContext>>();
   private readonly activeMatches = new Map<string, GameState>();
+  private readonly matchOperations = new Map<string, Promise<void>>();
   private readonly pendingMatchDisconnects = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingRoomEvictions = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingMatchEvictions = new Map<string, ReturnType<typeof setTimeout>>();
@@ -81,31 +82,34 @@ export class RealtimeHub {
   async subscribeMatch(context: SocketContext, matchId: string): Promise<void> {
     await this.unsubscribeMatch(context);
     context.matchId = matchId;
-    this.clearPendingMatchDisconnect(matchId, context.user.id);
-    this.clearPendingMatchEviction(matchId, context.user.id);
 
-    if (!this.matchSubscribers.has(matchId)) {
-      this.matchSubscribers.set(matchId, new Set());
-    }
-    this.matchSubscribers.get(matchId)!.add(context);
+    await this.enqueueMatchOperation(matchId, async () => {
+      const state = await this.getMatchState(matchId);
+      if (!this.contexts.has(context) || context.matchId !== matchId) {
+        return;
+      }
+      if (!state.players.some((player) => player.id === context.user.id)) {
+        context.matchId = null;
+        this.send(context.socket, {
+          type: "match.error",
+          errorCode: "match.player_not_in_match"
+        });
+        return;
+      }
 
-    const state = await this.getMatchState(matchId);
-    if (state.players.some((player) => player.id === context.user.id)) {
       const connectedState = updatePlayerConnection(state, context.user.id, true);
-      this.activeMatches.set(matchId, connectedState);
       await this.db.saveMatchState(connectedState);
+      this.activeMatches.set(matchId, connectedState);
+      if (!this.contexts.has(context) || context.matchId !== matchId) {
+        return;
+      }
+      this.clearPendingMatchDisconnect(matchId, context.user.id);
+      this.clearPendingMatchEviction(matchId, context.user.id);
+      const subscribers = this.matchSubscribers.get(matchId) ?? new Set<SocketContext>();
+      subscribers.add(context);
+      this.matchSubscribers.set(matchId, subscribers);
       this.broadcastMatchState(connectedState);
-    } else {
-      this.matchSubscribers.get(matchId)?.delete(context);
-      context.matchId = null;
-      this.send(context.socket, {
-        type: "match.error",
-        errorCode: "match.player_not_in_match"
-      });
-      return;
-    }
-
-    this.broadcastMatchPresence(matchId);
+    });
   }
 
   async initializeMatch(state: GameState): Promise<void> {
@@ -149,17 +153,30 @@ export class RealtimeHub {
   }
 
   async applyMatchAction(userId: string, matchId: string, action: ActionIntent): Promise<void> {
-    const state = await this.getMatchState(matchId);
-    const nextState = applyAction(state, userId, action);
-    this.activeMatches.set(matchId, nextState);
-    await this.db.saveMatchState(nextState);
+    await this.enqueueMatchOperation(matchId, async () => {
+      const state = await this.getMatchState(matchId);
+      const nextState = applyAction(state, userId, action);
+      await this.db.saveMatchState(nextState, state.eventLog.length);
+      this.activeMatches.set(matchId, nextState);
 
-    const latestEvent = nextState.eventLog.at(-1);
-    if (latestEvent) {
-      await this.db.appendMatchEvent(matchId, nextState.eventLog.length, latestEvent);
+      const latestEvent = nextState.eventLog.at(-1);
+      this.broadcastMatchState(nextState, latestEvent);
+    });
+  }
+
+  private async enqueueMatchOperation<T>(matchId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.matchOperations.get(matchId) ?? Promise.resolve();
+    const result = previous.then(operation);
+    // A rejected action must not prevent subsequent valid actions from running.
+    const settled = result.then(() => {}, () => {});
+    this.matchOperations.set(matchId, settled);
+    try {
+      return await result;
+    } finally {
+      if (this.matchOperations.get(matchId) === settled) {
+        this.matchOperations.delete(matchId);
+      }
     }
-
-    this.broadcastMatchState(nextState, latestEvent);
   }
 
   terminateMatch(matchId: string, reason: ErrorDescriptor): void {
@@ -388,32 +405,34 @@ export class RealtimeHub {
   }
 
   private async scheduleMatchEviction(matchId: string, userId: string): Promise<void> {
-    const started = this.startMatchEvictionTimer(matchId, userId);
-    if (!started) {
-      return;
-    }
+    await this.enqueueMatchOperation(matchId, async () => {
+      const started = this.startMatchEvictionTimer(matchId, userId);
+      if (!started) {
+        return;
+      }
 
-    let state: GameState | null = null;
-    try {
-      state = await this.getMatchState(matchId);
-    } catch {
-      this.clearPendingMatchEviction(matchId, userId);
-      return;
-    }
+      let state: GameState | null = null;
+      try {
+        state = await this.getMatchState(matchId);
+      } catch {
+        this.clearPendingMatchEviction(matchId, userId);
+        return;
+      }
 
-    if (!state.players.some((player) => player.id === userId) || this.hasActiveMatchSubscription(matchId, userId)) {
-      this.clearPendingMatchEviction(matchId, userId);
-      return;
-    }
+      if (!state.players.some((player) => player.id === userId) || this.hasActiveMatchSubscription(matchId, userId)) {
+        this.clearPendingMatchEviction(matchId, userId);
+        return;
+      }
 
-    const nextState = setPlayerDisconnectDeadline(
-      state,
-      userId,
-      Date.now() + RealtimeHub.PLAYER_EVICTION_GRACE_MS
-    );
-    this.activeMatches.set(matchId, nextState);
-    await this.db.saveMatchState(nextState);
-    this.broadcastMatchState(nextState);
+      const nextState = setPlayerDisconnectDeadline(
+        state,
+        userId,
+        Date.now() + RealtimeHub.PLAYER_EVICTION_GRACE_MS
+      );
+      await this.db.saveMatchState(nextState);
+      this.activeMatches.set(matchId, nextState);
+      this.broadcastMatchState(nextState);
+    });
   }
 
   private clearPendingMatchDisconnect(matchId: string, userId: string): void {
@@ -450,28 +469,30 @@ export class RealtimeHub {
   }
 
   private async finalizeMatchDisconnect(matchId: string, userId: string): Promise<void> {
-    const key = this.getMatchDisconnectKey(matchId, userId);
-    this.pendingMatchDisconnects.delete(key);
+    await this.enqueueMatchOperation(matchId, async () => {
+      const key = this.getMatchDisconnectKey(matchId, userId);
+      this.pendingMatchDisconnects.delete(key);
 
-    if (this.hasActiveMatchSubscription(matchId, userId)) {
-      return;
-    }
+      if (this.hasActiveMatchSubscription(matchId, userId)) {
+        return;
+      }
 
-    let state: GameState | null = null;
-    try {
-      state = await this.getMatchState(matchId);
-    } catch {
-      return;
-    }
+      let state: GameState | null = null;
+      try {
+        state = await this.getMatchState(matchId);
+      } catch {
+        return;
+      }
 
-    if (!state.players.some((player) => player.id === userId)) {
-      return;
-    }
+      if (!state.players.some((player) => player.id === userId)) {
+        return;
+      }
 
-    const disconnectedState = updatePlayerConnection(state, userId, false);
-    this.activeMatches.set(matchId, disconnectedState);
-    await this.db.saveMatchState(disconnectedState);
-    this.broadcastMatchState(disconnectedState);
+      const disconnectedState = updatePlayerConnection(state, userId, false);
+      await this.db.saveMatchState(disconnectedState);
+      this.activeMatches.set(matchId, disconnectedState);
+      this.broadcastMatchState(disconnectedState);
+    });
   }
 
   private async finalizeRoomEviction(roomId: string, userId: string): Promise<void> {
