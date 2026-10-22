@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS base
+FROM node:22.23.4-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PNPM_STORE_DIR="/pnpm/store"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -19,7 +19,7 @@ FROM deps AS builder
 COPY full/ ./
 RUN pnpm build:server
 
-FROM node:22-bookworm-slim AS runner
+FROM node:22.23.4-bookworm-slim AS runner
 ENV NODE_ENV="production"
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules

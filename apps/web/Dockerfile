@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS base
+FROM --platform=$BUILDPLATFORM node:22.23.4-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PNPM_STORE_DIR="/pnpm/store"
 ENV PATH="$PNPM_HOME:$PATH"
