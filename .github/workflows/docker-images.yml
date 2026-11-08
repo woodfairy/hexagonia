@@ -611,6 +611,7 @@ jobs:
             type=ref,event=branch
             type=sha,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value={{commit_date 'YYYY.MM.DD-HHmmss' tz='UTC'}}-{{sha}},enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
 
       - name: Docker metadata (server)
         if: needs.changes.outputs.server == 'true'
@@ -622,6 +623,7 @@ jobs:
             type=ref,event=branch
             type=sha,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value={{commit_date 'YYYY.MM.DD-HHmmss' tz='UTC'}}-{{sha}},enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
 
       - name: Publish web manifest
         if: needs.changes.outputs.web == 'true'
