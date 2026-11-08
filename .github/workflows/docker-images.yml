@@ -320,6 +320,9 @@ jobs:
         id: build-web
         uses: docker/build-push-action@v6
         with:
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           context: ${{ runner.temp }}/pruned/web
           file: ${{ runner.temp }}/pruned/web/Dockerfile
           target: runner
@@ -380,6 +383,9 @@ jobs:
         id: build-server
         uses: docker/build-push-action@v6
         with:
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           context: ${{ runner.temp }}/pruned/server
           file: ${{ runner.temp }}/pruned/server/Dockerfile
           target: runner
@@ -446,6 +452,9 @@ jobs:
         id: build-web
         uses: docker/build-push-action@v6
         with:
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           context: ${{ runner.temp }}/pruned/web
           file: ${{ runner.temp }}/pruned/web/Dockerfile
           target: runner
@@ -512,6 +521,9 @@ jobs:
         id: build-server
         uses: docker/build-push-action@v6
         with:
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           context: ${{ runner.temp }}/pruned/server
           file: ${{ runner.temp }}/pruned/server/Dockerfile
           target: runner

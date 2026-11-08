@@ -1,0 +1,14 @@
+[Unit]
+Description=Deploy Hexagonia updates from GitHub (hexabeta, then hexagonia)
+After=network-online.target podman.socket
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hexagonia-update
+ExecStart=/usr/bin/python3 /opt/hexagonia-update/source/deploy/server-update.py
+TimeoutStartSec=45min
+UMask=0077
+Nice=10
+StandardOutput=append:/opt/hexagonia-update/update.log
+StandardError=append:/opt/hexagonia-update/update.log

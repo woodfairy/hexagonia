@@ -21,7 +21,11 @@ RUN pnpm build:web
 RUN pnpm build:web:profiling
 
 FROM nginx:1.27-alpine AS runner
-COPY --from=builder /app/apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# A template, so the entrypoint fills in the container's DNS resolver
+# (NGINX_LOCAL_RESOLVERS from /etc/resolv.conf) that nginx.conf resolves "server" with.
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+RUN rm -f /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/apps/web/nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 COPY --from=builder /app/apps/web/dist-profiling /usr/share/nginx/html-profiling
 COPY --from=builder /app/apps/web/docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh

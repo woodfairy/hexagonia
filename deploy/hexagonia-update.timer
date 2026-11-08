@@ -1,0 +1,10 @@
+[Unit]
+Description=Check GitHub for Hexagonia updates every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+Unit=hexagonia-update.service
+
+[Install]
+WantedBy=timers.target
