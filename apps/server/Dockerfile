@@ -21,6 +21,10 @@ RUN pnpm build:server
 
 FROM node:22.23.4-bookworm-slim AS runner
 ENV NODE_ENV="production"
+# The OS packages get their current security fixes on every build.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules

@@ -20,7 +20,10 @@ COPY full/ ./
 RUN pnpm build:web
 RUN pnpm build:web:profiling
 
-FROM nginx:1.27-alpine AS runner
+FROM nginx:1.30-alpine AS runner
+# 1.30 is nginx's maintained stable line (1.27 no longer gets new images), and
+# the OS packages get their current security fixes on every build.
+RUN apk upgrade --no-cache
 # A template, so the entrypoint fills in the container's DNS resolver
 # (NGINX_LOCAL_RESOLVERS from /etc/resolv.conf) that nginx.conf resolves "server" with.
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
